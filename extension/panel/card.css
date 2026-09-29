@@ -1,0 +1,233 @@
+/* Site card (T27-T29) and its encart (plan-mes-prompts-28-09.md, lot 3) —
+ * styled here rather than in panel.css so the two files stay disjoint
+ * between workers (see notes/PLAN_goal_panneau_v2.md). Only the shared
+ * variables from lib/theme.css are used, never a literal color/size, so
+ * light/dark and the capture variants apply here too. */
+
+.site-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  /* Fixed-ish height across states (T27: no layout jump on tab switch) —
+   * the head row always reserves its line, whether or not it has content. */
+  min-height: calc(var(--line-height) * 1em + var(--space-2) * 2 + 2px);
+  /* Only the message list may shrink in a short window: squeezed, the card's
+   * last row of buttons overlapped its bottom border (seen at 300 px tall). */
+  flex-shrink: 0;
+}
+
+.site-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 28px;
+}
+
+/* The icon slot keeps a fixed 16px box whatever fills it — spinner,
+ * favicon, or "?" — so the label never shifts between states. */
+.site-card-icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.site-card-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  animation: site-card-spin 0.8s linear infinite;
+}
+
+@keyframes site-card-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.site-card-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+}
+
+.site-card-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--font-size);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "Activer" (T43) — discreet text link between the (flex-growing) label and
+ * the "Lire la page" switch, shown only while the address is known and the
+ * site isn't active yet (panel.js's refreshActivateAffordance()). Quiet on
+ * purpose: muted color, no border, underline only on hover/focus — it must
+ * not compete with the switch for attention. */
+.site-card-activate {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8em;
+  text-decoration: none;
+  cursor: pointer;
+  padding: 2px var(--space-1);
+  white-space: nowrap;
+}
+
+.site-card-activate:hover {
+  color: var(--link);
+  text-decoration: underline;
+}
+
+.site-card-activate:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* "Lire la page" switch (Lot 2) — right-aligned on the site card's head
+ * row, after the (flex-growing, ellipsis) label. Native <button>, so Space
+ * and Enter already toggle it; only the visuals live here. */
+.switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 0.85em;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.switch-track {
+  position: relative;
+  width: 30px;
+  height: 17px;
+  border-radius: 9px;
+  background: var(--border);
+  transition: background-color 0.15s ease;
+}
+
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--bg);
+  transition: transform 0.15s ease;
+}
+
+.switch--on .switch-track {
+  background: var(--accent);
+}
+
+.switch--on .switch-thumb {
+  transform: translateX(13px);
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* The encart: the site's own buttons (rendered by panel.js's renderEncart(),
+ * ordered by encart-items.js) followed by the static "Mes prompts ↗" button.
+ * Font-size set here (matching the buttons' own 13px below) so the
+ * max-height calc's `em` means the same thing regardless of the panel's
+ * --font-size (theme.css capture variants). Beyond three rows, it scrolls —
+ * plan-mes-prompts-28-09.md, "Au-delà de trois lignes de boutons, l'encart
+ * défile." scroll-padding-block keeps a focused button clear of the edge.
+ * Three and a half rows, not three: with overlay scrollbars (macOS, some
+ * Linux setups) nothing else would show that more buttons — including
+ * "Mes prompts ↗" — sit below; the half-cut fourth row is the hint. The
+ * thin scrollbar is styled so it stays visible where the platform draws one. */
+.site-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--space-2);
+  font-size: 13px;
+  max-height: calc(3.5 * (1.3em + 8px) + 3 * var(--space-2));
+  overflow-y: auto;
+  scroll-padding-block: var(--space-1);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* No box of its own: the buttons join .site-card-actions' flex-wrap flow
+ * directly, so "Mes prompts ↗" (a sibling in the markup) always lands last. */
+.site-card-suggestions {
+  display: contents;
+}
+
+/* Card buttons: tighter padding than the rest of the panel. */
+.site-card-actions .toolbar-button {
+  font-size: 13px;
+  line-height: 1.3;
+  padding: 3px var(--space-2);
+}
+
+/* :not(.toolbar-button--primary) — the first button (any site, any kind)
+ * keeps the caramel primary look instead (plan-mes-prompts-28-09.md: "La
+ * première suggestion de Coati d'un site populaire garde le style
+ * principal", widened to "whichever kind ends up first, since the user
+ * controls the order" — see the worker report). Without this guard,
+ * card.css loading after panel.css would win the cascade on the shared
+ * `background`/`border-color` declarations at equal specificity. */
+.site-card-suggestion:not(.toolbar-button--primary) {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.site-card-suggestion:not(.toolbar-button--primary):hover {
+  border-color: var(--accent);
+}
+
+/* "Mes prompts ↗" — quiet/ghost, clearly secondary, always the encart's last
+ * button (plan-mes-prompts-28-09.md). No border/background of its own. */
+.site-card-my-prompts {
+  border: none;
+  background: none;
+  padding: 3px var(--space-2);
+  margin: 0;
+  font: inherit;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.site-card-my-prompts:hover {
+  color: var(--fg);
+}
+
+.site-card-my-prompts:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}

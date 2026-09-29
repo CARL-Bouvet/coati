@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Crochet pre-push du dépôt public Coati : refuse de pousser si l'arbre poussé contient
+# - un fichier interne (interne/, notes/, MEMORY.md, JOURNAL.md, clé .pem, .env) ;
+# - un motif de secret réel (clé privée, clé d'API longue, jeton GitHub, clé AWS) ; les fausses
+#   clés courtes des tests (« sk-ant-fake ») ne déclenchent rien ;
+# - une dépendance réservée aux modules personnels, ou un renvoi au dépôt privé hors de
+#   CLAUDE.md. Ces deux motifs sont assemblés en morceaux ci-dessous pour que ce fichier ne se
+#   refuse pas lui-même.
+#
+# Installation dans un clone : cp scripts/hooks/pre-push .git/hooks/pre-push
+#                             chmod +x .git/hooks/pre-push
+# La CI le rejoue aussi (.github/workflows/tests.yml), comme dernier filet.
+set -euo pipefail
+
+FORBIDDEN='^(interne|notes)(/|$)|^(MEMORY|JOURNAL)\.md$|\.pem$|(^|/)\.env(\.|$)'
+SECRET='BEGIN [A-Z ]*PRIVATE KEY|sk-ant-[A-Za-z0-9_-]{40,}|sk-(proj-)?[A-Za-z0-9_-]{40,}|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}'
+PERSONAL_DEP="claude-agent""-sdk"
+PRIVATE_REF="coati-""interne/"
+
+status=0
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  # Suppression d'une branche distante : rien à vérifier.
+  if [[ "$local_sha" =~ ^0+$ ]]; then
+    continue
+  fi
+  if git ls-tree -r --name-only "$local_sha" | grep -nE "$FORBIDDEN" >&2; then
+    echo "pre-push : fichier interne dans le dépôt public, poussée refusée." >&2
+    status=1
+  fi
+  if git grep -nIE "$SECRET" "$local_sha" -- . >&2; then
+    echo "pre-push : motif de secret trouvé, poussée refusée." >&2
+    status=1
+  fi
+  if git grep -nIF "$PERSONAL_DEP" "$local_sha" -- . >&2; then
+    echo "pre-push : dépendance réservée aux modules personnels, poussée refusée." >&2
+    status=1
+  fi
+  if git grep -nIF "$PRIVATE_REF" "$local_sha" -- . ':!CLAUDE.md' >&2; then
+    echo "pre-push : renvoi au dépôt privé hors de CLAUDE.md, poussée refusée." >&2
+    status=1
+  fi
+done
+
+exit "$status"

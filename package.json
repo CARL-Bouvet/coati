@@ -1,0 +1,9 @@
+{
+  "name": "coati-dev-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Outils de développement de Coati (banc de mesure, laboratoire de design) — pas le broker ni l'extension, qui n'ont pas de dépendance de build.",
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

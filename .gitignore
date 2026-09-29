@@ -1,0 +1,41 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+bun.lockb
+JOURNAL.md
+notes/
+.screenshots/
+.bun-cache/
+.bun-tmp/
+.claude/
+extension-key.pem
+.tmp/
+__pycache__/
+
+# Rien d'interne ici : le dépôt privé est le dossier voisin ~/projets/coati-interne.
+# Ces motifs sont un filet de plus (notes de bug locales, clés, fichiers d'environnement) ;
+# le crochet scripts/hooks/pre-push et la CI refusent aussi ces fichiers. Dans wingpen
+# (archive), les fichiers déjà suivis sous interne/ le restent.
+/interne
+/notes
+MEMORY.md
+*.pem
+.env
+.env.*
+
+# Empty placeholders created by the coding-agent sandbox used to develop this
+# project, in the working directory, to shield these config files: recreated
+# each session, never real files of this project.
+/.bash_profile
+/.bashrc
+/.gitconfig
+/.gitmodules
+/.idea
+/.mcp.json
+/.profile
+/.ripgreprc
+/.vscode
+/.zprofile
+/.zshrc
+/broker/.mcp.json

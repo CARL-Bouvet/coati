@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Coati — identity comparatif</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #111318;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    .comparatif {
+      display: flex;
+      padding: 24px;
+      gap: 0;
+    }
+    .comparatif__col {
+      width: 320px;
+    }
+    .comparatif__label {
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      margin: 0 0 8px;
+    }
+    .comparatif__col iframe {
+      width: 320px;
+      height: 640px;
+      border: 1px solid #d0d2d8;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="comparatif" id="comparatif"></div>
+  <script src="../lab/identity-pairs.js"></script>
+  <script src="comparatif.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# key url [css selector of a link to follow once, for pages whose URL we cannot know in advance]
+presse-lemonde https://www.lemonde.fr/international/ a[href*="/international/article/2026/"]
+presse-guardian https://www.theguardian.com/international a[href*="/2026/"]
+blog-fowler https://martinfowler.com/articles/microservices.html
+doc-mdn https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/innerText
+doc-python https://docs.python.org/3/tutorial/classes.html
+github-readme https://github.com/mozilla/readability
+github-issue https://github.com/mozilla/readability/issues a[href*="/readability/issues/"][data-testid="issue-pr-title-link"], a[href*="/readability/issues/"][id^="issue_"]
+github-code https://github.com/mozilla/readability/blob/main/Readability.js
+reddit-fil https://www.reddit.com/r/france/top/?t=week a[href*="/comments/"]
+hn-fil https://news.ycombinator.com/ td.subtext a[href^="item?id="]:last-child
+forum-discourse https://meta.discourse.org/latest a.title.raw-link
+stackoverflow https://stackoverflow.com/questions/11227809/why-is-processing-a-sorted-array-faster-than-processing-an-unsorted-array
+amazon-fiche https://www.amazon.fr/dp/2070612759
+leboncoin-annonce https://www.leboncoin.fr/recherche?category=9&locations=Caen a[href*="/ad/ventes_immobilieres/"]
+immo-pap https://www.pap.fr/annonce/vente-appartements-caen-14-g43612 a[href*="/annonces/appartement-"]
+google-recherche https://www.google.com/search?q=coati+animal&hl=fr
+wikipedia https://fr.wikipedia.org/wiki/Coati
+youtube-video https://www.youtube.com/watch?v=jNQXAC9IVRw
+x-profil https://x.com/NASA
+linkedin-entreprise https://www.linkedin.com/company/anthropicresearch/
+pdf-arxiv https://arxiv.org/pdf/1706.03762
+carte-gmaps https://www.google.com/maps/place/Caen
+recette-allrecipes https://www.allrecipes.com/recipe/21014/good-old-fashioned-pancakes/

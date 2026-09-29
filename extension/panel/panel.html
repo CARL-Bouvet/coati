@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coati</title>
+  <link rel="stylesheet" href="../lib/theme.css" />
+  <link rel="stylesheet" href="panel.css" />
+  <link rel="stylesheet" href="card.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-name">Coati</span>
+      <span id="status" class="status status--unknown">
+        <span class="status-dot"></span>
+        <span class="status-label">…</span>
+      </span>
+    </div>
+    <button id="openOptions" class="icon-button" type="button" title="Réglages">⚙︎</button>
+  </header>
+
+  <div id="connectionBanner" class="connection-banner" hidden>
+    <span id="connectionBannerText"></span>
+    <button id="connectCoati" class="connection-banner-cta" type="button" hidden>Ouvrir /pair</button>
+  </div>
+
+  <section id="siteCard" class="site-card" data-state="unreadable" aria-live="polite">
+    <div class="site-card-head">
+      <span class="site-card-icons">
+        <span id="siteCardSpinner" class="site-card-spinner" hidden aria-hidden="true"></span>
+        <img id="siteCardFavicon" class="site-card-favicon" alt="" hidden />
+      </span>
+      <span id="siteCardLabel" class="site-card-label"></span>
+      <button id="activateSite" class="site-card-activate" type="button" hidden>Activer</button>
+      <button id="attachPage" class="switch" type="button" role="switch" aria-checked="false" disabled>
+        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+        <span class="switch-text">Lire la page</span>
+      </button>
+    </div>
+    <div class="site-card-actions">
+      <div id="siteCardSuggestions" class="site-card-suggestions"></div>
+      <button id="openMyPrompts" class="site-card-my-prompts" type="button">Mes prompts ↗</button>
+    </div>
+  </section>
+
+  <main id="messages" class="messages" aria-live="polite"></main>
+
+  <footer class="composer">
+    <div class="composer-bar">
+      <span id="promptSavedNotice" class="prompt-saved-notice" aria-live="polite"></span>
+      <button id="savePrompt" class="icon-button" type="button" title="Enregistrer le texte saisi comme prompt" aria-label="Enregistrer le texte saisi comme prompt" disabled>💾</button>
+    </div>
+    <textarea id="input" class="composer-input" placeholder="Écrivez à Coati…" rows="1"></textarea>
+    <div class="composer-actions">
+      <button id="eraseConversation" class="link-button link-button--danger" type="button">Effacer la conversation</button>
+      <button id="cancel" class="composer-button composer-button--ghost" type="button" hidden>Annuler</button>
+      <button id="send" class="composer-button" type="button">Envoyer</button>
+    </div>
+  </footer>
+
+  <div id="buildInfo" class="build-info"></div>
+
+  <script src="panel.js" type="module"></script>
+</body>
+</html>

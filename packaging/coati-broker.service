@@ -1,0 +1,38 @@
+[Unit]
+Description=Coati broker — passerelle locale extension/modèle IA
+Documentation=https://github.com/CARL-Bouvet/coati
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=@@PROJECT_ROOT@@/broker
+ExecStart=@@BUN_BIN@@ run src/server.ts
+# `on-failure` was measured insufficient on 2026-09-21: a plain `pkill` makes
+# the broker exit 0, systemd reads that as "job done", and the broker stays
+# dead until a human notices — the extension then fails with a banner that
+# says nothing about the real cause. `always` restarts it whatever the exit
+# code, which is what a background daemon the user never thinks about needs.
+Restart=always
+RestartSec=2s
+
+# A systemd user service inherits a minimal PATH — /usr/local/bin:/usr/bin and
+# little else. The two built-in providers (ollama, claude-api) need nothing
+# beyond that. An external provider module that shells out to its own binary
+# should take that binary's path as one of its own `options` in config.json
+# (docs/MODULES.md) rather than relying on PATH — a systemd user service's
+# minimal PATH not finding it is a known trap.
+
+# Journal systemd (stdout + stderr)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=coati-broker
+
+# Hardening — loopback-only local server, no privileges needed
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+# Config and data dirs the broker reads/writes at runtime
+ReadWritePaths=%h/.config/coati %h/.local/share/coati
+
+[Install]
+WantedBy=default.target

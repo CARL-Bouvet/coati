@@ -1,0 +1,215 @@
+* { box-sizing: border-box; }
+body {
+  font-family: var(--font);
+  max-width: 480px;
+  margin: 40px auto;
+  padding: 0 var(--space-3);
+  color: var(--fg);
+  background: var(--bg);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+}
+h1 { font-size: 1.3em; }
+p.help { color: var(--muted); line-height: var(--line-height); }
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-4) 0;
+}
+input[type="password"], input[type="text"] {
+  font-family: inherit;
+  font-size: 0.95em;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+button {
+  border: none;
+  background: var(--accent);
+  color: var(--accent-fg);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.9em;
+}
+/* No `filter` (computed styles must reflect what is rendered) — explicit
+ * hover/active tokens instead, same ones the panel's primary button uses. */
+button:hover {
+  background: var(--accent-hover);
+}
+button:active {
+  background: var(--accent-active);
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.9em;
+  color: var(--muted);
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-idle);
+}
+.status--connected .status-dot { background: var(--status-connected); }
+.status--connecting .status-dot,
+.status--handshaking .status-dot { background: var(--status-connecting); }
+.status--disconnected .status-dot,
+.status--no-token .status-dot { background: var(--status-disconnected); }
+select {
+  font-family: inherit;
+  font-size: 0.95em;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+}
+.provider-list {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.provider-item label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+.provider-item input[type="radio"]:disabled + span {
+  color: var(--muted);
+}
+.provider-reason {
+  font-size: 0.85em;
+  color: var(--danger);
+  white-space: pre-line;
+}
+
+.provider-description {
+  margin: 2px 0 0 24px;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+.provider-configured {
+  margin-left: 24px;
+  font-size: 0.85em;
+  color: var(--success);
+}
+
+.apikey-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0 24px;
+}
+
+.apikey-field input[type="password"] {
+  flex: 1;
+  min-width: 180px;
+}
+
+.apikey-field button {
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.9em;
+}
+
+.apikey-clear {
+  background: var(--bg);
+  color: var(--danger);
+  border: 1px solid var(--banner-border);
+}
+
+.apikey-clear:hover {
+  background: var(--banner-bg);
+}
+
+.apikey-clear--confirm {
+  background: var(--danger);
+  color: var(--bg);
+  border-color: var(--danger);
+  font-weight: 600;
+}
+
+/* Same specificity as .apikey-clear:hover (0,2,0) — must declare its own
+ * background explicitly, otherwise the base hover background (--banner-bg)
+ * applies here too while the text stays --bg, losing contrast. */
+.apikey-clear--confirm:hover {
+  background: var(--danger-hover);
+  color: var(--bg);
+  border-color: var(--danger-hover);
+}
+
+.apikey-clear--confirm:active {
+  background: var(--danger-active);
+  color: var(--bg);
+  border-color: var(--danger-active);
+}
+
+.test-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-1) 0 0 24px;
+}
+
+.test-button {
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.9em;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+
+.test-button:hover {
+  background: var(--surface);
+}
+
+.test-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.test-result {
+  font-size: 0.9em;
+}
+
+.test-result--ok {
+  color: var(--success);
+}
+
+.test-result--error {
+  color: var(--danger);
+}
+.site-toggles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.site-toggle label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+.site-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}

@@ -1,0 +1,56 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # macOS et Windows sont tolérés en échec jusqu'au goal G4 : l'admission du
+    # broker lit /proc/net/tcp pour vérifier l'UID du pair, ce qui n'existe que
+    # sous Linux (broker/src/admission.ts). Les deux systèmes tournent quand
+    # même ici pour visibilité, mais ne bloquent pas la CI.
+    continue-on-error: ${{ matrix.os != 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: garde-fou (aucun fichier interne ni secret dans le dépôt public)
+        if: matrix.os == 'ubuntu-latest'
+        # Rejoue le crochet pre-push local sur l'arbre poussé : dernier filet si un clone
+        # n'a pas le crochet installé.
+        run: echo "refs/heads/ci $(git rev-parse HEAD) refs/heads/ci 0000000000000000000000000000000000000000" | bash scripts/hooks/pre-push
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: bun install (broker)
+        run: bun install
+        working-directory: broker
+
+      - name: bun test (broker)
+        run: bun test
+        working-directory: broker
+
+      - name: build.sh
+        if: matrix.os == 'ubuntu-latest'
+        run: bash scripts/build.sh
+
+      - name: web-ext lint (chrome)
+        if: matrix.os == 'ubuntu-latest'
+        # web-ext is a Firefox tool: it always reports BACKGROUND_SERVICE_WORKER_NOFALLBACK and
+        # ADDON_ID_REQUIRED on a Chrome-only manifest.json (background.service_worker without a
+        # Firefox scripts fallback, no browser_specific_settings.gecko.id — Chrome uses "key"
+        # instead). Structural, not a defect: informational only, doesn't block the job. The
+        # Firefox package below runs the same tool as a real gate (0 errors expected).
+        continue-on-error: true
+        run: npx --yes web-ext lint --source-dir dist/stage/chrome
+
+      - name: web-ext lint (firefox)
+        if: matrix.os == 'ubuntu-latest'
+        run: npx --yes web-ext lint --source-dir dist/stage/firefox

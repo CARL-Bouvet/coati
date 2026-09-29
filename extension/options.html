@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Réglages — Coati</title>
+  <link rel="stylesheet" href="lib/theme.css" />
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <h1>Réglages Coati</h1>
+  <p class="help">
+    Sous Chromium/Brave, rien à coller ici : l'extension s'appaire seule avec
+    le broker. Sous Firefox, collez ici le secret affiché par
+    <code>http://127.0.0.1:8787/pair</code> — un geste à faire une seule fois
+    par installation. Le jeton n'est jamais écrit sur le disque par
+    l'extension : il reste en mémoire vive et disparaît à la fermeture du
+    navigateur.
+  </p>
+
+  <div class="field">
+    <label for="token">Jeton de pairage</label>
+    <input id="token" type="password" autocomplete="off" placeholder="…" />
+  </div>
+
+  <div class="actions">
+    <button id="save" type="button">Enregistrer</button>
+    <span id="status" class="status status--unknown">
+      <span class="status-dot"></span>
+      <span class="status-label">…</span>
+    </span>
+  </div>
+
+  <h1>Modèle</h1>
+  <p class="help">
+    Coati ne revend jamais d'accès à un modèle : choisissez celui qui traite
+    vos demandes — votre propre clé Anthropic, un modèle Ollama local, ou tout
+    autre fournisseur installé sur cette machine. Ce réglage vit dans le
+    broker ; changer de fournisseur ici s'applique à la prochaine requête.
+  </p>
+  <div id="modelSection">
+    <p id="modelDisconnected" class="help" hidden>
+      Broker non connecté — impossible d'afficher ou de changer le fournisseur de modèle.
+    </p>
+    <ul id="providerList" class="provider-list"></ul>
+    <div id="modelField" class="field" hidden>
+      <label for="modelSelect">Modèle</label>
+      <select id="modelSelect" hidden></select>
+      <input id="modelInput" type="text" placeholder="ex : llama3.2 ou claude-sonnet-4-5 (optionnel)" hidden />
+      <button id="modelSave" type="button" hidden>Enregistrer le modèle</button>
+    </div>
+  </div>
+
+  <h1>Conservation de l'historique</h1>
+  <p class="help">
+    La conversation (y compris les extraits de pages qu'elle contient) est
+    stockée non chiffrée sur le disque de cet ordinateur. Ce réglage détermine
+    combien de temps elle y reste avant d'être effacée automatiquement.
+  </p>
+
+  <div class="field">
+    <label for="retention">Conserver l'historique pendant</label>
+    <select id="retention">
+      <option value="7">7 jours</option>
+      <option value="30">30 jours</option>
+      <option value="90">90 jours</option>
+      <option value="never">Jamais (aucune expiration automatique)</option>
+    </select>
+  </div>
+
+  <h1>Sites où Coati se reconnaît tout seul</h1>
+  <p id="siteTogglesHelp" class="help">
+    Sans cette autorisation, le navigateur cache à l'extension quel site est
+    ouvert dans l'onglet, donc le bouton principal reste générique tant que
+    vous n'avez pas cliqué dessus.
+  </p>
+  <ul id="siteToggles" class="site-toggles"></ul>
+
+  <script src="options.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+/* Coati state lab — determinism stylesheet (task constraint 6).
+ * Freezes every animation/transition/caret so a capture never lands mid
+ * frame. Loaded after the page's own CSS in every generated panel.html /
+ * options.html. */
+*,
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
+  caret-color: transparent !important;
+}

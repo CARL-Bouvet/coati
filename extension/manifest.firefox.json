@@ -1,0 +1,65 @@
+{
+  "manifest_version": 3,
+  "name": "Coati",
+  "version": "0.1.0",
+  "description": "Assistant IA local : résumer une page ou une vidéo, discuter avec un modèle, agir sur une sélection, via un broker qui tourne sur votre machine.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "coati@getcoati.com",
+      "data_collection_permissions": {
+        "required": [
+          "websiteContent"
+        ]
+      }
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "alarms",
+    "contextMenus"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; connect-src ws://127.0.0.1:8787 'self'; img-src 'self' data:; style-src 'self'"
+  },
+  "background": {
+    "scripts": [
+      "background/service-worker.js"
+    ],
+    "type": "module"
+  },
+  "sidebar_action": {
+    "default_panel": "panel/panel.html",
+    "default_title": "Coati",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Coati",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
+}

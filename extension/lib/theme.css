@@ -1,0 +1,196 @@
+/*
+ * Coati theme — shared design tokens for panel.html and options.html.
+ *
+ * Contract (see notes/PLAN_goal_panneau_v2.md, "Contrat commun"):
+ *   --bg --fg --muted --border --surface --accent --accent-fg --danger --radius
+ *   --space-1 --space-2 --space-3 --space-4 --font --font-size --line-height
+ *
+ * Extra tokens below (status colours, message bubbles, banner, header, link)
+ * follow the same naming style but are not part of the contract; they exist
+ * so panel.css and options.css never hard-code a colour.
+ *
+ * Palette P24 (internal design notes, 27/09): neutral anthracite greys,
+ * caramel primary, slate-blue second tone (links, the user's bubble). Each
+ * colour has one value per theme; the header is anthracite in both themes.
+ *
+ * Three spacing variants (`[data-variant]` on <html>), default = "a" when absent:
+ *   a — compact : 14px / 1.45 / spacing 4-8-12-16 / caramel accent (P24)
+ *   b — aéré    : 15px / 1.55 / spacing 6-10-14-20 / older warm accent
+ *   c — lisible : 16px / 1.6  / spacing 8-12-16-24 / blue accent
+ *
+ * Font: Figtree, shipped with the extension (extension/fonts/, SIL OFL 1.1,
+ * LICENSE-figtree.txt next to it) — never a remote font (CSP default-src
+ * 'self'). Variable font, wght 300-900, Latin subset (French covered).
+ * Each variant restates its own dark counterpart under
+ * `prefers-color-scheme: dark` so light/dark and variant combine correctly.
+ */
+
+@font-face {
+  font-family: "Figtree";
+  src: url("../fonts/figtree.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Neutral tokens — shared by all variants, light theme (P24). */
+  --bg: #ffffff;
+  --surface: #f4f5f7;
+  --fg: #2a2c30;
+  --muted: #61646c;
+  --border: #8a8e96;
+  --danger: #b3261e;
+  /* Hover/active tones for surfaces painted with --danger (the confirmed
+   * "Effacer" button) — same rationale as --accent-hover/--accent-active
+   * above. */
+  --danger-hover: #931f19;
+  --danger-active: #811b16;
+  --success: #187a3b;
+  --warning: #9c5c00;
+  /* Second tone (slate blue): links and information states. */
+  --link: #4a6a88;
+  /* The user's message bubble — ONE variable per theme: to try another
+   * colour, change this line (and its dark twin below). Text on it is --fg:
+   * 11.55:1 light, 9.83:1 dark (internal design notes). */
+  --message-user-bg: #e4eaf1;
+  --banner-bg: #fdeeee;
+  --banner-border: #e0b0b0;
+  --banner-fg: #7a2b28;
+  --status-connected: #187a3b;
+  --status-connecting: #9c5c00;
+  --status-disconnected: #b3261e;
+  --status-idle: #8a8e96;
+  /* Floating layers (the prompt list opening over the conversation). */
+  --overlay-shadow: 0 -4px 16px rgb(0 0 0 / 0.16);
+  /* "Mes prompts" head case background (plan-activation-28-09.md "Points
+   * tranchés" 1): a very light caramel tint derived from the P24 accent
+   * (--accent: #9c5a12), distinct enough from --surface to read as its own
+   * band across the full board width without competing with any text on
+   * it — no row or button ever paints directly against it (rows keep their
+   * own --bg), so this only needs to read as "coloured", not pass a text
+   * contrast check on its own. */
+  --case-head-bg: #fbf0df;
+
+  /* Header: anthracite in BOTH themes, so it always carries the dark-theme
+   * values (palette.md, "Règles") — declared once, outside the media query. */
+  --header-bg: #2a2c30;
+  --header-fg: #edeef0;
+  --header-muted: #b4b7be;
+  --header-surface: #34373d;
+  --header-accent: #d98323;
+  --header-status-connected: #5fd88a;
+  --header-status-connecting: #f0b429;
+  --header-status-disconnected: #f2b8b5;
+  --header-status-idle: #8a8e96;
+
+  /* Variant "a" (compact) — default when [data-variant] is absent. */
+  --font: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-size: 14px;
+  --line-height: 1.45;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --radius: 8px;
+  --accent: #9c5a12;
+  --accent-fg: #ffffff;
+  /* Hover/active tones for surfaces painted with --accent (the primary
+   * button): darkened in light theme, lightened in dark theme (below), each
+   * value picked so --accent-fg keeps >= 4.5:1 against it. Never derived
+   * with `filter` — a computed style must reflect what is actually
+   * rendered, which a filter does not report on the background property. */
+  --accent-hover: #804a0f;
+  --accent-active: #70410d;
+}
+
+:root[data-variant="b"] {
+  --font-size: 15px;
+  --line-height: 1.55;
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 14px;
+  --space-4: 20px;
+  --accent: #a4502a;
+  --accent-fg: #ffffff;
+  --accent-hover: #864222;
+  --accent-active: #763a1e;
+}
+
+:root[data-variant="c"] {
+  --font-size: 16px;
+  --line-height: 1.6;
+  --space-1: 8px;
+  --space-2: 12px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --accent: #1a56db;
+  --accent-fg: #ffffff;
+  --accent-hover: #1547b4;
+  --accent-active: #133e9e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1f2023;
+    --surface: #2a2c30;
+    --fg: #edeef0;
+    --muted: #a9acb3;
+    --border: #777b83;
+    --danger: #f2b8b5;
+    --danger-hover: #d5a29f;
+    --danger-active: #bd908d;
+    --success: #5fd88a;
+    --warning: #f0b429;
+    --link: #8aa4be;
+    --message-user-bg: #2f3b48;
+    --banner-bg: #3a201f;
+    --banner-border: #6b3a37;
+    --banner-fg: #f2c9c6;
+    --status-connected: #5fd88a;
+    --status-connecting: #f0b429;
+    --status-disconnected: #f2b8b5;
+    --status-idle: #777b83;
+    --overlay-shadow: 0 -4px 16px rgb(0 0 0 / 0.5);
+    /* Dark-theme equivalent of --case-head-bg above: a muted warm brown,
+     * same idea as --surface but tinted toward the dark-theme accent
+     * (#d98323) instead of neutral grey. */
+    --case-head-bg: #332a20;
+
+    /* Variant "a" dark (P24 caramel, dark-theme value). */
+    --accent: #d98323;
+    --accent-fg: #1f2023;
+    --accent-hover: #e0994b;
+    --accent-active: #e4a661;
+  }
+
+  :root[data-variant="b"] {
+    --accent: #e0894f;
+    --accent-fg: #1e1712;
+    --accent-hover: #e69e6f;
+    --accent-active: #e9aa80;
+  }
+
+  :root[data-variant="c"] {
+    --accent: #6ea8fe;
+    --accent-fg: #0d1117;
+    --accent-hover: #88b8fe;
+    --accent-active: #97c0fe;
+  }
+}
+
+/* The UA rule [hidden]{display:none} loses to any author rule that sets
+ * display (e.g. .connection-banner, .site-card-actions): elements stayed
+ * visible while hidden. One global rule keeps the attribute authoritative. */
+[hidden] {
+  display: none !important;
+}
+
+/* Native controls (scrollbars, checkboxes, text fields) follow the page's
+ * colour scheme; without this they stay light in dark mode. */
+:root {
+  color-scheme: light dark;
+  /* Checkboxes and other native controls take the caramel accent (P24),
+   * not the browser's default blue. Inherited, so set once here. */
+  accent-color: var(--accent);
+}
