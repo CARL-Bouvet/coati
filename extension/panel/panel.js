@@ -40,15 +40,16 @@
 //     and relabels the button via `applyDetectedContext()`.
 //   - Chicken-and-egg: to offer "Activer Coati sur ce site" we need the
 //      tab's *origin*, but on a tab switch we just said we won't read the
-//      page to get it. So that affordance is now only offered as a side
-//      effect of a gesture-driven extraction attempt: `extractFromTab()`
-//      against a tab we lack permission for REJECTS with a message that
-//      embeds the tab's URL (Chrome's own diagnostic text, e.g.
-//      `Cannot access contents of url "https://…"`). We don't need a fresh
-//      permission to read that error string — so a failed extraction on
-//      panel load or on a main-button click is how we learn the origin to
-//      offer. See NoAccessError below. A plain tab switch no longer triggers
-//      this at all — one more page-read source removed, not just deferred.
+//      page to get it. So that affordance is only offered as a side effect of
+//      a gesture-driven redetect: `redetectTab()` calls `api.tabs.get(tabId)`
+//      to read `tab.url` even when the extraction itself fails for lack of a
+//      scripting permission — legitimate because `activeTab` (granted by
+//      THIS gesture) already gives tab metadata regardless of any host
+//      permission. T47 (docs/DECISIONS.md): the injection-refused error
+//      itself is NOT mined for the origin any more — verified 2026-09-29,
+//      neither Chrome/Brave nor Firefox embed the page address in it. A
+//      plain tab switch never triggers this at all — no page-read source
+//      there either.
 //   - Once the user clicks "Activer Coati sur ce site", THAT click is a
 //      genuine gesture, sufficient for `chrome.permissions.request`. If
 //      granted, Chrome remembers it — nothing is cached here (no secrets in
@@ -61,7 +62,13 @@ import { applyRetention, RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./
 import { api, IS_GECKO } from "../lib/browser-compat.js";
 import { parseTimestamps, getYouTubeVideoIdFromUrl } from "./timestamps.js";
 import { isNearBottom } from "./scroll.js";
-import { providerLabel, describeError, EXTRACTION_TIMEOUT_LABEL, CONNECTION_STATUS_LABELS } from "../lib/labels.js";
+import {
+  providerLabel,
+  describeError,
+  EXTRACTION_TIMEOUT_LABEL,
+  CONNECTION_STATUS_LABELS,
+  ACCESS_DENIED_HINT,
+} from "../lib/labels.js";
 import { withDeadline } from "../lib/deadline.js";
 import { cardState, faviconSrc, hostFromUrl, SPINNER_DELAY_MS } from "./card-state.js";
 import { debounce } from "./debounce.js";
@@ -76,6 +83,8 @@ import { permissionPatternsFor } from "../lib/suggestions-data.js";
 // header comment for the shape contract.
 import { encartItems } from "./encart-items.js";
 import { isRedetectDuplicate, parseActionClickedTabId } from "./redetect-dedupe.js";
+// Unreadable-page decision (T46 point 3) — pure, see its own header comment.
+import { isPdfUrl, readabilityMessage, stripReadability, PDF_MESSAGE } from "./unreadable.js";
 
 // Design-variant hook for captures only (notes/PLAN_goal_panneau_v2.md,
 // "Contrat commun") — inert unless the panel's own address carries
@@ -234,14 +243,15 @@ let resizeComposer = () => {};
 // after a couple seconds, same pattern as the recovery button's "Copié !".
 let promptSavedNoticeTimer = null;
 
-/** Thrown by extractFromTab when Chrome refuses the injection for lack of
- * permission. Carries the origin mined out of Chrome's own error message —
- * see the comment block at the top of this file, point 3. */
-class NoAccessError extends Error {
-  constructor(origin) {
-    super(`no permission for ${origin}`);
-    this.name = "NoAccessError";
-    this.origin = origin;
+/** Thrown by extractReadableFromTab (never by extractFromTab itself) when the
+ * page cannot usefully be read even though the injection succeeded: a PDF
+ * shown by the browser's own viewer (extraction never runs there), or
+ * extract.js reporting `readability: "canvas" | "empty"` — see "Unreadable
+ * pages" below. `message` is the ready-to-display French text. */
+class UnreadablePageError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "UnreadablePageError";
   }
 }
 
@@ -670,7 +680,7 @@ function formatProviderStatus(message) {
  * reports it via reportExtractionError(). */
 async function extractIfAttaching() {
   const attach = !els.attachPage.disabled && isAttachPageChecked() && currentTabId != null;
-  return attach ? extractFromTab(currentTabId) : undefined;
+  return attach ? extractReadableFromTab(currentTabId) : undefined;
 }
 
 async function sendChat() {
@@ -685,10 +695,7 @@ async function sendChat() {
     context = await extractIfAttaching();
   } catch (err) {
     reportExtractionError(err, {
-      noAccess:
-        "⚠ Coati n'a pas accès à cette page, la question n'a pas été envoyée. Cliquez sur « Activer Coati sur ce site » ci-dessus, ou décochez « Coati lit cette page » pour poser une question générale.",
-      accessDenied:
-        "⚠ Coati n'a pas accès à cette page, la question n'a pas été envoyée. Cliquez sur l'icône Coati dans la barre d'outils pour l'autoriser sur cet onglet.",
+      accessDenied: `⚠ Coati n'a pas accès à cette page, la question n'a pas été envoyée. ${ACCESS_DENIED_HINT}`,
       other: (e) => `⚠ Lecture de la page impossible, la question n'a pas été envoyée : ${e.message}`,
     });
     return;
@@ -741,7 +748,11 @@ async function sendChatMessage(text, context) {
 async function openTranscriptIfNeeded(context) {
   if (!context.needsTranscript) return context;
   const opened = await openYouTubeTranscript(currentTabId).catch(() => false);
-  return opened ? await extractFromTab(currentTabId).catch(() => context) : context;
+  // Re-extraction here reuses extractFromTab, not extractReadableFromTab: the
+  // page's readability can't have changed between the two reads (only the
+  // transcript panel opened), so this just strips the field again rather than
+  // re-running the PDF/canvas/empty checks a second time.
+  return opened ? stripReadability(await extractFromTab(currentTabId).catch(() => context)) : context;
 }
 
 // Message factuel, sans qualification juridique : soit YouTube a changé sa
@@ -764,12 +775,11 @@ async function runSuggestion(promptText) {
 
   let context;
   try {
-    context = await extractFromTab(currentTabId);
+    context = await extractReadableFromTab(currentTabId);
   } catch (err) {
     setStreamingUi(false);
     reportExtractionError(err, {
-      noAccess: "⚠ Coati n'a pas encore accès à cette page. Cliquez sur « Activer Coati sur ce site » ci-dessus.",
-      accessDenied: "⚠ Coati n'a pas accès à cette page. Cliquez sur l'icône Coati dans la barre d'outils pour l'autoriser sur cet onglet.",
+      accessDenied: `⚠ Coati n'a pas accès à cette page. ${ACCESS_DENIED_HINT}`,
       other: (e) => `⚠ Impossible de lire la page : ${e.message}`,
     });
     return;
@@ -1262,12 +1272,23 @@ async function redetectTab(tabId) {
   try {
     const context = await extractFromTab(tabId);
     applyDetectedContext(context);
-  } catch (err) {
+  } catch {
     resetPageState();
-    // If we already hold this site's permission, extraction failed for some
-    // other reason (a chrome:// page, a PDF viewer…) — refreshActivateAffordance()
-    // checks that itself and stays hidden in that case.
-    knownOrigin = err instanceof NoAccessError ? err.origin : null;
+    // T47: the injection-refused error no longer carries the page address
+    // (neither browser embeds it — verified 2026-09-29), so the origin is
+    // read from tabs.get() instead. Legitimate here specifically: this
+    // function only runs inside a genuine gesture (icon click, context menu,
+    // shortcut, "Activer"), whose activeTab grant already gives tab metadata
+    // regardless of any scripting/host permission. If we already hold this
+    // site's permission, extraction failed for some other reason (a
+    // chrome:// page, a PDF viewer…) — refreshActivateAffordance() checks
+    // that itself and stays hidden in that case.
+    try {
+      const tab = await api.tabs.get(tabId);
+      knownOrigin = tab?.url ? new URL(tab.url).origin : null;
+    } catch {
+      knownOrigin = null;
+    }
     await refreshActivateAffordance();
   } finally {
     endCardDetection();
@@ -1365,11 +1386,10 @@ async function summarize() {
 
   let context;
   try {
-    context = await extractFromTab(currentTabId);
+    context = await extractReadableFromTab(currentTabId);
   } catch (err) {
     reportExtractionError(err, {
-      noAccess: "⚠ Coati n'a pas encore accès à cette page. Cliquez sur « Activer Coati sur ce site » ci-dessus.",
-      accessDenied: "⚠ Coati n'a pas accès à cette page. Cliquez sur l'icône Coati dans la barre d'outils pour l'autoriser sur cet onglet.",
+      accessDenied: `⚠ Coati n'a pas accès à cette page. ${ACCESS_DENIED_HINT}`,
       other: (e) => `⚠ Impossible de lire la page : ${e.message}`,
     });
     setStreamingUi(false);
@@ -1423,35 +1443,15 @@ async function activeTabId() {
   return tab.id;
 }
 
-/** Mines the target origin out of Chrome's own permission-denied message —
- * see the comment block at the top of this file, point 3. */
-function extractOriginFromError(err) {
-  const message = err && typeof err.message === "string" ? err.message : "";
-  // Chrome's exact wording is not contractual: try the quoted form first, then
-  // fall back to any http(s) URL appearing in the message.
-  const quoted = message.match(/url ["“]([^"”]+)["”]/i);
-  const bare = quoted ? null : message.match(/\bhttps?:\/\/[^\s"'”)]+/i);
-  const candidate = quoted ? quoted[1] : bare ? bare[0] : null;
-  if (!candidate) return null;
-  try {
-    return new URL(candidate).origin;
-  } catch {
-    return null;
-  }
-}
-
-/** Classifies a page-read failure (NoAccessError / a Chrome permission
+/** Classifies a page-read failure (an unreadable page / a browser permission
  * refusal / anything else) and reports it as a system message, with the
  * phrasing appropriate to the caller (sendChat vs. summarize word things
- * slightly differently). Shared side effect for NoAccessError: records
- * `knownOrigin` and refreshes the "Activer" affordance (T43).
- * Callers still do their own cleanup (setStreamingUi, return) after calling
- * this — that part isn't shared because it differs between callers. */
-function reportExtractionError(err, { noAccess, accessDenied, other }) {
-  if (err instanceof NoAccessError) {
-    knownOrigin = err.origin;
-    refreshActivateAffordance();
-    addMessage({ id: newId(), role: "system", text: noAccess });
+ * slightly differently). Callers still do their own cleanup (setStreamingUi,
+ * return) after calling this — that part isn't shared because it differs
+ * between callers. */
+function reportExtractionError(err, { accessDenied, other }) {
+  if (err instanceof UnreadablePageError) {
+    addMessage({ id: newId(), role: "system", text: err.message });
   } else if (looksLikeAccessDenied(err)) {
     addMessage({ id: newId(), role: "system", text: accessDenied });
   } else {
@@ -1459,39 +1459,71 @@ function reportExtractionError(err, { noAccess, accessDenied, other }) {
   }
 }
 
-/** True when the failure looks like Chrome refusing access for lack of a host
- * permission, even if we could not mine the origin out of the message. */
+// T47 (docs/DECISIONS.md): verified 2026-09-29 against both browsers —
+// Chrome/Brave: "Cannot access contents of the page. Extension manifest must
+// request permission to access the respective host." Firefox: "Missing host
+// permission for the tab" / "…for the tab or frames" (Firefox source).
+// Neither embeds the page address, so this only classifies, it never mines
+// an origin (that used to be extractOriginFromError/NoAccessError, removed).
+/** True when the failure looks like the browser refusing access for lack of
+ * a host permission. */
 function looksLikeAccessDenied(err) {
   const message = err && typeof err.message === "string" ? err.message : "";
   return /cannot access|permission|extension manifest/i.test(message);
 }
 
 async function extractFromTab(tabId) {
-  let results;
-  try {
-    results = await withDeadline(
-      api.scripting.executeScript({
-        target: { tabId },
-        // Leading slash, and it matters: Chrome resolves an injected file path
-        // against the extension root, Firefox against the calling document — the
-        // panel lives in panel/, so "content/extract.js" became
-        // moz-extension://…/panel/content/extract.js and failed to load.
-        // Measured in Firefox on 2026-09-20. Root-relative works on both.
-        files: ["/content/extract.js"],
-      }),
-      EXTRACTION_DEADLINE_MS,
-      () => new ExtractionTimeoutError(),
-    );
-  } catch (err) {
-    if (err instanceof ExtractionTimeoutError) throw err;
-    const origin = extractOriginFromError(err);
-    if (origin) throw new NoAccessError(origin);
-    throw err;
-  }
+  const results = await withDeadline(
+    api.scripting.executeScript({
+      target: { tabId },
+      // Leading slash, and it matters: Chrome resolves an injected file path
+      // against the extension root, Firefox against the calling document — the
+      // panel lives in panel/, so "content/extract.js" became
+      // moz-extension://…/panel/content/extract.js and failed to load.
+      // Measured in Firefox on 2026-09-20. Root-relative works on both.
+      files: ["/content/extract.js"],
+    }),
+    EXTRACTION_DEADLINE_MS,
+    () => new ExtractionTimeoutError(),
+  );
 
   const result = results?.[0]?.result;
   if (!result || typeof result !== "object") throw new Error("extraction vide");
   return result;
+}
+
+// --- Unreadable pages (T46 point 3) ----------------------------------------
+//
+// Wraps extractFromTab() for every caller that is about to SEND the page to
+// the broker (extractIfAttaching, runSuggestion, summarize — never
+// openYouTubeTranscript's own internal re-read, which just reuses whatever
+// context already passed this check). Two cases short-circuit BEFORE a
+// question is sent: a PDF (the browser's own viewer refuses script
+// injection, so this must be caught from the tab URL, before attempting
+// extraction at all) and extract.js's own `readability: "canvas" | "empty"`
+// verdict (caught after a successful extraction). `context.readability`
+// itself must never reach the broker (docs/PROTOCOL.md's Context has no such
+// field) — stripReadability() below strips it from every context this
+// function returns.
+async function extractReadableFromTab(tabId) {
+  let tab = null;
+  try {
+    tab = await api.tabs.get(tabId);
+  } catch {
+    tab = null;
+  }
+  if (isPdfUrl(tab?.url)) throw new UnreadablePageError(PDF_MESSAGE);
+
+  const context = await extractFromTab(tabId);
+  // YouTube has its own path: without a transcript the page is "empty" on
+  // purpose (the caller opens the transcript on the user's click and reads
+  // again), and a short video has a short transcript that is still the whole
+  // content. The unreadable-page check is for ordinary pages only — refusing
+  // here blocked « Résumer cette vidéo » (reported by Romain, 29/09).
+  const message =
+    context.kind === "youtube" || context.needsTranscript ? null : readabilityMessage(context.readability);
+  if (message) throw new UnreadablePageError(message);
+  return stripReadability(context);
 }
 
 // Exception nommée à la règle du geste (DECISIONS.md, élargie le 26/09). Un seul
@@ -1660,10 +1692,7 @@ async function relaunchMessage(msg) {
     context = await extractIfAttaching();
   } catch (err) {
     reportExtractionError(err, {
-      noAccess:
-        "⚠ Coati n'a pas accès à cette page, la relance n'a pas été envoyée. Cliquez sur « Activer Coati sur ce site » ci-dessus, ou décochez « Coati lit cette page ».",
-      accessDenied:
-        "⚠ Coati n'a pas accès à cette page, la relance n'a pas été envoyée. Cliquez sur l'icône Coati dans la barre d'outils pour l'autoriser sur cet onglet.",
+      accessDenied: `⚠ Coati n'a pas accès à cette page, la relance n'a pas été envoyée. ${ACCESS_DENIED_HINT}`,
       other: (e) => `⚠ Lecture de la page impossible, la relance n'a pas été envoyée : ${e.message}`,
     });
     return;

@@ -10,8 +10,8 @@
 //     name shown instead of a site name.
 //   - "unreadable": no URL is known at all (no host permission for this tab
 //     yet) — generic suggestions, no favicon, no host. panel.js keeps
-//     offering "Activer Coati sur ce site" through the existing
-//     NoAccessError flow, unchanged by this module.
+//     offering "Activer Coati sur ce site" through redetectTab()'s own
+//     tabs.get() fallback (T47), unchanged by this module.
 
 /** panel.js waits this long after starting a (re)detection before showing
  * the small spinner — short enough to feel responsive, long enough that a

@@ -90,8 +90,21 @@ api.runtime.onInstalled.addListener(() => {
   setupContextMenus();
 });
 
+// T46 (docs/DECISIONS.md) — one more gesture that gives access to the page,
+// same class as the toolbar icon: a right-click on the page itself (not on a
+// selection). "READ_PAGE_MENU_ID"'s onClicked handler below follows the exact
+// same path as action.onClicked (openPanel(tab) first, then
+// "coati:action-clicked"), not the selection-stash path used by the entries
+// under the "coati" parent, which is unrelated and stays as-is.
+const READ_PAGE_MENU_ID = "coati-read-page";
+
 function setupContextMenus() {
   api.contextMenus.removeAll(() => {
+    api.contextMenus.create({
+      id: READ_PAGE_MENU_ID,
+      title: "Lire cette page avec Coati",
+      contexts: ["page"],
+    });
     api.contextMenus.create({ id: "coati", title: "Coati", contexts: ["selection"] });
     for (const [id, entry] of Object.entries(CONTEXT_MENU_ACTIONS)) {
       api.contextMenus.create({ id, parentId: "coati", title: entry.label, contexts: ["selection"] });
@@ -149,6 +162,20 @@ if (api.action && api.action.onClicked) {
 // died mid-read (drainPendingAction did not run yet) leaves a "read but
 // still present" stash undamaged for the next attempt, so nothing is lost
 // and a delivered action never fires twice.
+// T46 — same path as the toolbar icon's action.onClicked listener above:
+// openPanel(tab) as the very first statement (synchronous, within this
+// gesture's own event handler — see openPanel()'s comment), then
+// "coati:action-clicked" with tab.id. Checked before the selection-action
+// entry below, which is a different menu item entirely (contexts:
+// ["selection"], under the "coati" parent).
+api.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === READ_PAGE_MENU_ID) {
+    if (!tab) return;
+    openPanel(tab);
+    api.runtime.sendMessage({ type: "coati:action-clicked", tabId: tab.id }).catch(() => {});
+  }
+});
+
 api.contextMenus.onClicked.addListener(async (info, tab) => {
   const entry = CONTEXT_MENU_ACTIONS[info.menuItemId];
   if (!entry || !info.selectionText || !tab?.windowId) return;

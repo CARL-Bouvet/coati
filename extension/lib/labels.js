@@ -78,6 +78,14 @@ const PROVIDER_UNAVAILABLE_LABEL = "Indisponible.";
 // EXTRACTION_TIMEOUT_MS and surfaces this label when it loses.
 export const EXTRACTION_TIMEOUT_LABEL = "La page met trop de temps à être lue.";
 
+// T47 (docs/DECISIONS.md): verified 2026-09-29 that neither Chrome/Brave's
+// injection-refused error nor Firefox's names the three gestures that grant
+// access, so the panel names them itself instead of trying to mine an origin
+// out of an error message. Shared with panel.js's looksLikeAccessDenied()
+// call sites so the three gestures are worded identically everywhere.
+export const ACCESS_DENIED_HINT =
+  "Cliquez sur son icône, faites un clic droit → « Lire cette page avec Coati », ou utilisez le raccourci clavier.";
+
 /**
  * @param {string} [reason] - broker's free-text English reason, or absent.
  * @returns {string} ready-to-display text, one or two lines (\n-joined).

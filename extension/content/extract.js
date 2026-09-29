@@ -16,8 +16,25 @@
 (() => {
   const MAX_CHARS = 40000;
 
+  // Zero-width characters (U+200B-U+200D, U+2060 word joiner, U+FEFF BOM/
+  // zero-width no-break space) carry no visible glyph but do carry bytes a
+  // hostile page can use to smuggle a hidden instruction past a human eye —
+  // strip them everywhere, unconditionally (T45, section 5 point 6). Built
+  // from numeric code points, not a `\u` regex escape: this source file is
+  // plain-text-reviewed, and a literal invisible character sitting in the
+  // regex source itself would be both unreadable in review and fragile
+  // across editors/encodings.
+  const ZERO_WIDTH_CODEPOINTS = [0x200b, 0x200c, 0x200d, 0x2060, 0xfeff];
+  const ZERO_WIDTH_CHARS = ZERO_WIDTH_CODEPOINTS.map((code) => String.fromCharCode(code));
+
+  function stripZeroWidth(text) {
+    let out = text;
+    for (const ch of ZERO_WIDTH_CHARS) out = out.split(ch).join("");
+    return out;
+  }
+
   function truncate(text, max = MAX_CHARS) {
-    const clean = (text || "")
+    const clean = stripZeroWidth(text || "")
       .replace(/[ \t]+/g, " ")
       .replace(/\n{3,}/g, "\n\n")
       .replace(/^[ \t]+|[ \t]+$/gm, "")
@@ -72,6 +89,57 @@
     return fragments.reduce((acc, fragment) => acc.split(fragment).join(""), text);
   }
 
+  // T45 (docs/DECISIONS.md), point 1: "innerText d'un élément non affiché renvoie son
+  // textContent" — a hidden settings dialog, a closed popin, a menu with
+  // `display:none` all measure as if they were on screen. Never let one win
+  // a text-length/density contest. `checkVisibility` is the modern, cheap
+  // check (feature-detected: not every embedder ships it); `getClientRects`
+  // catches `display:none`/detached nodes even where it's missing; an
+  // `aria-hidden="true"` ancestor is excluded outright — it is also used in
+  // the wild to hide dialogs/menus from sighted users, not just assistive
+  // tech (measured on Le Monde, Amazon, PAP).
+  function isRenderedCandidate(el) {
+    if (!el) return false;
+    // `display: contents` generates no box of its own, so getClientRects() is
+    // empty and checkVisibility() says false even when everything inside is on
+    // screen (measured on MDN, whose <main> is `display: contents`). Such an
+    // element is visible when one of its children is — checked before
+    // isElementUsable(), which would reject it for having no box.
+    let displayContents = false;
+    try {
+      displayContents =
+        typeof getComputedStyle === "function" && getComputedStyle(el).display === "contents";
+    } catch {
+      displayContents = false;
+    }
+    if (displayContents) {
+      try {
+        if (typeof el.closest === "function" && el.closest('[aria-hidden="true"]')) return false;
+      } catch {
+        // Fake/degenerate DOM — fall through.
+      }
+      return Array.from(el.children || []).some((child) => isRenderedCandidate(child));
+    }
+    if (!isElementUsable(el)) return false;
+    try {
+      if (
+        typeof el.checkVisibility === "function" &&
+        el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) === false
+      ) {
+        return false;
+      }
+    } catch {
+      // Not implemented reliably everywhere — fall through to the other
+      // checks rather than treating a throw as "hidden".
+    }
+    try {
+      if (typeof el.closest === "function" && el.closest('[aria-hidden="true"]')) return false;
+    } catch {
+      // Fake/degenerate DOM — don't let a harness quirk hide real content.
+    }
+    return true;
+  }
+
   // Picks the element that most likely holds the article body.
   //
   // Semantic containers win outright when they carry enough text. Otherwise we
@@ -81,6 +149,7 @@
   // outermost wrapper, which is the whole page.
   function articleText() {
     for (const el of document.querySelectorAll("article, main, [role='main']")) {
+      if (!isRenderedCandidate(el)) continue;
       const text = textExcludingEditable(el);
       if (text.trim().length > 200) return text;
     }
@@ -92,6 +161,7 @@
       // A container that IS an editable region (not just one that contains
       // one) is skipped outright, same as nav/footer/header/aside.
       if (el.closest("nav, footer, header, aside, [contenteditable]")) continue;
+      if (!isRenderedCandidate(el)) continue;
       const text = textExcludingEditable(el);
       const length = text.trim().length;
       if (length < 200) continue;
@@ -418,6 +488,11 @@
     }
     const out = [];
     for (const el of nodes) {
+      // A layer the user cannot see is neither content nor an obstacle. Without
+      // this, a closed dialog (display:none: its innerText falls back to the raw
+      // textContent) passed the content-layer test and replaced the whole page —
+      // measured on Le Monde, Amazon and Stack Overflow, all hidden role=dialog.
+      if (!isRenderedCandidate(el)) continue;
       const rect = safeRect(el);
       const { coverageRatio, dockedToEdge } = rectMetrics(rect, viewport);
       out.push({
@@ -504,6 +579,7 @@
       }
       for (const el of semanticCandidates) {
         if (isWithinExcluded(el, excludedEls)) continue;
+        if (!isRenderedCandidate(el)) continue;
         const text = textExcludingNodes(el, excludedEls);
         if (text.trim().length > 200) return el;
       }
@@ -511,6 +587,7 @@
 
     let best = null;
     let bestScore = 0;
+    let bestLength = 0;
     let candidates = [];
     try {
       candidates = searchRoot && searchRoot.querySelectorAll ? searchRoot.querySelectorAll("div, section") : [];
@@ -521,6 +598,7 @@
       if (el.closest("nav, footer, header, aside, form, [contenteditable]")) continue;
       if (isWithinExcluded(el, excludedEls)) continue;
       if (isInsideFixedOrSticky(el)) continue; // barre latérale fixe : jamais la région principale
+      if (!isRenderedCandidate(el)) continue;
       const text = textExcludingNodes(el, excludedEls);
       const length = text.trim().length;
       if (length < 200) continue;
@@ -528,9 +606,87 @@
       if (density > bestScore) {
         bestScore = density;
         best = el;
+        bestLength = length;
       }
     }
+
+    // T45 section 5 point 2 — "regrouper les blocs frères répétés". A comment
+    // thread (Hacker News's table rows) or a Q&A page (Stack Overflow's
+    // question + answers) has no single densest block: each entry, taken
+    // alone, is denser than the entries-holding container, so the density
+    // scan above elects one comment/answer and drops the rest. When a
+    // repeated-shape sibling group's COMBINED text beats the single winner
+    // above, prefer its container instead — same DENSITY LOSES, VOLUME WINS
+    // trade the "list"/"listing" pipeline already makes for structured
+    // entries (findCandidateEntryGroup below), applied here to prose
+    // threads that never pass that pipeline's link/numeric-value gates.
+    let threadGroup = null;
+    try {
+      threadGroup = findThreadGroupContainer(searchRoot, excludedEls);
+    } catch {
+      threadGroup = null;
+    }
+    if (threadGroup && threadGroup.length > bestLength) {
+      const container = threadGroup.container;
+      const containerOk =
+        !isWithinExcluded(container, excludedEls) &&
+        !isInsideFixedOrSticky(container) &&
+        isRenderedCandidate(container) &&
+        !(typeof container.closest === "function" && container.closest("nav, footer, header, aside, form, [contenteditable]"));
+      if (containerOk) return container;
+    }
+
     return best || searchRoot || document.body;
+  }
+
+  // Finds the smallest container holding a group of >= LIST_MIN_GROUP_SIZE
+  // same-shape siblings whose COMBINED rendered text is largest — the
+  // container itself (e.g. a comment `<table>`'s `<tbody>`, an `#answers`
+  // wrapper), not any single entry. `bestSameShapeGroup`/`shapeKey` are the
+  // same "→ list" shape test the structured-entries pipeline uses (step 3a
+  // below); this walk is deliberately narrower than that pipeline (no link/
+  // numeric-value requirement) because prose threads often have neither.
+  const THREAD_GROUP_MIN_SIZE = LIST_MIN_GROUP_SIZE; // same bar as a "list" group
+  const THREAD_ENTRY_MIN_CHARS = 40; // a real comment/answer, not a byline or a vote count
+
+  function findThreadGroupContainer(searchRoot, excludedEls) {
+    if (!searchRoot || typeof searchRoot.querySelectorAll !== "function") return null;
+    let allEls = [];
+    try {
+      allEls = Array.from(searchRoot.querySelectorAll("*"));
+    } catch {
+      return null;
+    }
+    let bestContainer = null;
+    let bestGroup = null;
+    let bestCombined = 0;
+    for (const container of allEls) {
+      if (isWithinExcluded(container, excludedEls)) continue;
+      try {
+        if (container.closest && container.closest("nav, footer, header, aside, form, [contenteditable]")) continue;
+      } catch {
+        // treat as not excluded
+      }
+      const group = bestSameShapeGroup(container);
+      if (!group || group.length < THREAD_GROUP_MIN_SIZE) continue;
+      let combined = 0;
+      let qualifying = 0;
+      for (const entry of group) {
+        if (!isRenderedCandidate(entry)) continue;
+        const t = textExcludingNodes(entry, excludedEls).trim();
+        if (t.length >= THREAD_ENTRY_MIN_CHARS) {
+          combined += t.length;
+          qualifying += 1;
+        }
+      }
+      if (qualifying < THREAD_GROUP_MIN_SIZE) continue;
+      if (combined > bestCombined) {
+        bestCombined = combined;
+        bestContainer = container;
+        bestGroup = group;
+      }
+    }
+    return bestContainer ? { container: bestContainer, group: bestGroup, length: bestCombined } : null;
   }
 
   // Step 3a — repeated entries ("→ list"). Shape = own tag + child tags, one
@@ -971,6 +1127,307 @@
     return false;
   }
 
+  // ==========================================================================
+  // T45 (docs/DECISIONS.md) — shadow DOM, invisible text, structure, readability.
+  // points 3, 5, 6 and 4 of T45.
+  // ==========================================================================
+
+  // Step — shadow DOM (section 5 point 3). `innerText`/`querySelectorAll`
+  // never pierce a shadow boundary; MDN alone measured 57 shadow hosts,
+  // 53 000 hidden characters. Both API shapes are feature-detected and
+  // wrapped: `el.shadowRoot` is null for a closed root, Chrome exposes
+  // `chrome.dom.openOrClosedShadowRoot(el)`, Firefox exposes
+  // `el.openOrClosedShadowRoot()` — never assume either exists.
+  function getOpenOrClosedShadowRoot(el) {
+    if (!el) return null;
+    try {
+      if (el.shadowRoot) return el.shadowRoot;
+    } catch {
+      // fall through
+    }
+    try {
+      if (
+        typeof chrome !== "undefined" &&
+        chrome &&
+        chrome.dom &&
+        typeof chrome.dom.openOrClosedShadowRoot === "function"
+      ) {
+        const root = chrome.dom.openOrClosedShadowRoot(el);
+        if (root) return root;
+      }
+    } catch {
+      // fall through
+    }
+    try {
+      if (typeof el.openOrClosedShadowRoot === "function") {
+        const root = el.openOrClosedShadowRoot();
+        if (root) return root;
+      }
+    } catch {
+      // fall through
+    }
+    return null;
+  }
+
+  const SHADOW_MAX_DEPTH = 6; // bounded — a shadow tree recursing further is a bug in the page, not content.
+
+  // A ShadowRoot is a DocumentFragment: it has no `.innerText`. Approximate
+  // its rendered text by summing each direct child's own rendered text,
+  // through the same `isRenderedCandidate` gate as everything else — a
+  // closed-off, hidden custom element inside a shadow tree should not leak
+  // in either.
+  function shadowRootOwnText(root) {
+    let children = [];
+    try {
+      children = root && root.children ? Array.from(root.children) : [];
+    } catch {
+      children = [];
+    }
+    const parts = [];
+    for (const child of children) {
+      if (!isRenderedCandidate(child)) continue;
+      const t = visibleText(child).trim();
+      if (t) parts.push(t);
+    }
+    return parts.join("\n");
+  }
+
+  function shadowRootText(root, depth) {
+    if (!root || depth > SHADOW_MAX_DEPTH) return "";
+    const ownText = shadowRootOwnText(root);
+    let hostEls = [];
+    try {
+      hostEls = typeof root.querySelectorAll === "function" ? Array.from(root.querySelectorAll("*")) : [];
+    } catch {
+      hostEls = [];
+    }
+    const nestedParts = [];
+    for (const host of hostEls) {
+      const nestedRoot = getOpenOrClosedShadowRoot(host);
+      if (nestedRoot) {
+        const t = shadowRootText(nestedRoot, depth + 1);
+        if (t) nestedParts.push(t);
+      }
+    }
+    return [ownText, ...nestedParts].filter(Boolean).join("\n\n");
+  }
+
+  // Collects the rendered text of every shadow root found inside `root`
+  // (root included). Never throws — a page that throws on `querySelectorAll`
+  // or exposes a broken shadow API degrades to "no shadow text found", same
+  // as the rest of this file's "an exception never fails the extraction".
+  function collectShadowText(root, excludedEls) {
+    if (!root) return "";
+    let hostEls = [];
+    try {
+      hostEls = typeof root.querySelectorAll === "function" ? Array.from(root.querySelectorAll("*")) : [];
+    } catch {
+      hostEls = [];
+    }
+    hostEls.unshift(root);
+    const parts = [];
+    const seen = new Set();
+    for (const host of hostEls) {
+      if (seen.has(host)) continue;
+      seen.add(host);
+      if (isWithinExcluded(host, excludedEls)) continue;
+      const shadow = getOpenOrClosedShadowRoot(host);
+      if (!shadow) continue;
+      const t = shadowRootText(shadow, 0);
+      if (t) parts.push(t);
+    }
+    return parts.join("\n\n");
+  }
+
+  // Step — invisible-to-the-eye text (section 5 point 6). Zero-width
+  // characters are handled textually in `truncate()`; the checks below catch
+  // the DOM-level techniques (screen-reader-only clipping, off-screen
+  // positioning, near-zero font size, same-colour-as-background) and feed
+  // their elements into the SAME `excludedEls` subtraction mechanism already
+  // used for overlays and contenteditable drafts (`textExcludingNodes`) —
+  // no new plumbing, every caller downstream benefits automatically. Page
+  // content stays data, never an instruction (CLAUDE.md rule 3); this is a
+  // conservative reduction of the injection surface, not a security boundary
+  // on its own.
+  function isNearZeroFontSize(el) {
+    try {
+      if (typeof getComputedStyle !== "function") return false;
+      const style = getComputedStyle(el);
+      if (!style || !style.fontSize) return false;
+      const px = parseFloat(style.fontSize);
+      return Number.isFinite(px) && px > 0 && px <= 1.5;
+    } catch {
+      return false;
+    }
+  }
+
+  const CLIP_ZERO_RE = /rect\(\s*0(px)?[,\s]+0(px)?[,\s]+0(px)?[,\s]+0(px)?\s*\)/i;
+  function isClippedSrOnly(el) {
+    try {
+      if (typeof getComputedStyle !== "function") return false;
+      const style = getComputedStyle(el);
+      if (!style) return false;
+      if (style.clip && CLIP_ZERO_RE.test(style.clip)) return true;
+      if (style.clipPath && /inset\(\s*100%/i.test(style.clipPath)) return true;
+    } catch {
+      return false;
+    }
+    return false;
+  }
+
+  const OFFSCREEN_MARGIN_PX = 100; // tolerance — a lazy-load offset just above the fold is not "off-screen"
+  // `getBoundingClientRect` is relative to the CURRENT viewport, not the
+  // document — and extract.js can run at any scroll position (it's injected
+  // on a user gesture on whatever the tab currently shows). A long article's
+  // opening paragraphs, scrolled past, would have a negative top/bottom at
+  // that instant: reading that as "off-screen" would delete real content.
+  // The classic hiding technique (`left: -9999px` and relatives) always
+  // pairs with `position: fixed`/`absolute` — normal flowed prose can't
+  // reach those coordinates any other way — so require that position too.
+  function isOffscreen(el, viewport) {
+    const position = safeComputedPosition(el);
+    if (position !== "fixed" && position !== "absolute") return false;
+    const rect = safeRect(el);
+    if (!rect) return false;
+    const right = rect.right != null ? rect.right : (rect.left || 0) + (rect.width || 0);
+    const bottom = rect.bottom != null ? rect.bottom : (rect.top || 0) + (rect.height || 0);
+    const left = rect.left != null ? rect.left : 0;
+    return (
+      right < -OFFSCREEN_MARGIN_PX ||
+      bottom < -OFFSCREEN_MARGIN_PX ||
+      left > viewport.w + OFFSCREEN_MARGIN_PX * 10
+    );
+  }
+
+  // Conservative on purpose (docs/DECISIONS.md T45 motif): exact string
+  // equality only, both values present and non-transparent. Misses
+  // near-matches and inherited backgrounds; a false negative here just
+  // means the text is kept, same as today.
+  function sameColorAsBackground(el) {
+    try {
+      if (typeof getComputedStyle !== "function") return false;
+      const style = getComputedStyle(el);
+      if (!style || !style.color || !style.backgroundColor) return false;
+      if (style.backgroundColor === "transparent" || style.backgroundColor === "rgba(0, 0, 0, 0)") return false;
+      return style.color === style.backgroundColor;
+    } catch {
+      return false;
+    }
+  }
+
+  function isInvisibleToEye(el, viewport) {
+    return (
+      isNearZeroFontSize(el) || isClippedSrOnly(el) || isOffscreen(el, viewport) || sameColorAsBackground(el)
+    );
+  }
+
+  function findInvisibleTextElements(root) {
+    if (!root || typeof root.querySelectorAll !== "function") return [];
+    let all = [];
+    try {
+      all = Array.from(root.querySelectorAll("*"));
+    } catch {
+      return [];
+    }
+    const viewport = viewportSize();
+    const out = [];
+    for (const el of all) {
+      if (isInvisibleToEye(el, viewport)) out.push(el);
+    }
+    return out;
+  }
+
+  // Step — structure as plain text (section 5 point 5): headings become
+  // `# `/`## `/`### ` lines, list items become `- ` lines. Deliberately NOT
+  // a DOM-walking serializer: `innerText` already produces correct
+  // paragraph breaks (see file header — that's why it was chosen over
+  // `textContent`). Reinventing that walk risks fragmenting a sentence's own
+  // inline markup (`<em>`, `<a>`) into separate lines. Instead: find each
+  // heading/list item's OWN rendered text as an exact line already present
+  // in the innerText-derived string (searching forward-only, so repeated
+  // labels don't tag the wrong occurrence), and prefix that line in place.
+  // A heading whose text does not surface as a single exact line (e.g. it
+  // contains a hard <br>) simply keeps no prefix — degrades silently, never
+  // throws, never touches the text otherwise.
+  function headingPrefixFor(tag) {
+    if (tag === "H1") return "# ";
+    if (tag === "H2") return "## ";
+    if (tag === "H3" || tag === "H4" || tag === "H5" || tag === "H6") return "### ";
+    return "";
+  }
+
+  function applyStructurePrefixes(text, scopeEl, excludedEls) {
+    if (!text || !scopeEl || typeof scopeEl.querySelectorAll !== "function") return text;
+    let structuralEls = [];
+    try {
+      structuralEls = Array.from(scopeEl.querySelectorAll("h1, h2, h3, h4, h5, h6, li"));
+    } catch {
+      return text;
+    }
+    if (!structuralEls.length) return text;
+
+    const lines = text.split("\n");
+    let searchFrom = 0;
+    for (const el of structuralEls) {
+      if (isWithinExcluded(el, excludedEls)) continue;
+      if (!isRenderedCandidate(el)) continue;
+      const prefix = el.tagName === "LI" ? "- " : headingPrefixFor(el.tagName);
+      if (!prefix) continue;
+      const own = normalizeFieldText(visibleText(el));
+      if (!own) continue;
+      for (let i = searchFrom; i < lines.length; i += 1) {
+        const trimmed = lines[i].trim();
+        if (trimmed === own && !/^(#{1,3}|-)\s/.test(trimmed)) {
+          lines[i] = `${prefix}${trimmed}`;
+          searchFrom = i + 1;
+          break;
+        }
+      }
+    }
+    return lines.join("\n");
+  }
+
+  // Step — readability (section 6, T45): tells the panel a page could not be
+  // read, instead of silently sending near-nothing to the model. Measured
+  // failure modes: a PDF viewer (no injection possible → empty), a map drawn
+  // on `<canvas>` (structured pixels, no extractable text). "canvas" only
+  // fires when BOTH signals agree (a dominant canvas AND little text) — a
+  // canvas-based ad banner next to a normal article must never flip a good
+  // read to "canvas".
+  const CANVAS_COVERAGE_THRESHOLD = 0.5;
+  const READABILITY_CANVAS_MAX_CHARS = 300;
+  const READABILITY_EMPTY_MAX_CHARS = 200;
+
+  function hasLargeCanvas() {
+    try {
+      if (typeof document.querySelectorAll !== "function") return false;
+      const canvases = document.querySelectorAll("canvas");
+      const viewport = viewportSize();
+      for (const c of canvases) {
+        const { coverageRatio } = rectMetrics(safeRect(c), viewport);
+        if (coverageRatio >= CANVAS_COVERAGE_THRESHOLD) return true;
+      }
+    } catch {
+      return false;
+    }
+    return false;
+  }
+
+  function computeReadability(text, items, facts) {
+    let len = (text || "").length;
+    if (Array.isArray(items)) {
+      for (const it of items) {
+        len += (it.title || "").length + (it.detail || "").length + (it.price || "").length + (it.location || "").length;
+      }
+    }
+    if (Array.isArray(facts)) {
+      for (const f of facts) len += (f.label || "").length + (f.value || "").length;
+    }
+    if (hasLargeCanvas() && len < READABILITY_CANVAS_MAX_CHARS) return "canvas";
+    if (len < READABILITY_EMPTY_MAX_CHARS) return "empty";
+    return "ok";
+  }
+
   // Orchestrates steps 1-5 for `kind: "page"`. Never throws: any failure
   // degrades to today's plain-text `other` behavior (docs/PROTOCOL.md,
   // "other": "Une exception … ne fait jamais échouer l'extraction.").
@@ -988,6 +1445,17 @@
       excludedEls = [];
     }
 
+    // T45 section 5 point 6 — feed elements invisible to the eye into the
+    // same subtraction mechanism overlays already use. Downstream (main
+    // region, facts, items, structure prefixes) all thread `excludedEls`
+    // through, so this one merge covers the whole pipeline.
+    try {
+      excludedEls = excludedEls.concat(findInvisibleTextElements(document.body));
+    } catch {
+      // keep excludedEls as resolved above — a broken scan here must not
+      // block extraction.
+    }
+
     // Garde-fou : exclusion trop agressive → on l'annule et on reprend la
     // page entière, comportement d'aujourd'hui, avec pageKind "other" —
     // pas juste un reset silencieux qui laisserait retenter list/listing
@@ -996,14 +1464,16 @@
       if (!contentRoot && excludedEls.length) {
         const wholePageAfterExclusion = textExcludingNodes(document.body, excludedEls).trim();
         if (wholePageAfterExclusion.length < OVERLAY_FALLBACK_MIN_VISIBLE_CHARS) {
+          const fallbackText = fallbackWholePageText();
           return {
             kind: "page",
             url: safePageUrl(),
             title: document.title || "",
             pageKind: "other",
-            text: fallbackWholePageText(),
+            text: fallbackText,
             hasVideoElement: hasVideoElement(),
             hasArticleMarkup: hasArticleMarkup(),
+            readability: computeReadability(fallbackText, undefined, undefined),
           };
         }
       }
@@ -1017,13 +1487,15 @@
     try {
       mainRegionEl = findMainRegion(searchRoot, excludedEls);
     } catch {
+      const fallbackText = fallbackWholePageText();
       return {
         kind: "page",
         url: safePageUrl(),
         title: document.title || "",
-        text: fallbackWholePageText(),
+        text: fallbackText,
         hasVideoElement: hasVideoElement(),
         hasArticleMarkup: hasArticleMarkup(),
+        readability: computeReadability(fallbackText, undefined, undefined),
       };
     }
 
@@ -1032,6 +1504,18 @@
       mainRegionText = textExcludingNodes(mainRegionEl, excludedEls);
     } catch {
       mainRegionText = "";
+    }
+
+    // T45 section 5 point 3 — shadow DOM read within the chosen region only:
+    // it supplements the region the rest of the pipeline already trusts,
+    // rather than risking pulling in an unrelated web-component's content.
+    try {
+      const shadowText = collectShadowText(mainRegionEl, excludedEls);
+      if (shadowText) {
+        mainRegionText = mainRegionText ? `${mainRegionText}\n\n${shadowText}` : shadowText;
+      }
+    } catch {
+      // shadow read is a bonus signal — never block extraction on it.
     }
 
     let listCandidate = null;
@@ -1080,6 +1564,7 @@
         let text = "";
         try {
           text = textExcludingEntries(mainRegionEl, excludedEls, listCandidate.entries).trim();
+          text = applyStructurePrefixes(text, mainRegionEl, excludedEls);
         } catch {
           text = "";
         }
@@ -1087,15 +1572,17 @@
           (sum, it) => sum + (it.title || "").length + (it.price || "").length + (it.location || "").length + (it.detail || "").length,
           0,
         );
+        const cappedText = truncate(text, Math.max(0, MAX_CHARS - budgetUsed));
         return {
           kind: "page",
           url: safePageUrl(),
           title: document.title || "",
           pageKind: "list",
           items,
-          text: truncate(text, Math.max(0, MAX_CHARS - budgetUsed)),
+          text: cappedText,
           hasVideoElement: hasVideoElement(),
           hasArticleMarkup: hasArticleMarkup(),
+          readability: computeReadability(cappedText, items, undefined),
         };
       }
       // "pageKind: 'list' sans aucune entrée valide → consigne other".
@@ -1104,20 +1591,26 @@
     const cappedFacts = capFacts(facts);
     if (cappedFacts.length >= 4 && hasChiefNumericFact(cappedFacts, mainRegionEl, h1El, excludedEls)) {
       const budgetUsed = cappedFacts.reduce((sum, f) => sum + f.label.length + f.value.length, 0);
+      const listingText = truncate(
+        applyStructurePrefixes(mainRegionText, mainRegionEl, excludedEls),
+        Math.max(0, MAX_CHARS - budgetUsed),
+      );
       return {
         kind: "page",
         url: safePageUrl(),
         title: document.title || "",
         pageKind: "listing",
         facts: cappedFacts,
-        text: truncate(mainRegionText, Math.max(0, MAX_CHARS - budgetUsed)),
+        text: listingText,
         hasVideoElement: hasVideoElement(),
         hasArticleMarkup: hasArticleMarkup(),
+        readability: computeReadability(listingText, undefined, cappedFacts),
       };
     }
 
     const articleMarkup = hasArticleMarkup();
-    const text = truncate(mainRegionText || fallbackWholePageText());
+    const structuredMainText = applyStructurePrefixes(mainRegionText, mainRegionEl, excludedEls);
+    const text = truncate(structuredMainText || fallbackWholePageText());
     if (articleMarkup || mainRegionText.trim().length > ARTICLE_TEXT_THRESHOLD) {
       return {
         kind: "page",
@@ -1127,6 +1620,7 @@
         text,
         hasVideoElement: hasVideoElement(),
         hasArticleMarkup: articleMarkup,
+        readability: computeReadability(text, undefined, undefined),
       };
     }
 
@@ -1138,6 +1632,7 @@
       text,
       hasVideoElement: hasVideoElement(),
       hasArticleMarkup: articleMarkup,
+      readability: computeReadability(text, undefined, undefined),
     };
   }
 
@@ -1159,16 +1654,20 @@
         needsTranscript: true,
         hasVideoElement: hasVideoElement(),
         hasArticleMarkup: false,
+        readability: "empty",
       };
     }
+    const transcriptText = truncate(transcript);
     return {
       kind: "youtube",
       url: safePageUrl(),
       title: document.title || "",
       videoId,
-      text: truncate(transcript),
+      text: transcriptText,
       hasVideoElement: hasVideoElement(),
       hasArticleMarkup: false,
+      // A short video has a short transcript: still the whole content.
+      readability: transcriptText.trim() ? "ok" : "empty",
     };
   }
 
@@ -1177,13 +1676,15 @@
   } catch {
     // docs/PROTOCOL.md: an exception during pageKind/facts/items detection
     // never fails the extraction — degrade to today's plain text.
+    const fallbackText = truncate(articleText());
     return {
       kind: "page",
       url: safePageUrl(),
       title: document.title || "",
-      text: truncate(articleText()),
+      text: fallbackText,
       hasVideoElement: hasVideoElement(),
       hasArticleMarkup: hasArticleMarkup(),
+      readability: computeReadability(fallbackText, undefined, undefined),
     };
   }
 })();
