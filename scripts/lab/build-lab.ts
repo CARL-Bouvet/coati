@@ -30,7 +30,9 @@ import { join, dirname } from "path";
 const ROOT = join(import.meta.dir, "..", ".."); // repo root
 const EXT = join(ROOT, "extension");
 const LAB_SRC = join(ROOT, "scripts", "lab");
-const OUT = join(ROOT, ".tmp", "lab");
+// COATI_LAB_OUT: optional override, so two parallel sessions never wipe
+// each other's tree (default unchanged).
+const OUT = process.env.COATI_LAB_OUT ?? join(ROOT, ".tmp", "lab");
 const FONTS_SRC = join(ROOT, ".tmp", "fonts");
 
 function stateIdsFromFixtureFile(path: string): string[] {
@@ -195,7 +197,15 @@ async function main() {
   const fontsDir = join(assetsDir, "fonts");
   ensureDir(fontsDir);
   for (const font of ["manrope", "inter", "figtree", "geist"]) {
-    cpSync(join(FONTS_SRC, `${font}.woff2`), join(fontsDir, `${font}.woff2`));
+    // Identity-board fonts are a local download, not versioned: a fresh
+    // checkout lacks them. Skip with a warning so the panel/options lab
+    // still builds; only the identity board falls back to system fonts.
+    const src = join(FONTS_SRC, `${font}.woff2`);
+    if (!existsSync(src)) {
+      console.warn(`[lab] identity font missing, skipped: ${src}`);
+      continue;
+    }
+    cpSync(src, join(fontsDir, `${font}.woff2`));
   }
   const identityDir = join(OUT, "identity");
   cpSync(join(LAB_SRC, "static", "board.html"), join(identityDir, "board.html"));

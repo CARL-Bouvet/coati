@@ -17,7 +17,7 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 
 const ROOT = join(import.meta.dir, "..", "..");
-const LAB_OUT = join(ROOT, ".tmp", "lab");
+const LAB_OUT = process.env.COATI_LAB_OUT ?? join(ROOT, ".tmp", "lab"); // same override as build-lab.ts
 const INDEX_HTML = join(LAB_OUT, "index.html");
 
 if (!existsSync(INDEX_HTML)) {
@@ -39,7 +39,7 @@ function collectStates() {
   return states;
 }
 
-const WIDTHS = { panel: [320, 520], options: [1000], prompts: [800, 1280] };
+const WIDTHS = { panel: [320, 520], options: [520, 800], prompts: [800, 1280] };
 const VIEWPORT_HEIGHT = 900;
 
 // Interactive elements in scope (task spec): button, link, role=button,

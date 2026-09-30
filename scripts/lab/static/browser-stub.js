@@ -301,6 +301,17 @@
       onActivated: { addListener: function () {} },
       onUpdated: { addListener: function () {} },
     },
+    // commands.getAll() (options page, "Raccourci clavier"). fixture.commands
+    // overrides the manifest default; `shortcut: ""` = unset by the user.
+    commands: {
+      getAll: function () {
+        return Promise.resolve(
+          (fixture.commands || [{ name: "_execute_action", shortcut: "Alt+Shift+C" }]).map(function (c) {
+            return Object.assign({ description: "" }, c);
+          }),
+        );
+      },
+    },
     scripting: {
       executeScript: function (details) {
         return handleExecuteScript(details);
@@ -309,6 +320,8 @@
     storage: {
       local: makeArea(fixture.storageLocal),
       session: makeArea(fixture.storageSession),
+      // No cross-page writes in the lab: the listener is accepted, never fired.
+      onChanged: { addListener: function () {}, removeListener: function () {} },
     },
     permissions: {
       // Simplification (goal-8qVhz10H, lot 4/panel): `contains`/`request`/
@@ -383,5 +396,15 @@
         },
       }),
     });
+    // Firefox >= 137 only; fixture.geckoShortcutSettings: false simulates an
+    // older Firefox (the options page then shows a manual instruction).
+    if (fixture.geckoShortcutSettings !== false) {
+      window.browser.commands = Object.assign({}, api.commands, {
+        openShortcutSettings: function () {
+          console.info("[lab] commands.openShortcutSettings() — no-op in the lab");
+          return Promise.resolve();
+        },
+      });
+    }
   }
 })();

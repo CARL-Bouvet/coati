@@ -1,4 +1,5 @@
-// Coati options page — pairing token entry.
+// Coati options page — model, page reading default, shortcut, sites,
+// history, about, and (advanced) pairing token entry.
 //
 // The token is a secret: it MUST live in chrome.storage.session (wiped when
 // the browser closes), never chrome.storage.local (unencrypted on disk).
@@ -6,6 +7,13 @@
 import { api, IS_GECKO } from "./lib/browser-compat.js";
 import { providerLabel, describeProviderUnavailable, CONNECTION_STATUS_LABELS } from "./lib/labels.js";
 import { RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./panel/retention.js";
+import { shortcutKeys, actionShortcut } from "./lib/shortcut.js";
+import { computeCodeFingerprint } from "./lib/build-fingerprint.js";
+
+// Same key and value semantics as extension/panel/panel.js (ATTACH_PAGE_KEY,
+// attachPagePreference): a boolean once the user chose, null/absent = never
+// chosen, which the panel treats as "on".
+const ATTACH_PAGE_KEY = "coati:attachPage";
 
 // Fixed suggestions offered even when not yet granted (deliverable 4 —
 // "Sites où Coati se reconnaît tout seul"). Any origin already granted is
@@ -23,8 +31,19 @@ const els = {
   save: document.getElementById("save"),
   status: document.getElementById("status"),
   statusLabel: document.querySelector("#status .status-label"),
+  headerStatus: document.getElementById("headerStatus"),
+  headerStatusLabel: document.querySelector("#headerStatus .status-label"),
+  advanced: document.getElementById("advanced"),
+  attachPage: document.getElementById("attachPage"),
+  shortcutKeys: document.getElementById("shortcutKeys"),
+  shortcutEdit: document.getElementById("shortcutEdit"),
+  shortcutHelp: document.getElementById("shortcutHelp"),
+  openPrompts: document.getElementById("openPrompts"),
+  aboutVersion: document.getElementById("aboutVersion"),
+  aboutFingerprint: document.getElementById("aboutFingerprint"),
   retention: document.getElementById("retention"),
   siteToggles: document.getElementById("siteToggles"),
+  modelSection: document.getElementById("modelSection"),
   modelDisconnected: document.getElementById("modelDisconnected"),
   providerList: document.getElementById("providerList"),
   modelField: document.getElementById("modelField"),
@@ -64,12 +83,26 @@ async function init() {
   // wrong under Firefox — same IS_GECKO detection panel.js already uses for
   // its own browser-specific text (see applyConnectionBanner()).
   els.siteTogglesHelp.textContent = IS_GECKO
-    ? "Sans cette autorisation, Firefox cache à l'extension quel site est ouvert dans l'onglet, donc le bouton principal reste générique tant que vous n'avez pas cliqué dessus."
-    : "Sans cette autorisation, Chrome cache à l'extension quel site est ouvert dans l'onglet, donc le bouton principal reste générique tant que vous n'avez pas cliqué dessus.";
+    ? "Sur ces sites, Firefox laisse Coati voir quel site est ouvert : le panneau propose tout de suite les bons boutons."
+    : "Sur ces sites, Chrome laisse Coati voir quel site est ouvert : le panneau propose tout de suite les bons boutons.";
 
-  const data = await api.storage.local.get(RETENTION_DAYS_KEY);
+  const data = await api.storage.local.get([RETENTION_DAYS_KEY, ATTACH_PAGE_KEY]);
   const retentionDays = parseStoredRetentionDays(data[RETENTION_DAYS_KEY]);
   els.retention.value = retentionDays === null ? "never" : String(retentionDays);
+  // Same default as the panel: never chosen (null/absent) reads as "on".
+  els.attachPage.checked = typeof data[ATTACH_PAGE_KEY] === "boolean" ? data[ATTACH_PAGE_KEY] : true;
+  els.attachPage.addEventListener("change", () => {
+    api.storage.local.set({ [ATTACH_PAGE_KEY]: els.attachPage.checked });
+  });
+
+  els.openPrompts.addEventListener("click", (event) => {
+    // Same opening path as the panel's "Mes prompts" entry: a new tab.
+    event.preventDefault();
+    api.tabs.create({ url: api.runtime.getURL("prompts/prompts.html") });
+  });
+
+  setupShortcut();
+  showAbout();
 
   els.save.addEventListener("click", () => applyToken(els.token.value.trim()));
   // The spec's primary flow is a paste (Firefox: the /pair secret; Chromium
@@ -128,8 +161,15 @@ async function saveRetention() {
 }
 
 function applyStatus(state) {
+  const label = CONNECTION_STATUS_LABELS[state] ?? state;
   els.status.className = `status status--${state}`;
-  els.statusLabel.textContent = CONNECTION_STATUS_LABELS[state] ?? state;
+  els.statusLabel.textContent = label;
+  els.headerStatus.className = `status status--${state}`;
+  els.headerStatusLabel.textContent = label;
+
+  // Firefox with no token: the pairing field is the one thing this page is
+  // needed for, so don't leave it folded inside "Avancé".
+  if (IS_GECKO && state === "no-token") els.advanced.open = true;
 
   if (state !== "connected") {
     // Never show a stale provider/model choice while we can't confirm it
@@ -195,7 +235,9 @@ function applyTestResult(message) {
   }
   const result = testResultsByProvider.get(message.provider);
   if (result) {
-    result.textContent = message.message || (message.ok ? "OK" : "Échec");
+    // `message` is the broker's French sentence (docs/PROTOCOL.md,
+    // settings.test-result); a plain fallback if it is ever missing.
+    result.textContent = message.message || (message.ok ? "Connexion réussie." : "La connexion a échoué.");
     result.className = `test-result ${message.ok ? "test-result--ok" : "test-result--error"}`;
   }
 }
@@ -207,6 +249,9 @@ function applyTestResult(message) {
  * options.css and addEventListener calls below). */
 function renderModelSection(settings) {
   els.modelDisconnected.hidden = settings !== null;
+  // #modelField lives inside the selected provider's card (moved below);
+  // park it back in its section before the list is emptied.
+  els.modelSection.appendChild(els.modelField);
   clearChildren(els.providerList);
   testButtonsByProvider.clear();
   testResultsByProvider.clear();
@@ -218,7 +263,7 @@ function renderModelSection(settings) {
 
   for (const provider of settings.available) {
     const item = document.createElement("li");
-    item.className = "provider-item";
+    item.className = provider.id === settings.provider ? "provider-item provider-item--selected" : "provider-item";
 
     const label = document.createElement("label");
     const radio = document.createElement("input");
@@ -238,6 +283,14 @@ function renderModelSection(settings) {
 
     label.appendChild(radio);
     label.appendChild(name);
+
+    // Right-aligned on the name line (options.css, margin-left: auto).
+    if (provider.configured) {
+      const configured = document.createElement("span");
+      configured.className = "provider-configured";
+      configured.textContent = provider.id === "claude-api" ? "clé enregistrée" : "configuré";
+      label.appendChild(configured);
+    }
     item.appendChild(label);
 
     const description = document.createElement("p");
@@ -245,29 +298,32 @@ function renderModelSection(settings) {
     description.textContent = PROVIDER_DESCRIPTIONS[provider.id] ?? "";
     item.appendChild(description);
 
-    if (provider.configured) {
-      const configured = document.createElement("span");
-      configured.className = "provider-configured";
-      configured.textContent = provider.id === "claude-api" ? "clé enregistrée" : "configuré";
-      item.appendChild(configured);
-    }
-
     if (!provider.available && provider.reason) {
       // `provider.reason` is free-text English straight from the broker
       // (broker/src/providers/*.ts) — never shown alone. describeProviderUnavailable()
       // gives it a French label and demotes the broker's own words to a
       // secondary "Détail : …" line (bug report gap 3).
+      // First line = French label (danger colour), the rest = the broker's
+      // own "Détail : …" words, demoted to a muted line.
+      const [headline, ...detailLines] = describeProviderUnavailable(provider.reason).split("\n");
       const reason = document.createElement("span");
       reason.className = "provider-reason";
-      // white-space: pre-line lets the \n from describeProviderUnavailable()
-      // render as a real line break — see options.css.
-      reason.textContent = `— ${describeProviderUnavailable(provider.reason)}`;
+      reason.textContent = headline;
       item.appendChild(reason);
+      if (detailLines.length > 0) {
+        const detail = document.createElement("span");
+        detail.className = "provider-reason-detail";
+        detail.textContent = detailLines.join("\n");
+        item.appendChild(detail);
+      }
     }
 
     if (provider.id === "claude-api") {
       item.appendChild(buildApiKeyField());
     }
+
+    // The model name belongs to the selected provider: show it in its card.
+    if (provider.id === settings.provider) item.appendChild(els.modelField);
 
     item.appendChild(buildTestRow(provider.id));
 
@@ -354,6 +410,7 @@ function buildTestRow(providerId) {
 
   const result = document.createElement("span");
   result.className = "test-result";
+  result.setAttribute("role", "status");
   testResultsByProvider.set(providerId, result);
 
   row.appendChild(button);
@@ -386,7 +443,71 @@ function renderModelField(settings) {
     els.modelInput.hidden = false;
     els.modelSave.hidden = false;
     els.modelInput.value = settings.model ?? "";
+    els.modelInput.placeholder =
+      settings.provider === "claude-api" ? "ex : claude-sonnet-4-5 (facultatif)" : "ex : llama3.2 (facultatif)";
   }
+}
+
+// --- Keyboard shortcut ------------------------------------------------------
+//
+// Read-only here: no browser lets an extension set its own shortcut, so the
+// button only opens the browser's own shortcut page.
+
+function setupShortcut() {
+  renderShortcut();
+  // Coming back from the shortcut page (another tab): re-read the value.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") renderShortcut();
+  });
+  api.commands?.onChanged?.addListener?.(renderShortcut);
+
+  if (IS_GECKO) {
+    // commands.openShortcutSettings() exists from Firefox 137; older
+    // versions get the one-line manual path instead of a dead button.
+    if (typeof api.commands?.openShortcutSettings === "function") {
+      els.shortcutEdit.hidden = false;
+      els.shortcutEdit.addEventListener("click", () => api.commands.openShortcutSettings());
+    } else {
+      els.shortcutHelp.hidden = false;
+    }
+  } else {
+    // An <a href="chrome://…"> is blocked from an extension page; tabs.create
+    // is allowed. Brave redirects chrome:// to brave:// by itself.
+    els.shortcutEdit.hidden = false;
+    els.shortcutEdit.addEventListener("click", () => api.tabs.create({ url: "chrome://extensions/shortcuts" }));
+  }
+}
+
+async function renderShortcut() {
+  const commands = await api.commands?.getAll?.().catch(() => []);
+  const keys = shortcutKeys(actionShortcut(commands));
+  clearChildren(els.shortcutKeys);
+  if (keys.length === 0) {
+    const none = document.createElement("span");
+    none.className = "shortcut-none";
+    none.textContent = "non défini";
+    els.shortcutKeys.appendChild(none);
+    return;
+  }
+  keys.forEach((key, index) => {
+    if (index > 0) {
+      const plus = document.createElement("span");
+      plus.className = "shortcut-plus";
+      plus.textContent = "+";
+      els.shortcutKeys.appendChild(plus);
+    }
+    const kbd = document.createElement("kbd");
+    kbd.textContent = key;
+    els.shortcutKeys.appendChild(kbd);
+  });
+}
+
+// --- About ------------------------------------------------------------------
+
+async function showAbout() {
+  els.aboutVersion.textContent = api.runtime.getManifest().version;
+  const fingerprint = await computeCodeFingerprint(api).catch(() => null);
+  els.aboutFingerprint.textContent = fingerprint ?? "indisponible";
 }
 
 // --- Per-site activation (deliverable 4) -----------------------------------

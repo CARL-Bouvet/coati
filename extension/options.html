@@ -2,78 +2,137 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Réglages — Coati</title>
   <link rel="stylesheet" href="lib/theme.css" />
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
-  <h1>Réglages Coati</h1>
-  <p class="help">
-    Sous Chromium/Brave, rien à coller ici : l'extension s'appaire seule avec
-    le broker. Sous Firefox, collez ici le secret affiché par
-    <code>http://127.0.0.1:8787/pair</code> — un geste à faire une seule fois
-    par installation. Le jeton n'est jamais écrit sur le disque par
-    l'extension : il reste en mémoire vive et disparaît à la fermeture du
-    navigateur.
-  </p>
+  <main class="page">
+    <header class="page-head">
+      <h1>Réglages Coati</h1>
+      <span id="headerStatus" class="status status--unknown" role="status">
+        <span class="status-dot"></span>
+        <span class="status-label">…</span>
+      </span>
+    </header>
 
-  <div class="field">
-    <label for="token">Jeton de pairage</label>
-    <input id="token" type="password" autocomplete="off" placeholder="…" />
-  </div>
+    <!-- 1. Model: the only section whose content comes from the broker. -->
+    <section class="section section--primary" aria-labelledby="h-model">
+      <h2 id="h-model">Modèle</h2>
+      <p class="help">
+        Le modèle qui répond à vos demandes. Ce choix est enregistré par le
+        broker, sur cette machine.
+      </p>
+      <div id="modelSection">
+        <p id="modelDisconnected" class="notice" hidden>
+          Broker non connecté : impossible d'afficher ou de changer le modèle.
+        </p>
+        <ul id="providerList" class="provider-list"></ul>
+        <div id="modelField" class="field" hidden>
+          <label for="modelSelect" id="modelLabel">Nom du modèle</label>
+          <select id="modelSelect" hidden></select>
+          <div class="inline-row">
+            <input id="modelInput" type="text" aria-labelledby="modelLabel" placeholder="ex : llama3.2 (facultatif)" hidden />
+            <button id="modelSave" type="button" class="button-secondary" hidden>Enregistrer le modèle</button>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  <div class="actions">
-    <button id="save" type="button">Enregistrer</button>
-    <span id="status" class="status status--unknown">
-      <span class="status-dot"></span>
-      <span class="status-label">…</span>
-    </span>
-  </div>
+    <!-- 2. Default of the panel's "Lire la page" switch. -->
+    <section class="section" aria-labelledby="h-attach">
+      <h2 id="h-attach">Lecture de la page</h2>
+      <label class="check-row">
+        <input id="attachPage" type="checkbox" />
+        <span>Joindre la page ouverte à mes questions</span>
+      </label>
+      <p class="help help--under-check">
+        Réglage de départ de l'interrupteur « Lire la page » du panneau.
+      </p>
+    </section>
 
-  <h1>Modèle</h1>
-  <p class="help">
-    Coati ne revend jamais d'accès à un modèle : choisissez celui qui traite
-    vos demandes — votre propre clé Anthropic, un modèle Ollama local, ou tout
-    autre fournisseur installé sur cette machine. Ce réglage vit dans le
-    broker ; changer de fournisseur ici s'applique à la prochaine requête.
-  </p>
-  <div id="modelSection">
-    <p id="modelDisconnected" class="help" hidden>
-      Broker non connecté — impossible d'afficher ou de changer le fournisseur de modèle.
-    </p>
-    <ul id="providerList" class="provider-list"></ul>
-    <div id="modelField" class="field" hidden>
-      <label for="modelSelect">Modèle</label>
-      <select id="modelSelect" hidden></select>
-      <input id="modelInput" type="text" placeholder="ex : llama3.2 ou claude-sonnet-4-5 (optionnel)" hidden />
-      <button id="modelSave" type="button" hidden>Enregistrer le modèle</button>
-    </div>
-  </div>
+    <!-- 3. Keyboard shortcut (read-only here; edited in the browser). -->
+    <section class="section" aria-labelledby="h-shortcut">
+      <h2 id="h-shortcut">Raccourci clavier</h2>
+      <div class="shortcut-row">
+        <span class="shortcut-label">Ouvrir Coati</span>
+        <span id="shortcutKeys" class="shortcut-keys"></span>
+        <button id="shortcutEdit" type="button" class="button-secondary" hidden>Modifier le raccourci</button>
+      </div>
+      <p id="shortcutHelp" class="help" hidden>
+        Pour le changer : about:addons, roue dentée, puis « Gérer les raccourcis d'extensions ».
+      </p>
+    </section>
 
-  <h1>Conservation de l'historique</h1>
-  <p class="help">
-    La conversation (y compris les extraits de pages qu'elle contient) est
-    stockée non chiffrée sur le disque de cet ordinateur. Ce réglage détermine
-    combien de temps elle y reste avant d'être effacée automatiquement.
-  </p>
+    <!-- 4. Per-site host permissions + link to the prompt library. -->
+    <section class="section" aria-labelledby="h-sites">
+      <h2 id="h-sites">Sites activés</h2>
+      <p id="siteTogglesHelp" class="help">
+        Sur ces sites, Coati reconnaît la page dès l'ouverture du panneau.
+      </p>
+      <ul id="siteToggles" class="site-toggles"></ul>
+      <p class="help help--link">
+        Les prompts proposés sur chaque site se règlent dans
+        <a id="openPrompts" class="link" href="prompts/prompts.html">Mes prompts</a>.
+      </p>
+    </section>
 
-  <div class="field">
-    <label for="retention">Conserver l'historique pendant</label>
-    <select id="retention">
-      <option value="7">7 jours</option>
-      <option value="30">30 jours</option>
-      <option value="90">90 jours</option>
-      <option value="never">Jamais (aucune expiration automatique)</option>
-    </select>
-  </div>
+    <!-- 5. Conversation retention. -->
+    <section class="section" aria-labelledby="h-history">
+      <h2 id="h-history">Historique</h2>
+      <p class="help">
+        La conversation est gardée sur cet ordinateur, non chiffrée, puis
+        effacée après ce délai.
+      </p>
+      <div class="field">
+        <label for="retention">Conserver pendant</label>
+        <select id="retention">
+          <option value="7">7 jours</option>
+          <option value="30">30 jours</option>
+          <option value="90">90 jours</option>
+          <option value="never">Sans limite</option>
+        </select>
+      </div>
+    </section>
 
-  <h1>Sites où Coati se reconnaît tout seul</h1>
-  <p id="siteTogglesHelp" class="help">
-    Sans cette autorisation, le navigateur cache à l'extension quel site est
-    ouvert dans l'onglet, donc le bouton principal reste générique tant que
-    vous n'avez pas cliqué dessus.
-  </p>
-  <ul id="siteToggles" class="site-toggles"></ul>
+    <!-- 6. About. -->
+    <section class="section" aria-labelledby="h-about">
+      <h2 id="h-about">À propos</h2>
+      <dl class="about-list">
+        <dt>Version</dt>
+        <dd id="aboutVersion">…</dd>
+        <dt>Empreinte du code</dt>
+        <dd><code id="aboutFingerprint">…</code></dd>
+        <dt>Licence</dt>
+        <dd>AGPL-3.0</dd>
+        <dt>Code source</dt>
+        <dd><a class="link" href="https://github.com/CARL-Bouvet/coati" target="_blank" rel="noopener noreferrer">github.com/CARL-Bouvet/coati</a></dd>
+      </dl>
+    </section>
+
+    <!-- 7. Advanced: pairing token (Firefox only). -->
+    <details id="advanced" class="section advanced">
+      <summary><h2>Avancé</h2></summary>
+      <div class="advanced-body">
+        <div class="field">
+          <label for="token">Jeton de pairage</label>
+          <p class="help help--tight">
+            Firefox seulement : collez le secret affiché sur
+            <code>http://127.0.0.1:8787/pair</code>. Il n'est jamais écrit sur le disque.
+          </p>
+          <input id="token" type="password" autocomplete="off" placeholder="Coller le secret ici" />
+        </div>
+        <div class="actions">
+          <button id="save" type="button">Enregistrer</button>
+          <span id="status" class="status status--unknown">
+            <span class="status-dot"></span>
+            <span class="status-label">…</span>
+          </span>
+        </div>
+      </div>
+    </details>
+  </main>
 
   <script src="options.js" type="module"></script>
 </body>

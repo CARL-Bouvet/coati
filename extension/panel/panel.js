@@ -85,6 +85,8 @@ import { encartItems } from "./encart-items.js";
 import { isRedetectDuplicate, parseActionClickedTabId } from "./redetect-dedupe.js";
 // Unreadable-page decision (T46 point 3) — pure, see its own header comment.
 import { isPdfUrl, readabilityMessage, stripReadability, PDF_MESSAGE } from "./unreadable.js";
+import { renderMarkdown } from "./markdown.js";
+import { computeCodeFingerprint } from "../lib/build-fingerprint.js";
 
 // Design-variant hook for captures only (notes/PLAN_goal_panneau_v2.md,
 // "Contrat commun") — inert unless the panel's own address carries
@@ -132,26 +134,6 @@ const PAGE_KIND_BUTTON_LABELS = {
   article: "Résumer cet article",
   other: "Résumer cette page",
 };
-
-// Fixed file list for the code fingerprint (deliverable C1) — order and
-// paths MUST stay identical to scripts/stamp.sh's FILES array, or the two
-// hashes computed independently (one from what the browser actually loaded,
-// one from disk) stop being comparable, defeating the whole point.
-const FINGERPRINT_FILES = [
-  "background/service-worker.js",
-  "content/detect.js",
-  "content/extract.js",
-  "lib/browser-compat.js",
-  "manifest.json",
-  "options.css",
-  "options.html",
-  "options.js",
-  "panel/panel.css",
-  "panel/panel.html",
-  "panel/panel.js",
-  "panel/retention.js",
-  "panel/timestamps.js",
-];
 
 const els = {
   status: document.getElementById("status"),
@@ -338,6 +320,13 @@ async function init() {
   };
   api.permissions.onAdded.addListener(onPermissionsChanged);
   api.permissions.onRemoved.addListener(onPermissionsChanged);
+  // The settings page writes the same key: adopt its value, or the next
+  // persistConversation() would overwrite it with the stale in-memory one.
+  api.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !(ATTACH_PAGE_KEY in changes)) return;
+    const value = changes[ATTACH_PAGE_KEY].newValue;
+    attachPagePreference = typeof value === "boolean" ? value : null;
+  });
 
   const status = await api.runtime.sendMessage({ type: "coati:panel-ready" }).catch(() => null);
   applyStatus(status?.state ?? "unknown");
@@ -380,25 +369,8 @@ async function init() {
 async function showBuildInfo() {
   els.buildInfo.textContent = "";
   const version = api.runtime.getManifest().version;
-  const fingerprint = await computeCodeFingerprint().catch(() => null);
+  const fingerprint = await computeCodeFingerprint(api).catch(() => null);
   els.buildInfo.textContent = fingerprint ? `v${version} · ${fingerprint}` : `v${version} · empreinte indisponible`;
-}
-
-async function computeCodeFingerprint() {
-  const buffers = await Promise.all(
-    FINGERPRINT_FILES.map((path) => fetch(api.runtime.getURL(path)).then((res) => res.arrayBuffer())),
-  );
-  let totalLength = 0;
-  for (const buf of buffers) totalLength += buf.byteLength;
-  const concatenated = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const buf of buffers) {
-    concatenated.set(new Uint8Array(buf), offset);
-    offset += buf.byteLength;
-  }
-  const digest = await crypto.subtle.digest("SHA-256", concatenated);
-  const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return hex.slice(0, 7);
 }
 
 function onRuntimeMessage(message) {
@@ -1725,7 +1697,7 @@ function addMessage(msg) {
 }
 
 function renderAll() {
-  els.messages.innerHTML = "";
+  els.messages.replaceChildren();
   for (const msg of conversation) renderMessage(msg, { append: true });
   els.messages.scrollTop = els.messages.scrollHeight;
 }
@@ -1755,14 +1727,14 @@ function renderMessage(msg, { append = false } = {}) {
     // prompts-28-09.md, "sous la bulle") — .message--user only aligns the
     // pair. User messages are never re-streamed, so building this once is
     // safe (no later renderMessage() call ever mutates one).
-    node.textContent = "";
+    node.replaceChildren();
     const bubble = document.createElement("div");
     bubble.className = "message-user-bubble";
-    bubble.innerHTML = renderSafeMarkdown(msg.text);
+    bubble.appendChild(renderMarkdown(document, msg.text));
     node.appendChild(bubble);
     node.appendChild(buildRelaunchButton(msg));
   } else {
-    node.innerHTML = renderSafeMarkdown(msg.text);
+    node.replaceChildren(renderMarkdown(document, msg.text));
     // Only a YouTube-context assistant message carries a videoId (set in
     // summarize()) — an ordinary article summary that happens to contain
     // "[1:23]" has none, so its timestamps stay plain text (deliverable 4).
@@ -1831,29 +1803,6 @@ async function seekActiveVideoTab(videoId, seconds) {
     // Tab closed, no more permission, no <video> on the page yet — a seek is
     // best-effort, never worth surfacing an error for.
   }
-}
-
-/**
- * Escapes HTML first, THEN applies a minimal markdown subset on top of the
- * already-escaped text. Content coming from the page or the model is never
- * trusted as markup — only these fixed, code-authored tags are inserted.
- */
-function renderSafeMarkdown(text) {
-  let escaped = escapeHtml(text ?? "");
-  escaped = escaped
-    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
-  return escaped;
-}
-
-function escapeHtml(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 // --- Persistence ----------------------------------------------------------

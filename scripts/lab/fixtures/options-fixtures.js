@@ -9,7 +9,7 @@
     models: [],
     available: [
       { id: "claude-api", available: true, configured: true, label: "Clé API Anthropic" },
-      { id: "ollama", available: false, configured: false, reason: "ollama-unreachable", label: "Ollama" },
+      { id: "ollama", available: false, configured: false, reason: "Ollama unreachable at http://127.0.0.1:11434", label: "Ollama" },
       { id: "demo-module", available: true, configured: false, label: "Modèle maison (module)" },
     ],
   };
@@ -25,7 +25,7 @@
       permissions: ["https://www.youtube.com/*", "https://exemple-actu.fr/*"],
     },
 
-    // Broker non connecté : bandeau "impossible d'afficher le fournisseur".
+    // Broker non connecté : encart "impossible d'afficher le modèle".
     disconnected: {
       status: "disconnected",
       storageLocal: { "coati:retentionDays": null },
@@ -39,6 +39,28 @@
       storageLocal: { "coati:retentionDays": 7 },
       permissions: ["https://www.youtube.com/*"],
       autoAction: { steps: [{ type: "click", selector: ".apikey-clear", delayMs: 30 }] },
+    },
+
+    // "Tester la connexion" réussit pour claude-api.
+    "provider-test-ok": {
+      status: "connected",
+      settings: NOMINAL_SETTINGS,
+      testResults: { "claude-api": { ok: true, message: "Connexion à l'API Anthropic réussie." } },
+      storageLocal: { "coati:retentionDays": 30, "coati:attachPage": false },
+      permissions: ["https://www.youtube.com/*"],
+      autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
+    },
+
+    // Firefox sans jeton, version sans commands.openShortcutSettings() :
+    // raccourci effacé par l'utilisateur ("non défini"), consigne manuelle,
+    // section "Avancé" ouverte d'office sur le champ du jeton.
+    "firefox-no-token": {
+      gecko: true,
+      geckoShortcutSettings: false,
+      status: "no-token",
+      commands: [{ name: "_execute_action", shortcut: "" }],
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
     },
 
     // "Tester la connexion" renvoie un échec pour claude-api.

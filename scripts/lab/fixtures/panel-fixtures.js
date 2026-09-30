@@ -39,6 +39,27 @@
     "Plus de détails ici : https://exemple-actu.fr/dossier/mesure-25-09 — c'est le lien cité " +
     "deux fois dans l'article, une fois en note de bas de page.";
 
+  // Exercises the DOM-based markdown renderer (extension/panel/markdown.js):
+  // a heading, a nested list, a 4-column table, a fenced code block, a
+  // blockquote and a link (rendered as plain "label (url)" text, never an
+  // <a> — CLAUDE.md rule #3).
+  var RICH_ANSWER =
+    "### Ce que dit la page\n\n" +
+    "- Point principal\n" +
+    "  - Sous-point avec un **mot important**\n" +
+    "  - Autre sous-point, voir [la source](https://exemple-actu.fr/dossier/mesure-25-09)\n" +
+    "- Second point\n\n" +
+    "| Site | Prix | Latence | Note |\n" +
+    "|:--|--:|--:|:-:|\n" +
+    "| Fournisseur A | 12€ | 80ms | ✅ |\n" +
+    "| Fournisseur B | 9€ | 140ms | ⚠️ |\n\n" +
+    "```js\n" +
+    "function score(latencyMs) {\n" +
+    "  return latencyMs < 100 ? \"bon\" : \"moyen\";\n" +
+    "}\n" +
+    "```\n\n" +
+    "> À vérifier avant de trancher : ces chiffres datent du 25 septembre.";
+
   var YOUTUBE_TAB = {
     id: 501,
     url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -189,6 +210,25 @@
         "coati:conversation": [
           { id: "m1-u", role: "user", text: "Peux-tu résumer cet article ?\n\n*avec le contenu de la page*" },
           { id: "m1", role: "assistant", text: CONVERSATION_ANSWER, streaming: false },
+        ],
+        "coati:attachPage": true,
+      },
+      prompts: [],
+    },
+
+    // Réponse markdown riche (titre, liste imbriquée, tableau 4 colonnes,
+    // bloc de code, citation, lien) — état requis pour vérifier le rendu
+    // DOM du nouveau markdown.js hors des cas déjà couverts par
+    // "conversation" (deliverable 5, mission markdown DOM).
+    "rich-answer": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      storageLocal: {
+        "coati:conversation": [
+          { id: "ra-u", role: "user", text: "Compare les deux fournisseurs avec un tableau." },
+          { id: "ra1", role: "assistant", text: RICH_ANSWER, streaming: false },
         ],
         "coati:attachPage": true,
       },
