@@ -293,6 +293,8 @@ describe("install-macos.sh / uninstall-macos.sh", () => {
 describe("install-windows.ps1 / uninstall-windows.ps1 — syntax only", () => {
   const pwsh = Bun.which("pwsh");
   const maybeTest = pwsh ? test : test.skip;
+  // pwsh's cold start exceeds bun's 5 s default on the arm64 runner.
+  const PWSH_TIMEOUT_MS = 60_000;
 
   maybeTest("install-windows.ps1 parses without error", () => {
     const result = run([
@@ -302,7 +304,7 @@ describe("install-windows.ps1 / uninstall-windows.ps1 — syntax only", () => {
       `$errors = $null; $null = [System.Management.Automation.Language.Parser]::ParseFile('${join(REPO_ROOT, "scripts/install/install-windows.ps1")}', [ref]$null, [ref]$errors); if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }`,
     ]);
     expect(result.code).toBe(0);
-  });
+  }, PWSH_TIMEOUT_MS);
 
   maybeTest("uninstall-windows.ps1 parses without error", () => {
     const result = run([
@@ -312,5 +314,5 @@ describe("install-windows.ps1 / uninstall-windows.ps1 — syntax only", () => {
       `$errors = $null; $null = [System.Management.Automation.Language.Parser]::ParseFile('${join(REPO_ROOT, "scripts/install/uninstall-windows.ps1")}', [ref]$null, [ref]$errors); if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }`,
     ]);
     expect(result.code).toBe(0);
-  });
+  }, PWSH_TIMEOUT_MS);
 });
