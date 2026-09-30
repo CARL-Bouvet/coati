@@ -208,3 +208,51 @@ l'`Origin` de son WebSocket et obtient l'appairage silencieux. Détail : `PROTOC
 |---|---|---|
 | T48 | **Native Messaging livre à l'extension une clé tirée à chaque démarrage du broker** (fichier `broker-key.json` en 0600, lu par l'hôte natif `com.getcoati.broker`, qui est le même exécutable que le broker, écoute exclusive du port — `reusePort: false`) ; le WebSocket reste le transport ; l'appairage silencieux, la poignée de main `v: 1`, les jetons de session et `/pair` sont retirés du code, dans tous les modes, pas seulement masqués. `legacyPairing` dans `config.json` (éteint par défaut, pour Flatpak et Snap) ajoute juste une seconde clé possible — un secret permanent `S`, imprimé par `coati-broker --show-pairing-secret` — à la même poignée de main `v: 2`. Permission `nativeMessaging` obligatoire dans les deux manifestes ; l'hôte Firefox exige le chemin du manifeste **et** l'ID `coati@getcoati.com`, l'hôte Chromium l'origine exacte | Seul Native Messaging fait vérifier l'ID de l'extension par le navigateur. Livrer une clé plutôt que relayer tous les messages garde le transport existant et ses tests, sans fichier de socket par système ni pagination sous le plafond d'1 Mo. Retirer `v: 1` du code plutôt que le masquer évite qu'un drapeau mal réglé rouvre une surface qu'on croyait fermée. Permission obligatoire : facultative, elle a été signalée en échec sous Firefox 90 et exigerait un clic de plus. Un seul exécutable : un seul fichier à installer, à débloquer et à mettre à jour, sans décalage de version avec l'hôte. L'ID seul comme preuve d'appel Firefox serait rejouable par un exécutable lancé à la main ; exiger aussi le chemin du manifeste est une défense en profondeur gratuite. |
 | T49 | **Poignée de main `v: 2` en défi-réponse HMAC dans les deux sens**, le broker prouvant le premier ; la clé ne circule jamais sur le WebSocket, plus aucun jeton nulle part. Pas de MAC par trame : un relais demanderait d'intercepter le WebSocket d'une autre extension (impossible depuis une extension) ou de partager le port, fermé par l'écoute exclusive. Nonces et preuves validés `^[0-9a-f]{64}$` avant tout décodage, comparaison en temps constant qui ne lève jamais. Plafond de 16 connexions non authentifiées simultanées, au-delà refusées et journalisées avec une limite de débit. Dossier de données durci (lien symbolique ou UID étranger refusés, 0700 réappliqué) et fichiers temporaires en `O_CREAT\|O_EXCL\|O_NOFOLLOW`. Invariants ajoutés côté extension (jamais `setAccessLevel`, pas d'`externally_connectable` ni d'`onMessageExternal`/`onConnectExternal`, `sender.id` vérifié), avec une vérification statique dans les tests du broker. **L'UID du pair n'est pas porté sous macOS et Windows** : la clé et les droits de son fichier suffisent contre un autre compte, et la différence qui reste est écrite dans la frontière de menace | La preuve du broker ferme l'usurpation du port, jusqu'ici acceptée : l'extension n'envoie rien à qui ne connaît pas la clé. Un MAC par trame protégerait contre un relais que la plateforme des extensions n'autorise déjà pas — coût sans bénéfice mesurable ; l'écoute exclusive traite la seule variante qui reste (partage du port). Valider la forme avant de décoder, et ne jamais lever, retire toute classe d'exception non rattrapée de la poignée de main. Le plafond de connexions et le durcissement du dossier répondent à une revue de sécurité du 30/09 qui a jugé la surface d'un broker exposé sur `127.0.0.1` trop ouverte sans eux. Porter l'UID du pair demanderait des appels natifs (`proc_pidinfo`, `GetExtendedTcpTable`) que Bun n'offre pas sans FFI ; hors Linux, un autre compte obtient au plus un défi inutilisable, puis un refus. |
+
+## Accès aux pages et premier lancement (30/09)
+
+Décidé par Romain le 30/09 (goal G5, « voie B »). Sous Chrome, un clic dans le panneau n'accorde
+pas `activeTab` (T46) : sans permission d'hôte, le panneau ne peut pas lire la page où il est
+ouvert. Deux voies restaient : la permission `tabs` (avertissement « Lire votre historique de
+navigation » dès l'installation), ou l'accès « tous les sites » demandé une fois, à l'exécution.
+Romain a retenu la seconde.
+
+**Amendement 2026-09-30 (T42)** : l'activation case par case de la page « Mes prompts » reste, mais
+n'est plus la seule porte. Au premier clic sur le bouton de l'encart (T50), l'extension demande
+**une seule fois** la permission d'hôte optionnelle « tous les sites », `http://*/*` et
+`https://*/*` — schémas explicites, jamais `*://` (Chrome refuse ce motif en silence).
+`permissions.request` part directement du clic, sans `await` avant l'appel (Firefox exige le geste
+dans le même tour de boucle). Aucune permission d'hôte obligatoire, pas de `<all_urls>`, pas de
+`tabs` : rien ne s'affiche à l'installation. La règle du geste ne change pas : avec l'accès à
+tous les sites, Coati ne lit toujours une page qu'au clic (bouton de l'encart, suggestion, envoi
+avec « Lire la page », icône, clic droit, raccourci), jamais au changement d'onglet ni en arrière-
+plan. Qui refuse garde l'activation site par site : le bouton de l'encart devient alors « Activer
+ce site » (demande limitée aux domaines de ce site, comme l'interrupteur « Actif »), et le refus
+est retenu dans `storage.local` (`coati:allSitesDeclined`, une préférence, pas un secret) pour ne
+pas redemander « tous les sites » à chaque page dont l'adresse est connue. La phrase « Pas de
+raccourci « tous les sites » (permission trop large pour un clic) » du motif de T42 est caduque.
+Les deux manifestes déclaraient déjà ces deux motifs en `optional_host_permissions` (Firefox les
+accepte depuis sa version MV3, 109) : aucun changement de manifeste.
+
+**Amendement 2026-09-30 bis (T42)** : tant que « tous les sites » est accordé, la page « Mes
+prompts » montre une ligne en tête de la zone des sites (« Coati a accès à tous les sites, et ne
+lit une page qu'à votre clic. ») et un bouton « Revenir au site par site », qui retire les deux
+seuls motifs `http://*/*` et `https://*/*` : les accords site par site donnés avant restent tels
+quels. Pendant ce temps, les interrupteurs « Actif » s'affichent allumés et verrouillés
+(`aria-disabled`, toujours atteignables au clavier, la ligne en tête comme description
+accessible). Motif : un navigateur ne retire pas un motif de site de sous un accord plus large ;
+l'interrupteur aurait paru ne rien faire.
+
+**Amendement 2026-09-30 (T43)** : le lien gris « Activer » disparaît, remplacé par le bouton de
+l'encart (T50), à la même place (ligne d'en-tête de l'encart). Il se montre dès que la page n'est
+pas accessible, même quand Coati ignore son adresse : la demande « tous les sites » n'a pas besoin
+de connaître l'origine, ce qui lève le « chicken-and-egg » de T29.
+
+**Amendement 2026-09-30 (T29)** : toujours pas de permission `tabs`. Une fois « tous les sites »
+accordé, le panneau connaît l'adresse de l'onglet par ses seules métadonnées (`tabs.get`), sans
+lire la page, comme sur un site activé.
+
+| # | Décision | Motif |
+|---|---|---|
+| T50 | **Bouton « Lire cette page » dans l'en-tête de l'encart, un anneau caramel autour de l'icône du site** (favicon si connue, sinon l'icône de Coati), avec un libellé verbal. Au repos, tant qu'aucune lecture n'a encore réussi par ce bouton, l'anneau **respire** : un halo caramel qui s'élargit et s'efface, 2,4 s par cycle, avec une pause. Pendant la lecture, le même anneau s'ouvre en arc et **tourne** (« Lecture… », `aria-busy`). Après un refus : ni halo ni rotation, libellé « Activer ce site » si l'adresse est connue, et une ligne d'explication. Le halo s'arrête pour de bon après la première lecture réussie (`coati:readButtonUsed` dans `storage.local`). `prefers-reduced-motion` : aucun mouvement, ni halo ni rotation, le libellé porte seul l'état. Nom accessible = le libellé, anneau de focus caramel. | Trois variantes étudiées. **Anneau qui tourne au repos** (l'idée de départ) : une rotation est le signe universel de « chargement, patientez », et l'encart l'utilise déjà pour la détection (`site-card-spinner`, à côté) — le bouton aurait dit « Coati est occupé » au moment précis où il attend l'utilisateur. **Anneau qui se remplit** : se lit comme un compte à rebours, donc comme une action qui partira seule, ce que la règle du geste interdit. **Halo qui respire** (retenu) : la convention des balises d'accueil (« c'est ici, à vous »), sans promesse d'activité. La rotation reste, mais réservée au seul moment où Coati travaille vraiment : le signe dit la vérité dans les deux états. Le libellé verbal porte le sens, l'animation n'ajoute que la vie ; elle s'arrête après le premier usage pour ne pas devenir un reproche permanent. |
+| T51 | **Premier lancement (P20) : une carte de trois coches dans le panneau, sous l'encart** — programme local détecté (état de connexion issu de Native Messaging : `no-host` = absent), modèle connecté (`provider.status`, ou une première réponse complète), accès aux pages (première lecture réussie par le bouton de T50, ou accès déjà accordé). Chaque coche manquante porte son unique action : lien vers la dernière version publiée, ouverture des réglages, désignation du bouton de l'encart. Logo fixe. Une fois les trois réunies, `coati:firstRunDone` (`storage.local`, pas un secret) la masque pour de bon. **Page d'accueil** (`welcome/`) ouverte par `runtime.onInstalled` seulement si `reason === "install"` : épingler l'icône (texte propre à Chrome/Brave ou à Firefox), les trois étapes, lien vers l'installateur. | Aucun premier résumé n'est lancé seul (règle du geste) : la dernière étape finit sur le bouton de l'encart, que l'utilisateur clique lui-même. Une mise à jour ne rouvre pas la page d'accueil : elle ne sert qu'à qui découvre Coati. |

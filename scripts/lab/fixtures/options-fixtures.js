@@ -25,6 +25,25 @@
       permissions: ["https://www.youtube.com/*", "https://exemple-actu.fr/*"],
     },
 
+    // G5 — fournisseur « Compatible OpenAI » actif, préréglage OpenRouter,
+    // clé déjà enregistrée (configured: true, la clé ne revient jamais).
+    "openai-compat-openrouter": {
+      status: "connected",
+      settings: {
+        provider: "openai-compat",
+        model: "mistralai/mistral-small-3.2",
+        models: [],
+        baseUrl: "https://openrouter.ai/api/v1",
+        available: [
+          { id: "openai-compat", available: true, configured: true, label: "Compatible OpenAI" },
+          { id: "claude-api", available: true, configured: false, label: "Clé API Anthropic" },
+          { id: "ollama", available: false, configured: false, reason: "Ollama unreachable at http://127.0.0.1:11434", label: "Ollama" },
+        ],
+      },
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: [],
+    },
+
     // Broker non connecté : encart "impossible d'afficher le modèle".
     disconnected: {
       status: "disconnected",

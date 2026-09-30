@@ -246,6 +246,14 @@ export interface SettingsSetMessage {
    * "leave the stored key unchanged", same as every other field here.
    */
   apiKey?: string;
+  /**
+   * Base URL of the `openai-compat` provider's server (amendement 2026-09-30
+   * bis, goal G5), e.g. "http://localhost:1234/v1". NOT a secret — unlike
+   * apiKey, it IS echoed back in the `settings` response (see
+   * SettingsMessage.baseUrl below). An empty string means "forget the stored
+   * address", same semantics as apiKey. Omitted means "leave unchanged".
+   */
+  baseUrl?: string;
 }
 
 // Added for task 3 (2026-09-21): backs the panel's "Tester la connexion"
@@ -352,8 +360,13 @@ export interface SettingsMessage {
   model?: string;
   available: ProviderStatus[];
   /** Installed model names for the currently-selected provider, when it can
-   * enumerate them (currently only ollama). Absent otherwise. */
+   * enumerate them (currently ollama and openai-compat). Absent otherwise. */
   models?: string[];
+  /** The `openai-compat` provider's configured server address, ONLY when it
+   * is the currently active provider — amendement 2026-09-30 bis. Not a
+   * secret (unlike apiKey, never included here): see config.ts's
+   * CoatiConfig.baseUrl. Absent for every other provider. */
+  baseUrl?: string;
 }
 
 // Reply to a settings.test request — a real minimal model call, bounded by a
@@ -440,6 +453,34 @@ const API_KEY_MAX_LEN = 512;
 const API_KEY_RE = /^[\x21-\x7e]+$/;
 export function isValidApiKeyFormat(value: string): boolean {
   return value.length <= API_KEY_MAX_LEN && API_KEY_RE.test(value);
+}
+
+// Amendement 2026-09-30 bis (goal G5): the openai-compat provider's `baseUrl`
+// is validated HERE, at settings.set parse time — not deep inside
+// providers/openai-compat.ts's streamAnswer — so the user gets an immediate
+// bad-request rather than a silently-stored, unusable address. Security rule
+// (docs/PROTOCOL.md "Fournisseur de modèle"): `https://` unconditionally, or
+// `http://` restricted to loopback only (localhost/127.0.0.1/[::1]) — a
+// non-loopback `http://` would send the API key in clear text over the
+// network. Not exhaustively re-validated by openai-compat.ts's own runtime
+// checks (belt and braces) — see that file's own isAllowedBaseUrl, which
+// covers baseUrl values that reach it from anywhere else (e.g. a hand-edited
+// config.json bypassing this parser).
+const BASE_URL_MAX_LEN = 512;
+// URL.hostname keeps the brackets for a literal IPv6 address ("[::1]", not
+// "::1") — verified against Bun/WHATWG URL behaviour.
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+export function isValidBaseUrl(value: string): boolean {
+  if (value.length === 0 || value.length > BASE_URL_MAX_LEN) return false;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol === "https:") return true;
+  if (url.protocol === "http:") return LOOPBACK_HOSTNAMES.has(url.hostname);
+  return false;
 }
 
 function isPageKind(v: unknown): v is PageKind {
@@ -726,7 +767,22 @@ export function parseClientMessage(raw: string): ParseResult {
       if (apiKey !== undefined && apiKey !== "" && !isValidApiKeyFormat(apiKey)) {
         return { ok: false, error: { code: "bad-request", message: "settings.set: invalid apiKey format", id } };
       }
-      return { ok: true, message: { type: "settings.set", id, provider, model, apiKey } };
+      const baseUrl = parsed.baseUrl;
+      if (baseUrl !== undefined && typeof baseUrl !== "string") {
+        return { ok: false, error: { code: "bad-request", message: "settings.set: invalid baseUrl", id } };
+      }
+      // "" is exempt, same as apiKey — it means "forget the stored address".
+      if (baseUrl !== undefined && baseUrl !== "" && !isValidBaseUrl(baseUrl)) {
+        return {
+          ok: false,
+          error: {
+            code: "bad-request",
+            message: "settings.set: invalid baseUrl — must be https://, or http:// restricted to loopback",
+            id,
+          },
+        };
+      }
+      return { ok: true, message: { type: "settings.set", id, provider, model, apiKey, baseUrl } };
     }
     case "settings.test": {
       const provider = parsed.provider;

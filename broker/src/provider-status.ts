@@ -44,6 +44,7 @@ export class ProviderStatusCache {
       provider: providerId,
       model: opts.model ?? null,
       ollamaUrl: opts.ollamaUrl ?? null,
+      baseUrl: opts.baseUrl ?? null,
       hasKey: Boolean(opts.apiKey),
     });
   }

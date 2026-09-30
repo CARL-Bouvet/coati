@@ -1,0 +1,173 @@
+/* Welcome page (docs/DECISIONS.md T51). Only lib/theme.css variables, never a
+ * literal colour, so light/dark apply as in the panel. Anthracite header in
+ * both themes (P24), fixed logo on a light tile (the icon is drawn for a
+ * light background; its dark-background versions are still provisional). */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+.welcome-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--header-bg);
+  color: var(--header-fg);
+}
+
+.welcome-logo-tile {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  background: var(--logo-tile-bg);
+}
+
+.welcome-logo {
+  width: 56px;
+  height: 56px;
+}
+
+.welcome-wordmark {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.welcome-main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) 48px;
+}
+
+.welcome-title {
+  margin: var(--space-2) 0 var(--space-2);
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.welcome-lead {
+  margin: 0 0 var(--space-4);
+  font-size: 16px;
+}
+
+.welcome-section-title {
+  margin: 28px 0 var(--space-2);
+  font-size: 18px;
+}
+
+.welcome-pin {
+  padding: var(--space-1) var(--space-4) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.welcome-browser {
+  margin: 0 0 var(--space-1);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.welcome-pin-steps {
+  margin: 0;
+  padding-left: 1.4em;
+}
+
+.welcome-pin-steps li + li {
+  margin-top: var(--space-1);
+}
+
+.welcome-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-step {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.welcome-step-number {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 700;
+}
+
+.welcome-step-body {
+  min-width: 0;
+}
+
+.welcome-step-title {
+  margin: 4px 0 var(--space-1);
+  font-size: 16px;
+}
+
+.welcome-step-body p {
+  margin: 0 0 var(--space-2);
+}
+
+.welcome-action {
+  display: inline-block;
+  padding: 6px var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.welcome-action:hover {
+  background: var(--surface);
+}
+
+.welcome-action--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.welcome-action--primary:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+  color: var(--accent-fg);
+}
+
+.welcome-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.welcome-gesture {
+  margin: 32px 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 14px;
+}

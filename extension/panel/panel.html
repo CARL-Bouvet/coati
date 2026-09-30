@@ -21,9 +21,11 @@
   </header>
 
   <div id="connectionBanner" class="connection-banner" hidden>
-    <span id="connectionBannerText"></span>
-    <button id="installDocLink" class="connection-banner-cta" type="button" hidden>Comment l'installer</button>
-    <button id="connectCoati" class="connection-banner-cta" type="button" hidden>Ouvrir les réglages</button>
+    <span id="connectionBannerText" class="connection-banner-text"></span>
+    <span class="connection-banner-actions">
+      <button id="installDocLink" class="connection-banner-cta" type="button" hidden>Comment l'installer</button>
+      <button id="connectCoati" class="connection-banner-cta" type="button" hidden>Ouvrir les réglages</button>
+    </span>
   </div>
 
   <section id="siteCard" class="site-card" data-state="unreadable" aria-live="polite">
@@ -32,17 +34,29 @@
         <span id="siteCardSpinner" class="site-card-spinner" hidden aria-hidden="true"></span>
         <img id="siteCardFavicon" class="site-card-favicon" alt="" hidden />
       </span>
+      <button id="readPage" class="encart-read" type="button" hidden>
+        <span class="encart-read-ring" aria-hidden="true"><img id="readPageIcon" class="encart-read-icon" alt="" /></span>
+        <span id="readPageLabel" class="encart-read-label"></span>
+      </button>
       <span id="siteCardLabel" class="site-card-label"></span>
-      <button id="activateSite" class="site-card-activate" type="button" hidden>Activer</button>
       <button id="attachPage" class="switch" type="button" role="switch" aria-checked="false" disabled>
         <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
         <span class="switch-text">Lire la page</span>
       </button>
     </div>
+    <p id="readPageNote" class="encart-read-note" hidden></p>
     <div class="site-card-actions">
       <div id="siteCardSuggestions" class="site-card-suggestions"></div>
       <button id="openMyPrompts" class="site-card-my-prompts" type="button">Mes prompts ↗</button>
     </div>
+  </section>
+
+  <section id="firstRun" class="first-run" aria-labelledby="firstRunTitle" hidden>
+    <div class="first-run-head">
+      <img class="first-run-logo" src="../icons/icon48.png" alt="" width="28" height="28" />
+      <h2 id="firstRunTitle" class="first-run-title"></h2>
+    </div>
+    <ol id="firstRunSteps" class="first-run-steps"></ol>
   </section>
 
   <main id="messages" class="messages" aria-live="polite"></main>

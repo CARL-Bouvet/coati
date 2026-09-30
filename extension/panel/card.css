@@ -67,33 +67,124 @@
   white-space: nowrap;
 }
 
-/* "Activer" (T43) — discreet text link between the (flex-growing) label and
- * the "Lire la page" switch, shown only while the address is known and the
- * site isn't active yet (panel.js's refreshActivateAffordance()). Quiet on
- * purpose: muted color, no border, underline only on hover/focus — it must
- * not compete with the switch for attention. */
-.site-card-activate {
+/* "Lire cette page" button (docs/DECISIONS.md T50, replaces the T43 link)
+ * — shown in the head row while the page isn't accessible (panel.js,
+ * renderReadButton()). A caramel ring around the site's icon plus a verb.
+ * The ring BREATHES (halo pulse) while it waits for a first use: an
+ * invitation, never a rotation — rotation means "busy, wait", and the card's
+ * own detection spinner (.site-card-spinner) already speaks that sign. The
+ * ring only SPINS while the page is actually being read (data-state
+ * "reading"). All motion stops under prefers-reduced-motion (end of file). */
+.encart-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* Never shrinks: at 320 px the site name gives way (ellipsis), not the verb. */
   flex: 0 0 auto;
-  border: none;
-  background: transparent;
-  color: var(--muted);
+  height: 28px;
+  padding: 0 var(--space-2) 0 2px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--fg);
   font: inherit;
-  font-size: 0.8em;
-  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  padding: 2px var(--space-1);
+}
+
+.encart-read:hover {
+  background: var(--case-head-bg);
+}
+
+.encart-read:focus-visible,
+.encart-read--pointed {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.encart-read[data-state="reading"] {
+  cursor: progress;
+}
+
+.encart-read-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+}
+
+/* The ring itself — a pseudo-element, so the spin never turns the icon. */
+.encart-read-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+}
+
+.encart-read[data-state="reading"] .encart-read-ring::before {
+  border-color: var(--border);
+  border-top-color: var(--accent);
+  animation: site-card-spin 0.8s linear infinite;
+}
+
+/* Halo: grows out of the ring and fades, then rests (last 30% of the cycle). */
+.encart-read--breathing .encart-read-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: encart-read-breathe 2.4s ease-out infinite;
+}
+
+@keyframes encart-read-breathe {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+
+.encart-read-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.encart-read-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.site-card-activate:hover {
-  color: var(--link);
-  text-decoration: underline;
+/* After a refusal only: one muted line under the head row. */
+.encart-read-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
 }
 
-.site-card-activate:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: var(--radius);
+/* While the button shows, it carries the site's icon in its ring: the head's
+ * own icon slot steps aside. The "Lire la page" switch stays visible even on
+ * an unreadable page: while it is on, sendChat() holds the question back
+ * ("Coati n'a pas accès à cette page"), so hiding it would leave the user no
+ * way to ask a question without the page (admin fix, G5 — caught by
+ * scripts/ci/extension-e2e.mjs). On a page whose address is unknown, the
+ * neutral « Cette page » label would only repeat the button: hidden, its
+ * space kept. */
+.site-card[data-read-button] .site-card-icons,
+.site-card[data-read-button] .switch:disabled {
+  display: none;
+}
+
+.site-card[data-read-button][data-state="unreadable"] .site-card-label {
+  visibility: hidden;
 }
 
 /* "Lire la page" switch (Lot 2) — right-aligned on the site card's head
@@ -230,4 +321,135 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--radius);
+}
+
+/* Screen-reader-only text (the first-launch card's check status). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* First-launch card (docs/DECISIONS.md T51, P20) — under the encart, fixed
+ * logo (no animation), three checks, each missing one with its one action. */
+.first-run {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.first-run-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.first-run-logo {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+
+.first-run-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.first-run-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.first-run-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.first-run-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.first-run-step[data-status="ok"] .first-run-mark {
+  color: var(--success);
+}
+
+.first-run-step[data-status="missing"] .first-run-mark {
+  color: var(--danger);
+}
+
+.first-run-step[data-status="pending"] .first-run-mark {
+  color: var(--muted);
+}
+
+.first-run-step[data-status="ok"] .first-run-label {
+  color: var(--muted);
+}
+
+.first-run-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.first-run-label {
+  font-weight: 600;
+}
+
+.first-run-hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.first-run-action {
+  font-size: 13px;
+  line-height: 1.3;
+  padding: 3px var(--space-2);
+}
+
+.first-run-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .encart-read-ring::before,
+  .encart-read-ring::after {
+    animation: none !important;
+  }
+
+  .encart-read--breathing .encart-read-ring::after {
+    display: none;
+  }
 }

@@ -116,5 +116,26 @@
       prefs: { sites: {} },
       permissions: ["https://*.youtube.com/*", "https://youtu.be/*", "https://*.crisco4.unicaen.fr/*", "http://*.crisco4.unicaen.fr/*"],
     },
+
+    // G5 (T42 amendé le 30/09 bis) — « tous les sites » accordé par le bouton
+    // de l'encart : ligne en tête de la zone des sites, bouton « Revenir au
+    // site par site », interrupteurs « Actif » allumés et verrouillés. YouTube
+    // et crisco gardent leur accord site par site (visible après le retour).
+    "all-sites": {
+      status: "connected",
+      prompts: [{ id: "p_crisco_1", site: "crisco4.unicaen.fr", title: "Étymologie", body: "Donne l'étymologie de ce mot." }],
+      prefs: { sites: {} },
+      permissions: ["http://*/*", "https://*/*", "https://*.youtube.com/*", "https://youtu.be/*", "https://*.crisco4.unicaen.fr/*", "http://*.crisco4.unicaen.fr/*"],
+    },
+
+    // Même page après « Revenir au site par site » (cliqué au chargement) :
+    // la ligne disparaît, YouTube et crisco restent actifs, les autres non.
+    "all-sites-revoked": {
+      status: "connected",
+      prompts: [{ id: "p_crisco_1", site: "crisco4.unicaen.fr", title: "Étymologie", body: "Donne l'étymologie de ce mot." }],
+      prefs: { sites: {} },
+      permissions: ["http://*/*", "https://*/*", "https://*.youtube.com/*", "https://youtu.be/*", "https://*.crisco4.unicaen.fr/*", "http://*.crisco4.unicaen.fr/*"],
+      autoAction: { steps: [{ type: "click", selector: "#allSitesRevoke", delayMs: 100 }] },
+    },
   };
 })();

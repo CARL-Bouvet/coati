@@ -1,7 +1,8 @@
 # Coati — modules de fournisseur externes
 
-Amendement 2026-09-29 de `docs/PROTOCOL.md` (« Fournisseur de modèle »). Le broker embarque deux
-fournisseurs de modèle (`ollama`, `claude-api`). Tout autre fournisseur — un accès personnel, un
+Amendement 2026-09-29 de `docs/PROTOCOL.md` (« Fournisseur de modèle »), complété par l'amendement
+2026-09-30 bis (goal G5). Le broker embarque trois fournisseurs de modèle (`ollama`, `claude-api`,
+`openai-compat`). Tout autre fournisseur — un accès personnel, un
 service maison, un backend en développement — est un **module externe** : un fichier chargé
 depuis la configuration locale du broker, jamais depuis l'extension ni une page, jamais depuis une
 adresse distante (règle de sécurité n°3 du projet).

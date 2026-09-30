@@ -8,6 +8,7 @@
 import { api } from "../lib/browser-compat.js";
 import { SITES, permissionPatternsFor } from "../lib/suggestions-data.js";
 import { armOrConfirm } from "../panel/confirm-arm.js";
+import { ALL_SITES_ORIGINS } from "../panel/read-button.js";
 import Sortable from "../vendor/sortable/sortable.esm.js";
 import { coatiItemsForSite, computeCaseItems as computeCaseItemsPure, buildCaseDescriptors as buildCaseDescriptorsPure, replaceInOrder } from "./prompts-cases.js";
 
@@ -17,11 +18,27 @@ import { coatiItemsForSite, computeCaseItems as computeCaseItemsPure, buildCaseD
 // recorded in the mission report.
 const ARM_TIMEOUT_MS = 4000;
 
+// --- "Tous les sites" (docs/DECISIONS.md T42, amendement 2026-09-30 bis) ---
+// User-facing strings grouped here (French; G6 moves them to _locales).
+const ALL_SITES_TEXT = {
+  line: "Coati a accès à tous les sites, et ne lit une page qu'à votre clic.",
+  revoke: "Revenir au site par site",
+};
+
 const els = {
   connectionBanner: document.getElementById("connectionBanner"),
   connectionBannerText: document.getElementById("connectionBannerText"),
   board: document.getElementById("board"),
+  allSitesNotice: document.getElementById("allSitesNotice"),
+  allSitesText: document.getElementById("allSitesText"),
+  allSitesRevoke: document.getElementById("allSitesRevoke"),
 };
+
+// True while the optional "all sites" host permission is held (granted from
+// the panel's "Lire cette page" button, T50). A per-site pattern can't be
+// removed from under that broader grant, so the per-site switches then show
+// "on", locked, and the one way back is the notice's own button.
+let allSitesGranted = false;
 
 // --- State -------------------------------------------------------------
 // `prompts`/`prefsSites` mirror the broker exactly (docs/PROTOCOL.md
@@ -85,8 +102,12 @@ init();
 
 async function init() {
   api.runtime.onMessage.addListener(onRuntimeMessage);
+  els.allSitesText.textContent = ALL_SITES_TEXT.line;
+  els.allSitesRevoke.textContent = ALL_SITES_TEXT.revoke;
+  els.allSitesRevoke.addEventListener("click", revokeAllSites);
   api.permissions.onAdded.addListener(refreshAllActiveSwitches);
   api.permissions.onRemoved.addListener(refreshAllActiveSwitches);
+  await refreshAllActiveSwitches();
   const status = await api.runtime.sendMessage({ type: "coati:get-status" }).catch(() => null);
   applyStatus(status?.state ?? "unknown");
   requestAll();
@@ -332,8 +353,9 @@ function buildActiveSwitch(siteKey) {
 
 // Click is the user gesture chrome.permissions.request needs — the request
 // (or remove) call below happens synchronously off this handler, before any
-// await, exactly like panel.js's activateOnThisSite().
+// await, exactly like panel.js's onReadPageClick().
 function handleActiveSwitchClick(btn) {
+  if (btn.getAttribute("aria-disabled") === "true") return; // locked under "all sites"
   const siteKey = btn.dataset.site;
   const patterns = permissionPatternsFor(siteKey);
   if (patterns.length === 0) return;
@@ -351,16 +373,40 @@ function handleActiveSwitchClick(btn) {
 }
 
 async function refreshActiveSwitch(btn) {
+  // aria-disabled, not `disabled`: the switch stays focusable, so its
+  // accessible description (the notice line) is still announced.
+  if (allSitesGranted) {
+    btn.setAttribute("aria-checked", "true");
+    btn.classList.add("switch--on");
+    btn.setAttribute("aria-disabled", "true");
+    btn.setAttribute("aria-describedby", "allSitesText");
+    return;
+  }
+  btn.removeAttribute("aria-disabled");
+  btn.removeAttribute("aria-describedby");
   const patterns = permissionPatternsFor(btn.dataset.site);
   const granted = patterns.length > 0 && (await api.permissions.contains({ origins: patterns }).catch(() => false));
+  if (allSitesGranted) return; // granted meanwhile — the branch above already ran
   btn.setAttribute("aria-checked", String(granted));
   btn.classList.toggle("switch--on", granted);
 }
 
-// Re-read every switch on load and on permissions.onAdded/onRemoved (the
-// panel's "Activer" link grants too, and this page must reflect that).
-function refreshAllActiveSwitches() {
+// Re-read the "all sites" grant and every switch, on load and on
+// permissions.onAdded/onRemoved (the panel's read button grants too, and
+// this page must reflect that).
+async function refreshAllActiveSwitches() {
+  allSitesGranted = await api.permissions.contains({ origins: ALL_SITES_ORIGINS }).catch(() => false);
+  els.allSitesNotice.hidden = !allSitesGranted;
   els.board.querySelectorAll(".prompt-case-switch").forEach((btn) => refreshActiveSwitch(btn));
+}
+
+// "Revenir au site par site": drops only the two "all sites" patterns —
+// per-site grants made earlier stay exactly as they were.
+function revokeAllSites() {
+  api.permissions
+    .remove({ origins: ALL_SITES_ORIGINS })
+    .catch(() => false)
+    .then(() => refreshAllActiveSwitches());
 }
 
 function buildRowElement(caseKey, item, index, total) {

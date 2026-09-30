@@ -11,6 +11,7 @@ import { providerLabel, describeProviderUnavailable, CONNECTION_STATUS_LABELS } 
 import { RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./panel/retention.js";
 import { shortcutKeys, actionShortcut } from "./lib/shortcut.js";
 import { computeCodeFingerprint } from "./lib/build-fingerprint.js";
+import { MODEL_PROVIDER_PRESETS, isAllowedBaseUrl } from "./lib/model-provider-presets.js";
 
 // Same key and value semantics as extension/panel/panel.js (ATTACH_PAGE_KEY,
 // attachPagePreference): a boolean once the user chose, null/absent = never
@@ -63,6 +64,7 @@ const els = {
 const PROVIDER_DESCRIPTIONS = {
   "claude-api": "Votre propre clé Anthropic, facturée sur votre compte.",
   ollama: "Un modèle qui tourne sur votre machine : rien n'en sort.",
+  "openai-compat": "Un serveur compatible OpenAI : LM Studio, Ollama, OpenAI, Mistral, OpenRouter, DeepSeek, ou une autre adresse.",
 };
 
 // "settings.test" is fire-and-forget per provider (deliverable D2) — these
@@ -220,6 +222,17 @@ function setApiKey(apiKey) {
   });
 }
 
+// baseUrl is NOT a secret (docs/PROTOCOL.md, amendement 2026-09-30 bis) —
+// unlike setApiKey above, the broker echoes it back in the next `settings`
+// message, so it is safe (and expected) to keep it visible in the address
+// input rather than clearing it after every save.
+function setBaseUrl(baseUrl) {
+  api.runtime.sendMessage({
+    type: "coati:client-message",
+    payload: { type: "settings.set", id: newId(), baseUrl },
+  });
+}
+
 function testProvider(providerId) {
   if (testingProviders.has(providerId)) return;
   testingProviders.add(providerId);
@@ -331,8 +344,16 @@ function renderModelSection(settings) {
       }
     }
 
-    if (provider.id === "claude-api") {
-      item.appendChild(buildApiKeyField());
+    if (provider.id === "openai-compat") {
+      // baseUrl is only ever present on `settings` for the currently active
+      // provider (docs/PROTOCOL.md) — for the openai-compat card when it's
+      // NOT selected, there is nothing to prefill with, same as the model
+      // field's own behaviour just below.
+      item.appendChild(buildBaseUrlField(provider.id === settings.provider ? settings.baseUrl : undefined));
+    }
+
+    if (provider.id === "claude-api" || provider.id === "openai-compat") {
+      item.appendChild(buildApiKeyField(provider.id === "openai-compat"));
     }
 
     // The model name belongs to the selected provider: show it in its card.
@@ -346,18 +367,20 @@ function renderModelSection(settings) {
   renderModelField(settings);
 }
 
-/** Password field + Enregistrer/Effacer for the `claude-api` provider
- * (deliverable D2). The field starts empty on every load and after every
- * save — the broker never echoes the key back (write-only by contract), so
- * there is nothing to prefill it with. */
-function buildApiKeyField() {
+/** Password field + Enregistrer/Effacer, shared by `claude-api` and
+ * `openai-compat` (deliverable D2, extended goal G5). The field starts empty
+ * on every load and after every save — the broker never echoes the key back
+ * (write-only by contract), so there is nothing to prefill it with.
+ * `optional` (true for openai-compat: LM Studio/Ollama need no key) only
+ * changes the placeholder text — the save/clear mechanics are identical. */
+function buildApiKeyField(optional) {
   const wrap = document.createElement("div");
   wrap.className = "apikey-field";
 
   const input = document.createElement("input");
   input.type = "password";
   input.autocomplete = "off";
-  input.placeholder = "Clé API Anthropic (sk-ant-…)";
+  input.placeholder = optional ? "Clé API (facultative selon le serveur)" : "Clé API Anthropic (sk-ant-…)";
 
   const saveBtn = document.createElement("button");
   saveBtn.type = "button";
@@ -405,6 +428,73 @@ function buildApiKeyField() {
   wrap.appendChild(input);
   wrap.appendChild(saveBtn);
   wrap.appendChild(clearBtn);
+  return wrap;
+}
+
+/** Preset select + address field + Enregistrer, for the `openai-compat`
+ * provider only (goal G5). `baseUrl` is NOT a secret (docs/PROTOCOL.md) —
+ * unlike buildApiKeyField(), the field IS prefilled from the broker's last
+ * answer and stays filled after a save (the broker echoes it back). */
+function buildBaseUrlField(baseUrl) {
+  const wrap = document.createElement("div");
+  wrap.className = "baseurl-field";
+
+  const presetSelect = document.createElement("select");
+  const customOption = document.createElement("option");
+  customOption.value = "";
+  customOption.textContent = "Autre adresse";
+  presetSelect.appendChild(customOption);
+  for (const preset of MODEL_PROVIDER_PRESETS) {
+    const option = document.createElement("option");
+    option.value = preset.baseUrl;
+    option.textContent = preset.label;
+    presetSelect.appendChild(option);
+  }
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.autocomplete = "off";
+  input.placeholder = "http://localhost:1234/v1";
+  input.value = baseUrl ?? "";
+
+  // Reflect the current value in the preset select when it matches one
+  // exactly — otherwise leave "Autre adresse" selected (a custom address, or
+  // none yet).
+  presetSelect.value = MODEL_PROVIDER_PRESETS.some((p) => p.baseUrl === baseUrl) ? baseUrl : "";
+
+  const error = document.createElement("span");
+  error.className = "baseurl-error";
+  error.setAttribute("role", "status");
+
+  presetSelect.addEventListener("change", () => {
+    if (!presetSelect.value) return; // "Autre adresse" — leave the field as is
+    input.value = presetSelect.value;
+    error.textContent = "";
+    setBaseUrl(input.value);
+  });
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.textContent = "Enregistrer l'adresse";
+  saveBtn.addEventListener("click", () => {
+    const value = input.value.trim();
+    if (!value) return;
+    // Client-side copy of the broker's own security rule (see
+    // lib/model-provider-presets.js's own doc) — an immediate, specific
+    // message instead of a silent round trip to a broker that will reject it
+    // anyway.
+    if (!isAllowedBaseUrl(value)) {
+      error.textContent = "Adresse refusée : HTTPS, ou HTTP vers localhost/127.0.0.1 seulement.";
+      return;
+    }
+    error.textContent = "";
+    setBaseUrl(value);
+  });
+
+  wrap.appendChild(presetSelect);
+  wrap.appendChild(input);
+  wrap.appendChild(saveBtn);
+  wrap.appendChild(error);
   return wrap;
 }
 
@@ -457,7 +547,11 @@ function renderModelField(settings) {
     els.modelSave.hidden = false;
     els.modelInput.value = settings.model ?? "";
     els.modelInput.placeholder =
-      settings.provider === "claude-api" ? "ex : claude-sonnet-4-5 (facultatif)" : "ex : llama3.2 (facultatif)";
+      settings.provider === "claude-api"
+        ? "ex : claude-sonnet-4-5 (facultatif)"
+        : settings.provider === "openai-compat"
+          ? "nom exact attendu par le serveur"
+          : "ex : llama3.2 (facultatif)";
   }
 }
 

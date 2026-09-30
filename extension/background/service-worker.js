@@ -106,7 +106,14 @@ let pendingRequest = null;
 // native host (there is nothing to re-call for a pasted legacy key).
 let retriedThisCycle = false;
 
-api.runtime.onInstalled.addListener(() => {
+// Welcome page (docs/DECISIONS.md T51): a fresh install only — an update or
+// a browser update must never reopen it.
+const WELCOME_PAGE_PATH = "welcome/welcome.html";
+
+api.runtime.onInstalled.addListener((details) => {
+  if (details?.reason === "install") {
+    Promise.resolve(api.tabs.create({ url: api.runtime.getURL(WELCOME_PAGE_PATH) })).catch(() => {});
+  }
   // Chrome/Brave only — openPanelOnActionClick left false on purpose. When
   // true, chrome does NOT dispatch action.onClicked while the panel is
   // already open, so a click meant to re-read the current tab (this

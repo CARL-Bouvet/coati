@@ -14,6 +14,7 @@ import type { ServerMessage, SettingsMessage, SettingsTestResultMessage } from "
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
 import { __setFetchImplForTests as __setClaudeApiFetch, __resetFetchImplForTests as __resetClaudeApiFetch } from "../src/providers/claude-api.ts";
 import { __setFetchImplForTests as __setOllamaFetch, __resetFetchImplForTests as __resetOllamaFetch } from "../src/providers/ollama.ts";
+import { __setFetchImplForTests as __setOpenAiFetch, __resetFetchImplForTests as __resetOpenAiFetch } from "../src/providers/openai-compat.ts";
 import { connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
 
 const ALLOWED_ID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -37,6 +38,7 @@ afterEach(() => {
   servers = [];
   __resetClaudeApiFetch();
   __resetOllamaFetch();
+  __resetOpenAiFetch();
 });
 
 async function connectAndAuth(server: ReturnType<typeof startServer>): Promise<WebSocket> {
@@ -54,7 +56,7 @@ function nextMessage(ws: WebSocket): Promise<ServerMessage> {
 }
 
 describe("settings.get", () => {
-  test("reports both known providers, never hiding an unavailable one", async () => {
+  test("reports all three built-in providers, never hiding an unavailable one", async () => {
     const server = boot();
     const ws = await connectAndAuth(server);
     ws.send(JSON.stringify({ type: "settings.get", id: "s1" }));
@@ -62,9 +64,9 @@ describe("settings.get", () => {
     expect(msg.type).toBe("settings");
     expect(msg.id).toBe("s1");
     expect(msg.provider).toBe("ollama"); // untouched default (amendement 2026-09-29)
-    expect(msg.available).toHaveLength(2);
+    expect(msg.available).toHaveLength(3);
     const ids = msg.available.map((p) => p.id).sort();
-    expect(ids).toEqual(["claude-api", "ollama"]);
+    expect(ids).toEqual(["claude-api", "ollama", "openai-compat"]);
     for (const status of msg.available) {
       expect(typeof status.available).toBe("boolean");
       expect(typeof status.configured).toBe("boolean");
@@ -198,7 +200,7 @@ describe("settings.set — apiKey is write-only", () => {
     await nextMessage(ws);
     ws.close();
     const onDisk = JSON.parse(readFileSync(join(configDir, "config.json"), "utf8"));
-    expect(onDisk.apiKey).toBe("sk-ant-on-disk");
+    expect(onDisk.apiKeys["claude-api"]).toBe("sk-ant-on-disk");
   });
 
   test("an empty-string apiKey forgets the previously stored key", async () => {
@@ -208,12 +210,12 @@ describe("settings.set — apiKey is write-only", () => {
     ws.send(JSON.stringify({ type: "settings.set", id: "k5", provider: "claude-api", apiKey: "sk-ant-to-forget" }));
     await nextMessage(ws);
     let onDisk = JSON.parse(readFileSync(join(configDir, "config.json"), "utf8"));
-    expect(onDisk.apiKey).toBe("sk-ant-to-forget");
+    expect(onDisk.apiKeys["claude-api"]).toBe("sk-ant-to-forget");
 
     ws.send(JSON.stringify({ type: "settings.set", id: "k6", apiKey: "" }));
     await nextMessage(ws);
     onDisk = JSON.parse(readFileSync(join(configDir, "config.json"), "utf8"));
-    expect(onDisk.apiKey).toBeUndefined();
+    expect(onDisk.apiKeys).toBeUndefined();
     ws.close();
   });
 
@@ -276,7 +278,7 @@ describe("settings — the `configured` flag", () => {
     const beforeStatus = before.available.find((p) => p.id === "claude-api")!;
     expect(beforeStatus.configured).toBe(false);
 
-    ws.send(JSON.stringify({ type: "settings.set", id: "c2", apiKey: "sk-ant-now-configured" }));
+    ws.send(JSON.stringify({ type: "settings.set", id: "c2", provider: "claude-api", apiKey: "sk-ant-now-configured" }));
     const after = (await nextMessage(ws)) as SettingsMessage;
     const afterStatus = after.available.find((p) => p.id === "claude-api")!;
     expect(afterStatus.configured).toBe(true);
@@ -323,7 +325,7 @@ describe("settings.test", () => {
 
     const server = boot();
     const ws = await connectAndAuth(server);
-    ws.send(JSON.stringify({ type: "settings.set", id: "t0", apiKey: "sk-ant-works" }));
+    ws.send(JSON.stringify({ type: "settings.set", id: "t0", provider: "claude-api", apiKey: "sk-ant-works" }));
     await nextMessage(ws);
     ws.send(JSON.stringify({ type: "settings.test", id: "t1", provider: "claude-api" }));
     const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
@@ -431,5 +433,157 @@ describe("settings.test", () => {
     const msg = await nextMessage(ws);
     expect(msg).toMatchObject({ type: "error", id: "t10", code: "bad-request" });
     ws.close();
+  });
+});
+
+// --- apiKeys: per-provider isolation (security fix 2026-09-30 ter) ---------
+//
+// Before this fix, CoatiConfig had ONE global `apiKey` field shared by every
+// provider: switching claude-api -> openai-compat sent the Anthropic key as
+// a Bearer token to whatever baseUrl was configured, and moving baseUrl from
+// one host to another carried the previous host's key along. A secret must
+// only ever reach the service it was entered for — see config.ts's
+// resolveApiKey/setApiKey/pruneStaleOpenAiCompatKey and docs/PROTOCOL.md's
+// amendement 2026-09-30 ter.
+describe("apiKeys — per-provider isolation (security fix 2026-09-30 ter)", () => {
+  test("switching claude-api -> openai-compat never sends the claude-api key to the new server", async () => {
+    let capturedAuth: string | null = null;
+    __setOpenAiFetch((async (_url: string, init?: RequestInit) => {
+      const headers = init?.headers as Record<string, string> | undefined;
+      capturedAuth = headers?.authorization ?? null;
+      return new Response(JSON.stringify({ data: [{ id: "m1" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch);
+
+    const server = boot();
+    const ws = await connectAndAuth(server);
+    ws.send(
+      JSON.stringify({ type: "settings.set", id: "iso1", provider: "claude-api", apiKey: "sk-ant-should-not-leak" }),
+    );
+    await nextMessage(ws);
+    ws.send(
+      JSON.stringify({
+        type: "settings.set",
+        id: "iso2",
+        provider: "openai-compat",
+        baseUrl: "http://127.0.0.1:1234/v1",
+      }),
+    );
+    await nextMessage(ws);
+    // The probe above already ran fetchModelIds against the fake server —
+    // it must never have carried the claude-api key.
+    expect(capturedAuth).toBeFalsy();
+    ws.close();
+  });
+
+  test("moving openai-compat's baseUrl to a different origin erases the stored key", async () => {
+    __setOpenAiFetch((async () =>
+      new Response(JSON.stringify({ data: [{ id: "m1" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as unknown as typeof fetch);
+
+    const configDir = makeTmpDir("coati-settings-origin-change-");
+    const server = boot(configDir);
+    const ws = await connectAndAuth(server);
+    ws.send(
+      JSON.stringify({
+        type: "settings.set",
+        id: "org1",
+        provider: "openai-compat",
+        baseUrl: "http://127.0.0.1:1234/v1",
+        apiKey: "sk-oc-first-host",
+      }),
+    );
+    const first = (await nextMessage(ws)) as SettingsMessage;
+    expect(first.available.find((p) => p.id === "openai-compat")!.configured).toBe(true);
+    let onDisk = JSON.parse(readFileSync(join(configDir, "config.json"), "utf8"));
+    expect(onDisk.apiKeys["openai-compat"]).toMatchObject({
+      key: "sk-oc-first-host",
+      origin: "http://127.0.0.1:1234",
+    });
+
+    // Move baseUrl to a different host, no apiKey in this patch: the key
+    // bound to the OLD origin must be erased, not carried over.
+    ws.send(JSON.stringify({ type: "settings.set", id: "org2", baseUrl: "http://127.0.0.1:5678/v1" }));
+    await nextMessage(ws);
+    // openai-compat's `configured` flag reflects reachability, not key
+    // presence (its auth is optional — LM Studio, Ollama's /v1 don't need
+    // one), so the erasure is checked directly on disk instead.
+    onDisk = JSON.parse(readFileSync(join(configDir, "config.json"), "utf8"));
+    expect(onDisk.apiKeys?.["openai-compat"]).toBeUndefined();
+    ws.close();
+  });
+
+  test("a settings.set carrying both a new baseUrl and a new apiKey binds the key to the new origin", async () => {
+    __setOpenAiFetch((async () =>
+      new Response(JSON.stringify({ data: [{ id: "m1" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as unknown as typeof fetch);
+
+    const configDir = makeTmpDir("coati-settings-rebind-");
+    const server = boot(configDir);
+    const ws = await connectAndAuth(server);
+    ws.send(
+      JSON.stringify({
+        type: "settings.set",
+        id: "rb1",
+        provider: "openai-compat",
+        baseUrl: "http://127.0.0.1:1234/v1",
+        apiKey: "sk-oc-old-host",
+      }),
+    );
+    await nextMessage(ws);
+    ws.send(
+      JSON.stringify({
+        type: "settings.set",
+        id: "rb2",
+        baseUrl: "http://127.0.0.1:9999/v1",
+        apiKey: "sk-oc-new-host",
+      }),
+    );
+    const after = (await nextMessage(ws)) as SettingsMessage;
+    expect(after.available.find((p) => p.id === "openai-compat")!.configured).toBe(true);
+    const onDisk = JSON.parse(readFileSync(join(configDir, "config.json"), "utf8"));
+    expect(onDisk.apiKeys["openai-compat"]).toMatchObject({
+      key: "sk-oc-new-host",
+      origin: "http://127.0.0.1:9999",
+    });
+    ws.close();
+  });
+
+  // Unit-level, not through startServer: startServer(config, ...) takes an
+  // already-built CoatiConfig literal (see server.ts's own comment above
+  // `currentConfig`) — it never reads config.json itself. Migration is
+  // config.ts's loadConfig's job, so it's tested directly against it.
+  test("a legacy config.json (global apiKey) is migrated to apiKeys['claude-api'] on load", async () => {
+    const { loadConfig, saveConfig } = await import("../src/config.ts");
+    const { mkdirSync, writeFileSync, readFileSync: readFile } = await import("node:fs");
+    const configDir = makeTmpDir("coati-settings-legacy-migration-");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(
+      join(configDir, "config.json"),
+      JSON.stringify({
+        port: 8787,
+        allowedExtensionIds: [ALLOWED_ID],
+        provider: "claude-api",
+        apiKey: "sk-ant-legacy-global",
+      }),
+      { mode: 0o600 },
+    );
+
+    const loaded = loadConfig({ configDir, dataDir: configDir });
+    expect(loaded.apiKeys?.["claude-api"]).toBe("sk-ant-legacy-global");
+    expect((loaded as unknown as { apiKey?: string }).apiKey).toBeUndefined();
+
+    // The next save persists the migrated shape — the legacy field is gone
+    // from disk for good.
+    saveConfig({ configDir }, loaded);
+    const onDisk = JSON.parse(readFile(join(configDir, "config.json"), "utf8"));
+    expect(onDisk.apiKey).toBeUndefined();
+    expect(onDisk.apiKeys["claude-api"]).toBe("sk-ant-legacy-global");
   });
 });

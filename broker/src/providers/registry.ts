@@ -1,5 +1,5 @@
-// The registry of model providers Coati knows about: the two built-ins
-// (ollama, claude-api) plus whatever external modules config.json's
+// The registry of model providers Coati knows about: the three built-ins
+// (ollama, claude-api, openai-compat) plus whatever external modules config.json's
 // `modules` array names — see docs/MODULES.md and docs/PROTOCOL.md's
 // amendement 2026-09-29. server.ts uses this both to dispatch
 // chat/summarize/act to the currently-selected provider and to answer
@@ -8,10 +8,11 @@
 import type { ModelProvider } from "./types.ts";
 import { ollamaProvider } from "./ollama.ts";
 import { claudeApiProvider } from "./claude-api.ts";
+import { openaiCompatProvider } from "./openai-compat.ts";
 import { buildProviderHost, type ProviderHost } from "./host.ts";
 import type { ModuleConfigEntry } from "../config.ts";
 
-const BUILTIN_PROVIDERS: readonly ModelProvider[] = [ollamaProvider, claudeApiProvider];
+const BUILTIN_PROVIDERS: readonly ModelProvider[] = [ollamaProvider, claudeApiProvider, openaiCompatProvider];
 
 /** Runtime shape check on whatever a module's `createProvider()` returned —
  * this is the ONLY guarantee the broker has that an external module honours

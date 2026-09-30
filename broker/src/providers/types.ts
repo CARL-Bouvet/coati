@@ -27,6 +27,11 @@ export interface ProviderRuntimeOptions {
   model?: string;
   ollamaUrl?: string;
   apiKey?: string;
+  /** Base URL of an `openai-compat` server (e.g. "http://localhost:1234/v1")
+   * — amendement 2026-09-30 bis, goal G5. NOT a secret (unlike apiKey): it is
+   * echoed back in the `settings` response for the active provider. Ignored
+   * by every other provider. */
+  baseUrl?: string;
 }
 
 /** One provider's answer to `provider.status` (docs/PROTOCOL.md, amendement

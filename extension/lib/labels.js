@@ -12,6 +12,7 @@
 export const PROVIDER_LABELS = {
   "claude-api": "Claude (clé API)",
   ollama: "Ollama (local)",
+  "openai-compat": "Compatible OpenAI",
 };
 
 // Connection-status labels — shared base for panel.js's renderStatusLabel()

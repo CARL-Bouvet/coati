@@ -120,16 +120,16 @@ describe("loadProviderModules", () => {
 describe("initRegistry — installs built-ins + loaded modules as the process-wide registry", () => {
   test("with no modules: only the two built-ins", async () => {
     await initRegistry([]);
-    expect(getProviders().map((p) => p.id)).toEqual(["ollama", "claude-api"]);
+    expect(getProviders().map((p) => p.id)).toEqual(["ollama", "claude-api", "openai-compat"]);
   });
 
   test("with a valid module: built-ins plus it", async () => {
     await initRegistry([{ path: join(FIXTURES, "valid-provider.ts") }]);
-    expect(getProviders().map((p) => p.id)).toEqual(["ollama", "claude-api", "fixture-valid"]);
+    expect(getProviders().map((p) => p.id)).toEqual(["ollama", "claude-api", "openai-compat", "fixture-valid"]);
   });
 
   test("a broken module leaves only the built-ins, never throws", async () => {
     await expect(initRegistry([{ path: join(FIXTURES, "throwing-provider.ts") }])).resolves.toBeDefined();
-    expect(getProviders().map((p) => p.id)).toEqual(["ollama", "claude-api"]);
+    expect(getProviders().map((p) => p.id)).toEqual(["ollama", "claude-api", "openai-compat"]);
   });
 });

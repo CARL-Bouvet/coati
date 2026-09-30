@@ -83,6 +83,10 @@
   --header-status-connecting: #f0b429;
   --header-status-disconnected: #f2b8b5;
   --header-status-idle: #8a8e96;
+  /* Light tile behind the fixed logo (welcome page, T51) in BOTH themes: the
+   * icon is drawn for a light background, and its dark versions are still
+   * provisional (docs/logo/coati/LISEZMOI.md). */
+  --logo-tile-bg: #ffffff;
 
   /* Variant "a" (compact) — default when [data-variant] is absent. */
   --font: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;

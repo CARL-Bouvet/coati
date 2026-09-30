@@ -84,16 +84,37 @@ textarea {
 .status--no-host .status-dot,
 .status--broker-untrusted .status-dot { background: var(--status-disconnected); }
 
+/* Wraps: the text keeps at least ~18em of line before the buttons (moved
+ * as ONE group) may sit beside it; below that (a 320-360 px panel) the
+ * group drops onto its own row under the full-width text. */
 .connection-banner {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   background: var(--banner-bg);
   border-bottom: 1px solid var(--banner-border);
   font-size: 0.9em;
   color: var(--banner-fg);
+}
+
+.connection-banner-text {
+  flex: 1 1 18em;
+  min-width: 0;
+}
+
+.connection-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+/* No visible button (e.g. "broker-untrusted"): no empty flex item either. */
+.connection-banner-actions:not(:has(> :not([hidden]))) {
+  display: none;
 }
 
 .connection-banner-cta {

@@ -187,6 +187,14 @@
     };
   }
 
+  // --- G5 (docs/DECISIONS.md T50/T51): "Lire cette page" button and the
+  // first-launch card. A tab the panel can't see into: Chrome answers
+  // tabs.query/get without `url` when no host permission covers it.
+  var HIDDEN_TAB = { id: 508, title: undefined, url: undefined };
+  var ALL_SITES = ["http://*/*", "https://*/*"];
+  var PROVIDER_OK = { provider: "ollama", state: "ok", reason: "ready" };
+  var PROVIDER_KO = { provider: "claude-api", state: "ko", reason: "no-key" };
+
   window.__COATI_LAB_FIXTURES__ = {
     // Connecté, site reconnu (favicon + nom + suggestions), fil vide.
     // État requis : site connu avec favicon.
@@ -312,7 +320,8 @@
       prompts: [],
     },
 
-    // docs/DECISIONS.md T43 — lien "Activer" : adresse connue (lue via le
+    // docs/DECISIONS.md T43 (amendé le 30/09 : le lien "Activer" est remplacé
+    // par le bouton "Lire cette page", T50) — adresse connue (lue via le
     // geste, activeTab, sans permission persistée), site non actif.
     "site-inactive": {
       status: "connected",
@@ -326,7 +335,7 @@
 
     // Même page, permission déjà accordée pour tous les domaines Wikipédia
     // (T42 — un site populaire s'active domaine par domaine, tous à la
-    // fois) : le lien "Activer" doit disparaître.
+    // fois) : le bouton "Lire cette page" (T50) doit disparaître.
     "site-active": {
       status: "connected",
       tab: WIKIPEDIA_TAB,
@@ -410,6 +419,55 @@
         "coati:conversation": [
           { id: "e1-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
           { id: "e1", role: "assistant", text: "⚠ La session Claude a expiré.", authRequired: true, streaming: false },
+        ],
+        "coati:attachPage": true,
+      },
+      prompts: [],
+    },
+
+    // auth-required d'un fournisseur à clé (claude-api, openai-compat) :
+    // « Clé refusée par le fournisseur », bouton « Ouvrir les réglages ».
+    "error-auth-key": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      providerStatus: { provider: "openai-compat", state: "ok", reason: "ready" },
+      storageLocal: {
+        "coati:conversation": [
+          { id: "ek-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          {
+            id: "ek",
+            role: "assistant",
+            text: "⚠ Clé refusée par le fournisseur : vérifiez-la dans les réglages.",
+            authRequired: true,
+            authKind: "key",
+            streaming: false,
+          },
+        ],
+        "coati:attachPage": true,
+      },
+      prompts: [],
+    },
+
+    // auth-required arrivé avant toute réponse provider.status : texte qui
+    // nomme les deux remèdes, bouton « Ouvrir les réglages ».
+    "error-auth-unknown": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      storageLocal: {
+        "coati:conversation": [
+          { id: "eu-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          {
+            id: "eu",
+            role: "assistant",
+            text: "⚠ Le fournisseur a refusé l'accès (session expirée ou clé refusée) : vérifiez les réglages.",
+            authRequired: true,
+            authKind: "unknown",
+            streaming: false,
+          },
         ],
         "coati:attachPage": true,
       },
@@ -646,6 +704,233 @@
       },
       prompts: [],
       autoAction: { steps: [{ type: "focus", selector: "#msg-r2-u .message-relaunch", delayMs: 20 }] },
+    },
+    // G5 T50 — page inaccessible, adresse inconnue : bouton « Lire cette page », anneau qui respire (figé ici ; ?motion=live pour le voir bouger). Un clic accorde « tous les sites » et lit la page.
+    "read-invite": {
+      status: "connected",
+      faviconUrl: FAVICON,
+      prompts: [],
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      tabAfterGrant: ARTICLE_TAB,
+      extractionAfterGrant: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+    },
+
+    // G5 T50 — premier lancement, Wikipédia lue par le geste de l'icône (activeTab) sans accès durable : l'invitation reste (dernière étape de la carte), favicon du site dans l'anneau, nom du site à côté.
+    "read-invite-known": {
+      firstRun: true,
+      providerStatus: PROVIDER_OK,
+      status: "connected",
+      faviconUrl: FAVICON,
+      prompts: [],
+      tab: WIKIPEDIA_TAB,
+      extraction: { context: extractionContextFor(WIKIPEDIA_TAB, "page") },
+      permissions: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+    },
+
+    // G5 T50 — bouton déjà utilisé une fois (coati:readButtonUsed), accès retiré depuis : même bouton, sans halo.
+    "read-calm": {
+      status: "connected",
+      faviconUrl: FAVICON,
+      prompts: [],
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      permissions: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null, "coati:readButtonUsed": true },
+    },
+
+    // G5 T50 — clic accepté, lecture en cours : l'anneau s'ouvre en arc et tourne, « Lecture… », aria-busy.
+    "read-reading": {
+      status: "connected",
+      faviconUrl: FAVICON,
+      prompts: [],
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      tabAfterGrant: ARTICLE_TAB,
+      extractionAfterGrant: { pending: true },
+      permissions: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      autoAction: { steps: [{ type: "click", selector: "#readPage", delayMs: 50 }] },
+    },
+
+    // G5 T50 — « tous les sites » refusé, adresse inconnue : pas d'animation, ligne d'explication, le bouton peut redemander.
+    "read-refused": {
+      status: "connected",
+      faviconUrl: FAVICON,
+      prompts: [],
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      permissions: [],
+      permissionRequestResult: false,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      autoAction: { steps: [{ type: "click", selector: "#readPage", delayMs: 50 }] },
+    },
+
+    // G5 T50 — refus déjà enregistré, adresse connue : repli sur l'activation site par site, « Activer ce site ».
+    "read-refused-site": {
+      status: "connected",
+      faviconUrl: FAVICON,
+      prompts: [],
+      tab: WIKIPEDIA_TAB,
+      extraction: { context: extractionContextFor(WIKIPEDIA_TAB, "page") },
+      permissions: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null, "coati:allSitesDeclined": true },
+    },
+
+    // G5 T50 — « tous les sites » accordé : plus de bouton, l'encart montre le site et ses suggestions.
+    "read-granted": {
+      status: "connected",
+      faviconUrl: FAVICON,
+      prompts: [],
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: ALL_SITES,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null, "coati:readButtonUsed": true },
+    },
+
+    // G5 T51 — premier lancement, programme local introuvable (no-host) : ✗ programme (lien releases), modèle en attente, ✗ page.
+    "first-run-no-program": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      status: "no-host",
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      tabAfterGrant: ARTICLE_TAB,
+      extractionAfterGrant: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: [],
+    },
+
+    // G5 T51 — premier lancement, connexion en cours : programme et modèle « … », ✗ page.
+    "first-run-searching": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      status: "connecting",
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      tabAfterGrant: ARTICLE_TAB,
+      extractionAfterGrant: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: [],
+    },
+
+    // G5 T51 — programme détecté, provider.status pas encore revenu : ✓, …, ✗.
+    "first-run-model-pending": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      status: "connected",
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      tabAfterGrant: ARTICLE_TAB,
+      extractionAfterGrant: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: [],
+    },
+
+    // G5 T51 — programme détecté, modèle KO (aucune clé) : ✓, ✗ (Ouvrir les réglages), ✗.
+    "first-run-model-missing": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      status: "connected",
+      providerStatus: PROVIDER_KO,
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      tabAfterGrant: ARTICLE_TAB,
+      extractionAfterGrant: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: [],
+    },
+
+    // G5 T51 — dernière étape : ✓, ✓, ✗ page — la carte désigne le bouton de l'encart (« Montrer le bouton »), rien ne part tout seul.
+    "first-run-page-missing": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      status: "connected",
+      providerStatus: PROVIDER_OK,
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      tabAfterGrant: ARTICLE_TAB,
+      extractionAfterGrant: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: [],
+    },
+
+    // G5 T51 — « Montrer le bouton » cliqué : focus et contour sur le bouton de l'encart.
+    "first-run-pointed": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      status: "connected",
+      providerStatus: PROVIDER_OK,
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      tabAfterGrant: ARTICLE_TAB,
+      extractionAfterGrant: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: [],
+      autoAction: { steps: [{ type: "click", selector: ".first-run-step[data-check=\"page\"] .first-run-action", delayMs: 100 }] },
+    },
+
+    // G5 T51 — accès déjà accordé mais modèle KO : ✓, ✗, ✓.
+    "first-run-model-missing-page-ok": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      status: "connected",
+      providerStatus: PROVIDER_KO,
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: ALL_SITES,
+    },
+
+    // G5 T51 — accès accordé, programme introuvable : ✗, …, ✓.
+    "first-run-no-program-page-ok": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      status: "no-host",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: ALL_SITES,
+    },
+
+    // G5 T51 — ✓, ✓, puis clic sur « Lire cette page » : accès accordé, page lue, carte masquée pour de bon (coati:firstRunDone).
+    "first-run-last-click": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      status: "connected",
+      providerStatus: PROVIDER_OK,
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      tabAfterGrant: ARTICLE_TAB,
+      extractionAfterGrant: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: [],
+      autoAction: { steps: [{ type: "click", selector: "#readPage", delayMs: 100 }] },
+    },
+
+    // G5 T51 — les trois coches déjà réunies à l'ouverture : pas de carte.
+    "first-run-all-met": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      status: "connected",
+      providerStatus: PROVIDER_OK,
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: ALL_SITES,
     },
   };
 })();

@@ -57,7 +57,8 @@ résultats, une seule annonce gardée ; sur une fiche, les chiffres affichés pe
 prose de l'agence). Code à suivre : lot L6 (extension), lot L7 (broker).
 
 Amendement 2026-09-29 (ménage du dépôt public, goal G1b) : un fournisseur de modèle est soit
-**intégré** au broker (`ollama`, `claude-api` — les deux seuls fournisseurs que ce dépôt embarque),
+**intégré** au broker (`ollama`, `claude-api`, et depuis l'amendement 2026-09-30 bis
+`openai-compat` — les trois seuls fournisseurs que ce dépôt embarque),
 soit un **module externe** déclaré dans la configuration locale du broker
 (`~/.config/coati/config.json`, clé `modules`), chargé au démarrage depuis un chemin de fichier —
 jamais depuis l'extension ni une page (règle de sécurité n°3, `CLAUDE.md`). L'identifiant d'un
@@ -81,6 +82,19 @@ défi-réponse HMAC dans les deux sens. L'appairage silencieux sur l'`Origin` se
 le collage du secret et la poignée de main `v: 1` passent derrière la clé `legacyPairing` de
 `config.json`, éteinte par défaut. Motif : une autre extension peut réécrire l'`Origin` (prouvé le
 25/09). Voir la section du même nom en fin de document.
+
+Amendement 2026-09-30 bis (goal G5, fournisseur générique « Compatible OpenAI ») : troisième
+fournisseur **intégré**, `openai-compat` — un seul adaptateur pour toute API qui parle le format
+`/v1/chat/completions` d'OpenAI (LM Studio, Ollama via son `/v1`, OpenAI, Mistral, OpenRouter,
+DeepSeek, et « Autre adresse »). `settings.set` gagne un champ `baseUrl` (adresse du serveur,
+PAS un secret — voir plus bas pourquoi) ; la réponse `settings` l'expose donc en clair pour le
+fournisseur actif, contrairement à `apiKey` qui reste write-only. `apiKey` devient optionnel pour
+ce fournisseur (LM Studio, Ollama n'en demandent pas). Pas de nouveau message `settings.models` :
+la liste des modèles réutilise le mécanisme existant de `settings`'s `models` (`ModelProvider.
+listModels`, déjà utilisé par `ollama`) — `openai-compat` l'implémente via `GET {baseUrl}/models`.
+Partout où ce document disait « les deux seuls fournisseurs que ce dépôt embarque » ou
+équivalent, lire désormais « les trois ». Détail complet, y compris la contrainte de sécurité sur
+`baseUrl` (HTTPS, ou HTTP loopback seulement) : voir « Fournisseur de modèle » plus bas.
 
 ## Transport
 
@@ -1131,8 +1145,9 @@ les bornes ci-dessous sont celles de l'ancien `medium`, désormais fixes.
 
 Amendement 2026-09-20 (3). Le broker parle à plusieurs fournisseurs de modèle, choisis derrière une
 interface commune (`broker/src/providers/types.ts`, voir docs/DECISIONS.md T8). **Amendement
-2026-09-29** : un fournisseur est soit **intégré** au broker (ce dépôt en embarque exactement
-deux), soit un **module externe**, déclaré dans `~/.config/coati/config.json` et chargé au
+2026-09-29** (complété par l'amendement 2026-09-30 bis, goal G5) : un fournisseur est soit
+**intégré** au broker (ce dépôt en embarque exactement trois), soit un **module externe**, déclaré
+dans `~/.config/coati/config.json` et chargé au
 démarrage depuis un chemin de fichier — jamais depuis l'extension ni une page, jamais depuis une
 adresse distante (règle de sécurité n°3). L'identifiant d'un fournisseur (`provider`) est une
 **chaîne ouverte** : le broker ne connaît pas à l'avance la liste complète des identifiants
@@ -1156,10 +1171,55 @@ Fournisseurs intégrés :
     "message": "Clé API refusée — vérifiez-la dans les réglages." }
   ```
   Un 429 ou une 5xx échoue en `model-unavailable`.
+- **`openai-compat`** (amendement 2026-09-30 bis, goal G5) — un seul adaptateur pour tout serveur
+  qui parle le format `/v1/chat/completions` d'OpenAI (`broker/src/providers/openai-compat.ts`).
+  Couvre en pratique LM Studio, Ollama (via son propre `/v1`, alternative à l'API native `ollama`
+  ci-dessus), OpenAI, Mistral, OpenRouter, DeepSeek — et toute autre adresse compatible. Deux champs
+  de configuration propres à ce fournisseur, tous deux dans le même slot `model`/`apiKey` que les
+  autres pour ce dernier, plus un nouveau :
+  - **`baseUrl`** (`settings.set`) — l'adresse du serveur, par ex. `http://localhost:1234/v1`
+    (LM Studio) ou `https://api.mistral.ai/v1`. Ce n'est **pas** un secret : contrairement à
+    `apiKey`, la réponse `settings` la renvoie en clair pour le fournisseur actif (voir plus bas).
+    **Contrainte de sécurité, imposée par le broker, jamais par l'extension seule** : `baseUrl` doit
+    être soit `https://`, soit `http://` vers une adresse loopback exclusivement (`localhost`,
+    `127.0.0.1`, `[::1]`) — toute autre adresse `http://` est refusée en `bad-request` avec un
+    message lisible (« l'adresse doit être en HTTPS, ou en HTTP vers une adresse locale
+    (localhost/127.0.0.1) »). Motif : un `http://` non loopback enverrait la clé API en clair sur le
+    réseau. `fetch` est appelé avec `redirect: "error"` — jamais de redirection suivie, pour ne
+    jamais réexpédier la clé vers une autre adresse que celle configurée.
+  - **`apiKey`** — optionnel pour ce fournisseur (LM Studio et Ollama n'en demandent pas) ; même
+    champ write-only que `claude-api`, voir « La clé API » plus bas. Envoyé en en-tête
+    `Authorization: Bearer <clé>` seulement quand une clé est configurée.
+  Requête `POST {baseUrl}/chat/completions`, `stream: true`, réponse SSE (`data: {...}`, terminée
+  par `data: [DONE]`) — même famille de format que `claude-api`, tolérant les variantes des
+  fournisseurs qui n'envoient pas de bloc `usage` ou de rôle sur chaque chunk. Liste des modèles :
+  pas de nouveau message `settings.models` — `openai-compat` implémente `ModelProvider.
+  listModels()` (le même mécanisme qu'`ollama`, déjà câblé dans `settings`'s champ `models`) via
+  `GET {baseUrl}/models`, qui retourne les identifiants annoncés par le serveur ou une erreur
+  lisible ; l'extension retombe alors sur un champ de modèle libre (même comportement que pour
+  `claude-api` aujourd'hui). Erreurs classées ainsi :
+  - clé refusée (HTTP 401/403) → `auth-required`, message « Clé API refusée — vérifiez-la dans les
+    réglages. » (même texte que `claude-api`). Le panneau n'affiche pas ce `message` : il choisit
+    son propre texte d'après le fournisseur connu par la dernière réponse `provider.status`
+    (session à renouveler pour `claude-cli`, clé à vérifier dans les réglages pour un fournisseur à
+    clé API, texte neutre tant que le fournisseur est inconnu) ;
+  - modèle inconnu (HTTP 404, ou message d'erreur du corps de réponse quand le serveur répond 200
+    avec un objet d'erreur) → `model-unavailable`, nomme le modèle demandé ;
+  - serveur injoignable (connexion refusée, DNS, etc.) → `model-unavailable`, ne répète jamais
+    l'adresse configurée verbatim au-delà de ce que l'utilisateur a lui-même saisi ;
+  - délai dépassé → `model-unavailable` (même timeout de 120 s que les autres fournisseurs) ;
+  - flux interrompu en cours de réponse → l'erreur remonte telle quelle, la partie de réponse déjà
+    reçue reste affichée (comportement du panel, inchangé) ;
+  - HTTP 429 → `model-unavailable`, même traitement que `claude-api`.
+  Adresses proposées par la page d'options (préremplissage seulement — l'utilisateur peut toujours
+  taper une autre adresse) : LM Studio `http://localhost:1234/v1`, Ollama `http://localhost:11434/v1`,
+  OpenAI `https://api.openai.com/v1`, Mistral `https://api.mistral.ai/v1`, OpenRouter
+  `https://openrouter.ai/api/v1`, DeepSeek `https://api.deepseek.com/v1`, ou « Autre adresse ». Liste
+  côté extension : `extension/lib/model-provider-presets.js`.
 
 ### Modules externes — amendement 2026-09-29
 
-Au-delà de `ollama` et `claude-api`, tout autre fournisseur est un **module** : un fichier
+Au-delà de `ollama`, `claude-api` et `openai-compat`, tout autre fournisseur est un **module** : un fichier
 `.ts`/`.js` dont l'export par défaut est une fonction `createProvider(host, options)`, déclaré dans
 `config.json` :
 ```jsonc
@@ -1183,11 +1243,38 @@ fournisseur intégré ni module chargé avec succès est rapporté comme indispo
 renvoyée dans une réponse `settings`, quelle que soit la question posée — c'est la règle de sécurité
 n°1 du projet (aucun secret ne doit atteindre l'extension). Une chaîne vide (`"apiKey": ""`) efface
 la clé stockée. La clé n'est jamais journalisée, même tronquée, et n'apparaît jamais dans le texte
-d'une erreur.
+d'une erreur. **Amendement 2026-09-30 bis** : `openai-compat` accepte le même champ `apiKey`, mais
+optionnel (LM Studio, Ollama n'en demandent pas) — un fournisseur `openai-compat` sans clé n'est pas
+en soi indisponible, seulement `configured: false` s'il n'a pas non plus de `baseUrl`.
+
+**Amendement 2026-09-30 ter (correctif de sécurité)** : une clé n'atteint jamais que le service pour
+lequel elle a été saisie. `config.json` stocke désormais les clés **par fournisseur** (`apiKeys:
+{ "claude-api"?: string, "openai-compat"?: { key, origin } }`), jamais un champ global unique — un
+champ global aurait envoyé la clé Anthropic en `Bearer` à n'importe quel `baseUrl` choisi ensuite
+(OpenRouter, DeepSeek…), et un changement de `baseUrl` d'un hôte à un autre aurait envoyé la clé du
+premier hôte au second. Pour `openai-compat`, la clé est liée à l'*origine* (schéma + hôte + port)
+de `baseUrl` au moment où elle est enregistrée ; le broker ne la ressert que si l'origine courante
+de `baseUrl` correspond encore à l'origine enregistrée. Un `settings.set` qui déplace `baseUrl` vers
+une autre origine efface la clé stockée pour `openai-compat` (le booléen `configured` de l'entrée
+`openai-compat` dans `available` redevient `false`) ; un `settings.set` qui porte à la fois un
+nouveau `baseUrl` et une nouvelle `apiKey` lie la clé à la nouvelle origine. Un `config.json` légué
+(l'ancien champ global `apiKey`, forcément la clé `claude-api` puisque `openai-compat` n'existait
+pas encore) est migré tel quel vers `apiKeys["claude-api"]` à la prochaine lecture, et réécrit sous
+la nouvelle forme dès le premier `settings.set` qui suit. `claude-api` ne lit jamais la clé
+`openai-compat`, et réciproquement — chacun ne connaît que sa propre entrée.
+
+`settings.set` gagne aussi (amendement 2026-09-30 bis) un champ `baseUrl`, propre à `openai-compat` —
+**pas un secret** : contrairement à `apiKey`, il est renvoyé tel quel dans la réponse `settings`
+pour le fournisseur actif (`{ "baseUrl": "http://localhost:1234/v1" }`), pour que la page d'options
+puisse le réafficher (l'utilisateur voit et modifie l'adresse, jamais la clé). Une chaîne vide
+efface l'adresse stockée, même sémantique que `apiKey`. Le broker rejette en `bad-request` toute
+`baseUrl` qui n'est ni `https://`, ni `http://` vers `localhost`/`127.0.0.1`/`[::1]` — voir
+« Fournisseur de modèle » plus haut pour le motif.
 
 En échange, chaque entrée de `available` dans la réponse `settings` gagne un booléen `configured` :
 vrai quand ce fournisseur a ce qu'il lui faut pour fonctionner — une clé stockée pour `claude-api`,
-un démon qui répond pour `ollama`, ce qu'un module externe juge nécessaire pour le sien —
+un démon qui répond pour `ollama`, une adresse configurée pour `openai-compat` (voir juste
+au-dessus), ce qu'un module externe juge nécessaire pour le sien —
 indépendamment du modèle actuellement choisi (c'est `available` qui couvre déjà cette
 dimension-là). L'extension affiche un état, jamais une valeur :
 ```jsonc
@@ -1222,30 +1309,35 @@ qu'un module externe choisit de renvoyer pour le sien.
     { "id": "ollama", "label": "Ollama (local)", "available": true, "configured": true },
     { "id": "claude-api", "label": "Claude (clé API)", "available": false,
       "reason": "no Anthropic API key configured", "configured": false },
+    { "id": "openai-compat", "label": "Compatible OpenAI", "available": false,
+      "reason": "no base URL configured", "configured": false },
     { "id": "mon-fournisseur-perso", "label": "Mon fournisseur perso", "available": true,
       "configured": true }
   ],
-  "models": ["llama3.2:latest", "mistral:latest"]  // seulement si le fournisseur actif sait lister ses modèles
+  "models": ["llama3.2:latest", "mistral:latest"],  // seulement si le fournisseur actif sait lister ses modèles
+  "baseUrl": "http://localhost:11434/v1"  // seulement si le fournisseur actif est openai-compat — jamais un secret
 }
 ```
 
-`available` liste **toujours** tous les fournisseurs connus du broker — les deux intégrés, plus
+`available` liste **toujours** tous les fournisseurs connus du broker — les trois intégrés, plus
 tout module chargé avec succès — y compris ceux qui ne sont pas utilisables maintenant : un
 fournisseur indisponible n'est jamais caché, seulement signalé avec une raison courte (`reason`).
 **Libellés (amendement 2026-09-29)** : `label` est fourni par le fournisseur lui-même (intégré ou
 module) — c'est ce qui permet à l'extension d'afficher, sans texte préécrit pour lui, un
 fournisseur qu'elle ne connaît pas d'avance ; voir `extension/lib/labels.js` côté extension, qui
-n'a de texte fixe que pour `ollama` et `claude-api` et retombe sur ce `label` pour tout le reste.
+n'a de texte fixe que pour `ollama`, `claude-api` et `openai-compat` et retombe sur ce `label` pour
+tout le reste.
 
-**`settings.set`** accepte `provider`, `model` et `apiKey`, tous trois optionnels — un champ omis
-reste inchangé côté broker. **Amendement 2026-09-29** : `provider` n'est plus vérifié contre une
+**`settings.set`** accepte `provider`, `model`, `apiKey` et `baseUrl`, tous optionnels — un champ
+omis reste inchangé côté broker. **Amendement 2026-09-29** : `provider` n'est plus vérifié contre une
 liste fermée — `parseClientMessage()` (`broker/src/protocol.ts`) rejette seulement une valeur qui
 n'a pas la forme d'un identifiant (chaîne vide, trop longue, caractères hors ASCII imprimable) en
 `bad-request`. Que cet identifiant corresponde à un fournisseur réellement connu du broker est
 vérifié à l'exécution, pas au parsing — un identifiant inconnu est accepté et persisté, puis
 rapporté comme indisponible par `settings.get`/`provider.status` (voir plus haut). Seul `apiKey`
-est un secret (voir « La clé API » ci-dessus, amendement 2026-09-21 (3)) — write-only, jamais
-renvoyé. Sur succès, le broker persiste le changement dans `~/.config/coati/config.json`
+est un secret (voir « La clé API » ci-dessus, amendement 2026-09-21 (3), complétée par l'amendement
+2026-09-30 bis) — write-only, jamais renvoyé ; `baseUrl` n'en est pas un et est renvoyé tel quel
+(amendement 2026-09-30 bis). Sur succès, le broker persiste le changement dans `~/.config/coati/config.json`
 (permissions `0600`, comme le reste du fichier) et répond avec un `settings` frais, construit de la
 même façon que pour `settings.get`.
 
@@ -1255,7 +1347,7 @@ le message — jamais de repli silencieux sur un autre modèle installé.
 
 **Session expirée ou identifiants non authentifiés (amendement 2026-09-21 (2), task C3).** Un
 fournisseur peut détecter que la session ou les identifiants de l'utilisateur ne sont plus valides
-— par exemple `claude-api` sur un 401/403 (voir plus haut) — et le signale avec le code
+— par exemple `claude-api` ou `openai-compat` sur un 401/403 (voir plus haut) — et le signale avec le code
 `auth-required` plutôt que `model-unavailable`, pour que l'extension nomme le bon remède plutôt que
 de laisser l'appel courir jusqu'au timeout de 120 s sans jamais dire pourquoi. Un module externe
 suit le même contrat — voir `docs/MODULES.md` et son propre `LISEZMOI.md` le cas échéant.
@@ -1296,6 +1388,7 @@ fournisseur **actif** à son ouverture et l'affiche en texte dans les bandeaux e
 |---|---|---|
 | `claude-api` | présence d'une clé dans `config.json` | pas de clé : `ko` / `no-key` ; clé présente : `unknown` / `key-unverified` |
 | `ollama` | `GET <ollamaUrl>/api/tags`, délai 1,5 s (celui d'`isAvailable()`) | injoignable, délai dépassé ou HTTP non 2xx : `ko` / `ollama-unreachable` ; modèle configuré absent de la liste (même règle de correspondance que `isAvailable()`, suffixe `:latest` toléré) : `ko` / `model-missing` ; aucun modèle configuré et liste vide : `ko` / `no-model-installed` ; sinon `ok` / `ready` |
+| `openai-compat` | pas de `baseUrl` configurée : aucune requête. Sinon `GET {baseUrl}/models`, délai 1,5 s | pas de `baseUrl` : `ko` / `no-base-url` ; injoignable ou délai dépassé : `unknown` / `base-url-unreachable` ; HTTP 401/403 : `ko` / `key-rejected` ; toute autre réponse non 2xx : `unknown` / `probe-failed` ; 2xx : `ok` / `ready` |
 | module externe | propre à chaque module — voir sa propre documentation | même contrat `state`/`reason` que ci-dessus ; le `reason` d'un module externe n'est pas dans cette liste fermée, l'extension le traite comme un `état inconnu` faute d'entrée reconnue |
 
 - **`claude-api`** : une clé présente n'est **pas** annoncée `ok`, puisque rien n'a vérifié
@@ -1304,9 +1397,15 @@ fournisseur **actif** à son ouverture et l'affiche en texte dans les bandeaux e
   par un amendement de ce document, avec les codes `ready` (`ok`), `key-rejected` (`ko`, HTTP 401
   ou 403) et `api-unreachable` (`unknown`, réseau, 429 ou 5xx). **Jusque-là, présence seulement.**
 - **`ollama`** : `/api/tags` est local et gratuit.
+- **`openai-compat`** (amendement 2026-09-30 bis) : contrairement à `claude-api`, une sonde
+  `GET /models` est faite ici directement — décision par défaut du goal G5, faute d'un tarif connu
+  et unifié pour cette route chez tous les fournisseurs couverts (LM Studio et Ollama : locale et
+  gratuite ; OpenAI/Mistral/OpenRouter/DeepSeek : cette route est documentée gratuite chez chacun au
+  moment de l'implémentation, à revérifier si un nouveau preset est ajouté un jour). À rouvrir si un
+  fournisseur `openai-compat` facturé confirme le contraire.
 
 **Cache côté broker : 60 s.** Un résultat est réutilisé pendant 60 s pour le même fournisseur et
-la même configuration (fournisseur, modèle, `ollamaUrl`, présence de la clé). Un `settings.set`
+la même configuration (fournisseur, modèle, `ollamaUrl`, `baseUrl`, présence de la clé). Un `settings.set`
 réussi vide le cache. Deux demandes simultanées pendant une vérification en cours partagent la
 même vérification.
 

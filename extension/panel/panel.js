@@ -38,24 +38,24 @@
 //     context-menu action on selected text. Each of those calls
 //     `extractFromTab()` and, once real content came back, refines the type
 //     and relabels the button via `applyDetectedContext()`.
-//   - Chicken-and-egg: to offer "Activer Coati sur ce site" we need the
-//      tab's *origin*, but on a tab switch we just said we won't read the
-//      page to get it. So that affordance is only offered as a side effect of
-//      a gesture-driven redetect: `redetectTab()` calls `api.tabs.get(tabId)`
-//      to read `tab.url` even when the extraction itself fails for lack of a
-//      scripting permission — legitimate because `activeTab` (granted by
-//      THIS gesture) already gives tab metadata regardless of any host
-//      permission. T47 (docs/DECISIONS.md): the injection-refused error
-//      itself is NOT mined for the origin any more — verified 2026-09-29,
-//      neither Chrome/Brave nor Firefox embed the page address in it. A
-//      plain tab switch never triggers this at all — no page-read source
-//      there either.
-//   - Once the user clicks "Activer Coati sur ce site", THAT click is a
-//      genuine gesture, sufficient for `chrome.permissions.request`. If
-//      granted, Chrome remembers it — nothing is cached here (no secrets in
-//      chrome.storage, CLAUDE.md rule #1), and `chrome.scripting.executeScript`
-//      simply starts working for that origin from then on, on every tab that
-//      matches it, with no further gesture needed.
+//   - Page access, "voie B" (docs/DECISIONS.md T50, amended T42/T43): while
+//      the page isn't accessible, the encart's head shows the "Lire cette
+//      page" button (read-button.js). Its first click asks ONCE for the
+//      optional "all sites" host permission — no origin needed, so it works
+//      even when a tab switch left the address unknown. `permissions.request`
+//      is called first thing in the click handler, no `await` before it
+//      (Firefox drops the gesture otherwise). Granted → the same click reads
+//      the page (`redetectTab()`), never a summary. Refused → remembered in
+//      storage.local, and from then on the button asks for this site only
+//      when its address is known (`redetectTab()` learns it through
+//      `api.tabs.get(tabId)` inside a gesture's activeTab grant). T47: the
+//      injection-refused error itself is NOT mined for the origin — neither
+//      Chrome/Brave nor Firefox embed the page address in it.
+//   - Granted permissions are remembered by the browser — nothing is cached
+//      here (no secrets in chrome.storage, CLAUDE.md rule #1), and
+//      `chrome.scripting.executeScript` simply works on matching tabs from
+//      then on. Having "all sites" changes WHERE Coati may read, never WHEN:
+//      still only on the gestures listed above.
 
 import { classifyPageType, classifyPageTypeFromMetadata } from "../content/detect.js";
 import { applyRetention, RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./retention.js";
@@ -87,6 +87,13 @@ import { isRedetectDuplicate, parseActionClickedTabId } from "./redetect-dedupe.
 import { isPdfUrl, readabilityMessage, stripReadability, PDF_MESSAGE } from "./unreadable.js";
 import { renderMarkdown } from "./markdown.js";
 import { computeCodeFingerprint } from "../lib/build-fingerprint.js";
+import {
+  readButtonState,
+  ALL_SITES_ORIGINS,
+  ALL_SITES_DECLINED_KEY,
+  READ_BUTTON_USED_KEY,
+} from "./read-button.js";
+import { firstRunChecks, markFor, FIRST_RUN_TEXT, FIRST_RUN_DONE_KEY, RELEASES_URL } from "./first-run.js";
 
 // Design-variant hook for captures only (notes/PLAN_goal_panneau_v2.md,
 // "Contrat commun") — inert unless the panel's own address carries
@@ -143,7 +150,13 @@ const els = {
   connectCoati: document.getElementById("connectCoati"),
   installDocLink: document.getElementById("installDocLink"),
   openOptions: document.getElementById("openOptions"),
-  activateSite: document.getElementById("activateSite"),
+  readPage: document.getElementById("readPage"),
+  readPageIcon: document.getElementById("readPageIcon"),
+  readPageLabel: document.getElementById("readPageLabel"),
+  readPageNote: document.getElementById("readPageNote"),
+  firstRun: document.getElementById("firstRun"),
+  firstRunTitle: document.getElementById("firstRunTitle"),
+  firstRunSteps: document.getElementById("firstRunSteps"),
   siteCard: document.getElementById("siteCard"),
   siteCardSpinner: document.getElementById("siteCardSpinner"),
   siteCardFavicon: document.getElementById("siteCardFavicon"),
@@ -268,7 +281,16 @@ async function init() {
   // "connect" flow left (docs/PROTOCOL.md: /pair removed from the extension).
   els.connectCoati.addEventListener("click", () => api.runtime.openOptionsPage());
   els.installDocLink.addEventListener("click", () => api.tabs.create({ url: INSTALL_DOC_URL }));
-  els.activateSite.addEventListener("click", activateOnThisSite);
+  els.readPage.addEventListener("click", onReadPageClick);
+  // Same Brave favicon bug as the site card's own icon below: fall back to
+  // Coati's icon rather than an empty ring.
+  els.readPageIcon.addEventListener("error", () => {
+    if (els.readPageIcon.getAttribute("src") !== COATI_ICON_PATH) els.readPageIcon.src = COATI_ICON_PATH;
+  });
+  // Back from the settings tab with the model still not answering: ask the
+  // broker again (a status check, never a page read) — at most every 10 s,
+  // and only while the first-launch card still shows that check missing.
+  window.addEventListener("focus", maybeRecheckProviderForFirstRun);
   els.send.addEventListener("click", sendChat);
   els.cancel.addEventListener("click", cancelActive);
   els.openMyPrompts.addEventListener("click", openMyPromptsPage);
@@ -320,9 +342,14 @@ async function init() {
   // this the card stayed on « Cette page » until the next tab switch or
   // navigation (bug of 29/09, Reddit activated from the page). Metadata-only,
   // never a page read (rule 5); redetectTabFromMetadata() refreshes the link.
-  const onPermissionsChanged = () => {
-    if (currentTabId != null) redetectTabFromMetadata(currentTabId);
-    else refreshActivateAffordance();
+  // Skipped right after a full read of this same tab (the read button's own
+  // grant fires onAdded while its read is running): the metadata-only pass
+  // would reset the fresher DOM-derived state (pageKind) that read produced.
+  const onPermissionsChanged = async () => {
+    await refreshAllSitesGranted();
+    const justRead = lastRedetectTabId === currentTabId && Date.now() - lastRedetectAt < PERMISSION_REDETECT_SKIP_MS;
+    if (currentTabId != null && !justRead) redetectTabFromMetadata(currentTabId);
+    else refreshReadButton();
   };
   api.permissions.onAdded.addListener(onPermissionsChanged);
   api.permissions.onRemoved.addListener(onPermissionsChanged);
@@ -333,6 +360,9 @@ async function init() {
     const value = changes[ATTACH_PAGE_KEY].newValue;
     attachPagePreference = typeof value === "boolean" ? value : null;
   });
+
+  await loadAccessPrefs();
+  await refreshAllSitesGranted();
 
   const status = await api.runtime.sendMessage({ type: "coati:panel-ready" }).catch(() => null);
   applyStatus(status?.state ?? "unknown");
@@ -358,6 +388,7 @@ async function init() {
     currentTabId = null;
     updateAttachToggle();
     updateSiteCard();
+    refreshReadButton();
   }
 
   await drainPendingAction();
@@ -434,6 +465,11 @@ function handleBrokerMessage(message) {
       if (msg) {
         msg.streaming = false;
         renderMessage(msg);
+        // A complete answer proves the model works, whatever provider.status said.
+        if (msg.role === "assistant" && msg.text && !modelAnswered) {
+          modelAnswered = true;
+          renderFirstRun();
+        }
       }
       if (activeRequestId === message.id) setStreamingUi(false);
       persistConversation();
@@ -449,6 +485,9 @@ function handleBrokerMessage(message) {
       }
       const text = describeBrokerError(message);
       const authRequired = message.code === "auth-required";
+      // Remedy depends on the provider (session to reopen vs key to fix) —
+      // stored on the message so a reloaded conversation keeps the right block.
+      const authKind = authRequired ? authKindFor(currentProvider) : undefined;
       if (!authRequired) pendingRetries.delete(message.id);
       // Clear activeRequestId BEFORE rendering: buildAuthRecoveryBlock()
       // reads it to decide whether the retry button starts enabled, and
@@ -459,9 +498,10 @@ function handleBrokerMessage(message) {
         msg.streaming = false;
         msg.text = msg.text || text;
         msg.authRequired = authRequired;
+        msg.authKind = authKind;
         renderMessage(msg);
       } else {
-        addMessage({ id: message.id, role: "system", text, authRequired });
+        addMessage({ id: message.id, role: "system", text, authRequired, authKind });
       }
       persistConversation();
       break;
@@ -490,12 +530,42 @@ function handleBrokerMessage(message) {
       if (message.id !== providerStatusRequestId) break; // stale/unrelated — ignore
       providerStatusRequestId = null;
       providerStatusSuffix = formatProviderStatus(message);
+      providerState = ["ok", "ko", "unknown"].includes(message.state) ? message.state : "unknown";
+      currentProvider = typeof message.provider === "string" ? message.provider : null;
       renderStatusLabel();
+      renderFirstRun();
       break;
     }
     default:
       break;
   }
+}
+
+// `auth-required` (docs/PROTOCOL.md "Session expirée ou identifiants non
+// authentifiés") has two remedies: a CLI session to reopen (`claude-cli`,
+// personal module) or an API key the provider refused (`claude-api`,
+// `openai-compat`, anything else). The error itself carries no provider id,
+// so the panel uses the one from the last provider.status-result; unknown
+// (no answer yet) gets a text naming both remedies.
+const AUTH_REQUIRED_TEXT = {
+  session: "⚠ La session Claude a expiré.",
+  key: "⚠ Clé refusée par le fournisseur : vérifiez-la dans les réglages.",
+  unknown: "⚠ Le fournisseur a refusé l'accès (session expirée ou clé refusée) : vérifiez les réglages.",
+  copy: "Copier",
+  copied: "Copié !",
+  copyFailed: "Échec de la copie",
+  openSettings: "Ouvrir les réglages",
+  retrySession: "J'ai relancé, réessayer",
+  retryKey: "J'ai corrigé, réessayer",
+};
+const SESSION_AUTH_PROVIDERS = new Set(["claude-cli"]);
+// Provider id from the last provider.status-result, null until one arrives.
+let currentProvider = null;
+
+/** "session" | "key" | "unknown" — which remedy an auth-required needs. */
+function authKindFor(provider) {
+  if (!provider) return "unknown";
+  return SESSION_AUTH_PROVIDERS.has(provider) ? "session" : "key";
 }
 
 /** Maps a terminal broker `error` to a French message that names its own
@@ -518,10 +588,11 @@ function describeBrokerError(message) {
       // — the broker itself is fine, the model is the problem.
       return `⚠ Le modèle ne répond pas (${message.message || "indisponible"}). Le broker fonctionne normalement ; c'est le modèle qui pose problème. Réessayez dans un instant.`;
     case "auth-required":
-      // The actionable part (copy `claude /login`, "J'ai relancé,
-      // réessayer") is rendered separately by renderMessage() via
-      // msg.authRequired — see buildAuthRecoveryBlock() below.
-      return "⚠ La session Claude a expiré.";
+      // Provider-aware (see AUTH_REQUIRED_TEXT): the actionable part (copy
+      // `claude /login`, or open the settings; then retry) is rendered
+      // separately by renderMessage() via msg.authRequired/msg.authKind —
+      // see buildAuthRecoveryBlock() below.
+      return AUTH_REQUIRED_TEXT[authKindFor(currentProvider)];
     case "cancelled":
       return "Requête annulée.";
     case "context-too-large":
@@ -557,6 +628,7 @@ function applyStatus(state) {
   renderStatusLabel();
   applyConnectionBanner(state);
   if (state === "connected") maybeRequestProviderStatus();
+  renderFirstRun();
 }
 
 function renderStatusLabel() {
@@ -616,14 +688,31 @@ function applyConnectionBanner(state) {
 //
 // Sent once per panel open, on a user gesture (opening the panel), the first
 // time this panel reaches "connected" — never from the service worker, never
-// on a timer, never again for the lifetime of this panel instance.
+// on a timer. One exception (T51): while the first-launch card still shows
+// "model" missing, the panel regaining focus (the user coming back from the
+// settings tab) asks again, at most every PROVIDER_RECHECK_MIN_MS.
 
 let providerStatusRequested = false;
 let providerStatusRequestId = null;
+// Last provider.status-result `state` ("ok" | "ko" | "unknown"), null = none yet.
+let providerState = null;
+let providerRecheckAt = 0;
+const PROVIDER_RECHECK_MIN_MS = 10_000;
 
 function maybeRequestProviderStatus() {
   if (providerStatusRequested) return;
   providerStatusRequested = true;
+  sendProviderStatus();
+}
+
+function maybeRecheckProviderForFirstRun() {
+  if (els.firstRun.hidden || currentConnState !== "connected" || providerState === "ok" || modelAnswered) return;
+  if (providerStatusRequestId || Date.now() - providerRecheckAt < PROVIDER_RECHECK_MIN_MS) return;
+  providerRecheckAt = Date.now();
+  sendProviderStatus();
+}
+
+function sendProviderStatus() {
   const id = newId();
   providerStatusRequestId = id;
   api.runtime.sendMessage({
@@ -864,19 +953,32 @@ async function eraseConversation() {
 function buildAuthRecoveryBlock(msg) {
   const block = document.createElement("div");
   block.className = "recovery-block";
+  // Messages persisted before authKind existed were all claude-cli sessions.
+  const kind = msg.authKind ?? "session";
 
-  const commandRow = document.createElement("div");
-  commandRow.className = "recovery-command";
-  const code = document.createElement("code");
-  code.textContent = "claude /login";
-  const copyBtn = document.createElement("button");
-  copyBtn.type = "button";
-  copyBtn.className = "recovery-copy";
-  copyBtn.textContent = "Copier";
-  copyBtn.addEventListener("click", () => copyLoginCommand(copyBtn));
-  commandRow.appendChild(code);
-  commandRow.appendChild(copyBtn);
-  block.appendChild(commandRow);
+  if (kind === "session") {
+    const commandRow = document.createElement("div");
+    commandRow.className = "recovery-command";
+    const code = document.createElement("code");
+    code.textContent = "claude /login";
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "recovery-copy";
+    copyBtn.textContent = AUTH_REQUIRED_TEXT.copy;
+    copyBtn.addEventListener("click", () => copyLoginCommand(copyBtn));
+    commandRow.appendChild(code);
+    commandRow.appendChild(copyBtn);
+    block.appendChild(commandRow);
+  } else {
+    // API key (or unknown provider): the key lives in the broker, set from
+    // the settings page — the one place to fix it.
+    const settingsBtn = document.createElement("button");
+    settingsBtn.type = "button";
+    settingsBtn.className = "recovery-copy";
+    settingsBtn.textContent = AUTH_REQUIRED_TEXT.openSettings;
+    settingsBtn.addEventListener("click", () => api.runtime.openOptionsPage());
+    block.appendChild(settingsBtn);
+  }
 
   // Only offered when we still hold the payload to replay — lost across a
   // panel reload (pendingRetries is in-memory only), in which case the copy
@@ -885,7 +987,7 @@ function buildAuthRecoveryBlock(msg) {
     const retryBtn = document.createElement("button");
     retryBtn.type = "button";
     retryBtn.className = "recovery-retry";
-    retryBtn.textContent = "J'ai relancé, réessayer";
+    retryBtn.textContent = kind === "session" ? AUTH_REQUIRED_TEXT.retrySession : AUTH_REQUIRED_TEXT.retryKey;
     retryBtn.disabled = !!activeRequestId;
     retryBtn.addEventListener("click", () => retryRequest(msg));
     block.appendChild(retryBtn);
@@ -898,9 +1000,9 @@ async function copyLoginCommand(button) {
   const original = button.textContent;
   try {
     await navigator.clipboard.writeText("claude /login");
-    button.textContent = "Copié !";
+    button.textContent = AUTH_REQUIRED_TEXT.copied;
   } catch {
-    button.textContent = "Échec de la copie";
+    button.textContent = AUTH_REQUIRED_TEXT.copyFailed;
   }
   setTimeout(() => {
     button.textContent = original;
@@ -919,6 +1021,7 @@ async function retryRequest(msg) {
   if (!payload) return;
 
   msg.authRequired = false;
+  msg.authKind = undefined;
   msg.text = "";
   msg.streaming = true;
   renderMessage(msg);
@@ -1145,44 +1248,228 @@ function runEncartButton(button) {
   }
 }
 
-function hideActivateAffordance() {
-  els.activateSite.hidden = true;
-  els.activateSite.removeAttribute("title");
-  els.activateSite.removeAttribute("aria-label");
+// --- "Lire cette page" button (T50) and first-launch card (T51) -----------
+//
+// Pure state in read-button.js / first-run.js; this section only gathers the
+// facts (permissions, storage.local preferences, connection and provider
+// state) and renders.
+
+// Coati's own icon, shown in the button's ring when the site's favicon is
+// unknown or fails to load — an existing asset, never a drawing (P24).
+const COATI_ICON_PATH = "../icons/icon32.png";
+// permissions.onAdded arriving this soon after a full read of the same tab
+// is ignored — see onPermissionsChanged in init().
+const PERMISSION_REDETECT_SKIP_MS = 2000;
+
+let allSitesGranted = false;
+let siteGranted = false; // this page's own site permission (per-site activation, T42)
+let sitePatterns = []; // permissionPatternsFor(knownOrigin), [] when unknown
+let allSitesDeclined = false;
+let readButtonUsed = false;
+let readButtonReading = false;
+let readButtonRequest = null; // "all-sites" | "site" | null — what the next click asks for
+let firstRunDone = false;
+let accessPrefsLoaded = false;
+let modelAnswered = false;
+
+async function loadAccessPrefs() {
+  const keys = [ALL_SITES_DECLINED_KEY, READ_BUTTON_USED_KEY, FIRST_RUN_DONE_KEY];
+  const stored = await api.storage.local.get(keys).catch(() => ({}));
+  allSitesDeclined = stored[ALL_SITES_DECLINED_KEY] === true;
+  readButtonUsed = stored[READ_BUTTON_USED_KEY] === true;
+  firstRunDone = stored[FIRST_RUN_DONE_KEY] === true;
+  accessPrefsLoaded = true;
 }
 
-// Bumped on every call to refreshActivateAffordance(); a slower, stale
+async function refreshAllSitesGranted() {
+  allSitesGranted = await api.permissions.contains({ origins: ALL_SITES_ORIGINS }).catch(() => false);
+}
+
+// Bumped on every call to refreshReadButton(); a slower, stale
 // permissions.contains() answer (tab switched again meanwhile) checks its
 // own token before touching the DOM, so it never clobbers a fresher result.
-let activateAffordanceToken = 0;
+let readButtonToken = 0;
 
-/** Recomputes the "Activer" link (T43) from `knownOrigin`: hidden while the
- * address is unknown, for "*"/"@unsorted"/an unrecognised popular id (no
- * patterns to request), or once the permission is already granted; shown
- * otherwise, with an accessible name naming the site. Called whenever
- * `knownOrigin` changes and on permissions.onAdded/onRemoved — never throws. */
-async function refreshActivateAffordance() {
-  const token = ++activateAffordanceToken;
-  if (!knownOrigin) {
-    hideActivateAffordance();
+/** Recomputes the button from `knownOrigin` and the permissions held. Called
+ * whenever `knownOrigin` changes and on permissions.onAdded/onRemoved —
+ * never throws. */
+async function refreshReadButton() {
+  const token = ++readButtonToken;
+  const patterns = knownOrigin ? permissionPatternsFor(siteKeyFor(knownOrigin)) : [];
+  const granted =
+    !allSitesGranted && patterns.length > 0
+      ? await api.permissions.contains({ origins: patterns }).catch(() => false)
+      : false;
+  if (token !== readButtonToken) return; // superseded by a later call
+  sitePatterns = patterns;
+  siteGranted = granted;
+  renderReadButton();
+}
+
+function renderReadButton() {
+  const view = readButtonState({
+    allSitesGranted,
+    siteGranted,
+    sitePatternsKnown: sitePatterns.length > 0,
+    declined: allSitesDeclined,
+    used: readButtonUsed,
+    reading: readButtonReading,
+    pageReadable: currentPageUrl != null && firstRunDone,
+  });
+  readButtonRequest = view.request;
+  els.readPage.hidden = !view.state;
+  if (view.state) {
+    els.siteCard.dataset.readButton = view.state;
+    els.readPage.dataset.state = view.state;
+  } else {
+    delete els.siteCard.dataset.readButton;
+    delete els.readPage.dataset.state;
+  }
+  els.readPage.classList.toggle("encart-read--breathing", view.animate);
+  // aria-disabled, not `disabled`: a disabled button drops keyboard focus
+  // mid-read, and the click handler ignores clicks while reading anyway.
+  els.readPage.setAttribute("aria-busy", String(view.state === "reading"));
+  els.readPage.setAttribute("aria-disabled", String(view.state === "reading"));
+  els.readPageLabel.textContent = view.label;
+  if (view.request === "site" && knownOrigin) {
+    const siteName = suggestionsFor({ url: knownOrigin }).site?.name ?? hostFromUrl(knownOrigin) ?? knownOrigin;
+    els.readPage.title = knownOrigin;
+    els.readPage.setAttribute("aria-label", `${view.label} (${siteName})`);
+  } else {
+    els.readPage.removeAttribute("title");
+    els.readPage.removeAttribute("aria-label");
+  }
+  const icon = currentFavIconUrl || COATI_ICON_PATH;
+  if (els.readPageIcon.getAttribute("src") !== icon) els.readPageIcon.src = icon;
+  els.readPageNote.textContent = view.note;
+  els.readPageNote.hidden = !view.note;
+  renderFirstRun();
+}
+
+/** Click on the button: the permission request goes out FIRST, before any
+ * `await` — Firefox only honours permissions.request inside the click's own
+ * task, and Chrome needs the gesture too. Granted → this same click reads
+ * the page (detection only: never a summary, rule 5). */
+function onReadPageClick() {
+  if (readButtonReading || !readButtonRequest) return;
+  const request = readButtonRequest;
+  const asked = api.permissions.request({ origins: request === "site" ? sitePatterns : ALL_SITES_ORIGINS });
+  readButtonReading = true;
+  renderReadButton();
+  finishReadPageClick(request, asked);
+}
+
+async function finishReadPageClick(request, asked) {
+  try {
+    const granted = await Promise.resolve(asked).catch(() => false);
+    if (!granted) {
+      if (request === "all-sites" && !allSitesDeclined) {
+        allSitesDeclined = true;
+        await api.storage.local.set({ [ALL_SITES_DECLINED_KEY]: true }).catch(() => {});
+      }
+      return;
+    }
+    if (request === "all-sites") {
+      allSitesGranted = true;
+      if (allSitesDeclined) {
+        allSitesDeclined = false;
+        await api.storage.local.remove(ALL_SITES_DECLINED_KEY).catch(() => {});
+      }
+    } else {
+      siteGranted = true;
+    }
+    const read = currentTabId != null ? await redetectTab(currentTabId) : false;
+    if (read && !readButtonUsed) {
+      readButtonUsed = true;
+      await api.storage.local.set({ [READ_BUTTON_USED_KEY]: true }).catch(() => {});
+    }
+  } finally {
+    readButtonReading = false;
+    await refreshAllSitesGranted();
+    await refreshReadButton();
+  }
+}
+
+/** First-launch card: shown while a check is missing, hidden for good (a
+ * storage.local preference) once all three are met. Rebuilt from scratch on
+ * each call — it only changes on connection/provider/permission events. */
+function renderFirstRun() {
+  if (!accessPrefsLoaded || firstRunDone) {
+    els.firstRun.hidden = true;
     return;
   }
-  const siteKey = siteKeyFor(knownOrigin);
-  const patterns = permissionPatternsFor(siteKey);
-  if (patterns.length === 0) {
-    hideActivateAffordance();
+  const checks = firstRunChecks({
+    connState: currentConnState,
+    providerState,
+    modelAnswered,
+    pageAccess: readButtonUsed || allSitesGranted || siteGranted,
+  });
+  if (checks.allMet) {
+    firstRunDone = true;
+    els.firstRun.hidden = true;
+    api.storage.local.set({ [FIRST_RUN_DONE_KEY]: true }).catch(() => {});
     return;
   }
-  const granted = await api.permissions.contains({ origins: patterns }).catch(() => false);
-  if (token !== activateAffordanceToken) return; // superseded by a later call
-  if (granted) {
-    hideActivateAffordance();
-    return;
+  els.firstRunTitle.textContent = FIRST_RUN_TEXT.title;
+  els.firstRunSteps.replaceChildren(
+    firstRunStep("program", checks.program, () => api.tabs.create({ url: RELEASES_URL })),
+    firstRunStep("model", checks.model, () => api.runtime.openOptionsPage()),
+    firstRunStep("page", checks.page, pointAtReadButton),
+  );
+  els.firstRun.hidden = false;
+}
+
+function firstRunStep(check, value, onAction) {
+  const text = FIRST_RUN_TEXT[check];
+  const status = markFor(value);
+  const li = document.createElement("li");
+  li.className = "first-run-step";
+  li.dataset.check = check;
+  li.dataset.status = status;
+
+  const mark = document.createElement("span");
+  mark.className = "first-run-mark";
+  mark.setAttribute("aria-hidden", "true");
+  mark.textContent = FIRST_RUN_TEXT.marks[status];
+
+  const body = document.createElement("div");
+  body.className = "first-run-body";
+  const label = document.createElement("span");
+  label.className = "first-run-label";
+  const statusName = document.createElement("span");
+  statusName.className = "visually-hidden";
+  statusName.textContent = `${FIRST_RUN_TEXT.markNames[status]} : `;
+  label.append(statusName, text[value] ?? text[status]);
+  body.appendChild(label);
+
+  if (status === "missing") {
+    if (text.hint) {
+      const hint = document.createElement("p");
+      hint.className = "first-run-hint";
+      hint.textContent = text.hint;
+      body.appendChild(hint);
+    }
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "toolbar-button first-run-action";
+    action.textContent = text.action;
+    action.addEventListener("click", onAction);
+    body.appendChild(action);
   }
-  const siteName = suggestionsFor({ url: knownOrigin }).site?.name ?? hostFromUrl(knownOrigin) ?? siteKey;
-  els.activateSite.hidden = false;
-  els.activateSite.title = knownOrigin;
-  els.activateSite.setAttribute("aria-label", `Activer Coati sur ${siteName}`);
+  li.append(mark, body);
+  return li;
+}
+
+/** "Montrer le bouton": moves focus to the encart button — the user still
+ * clicks it themselves (the first read is never launched for them). */
+function pointAtReadButton() {
+  if (els.readPage.hidden) return;
+  els.readPage.scrollIntoView({ block: "nearest" });
+  els.readPage.focus({ focusVisible: true });
+  // Programmatic focus after a mouse click may not draw :focus-visible —
+  // a short outline of its own makes sure the eye lands on it.
+  els.readPage.classList.add("encart-read--pointed");
+  setTimeout(() => els.readPage.classList.remove("encart-read--pointed"), 2000);
 }
 
 function resetPageState() {
@@ -1220,14 +1507,17 @@ function applyDetectedContext(context) {
   pageKind =
     context.kind === "page" && typeof context.pageKind === "string" ? context.pageKind : null;
   updateAttachToggle();
-  refreshActivateAffordance();
+  refreshReadButton();
   updateSiteCard();
   // extract.js reads page content, never tab metadata — the favicon comes
   // from a separate, metadata-only chrome.tabs.get(), same visibility rule
   // as everywhere else in this file (T28: the site's own icon, no logo of
   // ours). Best-effort: a failure here just means no favicon, never a
   // blocked card. Re-render once it resolves.
-  refreshFavIcon(currentTabId).then(updateSiteCard);
+  refreshFavIcon(currentTabId).then(() => {
+    updateSiteCard();
+    renderReadButton();
+  });
 }
 
 /** Re-runs detection for `tabId`. Never throws — degrades to the generic
@@ -1252,32 +1542,37 @@ async function openedFromGesture() {
 
 async function redetectTab(tabId) {
   // Recorded on every read, but only the "coati:action-clicked" handler skips
-  // on it: a read requested by "Activer" right after a grant must never be
-  // swallowed by the dedupe window.
+  // on it: a read requested by the encart's read button right after a grant
+  // must never be swallowed by the dedupe window. Resolves true when the page
+  // was actually read, false otherwise (never throws).
   lastRedetectTabId = tabId;
   lastRedetectAt = Date.now();
   beginCardDetection();
   try {
     const context = await extractFromTab(tabId);
     applyDetectedContext(context);
+    return true;
   } catch {
     resetPageState();
     // T47: the injection-refused error no longer carries the page address
     // (neither browser embeds it — verified 2026-09-29), so the origin is
     // read from tabs.get() instead. Legitimate here specifically: this
     // function only runs inside a genuine gesture (icon click, context menu,
-    // shortcut, "Activer"), whose activeTab grant already gives tab metadata
+    // shortcut, the encart's read button), whose activeTab grant already gives tab metadata
     // regardless of any scripting/host permission. If we already hold this
     // site's permission, extraction failed for some other reason (a
-    // chrome:// page, a PDF viewer…) — refreshActivateAffordance() checks
-    // that itself and stays hidden in that case.
+    // chrome:// page, a PDF viewer…) — refreshReadButton() checks
+    // that itself and stays hidden in that case. The favicon rides along so
+    // the button's ring shows the site's own icon.
     try {
       const tab = await api.tabs.get(tabId);
       knownOrigin = tab?.url ? new URL(tab.url).origin : null;
+      currentFavIconUrl = tab?.url ? iconFor(tab) : null;
     } catch {
       knownOrigin = null;
     }
-    await refreshActivateAffordance();
+    await refreshReadButton();
+    return false;
   } finally {
     endCardDetection();
   }
@@ -1302,7 +1597,7 @@ async function redetectTabFromMetadata(tabId) {
     resetPageState();
     knownOrigin = null;
     if (!tab || !tab.url) {
-      hideActivateAffordance();
+      refreshReadButton();
       return; // no permission for this origin: nothing legible
     }
 
@@ -1315,7 +1610,7 @@ async function redetectTabFromMetadata(tabId) {
     currentFavIconUrl = iconFor(tab);
     pageType = classifyPageTypeFromMetadata({ url: tab.url, title: tab.title });
     updateAttachToggle();
-    refreshActivateAffordance();
+    refreshReadButton();
     updateSiteCard();
   } finally {
     endCardDetection();
@@ -1345,18 +1640,6 @@ async function refreshFavIcon(tabId) {
   } catch {
     currentFavIconUrl = null;
   }
-}
-
-async function activateOnThisSite() {
-  if (!knownOrigin) return;
-  // Same unit as the page's per-case "Actif" switch (T42): a popular site
-  // requests every one of its domains at once, not just the current tab's.
-  const patterns = permissionPatternsFor(siteKeyFor(knownOrigin));
-  if (patterns.length === 0) return;
-  const granted = await api.permissions.request({ origins: patterns }).catch(() => false);
-  if (!granted) return;
-  hideActivateAffordance();
-  if (currentTabId != null) await redetectTab(currentTabId);
 }
 
 // --- Summarize ------------------------------------------------------------

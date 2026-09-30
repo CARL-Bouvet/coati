@@ -47,14 +47,33 @@ export interface CoatiConfig {
   /** Base URL of the local Ollama daemon. */
   ollamaUrl?: string;
   /**
-   * The user's own Anthropic API key, for the claude-api provider (BYOK).
-   * WRITE-ONLY end to end: accepted by `settings.set`, persisted here
-   * (0600, same as the rest of this file), and NEVER read back into a
-   * `settings`/`settings.set` response — see server.ts's buildSettingsPayload
-   * and CLAUDE.md security rule #1 (no secret reaches the extension). Never
-   * logged, never included in an error message — see providers/claude-api.ts.
+   * BYOK secrets, keyed per provider — NEVER a single global field (security
+   * fix, 2026-09-30 ter): a secret must only ever reach the service it was
+   * entered for. `claude-api` is a bare string (Anthropic has exactly one
+   * base URL, no origin to bind against). `openai-compat` carries its key
+   * together with the URL *origin* it was entered for (`new URL(baseUrl)
+   * .origin` at settings.set time) — resolveApiKey() below only returns it
+   * when the CURRENT baseUrl still has that same origin, so switching
+   * openai-compat's baseUrl to a different host (OpenRouter → DeepSeek…)
+   * never carries the old host's key along; the entry is pruned instead (see
+   * server.ts's settingsCtx().applySettings). WRITE-ONLY end to end: accepted
+   * by `settings.set`, persisted here (0600, same as the rest of this file),
+   * and NEVER read back into a `settings`/`settings.set` response — see
+   * server.ts's buildSettingsPayload and CLAUDE.md security rule #1 (no
+   * secret reaches the extension). Never logged, never included in an error
+   * message — see providers/claude-api.ts and providers/openai-compat.ts.
    */
-  apiKey?: string;
+  apiKeys?: {
+    "claude-api"?: string;
+    "openai-compat"?: { key: string; origin: string };
+  };
+  /** Base URL of the `openai-compat` provider's server (amendement 2026-09-30
+   * bis, goal G5), e.g. "http://localhost:1234/v1" for LM Studio. NOT a
+   * secret — see server.ts's buildSettingsPayload, which echoes it back in
+   * `settings` for the active provider, unlike apiKey. Validated (https, or
+   * http restricted to loopback) at settings.set time — see protocol.ts's
+   * isValidBaseUrl. */
+  baseUrl?: string;
   /** External provider modules to load at startup — see ModuleConfigEntry
    * above and docs/MODULES.md. Absent/empty means "built-in providers only". */
   modules?: ModuleConfigEntry[];
@@ -118,6 +137,109 @@ const PROVIDER_ID_RE = /^[!-~]{1,64}$/;
 
 export function isProviderId(v: unknown): v is ProviderId {
   return typeof v === "string" && PROVIDER_ID_RE.test(v);
+}
+
+/** Reads config.json's raw `apiKeys` object (new shape) tolerantly, dropping
+ * anything malformed rather than throwing. Exported for tests. */
+export function parseApiKeys(raw: unknown): CoatiConfig["apiKeys"] {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const obj = raw as Record<string, unknown>;
+  const apiKeys: NonNullable<CoatiConfig["apiKeys"]> = {};
+  if (typeof obj["claude-api"] === "string" && obj["claude-api"]) {
+    apiKeys["claude-api"] = obj["claude-api"];
+  }
+  const oc = obj["openai-compat"];
+  if (oc && typeof oc === "object" && !Array.isArray(oc)) {
+    const ocObj = oc as Record<string, unknown>;
+    if (typeof ocObj.key === "string" && ocObj.key && typeof ocObj.origin === "string" && ocObj.origin) {
+      apiKeys["openai-compat"] = { key: ocObj.key, origin: ocObj.origin };
+    }
+  }
+  return Object.keys(apiKeys).length > 0 ? apiKeys : undefined;
+}
+
+/**
+ * Resolves the API key a provider should actually receive for a request,
+ * NEVER the raw stored value — see CoatiConfig.apiKeys's doc for the
+ * security reasoning. `claude-api` gets its key unconditionally (no origin
+ * to bind: Anthropic has one fixed API host). `openai-compat` only gets its
+ * key back when `config.baseUrl`'s current origin still matches the origin
+ * it was stored under — a baseUrl moved to another host never leaks the
+ * previous host's key. Every other provider id (built-in with no BYOK slot,
+ * or an external module) gets `undefined`: there is no defined storage for
+ * it, so nothing is ever handed out by accident.
+ */
+export function resolveApiKey(config: CoatiConfig, providerId: ProviderId): string | undefined {
+  if (providerId === "claude-api") return config.apiKeys?.["claude-api"];
+  if (providerId === "openai-compat") {
+    const stored = config.apiKeys?.["openai-compat"];
+    if (!stored || !config.baseUrl) return undefined;
+    try {
+      if (new URL(config.baseUrl).origin === stored.origin) return stored.key;
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Stores (or forgets, on `key === ""`) an API key for `providerId`, returning
+ * the new `apiKeys` object — pure, does not mutate `config`. `openai-compat`
+ * binds the key to `config.baseUrl`'s CURRENT origin (must already be set —
+ * see server.ts's applySettings, which applies a `baseUrl` patch before this
+ * so a settings.set carrying both binds to the new address, not the old
+ * one). An unknown provider id (no defined BYOK slot) is a no-op: there is
+ * nowhere safe to put it.
+ */
+export function setApiKey(
+  config: CoatiConfig,
+  providerId: ProviderId,
+  key: string,
+): CoatiConfig["apiKeys"] {
+  const apiKeys: NonNullable<CoatiConfig["apiKeys"]> = { ...config.apiKeys };
+  if (providerId === "claude-api") {
+    if (key === "") delete apiKeys["claude-api"];
+    else apiKeys["claude-api"] = key;
+  } else if (providerId === "openai-compat") {
+    if (key === "") {
+      delete apiKeys["openai-compat"];
+    } else if (config.baseUrl) {
+      try {
+        apiKeys["openai-compat"] = { key, origin: new URL(config.baseUrl).origin };
+      } catch {
+        // Malformed baseUrl: nothing safe to bind the key to — dropped.
+      }
+    }
+    // No baseUrl configured yet: nothing to bind the key's origin to — dropped
+    // silently rather than stored without an origin (which resolveApiKey
+    // could never safely match against later).
+  }
+  return Object.keys(apiKeys).length > 0 ? apiKeys : undefined;
+}
+
+/**
+ * Drops the stored `openai-compat` key if `config.baseUrl`'s current origin
+ * no longer matches the origin it was bound to (or if there is no baseUrl at
+ * all) — called after applying a `baseUrl` patch, before applying any
+ * `apiKey` patch from the same settings.set (see server.ts's applySettings).
+ */
+export function pruneStaleOpenAiCompatKey(config: CoatiConfig): CoatiConfig["apiKeys"] {
+  const stored = config.apiKeys?.["openai-compat"];
+  if (!stored) return config.apiKeys;
+  let matches = false;
+  if (config.baseUrl) {
+    try {
+      matches = new URL(config.baseUrl).origin === stored.origin;
+    } catch {
+      matches = false;
+    }
+  }
+  if (matches) return config.apiKeys;
+  const apiKeys = { ...config.apiKeys };
+  delete apiKeys["openai-compat"];
+  return Object.keys(apiKeys).length > 0 ? apiKeys : undefined;
 }
 
 /** Pure: validates one raw `modules` array entry's shape (`path` a non-empty
@@ -199,7 +321,15 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
     model: typeof obj.model === "string" && obj.model ? obj.model : undefined,
     ollamaUrl:
       typeof obj.ollamaUrl === "string" && obj.ollamaUrl ? obj.ollamaUrl : DEFAULT_CONFIG.ollamaUrl,
-    apiKey: typeof obj.apiKey === "string" && obj.apiKey ? obj.apiKey : undefined,
+    // New per-provider shape (`apiKeys`) takes priority; a legacy config.json
+    // written before this fix (single global `apiKey`, always the
+    // claude-api/Anthropic key in practice — openai-compat did not exist
+    // yet) is migrated in place: on the very next saveConfig (any
+    // settings.set), the legacy field is gone from disk for good.
+    apiKeys: parseApiKeys(obj.apiKeys) ?? (typeof obj.apiKey === "string" && obj.apiKey
+      ? { "claude-api": obj.apiKey }
+      : undefined),
+    baseUrl: typeof obj.baseUrl === "string" && obj.baseUrl ? obj.baseUrl : undefined,
     modules: parseModuleConfigEntries(obj.modules),
     legacyPairing,
   };

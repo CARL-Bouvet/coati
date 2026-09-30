@@ -175,6 +175,7 @@ async function main() {
   await bundle(join(EXT, "panel", "panel.js"), join(bundleDir, "panel.bundle.js"));
   await bundle(join(EXT, "options.js"), join(bundleDir, "options.bundle.js"));
   await bundle(join(EXT, "prompts", "prompts.js"), join(bundleDir, "prompts.bundle.js"), { withLabExtraSite: false });
+  await bundle(join(EXT, "welcome", "welcome.js"), join(bundleDir, "welcome.bundle.js"), { withLabExtraSite: false });
 
   // --- 2. Shared assets: favicon sample, lab support scripts, fixtures ---
   const assetsDir = join(OUT, "assets");
@@ -214,13 +215,16 @@ async function main() {
   cpSync(join(LAB_SRC, "static", "comparatif.js"), join(identityDir, "comparatif.js"));
 
   cpSync(join(LAB_SRC, "fixtures", "prompts-fixtures.js"), join(labDir, "prompts-fixtures.js"));
+  cpSync(join(LAB_SRC, "fixtures", "welcome-fixtures.js"), join(labDir, "welcome-fixtures.js"));
 
   const panelStates = stateIdsFromFixtureFile(join(LAB_SRC, "fixtures", "panel-fixtures.js"));
   const optionsStates = stateIdsFromFixtureFile(join(LAB_SRC, "fixtures", "options-fixtures.js"));
   const promptsStates = stateIdsFromFixtureFile(join(LAB_SRC, "fixtures", "prompts-fixtures.js"));
+  const welcomeStates = stateIdsFromFixtureFile(join(LAB_SRC, "fixtures", "welcome-fixtures.js"));
   console.log("[lab] panel states:", panelStates.join(", "));
   console.log("[lab] options states:", optionsStates.join(", "));
   console.log("[lab] prompts states:", promptsStates.join(", "));
+  console.log("[lab] welcome states:", welcomeStates.join(", "));
 
   for (const tree of ["light", "dark"] as const) {
     // CSS, copied verbatim (light) or dark-rewritten (dark) into the exact
@@ -230,15 +234,21 @@ async function main() {
     copyCss("panel/card.css", tree);
     copyCss("options.css", tree);
     copyCss("prompts/prompts.css", tree);
+    copyCss("welcome/welcome.css", tree);
     // Same-origin assets the CSS / markup reference by relative path: the
     // shipped Figtree font (lib/theme.css -> ../fonts/).
     cpSync(join(EXT, "fonts"), join(OUT, tree, "fonts"), { recursive: true });
+    // The extension's own icons (panel: first-launch logo and the read
+    // button's fallback icon; welcome page: fixed logo) — ../icons/ from
+    // panel/ and welcome/, same layout as extension/.
+    cpSync(join(EXT, "icons"), join(OUT, tree, "icons"), { recursive: true });
 
     // Bundles + lab support files, at fixed relative locations reused by
     // both panel.html (in <tree>/panel/) and options.html (in <tree>/).
     cpSync(join(bundleDir, "panel.bundle.js"), join(OUT, tree, "panel", "panel.bundle.js"));
     cpSync(join(bundleDir, "options.bundle.js"), join(OUT, tree, "options.bundle.js"));
     cpSync(join(bundleDir, "prompts.bundle.js"), join(OUT, tree, "prompts", "prompts.bundle.js"));
+    cpSync(join(bundleDir, "welcome.bundle.js"), join(OUT, tree, "welcome", "welcome.bundle.js"));
 
     buildHtmlPage({
       srcHtmlPath: join(EXT, "panel", "panel.html"),
@@ -279,6 +289,19 @@ async function main() {
       identityPairsRelPath: "../../lab/identity-pairs.js",
       labPairRelPath: "../../lab/lab-pair.js",
     });
+
+    buildHtmlPage({
+      srcHtmlPath: join(EXT, "welcome", "welcome.html"),
+      outHtmlPath: join(OUT, tree, "welcome", "welcome.html"),
+      moduleScriptSrc: "welcome.js",
+      bundleRelPath: "welcome.bundle.js",
+      stubRelPath: "../../lab/browser-stub.js",
+      fixturesRelPath: "../../lab/welcome-fixtures.js",
+      harnessRelPath: "../../lab/lab-runtime.js",
+      determinismRelPath: "../../lab/lab-determinism.css",
+      identityPairsRelPath: "../../lab/identity-pairs.js",
+      labPairRelPath: "../../lab/lab-pair.js",
+    });
   }
 
   rmSync(bundleDir, { recursive: true, force: true });
@@ -302,7 +325,24 @@ async function main() {
     const promptsLinks = promptsStates
       .map((id) => `<li><a href="${tree}/prompts/prompts.html?state=${id}">prompts · ${id}</a></li>`)
       .join("\n      ");
-    return `<h2>${tree}</h2>\n    <ul>\n      ${panelLinks}\n      ${optionsLinks}\n      ${promptsLinks}\n    </ul>`;
+    const welcomeLinks = welcomeStates
+      .map((id) => `<li><a href="${tree}/welcome/welcome.html?state=${id}">welcome · ${id}</a></li>`)
+      .join("\n      ");
+    // G5 (T50): the read button's motion, which the determinism stylesheet
+    // freezes everywhere else — live, and frozen at a mid-halo frame.
+    const motionLinks = [
+      ["read-invite", "live"],
+      ["read-invite", "500"],
+      ["read-invite-known", "500"],
+      ["read-reading", "live"],
+      ["read-reading", "200"],
+    ]
+      .map(
+        ([id, motion]) =>
+          `<li><a href="${tree}/panel/panel.html?state=${id}&amp;motion=${motion}">panel · ${id} · motion=${motion}</a></li>`,
+      )
+      .join("\n      ");
+    return `<h2>${tree}</h2>\n    <ul>\n      ${panelLinks}\n      ${optionsLinks}\n      ${promptsLinks}\n      ${welcomeLinks}\n    </ul>\n    <h3>${tree} — mouvement (G5, bouton de l'encart)</h3>\n    <ul>\n      ${motionLinks}\n    </ul>`;
   };
   writeFile(
     join(OUT, "index.html"),

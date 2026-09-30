@@ -317,6 +317,31 @@ a:focus-visible {
   min-width: 180px;
 }
 
+/* Same layout as .apikey-field above — baseUrl (goal G5) is not a secret, but
+ * shares the preset-select + text-input + save-button shape. */
+.baseurl-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0 var(--check-indent);
+}
+
+.baseurl-field input[type="text"] {
+  flex: 1;
+  min-width: 180px;
+}
+
+.baseurl-error {
+  flex-basis: 100%;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.baseurl-error:empty {
+  display: none;
+}
+
 .apikey-clear {
   color: var(--danger);
   background: var(--bg);

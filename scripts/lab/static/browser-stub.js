@@ -107,6 +107,15 @@
     return prefsReply();
   }
 
+  // Number of permissions.request() calls the fixture let through. Fixtures
+  // with `tabAfterGrant` / `extractionAfterGrant` switch to those once a
+  // grant happened (G5, the encart's "Lire cette page" button: no access
+  // before the click, a readable page after it).
+  var grantCount = 0;
+  function currentTab() {
+    return grantCount > 0 && fixture.tabAfterGrant ? fixture.tabAfterGrant : fixture.tab;
+  }
+
   // --- storage.local / storage.session -----------------------------------
   function makeArea(seed) {
     var store = Object.assign({}, seed || {});
@@ -205,6 +214,18 @@
             message: Object.assign({ type: "settings" }, fixture.settings || {}),
           });
         }, 0);
+      } else if (payload.type === "provider.status" && fixture.providerStatus) {
+        // G5 first-launch card: only fixtures that declare `providerStatus`
+        // answer, so every older fixture keeps its unchanged status line.
+        setTimeout(function () {
+          dispatchToListeners({
+            type: "coati:broker-message",
+            message: Object.assign(
+              { type: "provider.status-result", id: payload.id, checkedAt: "2026-09-30T09:00:00Z" },
+              fixture.providerStatus,
+            ),
+          });
+        }, 0);
       } else if (payload.type === "settings.test") {
         setTimeout(function () {
           var result = (fixture.testResults && fixture.testResults[payload.provider]) || {
@@ -232,7 +253,10 @@
     // content/extract.js injection (files: ["/content/extract.js"]) — the
     // one path panel.js's extractFromTab() relies on for every real read.
     if (details && Array.isArray(details.files)) {
-      var extraction = fixture.extraction;
+      var extraction = grantCount > 0 && fixture.extractionAfterGrant ? fixture.extractionAfterGrant : fixture.extraction;
+      // G5 "reading" state: the read never finishes, so the button stays in
+      // its spinning state for the capture.
+      if (extraction && extraction.pending) return new Promise(function () {});
       if (!extraction) return Promise.reject(new Error("no extraction fixture for state '" + stateId + "'"));
       if (extraction.error === "no-access") {
         return Promise.reject(
@@ -293,10 +317,12 @@
         return Promise.resolve({});
       },
       query: function () {
-        return Promise.resolve(fixture.tab ? [fixture.tab] : []);
+        var tab = currentTab();
+        return Promise.resolve(tab ? [tab] : []);
       },
       get: function () {
-        return fixture.tab ? Promise.resolve(fixture.tab) : Promise.reject(new Error("no such tab (lab)"));
+        var tab = currentTab();
+        return tab ? Promise.resolve(tab) : Promise.reject(new Error("no such tab (lab)"));
       },
       onActivated: { addListener: function () {} },
       onUpdated: { addListener: function () {} },
@@ -318,7 +344,11 @@
       },
     },
     storage: {
-      local: makeArea(fixture.storageLocal),
+      // The first-launch card (G5, T51) is marked done by default so every
+      // pre-G5 fixture renders exactly as before; `firstRun: true` opts in.
+      local: makeArea(
+        Object.assign(fixture.firstRun ? {} : { "coati:firstRunDone": true }, fixture.storageLocal),
+      ),
       session: makeArea(fixture.storageSession),
       // No cross-page writes in the lab: the listener is accepted, never fired.
       onChanged: { addListener: function () {}, removeListener: function () {} },
@@ -343,8 +373,12 @@
           }),
         );
       },
+      // fixture.permissionRequestResult === false simulates the user
+      // clicking "Refuser" in the browser's prompt (G5, refused state).
       request: function (query) {
         var origins = (query && query.origins) || [];
+        if (fixture.permissionRequestResult === false) return Promise.resolve(false);
+        grantCount += 1;
         origins.forEach(function (o) {
           if (grantedOrigins.indexOf(o) === -1) grantedOrigins.push(o);
         });

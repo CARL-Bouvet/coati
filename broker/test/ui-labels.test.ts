@@ -19,7 +19,7 @@ describe("providerLabel", () => {
   // here — anything else (an externally loaded module) has no entry at all,
   // and providerLabel() falls back to the broker-supplied `label` instead.
   test("only ollama and claude-api have built-in labels", () => {
-    expect(Object.keys(PROVIDER_LABELS).sort()).toEqual(["claude-api", "ollama"]);
+    expect(Object.keys(PROVIDER_LABELS).sort()).toEqual(["claude-api", "ollama", "openai-compat"]);
   });
 
   test("falls back to the given fallback for an unknown id", () => {

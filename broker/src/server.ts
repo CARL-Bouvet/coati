@@ -11,6 +11,9 @@ import {
   defaultDirs,
   loadConfig,
   saveConfig,
+  resolveApiKey,
+  setApiKey,
+  pruneStaleOpenAiCompatKey,
   type Dirs,
   type ProviderId,
   type CoatiConfig,
@@ -377,25 +380,41 @@ async function buildSettingsPayload(config: CoatiConfig): Promise<{
   model?: string;
   available: ProviderStatus[];
   models?: string[];
+  baseUrl?: string;
 }> {
   const provider = config.provider ?? DEFAULT_CONFIG.provider!;
-  const opts: ProviderRuntimeOptions = { model: config.model, ollamaUrl: config.ollamaUrl, apiKey: config.apiKey };
-  // `configured` (task 2) deliberately omits `model`: it answers "does this
-  // provider have what it needs at all" (a stored key, a reachable daemon, an
-  // installed CLI) — independent of whether the *currently selected* model
-  // happens to be valid for it, which `available` (above, with the full
-  // opts) already covers. For ollama this turns isAvailable()'s "model X not
-  // installed" branch off, leaving only the daemon-reachability check —
-  // exactly "its URL answers" per the task brief.
-  const configuredOpts: ProviderRuntimeOptions = { ollamaUrl: config.ollamaUrl, apiKey: config.apiKey };
+  // Each provider gets ONLY its own key (security fix, 2026-09-30 ter) — see
+  // config.ts's resolveApiKey. Built per-provider-id inside the `available`
+  // loop below rather than once, since a single shared `opts` here was
+  // exactly the bug: every provider's isAvailable() used to receive whatever
+  // key was configured for the currently *active* provider.
+  const opts: ProviderRuntimeOptions = {
+    model: config.model,
+    ollamaUrl: config.ollamaUrl,
+    apiKey: resolveApiKey(config, provider),
+    baseUrl: config.baseUrl,
+  };
   const available = await Promise.all(
     getProviders().map(async (p): Promise<ProviderStatus> => {
+      const pOpts: ProviderRuntimeOptions = {
+        ollamaUrl: config.ollamaUrl,
+        apiKey: resolveApiKey(config, p.id as ProviderId),
+        baseUrl: config.baseUrl,
+      };
+      // `configured` (task 2) deliberately omits `model`: it answers "does
+      // this provider have what it needs at all" (a stored key, a reachable
+      // daemon, an installed CLI) — independent of whether the *currently
+      // selected* model happens to be valid for it, which `available`
+      // (below, with the full opts) already covers. For ollama this turns
+      // isAvailable()'s "model X not installed" branch off, leaving only the
+      // daemon-reachability check — exactly "its URL answers" per the task
+      // brief.
       const configured = await p
-        .isAvailable(configuredOpts)
+        .isAvailable(pOpts)
         .then((r) => r.available)
         .catch(() => false);
       try {
-        const a = await p.isAvailable(opts);
+        const a = await p.isAvailable({ ...pOpts, model: config.model });
         return { id: p.id as ProviderId, label: p.label, available: a.available, reason: a.reason, configured };
       } catch (err) {
         return {
@@ -410,7 +429,12 @@ async function buildSettingsPayload(config: CoatiConfig): Promise<{
   );
   const active = getProvider(provider);
   const models = active?.listModels ? await active.listModels(opts).catch(() => undefined) : undefined;
-  return { provider, model: config.model, available, models };
+  // baseUrl is NOT a secret (docs/PROTOCOL.md, amendement 2026-09-30 bis) —
+  // unlike apiKey, echoed back, but ONLY for the currently active provider
+  // (openai-compat), never for every provider in `available` (which never
+  // carries any provider-specific config value beyond id/label/available).
+  const baseUrl = provider === "openai-compat" ? config.baseUrl : undefined;
+  return { provider, model: config.model, available, models, baseUrl };
 }
 
 // --- settings.test (task 3): "Tester la connexion" backend ------------------
@@ -432,6 +456,8 @@ function settingsTestSuccessMessage(providerId: ProviderId): string {
       return "Connexion à l'API Anthropic réussie.";
     case "ollama":
       return "Connexion à Ollama réussie.";
+    case "openai-compat":
+      return "Connexion au serveur réussie.";
     default:
       return "Connexion réussie.";
   }
@@ -454,6 +480,8 @@ function settingsTestFailureMessage(providerId: ProviderId, err: unknown): strin
       return "Impossible de joindre l'API Anthropic — vérifiez la clé ou votre connexion réseau.";
     case "ollama":
       return "Ollama ne répond pas — vérifiez qu'il est bien lancé sur cette machine.";
+    case "openai-compat":
+      return "Impossible de joindre le serveur — vérifiez l'adresse et votre connexion réseau.";
     default:
       return "Impossible de joindre ce fournisseur.";
   }
@@ -466,14 +494,25 @@ export async function testProviderConnection(
   const provider = getProvider(providerId);
   if (!provider) return { ok: false, message: "Fournisseur inconnu." };
 
-  if (providerId === "claude-api" && !config.apiKey) {
+  if (providerId === "claude-api" && !resolveApiKey(config, providerId)) {
     return { ok: false, message: "Aucune clé API configurée — ajoutez-la dans les réglages." };
   }
   if (providerId === "ollama" && !config.model) {
     return { ok: false, message: "Aucun modèle Ollama configuré — choisissez-en un dans les réglages." };
   }
+  if (providerId === "openai-compat" && !config.baseUrl) {
+    return { ok: false, message: "Aucune adresse de serveur configurée — ajoutez-en une dans les réglages." };
+  }
+  if (providerId === "openai-compat" && !config.model) {
+    return { ok: false, message: "Aucun modèle configuré — choisissez-en un dans les réglages." };
+  }
 
-  const opts: ProviderRuntimeOptions = { model: config.model, ollamaUrl: config.ollamaUrl, apiKey: config.apiKey };
+  const opts: ProviderRuntimeOptions = {
+    model: config.model,
+    ollamaUrl: config.ollamaUrl,
+    apiKey: resolveApiKey(config, providerId),
+    baseUrl: config.baseUrl,
+  };
   const built = buildPrompt({ kind: "chat", text: "Réponds uniquement par le mot ok." });
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SETTINGS_TEST_TIMEOUT_MS);
@@ -515,7 +554,7 @@ interface SettingsCtx {
   /** Applies provider/model/apiKey fields from a settings.set message,
    * persists to config.json when a configDir was supplied to startServer,
    * and returns the resulting config. */
-  applySettings(patch: Pick<SettingsSetMessage, "provider" | "model" | "apiKey">): CoatiConfig;
+  applySettings(patch: Pick<SettingsSetMessage, "provider" | "model" | "apiKey" | "baseUrl">): CoatiConfig;
   /** `provider.status` for the currently active provider, through the
    * broker-wide ProviderStatusCache (see docs/PROTOCOL.md "Disponibilité du
    * fournisseur"). */
@@ -704,6 +743,7 @@ function handleMessage(
         provider: message.provider,
         model: message.model,
         apiKey: message.apiKey,
+        baseUrl: message.baseUrl,
       });
       void buildSettingsPayload(updated).then((payload) => {
         send(ws, { type: "settings", id: message.id, ...payload });
@@ -954,7 +994,12 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
   function settingsCtx(): SettingsCtx {
     const cfg = currentConfig;
     const providerId = cfg.provider ?? DEFAULT_CONFIG.provider!;
-    const providerOpts: ProviderRuntimeOptions = { model: cfg.model, ollamaUrl: cfg.ollamaUrl, apiKey: cfg.apiKey };
+    const providerOpts: ProviderRuntimeOptions = {
+      model: cfg.model,
+      ollamaUrl: cfg.ollamaUrl,
+      apiKey: resolveApiKey(cfg, providerId),
+      baseUrl: cfg.baseUrl,
+    };
     return {
       providerId,
       // Amendement 2026-09-29: NEVER falls back to another provider when
@@ -968,12 +1013,27 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       applySettings(patch) {
         if (patch.provider !== undefined) currentConfig = { ...currentConfig, provider: patch.provider };
         if (patch.model !== undefined) currentConfig = { ...currentConfig, model: patch.model };
-        // Empty string means "forget the stored key" (task 2) — spreading
-        // `apiKey: undefined` drops the key entirely from the JSON written by
-        // saveConfig (JSON.stringify omits undefined-valued keys), so a
-        // forgotten key leaves no trace on disk either.
+        // Same "" = forget semantics as apiKey — but baseUrl is NOT a secret
+        // (amendement 2026-09-30 bis): it still gets dropped from the JSON
+        // on "" for the same "leaves no stale trace" reasoning, not because
+        // it needs hiding. Applied BEFORE the apiKey patch below (security
+        // fix, 2026-09-30 ter): a baseUrl moved to a different origin prunes
+        // any openai-compat key stored under the old origin first, so a
+        // settings.set carrying both a new baseUrl and a new apiKey binds
+        // the key to the NEW origin, never leaves it bound to the old one.
+        if (patch.baseUrl !== undefined) {
+          currentConfig = { ...currentConfig, baseUrl: patch.baseUrl === "" ? undefined : patch.baseUrl };
+          currentConfig = { ...currentConfig, apiKeys: pruneStaleOpenAiCompatKey(currentConfig) };
+        }
+        // Empty string means "forget the stored key" (task 2) — setApiKey
+        // drops it entirely (see config.ts), so a forgotten key leaves no
+        // trace on disk either. Bound to whichever provider this same patch
+        // selects (patch.provider), or the currently active one otherwise —
+        // see config.ts's CoatiConfig.apiKeys doc: a key only ever reaches
+        // the service it was entered for.
         if (patch.apiKey !== undefined) {
-          currentConfig = { ...currentConfig, apiKey: patch.apiKey === "" ? undefined : patch.apiKey };
+          const targetProvider = patch.provider ?? currentConfig.provider ?? DEFAULT_CONFIG.provider!;
+          currentConfig = { ...currentConfig, apiKeys: setApiKey(currentConfig, targetProvider, patch.apiKey) };
         }
         if (dirs.configDir) saveConfig({ configDir: dirs.configDir }, currentConfig);
         // docs/PROTOCOL.md "Disponibilité du fournisseur": "Un settings.set

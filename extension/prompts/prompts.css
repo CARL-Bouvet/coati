@@ -184,6 +184,58 @@ body {
   border-radius: var(--radius);
 }
 
+/* Locked "on" while "all sites" is granted (T42, amendement 2026-09-30 bis):
+ * the label keeps its normal colour (readable), only the track dims. */
+.switch[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.switch[aria-disabled="true"] .switch-track {
+  opacity: 0.6;
+}
+
+/* "Tous les sites" line, top of the sites area — same width as the board. */
+.all-sites-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  box-sizing: border-box;
+  width: calc(100% - 2 * var(--space-4));
+  max-width: calc(1200px - 2 * var(--space-4));
+  margin: var(--space-4) auto 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--case-head-bg);
+}
+
+.all-sites-text {
+  margin: 0;
+  flex: 1 1 20em;
+}
+
+.all-sites-revoke {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.9em;
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+}
+
+.all-sites-revoke:hover {
+  background: var(--surface);
+}
+
+.all-sites-revoke:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .prompt-case-list {
   list-style: none;
   margin: 0;

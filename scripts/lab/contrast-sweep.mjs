@@ -28,18 +28,24 @@ if (!existsSync(INDEX_HTML)) {
 // --- 1. Collect every (tree, page, state) triple from the generated index. -
 function collectStates() {
   const html = readFileSync(INDEX_HTML, "utf8");
-  const re = /href="(light|dark)\/(panel\/panel\.html|options\.html|prompts\/prompts\.html)\?state=([\w-]+)"/g;
+  const re = /href="(light|dark)\/(panel\/panel\.html|options\.html|prompts\/prompts\.html|welcome\/welcome\.html)\?state=([\w-]+)"/g;
   const states = [];
   let m;
   while ((m = re.exec(html))) {
     const [, theme, page, state] = m;
-    const kind = page.startsWith("panel") ? "panel" : page.startsWith("prompts") ? "prompts" : "options";
+    const kind = page.startsWith("panel")
+      ? "panel"
+      : page.startsWith("prompts")
+        ? "prompts"
+        : page.startsWith("welcome")
+          ? "welcome"
+          : "options";
     states.push({ theme, page: kind, state });
   }
   return states;
 }
 
-const WIDTHS = { panel: [320, 520], options: [520, 800], prompts: [800, 1280] };
+const WIDTHS = { panel: [320, 520], options: [520, 800], prompts: [800, 1280], welcome: [520, 1280] };
 const VIEWPORT_HEIGHT = 900;
 
 // Interactive elements in scope (task spec): button, link, role=button,
@@ -261,7 +267,9 @@ async function main() {
         ? `panel/panel.html?state=${state}`
         : pageKind === "prompts"
           ? `prompts/prompts.html?state=${state}`
-          : `options.html?state=${state}`;
+          : pageKind === "welcome"
+            ? `welcome/welcome.html?state=${state}`
+            : `options.html?state=${state}`;
     const url = `file://${join(LAB_OUT, theme, relPath)}`;
     for (const width of WIDTHS[pageKind]) {
       const page = await browser.newPage({ viewport: { width, height: VIEWPORT_HEIGHT } });

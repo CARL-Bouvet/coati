@@ -57,6 +57,33 @@
     });
   }
 
-  if (document.readyState === "complete") runAutoAction();
-  else window.addEventListener("load", runAutoAction);
+  // `?motion=live` lifts the determinism stylesheet so an animation can be
+  // watched (G5: the encart button's breathing ring and reading spinner);
+  // `?motion=<ms>` also freezes every running animation at that time, for a
+  // deterministic capture of a mid-animation frame (e.g. motion=500 = halo
+  // half-grown). Without the param, nothing changes.
+  function applyMotionParam() {
+    var motion = new URLSearchParams(location.search).get("motion");
+    if (!motion) return;
+    document.querySelectorAll('link[href$="lab-determinism.css"]').forEach(function (link) {
+      link.remove();
+    });
+    var frameMs = Number(motion);
+    if (!isFinite(frameMs)) return;
+    setTimeout(function () {
+      document.getAnimations().forEach(function (animation) {
+        animation.pause();
+        animation.currentTime = frameMs;
+      });
+      document.documentElement.dataset.labFrozenAt = String(frameMs);
+    }, 800);
+  }
+
+  function onLoad() {
+    applyMotionParam();
+    runAutoAction();
+  }
+
+  if (document.readyState === "complete") onLoad();
+  else window.addEventListener("load", onLoad);
 })();
