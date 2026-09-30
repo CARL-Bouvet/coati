@@ -1,8 +1,10 @@
 // Coati options page — model, page reading default, shortcut, sites,
-// history, about, and (advanced) pairing token entry.
+// history, about, and the legacy pairing-secret paste field (Flatpak/Snap
+// browsers with no native messaging — docs/PROTOCOL.md amendement
+// 2026-09-30, "Mode hérité: legacyPairing").
 //
-// The token is a secret: it MUST live in chrome.storage.session (wiped when
-// the browser closes), never chrome.storage.local (unencrypted on disk).
+// The pasted key is a secret: it MUST live in chrome.storage.session (wiped
+// when the browser closes), never chrome.storage.local (unencrypted on disk).
 
 import { api, IS_GECKO } from "./lib/browser-compat.js";
 import { providerLabel, describeProviderUnavailable, CONNECTION_STATUS_LABELS } from "./lib/labels.js";
@@ -33,7 +35,7 @@ const els = {
   statusLabel: document.querySelector("#status .status-label"),
   headerStatus: document.getElementById("headerStatus"),
   headerStatusLabel: document.querySelector("#headerStatus .status-label"),
-  advanced: document.getElementById("advanced"),
+  legacyPairing: document.getElementById("legacyPairing"),
   attachPage: document.getElementById("attachPage"),
   shortcutKeys: document.getElementById("shortcutKeys"),
   shortcutEdit: document.getElementById("shortcutEdit"),
@@ -75,8 +77,8 @@ const testResultsByProvider = new Map();
 init();
 
 async function init() {
-  // docs/PROTOCOL.md "Collage (options, Firefox)": write-only field, never
-  // pre-filled with the token/secret in memory — nothing read from
+  // docs/PROTOCOL.md "Mode hérité: legacyPairing": write-only field, never
+  // pre-filled with the key/secret in memory — nothing read from
   // chrome.storage.session here.
 
   // Bug report gap 7: this help text used to say "Chrome" unconditionally,
@@ -104,13 +106,13 @@ async function init() {
   setupShortcut();
   showAbout();
 
-  els.save.addEventListener("click", () => applyToken(els.token.value.trim()));
-  // The spec's primary flow is a paste (Firefox: the /pair secret; Chromium
-  // never needs this field at all). Read the value on the next tick — the
-  // "paste" event fires before the input's own value is updated — and apply
-  // it right away, without waiting for a click on "Enregistrer".
+  els.save.addEventListener("click", () => applyPastedKey(els.token.value.trim()));
+  // The primary flow is a paste (Flatpak/Snap browsers only; a browser with
+  // native messaging never needs this field). Read the value on the next
+  // tick — the "paste" event fires before the input's own value is updated —
+  // and apply it right away, without waiting for a click on "Enregistrer".
   els.token.addEventListener("paste", () => {
-    setTimeout(() => applyToken(els.token.value.trim()), 0);
+    setTimeout(() => applyPastedKey(els.token.value.trim()), 0);
   });
   els.retention.addEventListener("change", saveRetention);
   els.modelSelect.addEventListener("change", () => setProvider(undefined, els.modelSelect.value));
@@ -141,14 +143,24 @@ function newId() {
   return `opt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// docs/PROTOCOL.md "Collage (options, Firefox)": a non-empty value is stored
-// and reconnects immediately (cancelling any backoff in progress); an empty
-// value clears the stored token instead of storing "". Delegated to the
-// service worker (message "coati:set-token") rather than writing
+// 64 lowercase hex chars — same shape as the broker's own key (docs/PROTOCOL.md
+// "Poignée de main v: 2"). Checked here too (defense in depth; the service
+// worker validates again) so a mistyped paste gets an immediate, specific
+// French message instead of silently doing nothing.
+const PASTED_KEY_RE = /^[0-9a-f]{64}$/i;
+
+// docs/PROTOCOL.md "Mode hérité: legacyPairing": a valid 64-hex value is
+// stored and reconnects immediately (cancelling any backoff in progress); an
+// empty value clears the stored key instead of storing "". Delegated to the
+// service worker (message "coati:set-pasted-key") rather than writing
 // chrome.storage.session directly here, so the same force-reconnect path
 // always runs right after — see service-worker.js.
-async function applyToken(value) {
-  await api.runtime.sendMessage({ type: "coati:set-token", token: value }).catch(() => null);
+async function applyPastedKey(value) {
+  if (value && !PASTED_KEY_RE.test(value)) {
+    els.statusLabel.textContent = "Secret invalide (64 caractères hexadécimaux attendus).";
+    return;
+  }
+  await api.runtime.sendMessage({ type: "coati:set-pasted-key", key: value.toLowerCase() }).catch(() => null);
   // I4 (lot7 security review): clear the field once applied — nothing left
   // sitting visible/selectable in the DOM after the secret has done its job.
   els.token.value = "";
@@ -167,9 +179,10 @@ function applyStatus(state) {
   els.headerStatus.className = `status status--${state}`;
   els.headerStatusLabel.textContent = label;
 
-  // Firefox with no token: the pairing field is the one thing this page is
-  // needed for, so don't leave it folded inside "Avancé".
-  if (IS_GECKO && state === "no-token") els.advanced.open = true;
+  // "no-host" (native messaging unreachable) and "no-token" (Chromium id
+  // unknown, or a legacy secret refused) are the two states where the
+  // Flatpak/Snap paste field is the actual fix — don't leave it folded away.
+  if (state === "no-host" || state === "no-token") els.legacyPairing.open = true;
 
   if (state !== "connected") {
     // Never show a stale provider/model choice while we can't confirm it

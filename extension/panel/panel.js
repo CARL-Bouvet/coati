@@ -94,11 +94,11 @@ import { computeCodeFingerprint } from "../lib/build-fingerprint.js";
 const requestedVariant = new URLSearchParams(location.search).get("variant");
 if (requestedVariant) document.documentElement.dataset.variant = requestedVariant;
 
-// Must match extension/background/service-worker.js's BROKER_PORT — port is
-// fixed (docs/PROTOCOL.md "Transport"), so this can't be derived from config
-// at runtime. Firefox only (docs/PROTOCOL.md "Page /pair").
-const BROKER_PORT = 8787;
-const PAIR_URL = `http://127.0.0.1:${BROKER_PORT}/pair`;
+// Public repo doc, opened from the "no-host" banner (docs/PROTOCOL.md
+// amendement 2026-09-30, "États et bandeaux"). No local doc viewer in the
+// extension itself, so this points at the same repo the "À propos" section
+// already links to.
+const INSTALL_DOC_URL = "https://github.com/CARL-Bouvet/coati/blob/main/docs/INSTALL.md";
 
 const STORAGE_KEY = "coati:conversation";
 const ATTACH_PAGE_KEY = "coati:attachPage";
@@ -141,6 +141,7 @@ const els = {
   connectionBanner: document.getElementById("connectionBanner"),
   connectionBannerText: document.getElementById("connectionBannerText"),
   connectCoati: document.getElementById("connectCoati"),
+  installDocLink: document.getElementById("installDocLink"),
   openOptions: document.getElementById("openOptions"),
   activateSite: document.getElementById("activateSite"),
   siteCard: document.getElementById("siteCard"),
@@ -261,7 +262,12 @@ async function init() {
   renderAll();
 
   els.openOptions.addEventListener("click", () => api.runtime.openOptionsPage());
-  els.connectCoati.addEventListener("click", () => api.tabs.create({ url: PAIR_URL }));
+  // Opens the options page — options.js auto-expands the "Navigateur sans
+  // programme natif (Flatpak, Snap)" section for both states this button is
+  // shown in (no-host, no-token). Same page as the gear icon, no separate
+  // "connect" flow left (docs/PROTOCOL.md: /pair removed from the extension).
+  els.connectCoati.addEventListener("click", () => api.runtime.openOptionsPage());
+  els.installDocLink.addEventListener("click", () => api.tabs.create({ url: INSTALL_DOC_URL }));
   els.activateSite.addEventListener("click", activateOnThisSite);
   els.send.addEventListener("click", sendChat);
   els.cancel.addEventListener("click", cancelActive);
@@ -560,36 +566,46 @@ function renderStatusLabel() {
   els.statusLabel.textContent = text;
 }
 
-// Two states must never be confused (see the design brief for this feature):
-// "no-token" means the extension has never been paired (or the browser was
-// restarted and chrome.storage.session was wiped, see CLAUDE.md rule #1) —
-// the fix differs by browser (see below). "disconnected" means we DO hold a
-// token but the broker itself isn't answering right now — the fix is
-// starting the broker. The options page's paste field remains the fallback
-// for both; see options.js.
+// Four connection-level states share this one banner (deliverable G4,
+// docs/PROTOCOL.md amendement 2026-09-30, "États et bandeaux") — never
+// confused with each other, each with its own fix:
+// - "no-host": Coati can't reach its local pairing program at all (not
+//   installed, wrong id, browser sandboxed with no native messaging) — fix:
+//   install it, or the Flatpak/Snap manual-pairing section in the options.
+// - "broker-untrusted": something answers on the port but didn't prove it's
+//   the Coati broker — nothing was sent to it, no further action from here.
+// - "no-token": the broker is reachable and proved itself, but refused this
+//   extension's id — fix: allowedExtensionIds, broker-side.
+// - "disconnected": we hold a key the broker already trusts, it just isn't
+//   answering right now — fix: start the broker.
 function applyConnectionBanner(state) {
+  els.installDocLink.hidden = true;
+  els.connectCoati.hidden = true;
+
+  if (state === "no-host") {
+    els.connectionBannerText.textContent =
+      "Coati ne trouve pas son programme local d'appairage. Réinstallez-le, ou utilisez l'appairage manuel si votre navigateur est un Flatpak ou un Snap.";
+    els.installDocLink.hidden = false;
+    els.connectCoati.hidden = false;
+    els.connectionBanner.hidden = false;
+    return;
+  }
+  if (state === "broker-untrusted") {
+    els.connectionBannerText.textContent =
+      "Le programme qui écoute sur le port 8787 n'a pas prouvé qu'il est le broker Coati. Rien ne lui a été envoyé.";
+    els.connectionBanner.hidden = false;
+    return;
+  }
   if (state === "no-token") {
-    if (IS_GECKO) {
-      // docs/PROTOCOL.md "Appairage silencieux", "Bandeau no-token" — Firefox
-      // uuid is never known in advance; the fix is the manual /pair copy.
-      els.connectionBannerText.textContent =
-        "Coati n'est pas encore appairé à ce broker. Ouvrez la page /pair pour copier le code, puis collez-le dans les réglages de l'extension (icône ⚙).";
-      els.connectCoati.hidden = false;
-    } else {
-      // Chromium: an unknown id is refused before any secret is even read —
-      // there is no /pair path for it (docs/PROTOCOL.md "Chemin un clic
-      // retiré"). The only fix is adding this id broker-side.
-      els.connectionBannerText.textContent =
-        `L'identifiant de cette extension (${api.runtime.id}) n'est pas connu du broker. Ajoutez-le à allowedExtensionIds puis redémarrez le broker.`;
-      els.connectCoati.hidden = true;
-    }
+    els.connectionBannerText.textContent =
+      `L'identifiant de cette extension (${api.runtime.id}) n'est pas connu du broker. Ajoutez-le à allowedExtensionIds puis redémarrez le broker.`;
+    els.connectCoati.hidden = false;
     els.connectionBanner.hidden = false;
     return;
   }
   if (state === "disconnected") {
     els.connectionBannerText.textContent =
       "Le broker Coati ne répond pas. Lancez-le sur votre machine (voir le README), puis réessayez.";
-    els.connectCoati.hidden = true;
     els.connectionBanner.hidden = false;
     return;
   }

@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 
 LOG=/tmp/coati-broker.log
 CONFIG="$HOME/.config/coati/config.json"
-TOKEN_FILE="$HOME/.local/share/coati/pairing.txt"
+KEY_FILE="$HOME/.local/share/coati/broker-key.json"
 
 case "${1:-}" in
   --stop)
@@ -38,12 +38,10 @@ echo "  1. chrome://extensions → mode développeur → « Charger l'extension 
 echo "     → $PWD/extension"
 echo "  2. Relever l'identifiant affiché, et l'ajouter à $CONFIG"
 echo "     dans \"allowedExtensionIds\" (le broker refuse toute autre origine)."
-echo "  3. Ouvrir les options de l'extension et y coller le jeton :"
-if [ -f "$TOKEN_FILE" ]; then
-  echo "     $(cat "$TOKEN_FILE")"
+echo "  3. Une fois : bash scripts/dev-native-host.sh (déclare le programme natif"
+echo "     au navigateur ; l'extension obtient alors la clé du broker d'elle-même)."
+if [ -f "$KEY_FILE" ]; then
+  echo "     Clé du broker présente : $KEY_FILE"
 else
-  echo "     (le jeton sera créé au premier démarrage dans $TOKEN_FILE)"
+  echo "     (la clé est écrite dans $KEY_FILE quand le broker écoute)"
 fi
-echo
-echo "Le jeton vit en mémoire vive côté navigateur : il est à recoller après"
-echo "chaque redémarrage de Chrome. C'est voulu — rien de secret ne touche le disque."

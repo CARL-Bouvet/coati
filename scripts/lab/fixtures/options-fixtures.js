@@ -53,12 +53,21 @@
 
     // Firefox sans jeton, version sans commands.openShortcutSettings() :
     // raccourci effacé par l'utilisateur ("non défini"), consigne manuelle,
-    // section "Avancé" ouverte d'office sur le champ du jeton.
+    // section "Navigateur sans programme natif (Flatpak, Snap)" ouverte
+    // d'office sur le champ du secret.
     "firefox-no-token": {
       gecko: true,
       geckoShortcutSettings: false,
       status: "no-token",
       commands: [{ name: "_execute_action", shortcut: "" }],
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
+    },
+
+    // Programme natif introuvable (G4, docs/PROTOCOL.md amendement
+    // 2026-09-30) : même section ouverte d'office, texte de statut différent.
+    "no-host": {
+      status: "no-host",
       storageLocal: { "coati:retentionDays": 30 },
       permissions: ["https://www.youtube.com/*"],
     },

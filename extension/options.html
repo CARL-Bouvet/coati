@@ -111,15 +111,16 @@
       </dl>
     </section>
 
-    <!-- 7. Advanced: pairing token (Firefox only). -->
-    <details id="advanced" class="section advanced">
-      <summary><h2>Avancé</h2></summary>
+    <!-- 7. Navigateur sans programme natif (Flatpak, Snap) : appairage manuel. -->
+    <details id="legacyPairing" class="section advanced">
+      <summary><h2>Navigateur sans programme natif (Flatpak, Snap)</h2></summary>
       <div class="advanced-body">
         <div class="field">
-          <label for="token">Jeton de pairage</label>
+          <label for="token">Secret d'appairage</label>
           <p class="help help--tight">
-            Firefox seulement : collez le secret affiché sur
-            <code>http://127.0.0.1:8787/pair</code>. Il n'est jamais écrit sur le disque.
+            Seulement si votre navigateur (Flatpak, Snap) ne peut pas lancer de programme natif.
+            Dans un terminal, lancez <code>coati-broker --show-pairing-secret</code>, puis collez
+            le secret ici. Il n'est jamais écrit sur le disque.
           </p>
           <input id="token" type="password" autocomplete="off" placeholder="Coller le secret ici" />
         </div>

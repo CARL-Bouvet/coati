@@ -11,7 +11,8 @@
     "scripting",
     "alarms",
     "contextMenus",
-    "favicon"
+    "favicon",
+    "nativeMessaging"
   ],
   "optional_host_permissions": [
     "http://*/*",

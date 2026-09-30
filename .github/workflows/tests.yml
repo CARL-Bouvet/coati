@@ -11,13 +11,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    # macOS et Windows sont tolérés en échec jusqu'au goal G4 : l'admission du
-    # broker lit /proc/net/tcp pour vérifier l'UID du pair, ce qui n'existe que
-    # sous Linux (broker/src/admission.ts). Les deux systèmes tournent quand
-    # même ici pour visibilité, mais ne bloquent pas la CI.
-    continue-on-error: ${{ matrix.os != 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: garde-fou (aucun fichier interne ni secret dans le dépôt public)
         if: matrix.os == 'ubuntu-latest'
@@ -27,7 +22,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.4.2"
 
       - name: bun install (broker)
         run: bun install
@@ -40,6 +35,74 @@ jobs:
       - name: build.sh
         if: matrix.os == 'ubuntu-latest'
         run: bash scripts/build.sh
+
+      - name: build-binaries.sh (this runner's own target)
+        # goal G4 "binaries + Windows CI": builds only the host target here —
+        # no cross-compile download — then proves the compiled binary can
+        # still dynamic-import an external module (docs/MODULES.md).
+        shell: bash
+        run: |
+          case "${{ matrix.os }}" in
+            ubuntu-latest) target=linux-x64 ;;
+            macos-latest) target=darwin-arm64 ;;
+            windows-latest) target=windows-x64 ;;
+          esac
+          bash scripts/build-binaries.sh "$target"
+
+      - name: --check-modules smoke (compiled binary)
+        shell: bash
+        run: |
+          case "${{ matrix.os }}" in
+            ubuntu-latest) bin=dist/bin/coati-broker-linux-x64 ;;
+            macos-latest) bin=dist/bin/coati-broker-darwin-arm64 ;;
+            windows-latest) bin=dist/bin/coati-broker-windows-x64.exe ;;
+          esac
+          # $RUNNER_TEMP (set by actions/runner) is already a native path on
+          # every OS — unlike git-bash's own mktemp/$PWD on Windows.
+          fakehome="${RUNNER_TEMP:-$(mktemp -d)}/coati-check-modules-home"
+          mkdir -p "$fakehome/.config/coati"
+          # git-bash's own $PWD ("/c/...") isn't a path Bun's Windows
+          # dynamic import() resolves — `pwd -W` (git-bash only) gives the
+          # native "C:/..." form; falls back to $PWD elsewhere.
+          root="$(pwd -W 2>/dev/null || pwd)"
+          fixture="$root/broker/test/fixtures/modules/valid-provider.ts"
+          cat > "$fakehome/.config/coati/config.json" <<EOF
+          {
+            "port": 8787,
+            "allowedExtensionIds": [],
+            "provider": "ollama",
+            "ollamaUrl": "http://127.0.0.1:11434",
+            "modules": [{ "path": "$fixture", "options": { "id": "smoke-valid" } }]
+          }
+          EOF
+          # os.homedir() reads $HOME on POSIX but $USERPROFILE on Windows —
+          # set both, harmless where unused.
+          HOME="$fakehome" USERPROFILE="$fakehome" "$bin" --check-modules
+
+      - name: scripts/ci/e2e.sh (install → Native Messaging handshake → ws-probe → uninstall)
+        # goal G4 "CI end to end": exercises the real OS installer, the
+        # installed binary as both broker and Native Messaging host, and the
+        # uninstaller — all under a throwaway HOME/USERPROFILE, never the
+        # runner's real one. See scripts/ci/e2e.sh's own header for the step
+        # list; it prints PASS/FAIL per step.
+        shell: bash
+        run: |
+          case "${{ matrix.os }}" in
+            ubuntu-latest) target=linux-x64 ;;
+            macos-latest) target=darwin-arm64 ;;
+            windows-latest) target=windows-x64 ;;
+          esac
+          bash scripts/ci/e2e.sh "$target"
+
+      - name: extension e2e (Playwright, Chromium, real port 8787)
+        # ubuntu-latest only: needs dist/stage/chrome (built above, Linux
+        # only) and a free port 8787 — see scripts/ci/extension-e2e.mjs's
+        # header for what this could and could not be verified locally.
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          bun install
+          bunx playwright install --with-deps chromium
+          node scripts/ci/extension-e2e.mjs
 
       - name: web-ext lint (chrome)
         if: matrix.os == 'ubuntu-latest'
@@ -54,3 +117,29 @@ jobs:
       - name: web-ext lint (firefox)
         if: matrix.os == 'ubuntu-latest'
         run: npx --yes web-ext lint --source-dir dist/stage/firefox
+
+  test-arm64:
+    # goal G4 "CI end to end": linux-arm64 gets its own job (no arm64 slot in
+    # the ubuntu-latest matrix entry) — bun test, the compiled binary, and
+    # the same install → handshake → uninstall e2e as the other three OS.
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
+      - name: bun install (broker)
+        run: bun install
+        working-directory: broker
+
+      - name: bun test (broker)
+        run: bun test
+        working-directory: broker
+
+      - name: build-binaries.sh (linux-arm64)
+        run: bash scripts/build-binaries.sh linux-arm64
+
+      - name: scripts/ci/e2e.sh (linux-arm64)
+        run: bash scripts/ci/e2e.sh linux-arm64

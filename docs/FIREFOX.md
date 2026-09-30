@@ -10,21 +10,13 @@ charger l'extension pour développer, puis la signer pour l'installer de façon 
 
 - **Panneau latéral** : mêmes fonctions, ouvert différemment (`sidebar_action` au lieu de
   `side_panel`), mais un clic sur l'icône Coati dans la barre d'outils l'ouvre pareil.
-- **Appairage** : sur Chrome et Brave, l'extension se connecte seule, sans aucun geste : le
-  broker connaît son identifiant d'avance (`docs/PROTOCOL.md`, « Appairage silencieux »). Sous
-  Firefox, l'identifiant `moz-extension://<uuid>` est tiré au sort à l'installation : il faut le
-  présenter une fois au broker, en collant dans les réglages de l'extension le code que la page
-  `/pair` affiche. Ensuite la connexion se refait seule. Voir « Appairage » plus bas.
-- **Réinstaller l'extension change son identifiant.** Firefox tire un `moz-extension://<uuid>`
-  aléatoire à chaque installation — contrairement à Chrome, qui dérive un identifiant stable de la
-  clé publique embarquée dans le manifest. Le broker ajoute cet uuid à sa liste d'uuid épinglés au
-  premier collage réussi (16 au plus ; `docs/PROTOCOL.md`, « Cas Firefox »). Une nouvelle
-  installation (nouveau chargement temporaire, ou désinstallation puis réinstallation) donne un
-  nouvel uuid : il faut recoller le code une fois. L'ancien uuid reste dans la liste jusqu'à ce
-  qu'on supprime sa ligne ou que le plafond le recycle ; voir « Dépannage » plus bas.
-- **Migration Wingpen → Coati** : l'ID gecko a changé (`wingpen@localhost` →
-  `coati@getcoati.com`), donc Firefox tire un nouvel uuid `moz-extension://` — un nouveau collage
-  du code d'appairage est nécessaire une fois, même si l'extension n'a pas été réinstallée.
+- **Appairage** : identique à Chrome, sans aucun geste. Firefox lance l'hôte natif de Coati
+  (installé avec le broker, voir `docs/INSTALL.md`) pour l'extension dont l'identifiant est
+  `coati@getcoati.com`, et pour elle seule. Réinstaller l'extension ou la recharger ne demande
+  rien de plus.
+- **Firefox en Snap ou en Flatpak** : ces versions ne peuvent pas lancer l'hôte natif. Le Firefox
+  livré par défaut avec Ubuntu est un Snap. Il faut alors l'appairage manuel décrit dans
+  `docs/INSTALL.md`, section « Navigateur en Flatpak ou Snap ».
 
 ## Développement — chargement temporaire
 
@@ -40,34 +32,24 @@ réel sur disque (pas dans un `.zip`), et charge tout depuis là.
    Ça produit, entre autres, `dist/stage/firefox/` — une copie non empaquetée de l'extension avec
    le bon manifest (celui de `extension/manifest.firefox.json`, posé en `manifest.json`).
 
-2. Dans Firefox : `about:debugging#/runtime/this-firefox` → **Charger un module
+2. Déclarer l'hôte natif des sources à Firefox (une fois) :
+
+   ```sh
+   bash scripts/dev-native-host.sh --all
+   ```
+
+   Sans `--all`, le script ne déclare que Brave. Firefox n'est déclaré que si son dossier
+   `~/.mozilla` existe déjà.
+
+3. Dans Firefox : `about:debugging#/runtime/this-firefox` → **Charger un module
    complémentaire temporaire…** → sélectionner `dist/stage/firefox/manifest.json`.
 
-3. Démarrer le broker (`./scripts/start.sh`), ouvrir le panneau Coati (icône dans la barre
-   d'outils), et appairer — voir « Appairage » plus bas.
+4. Démarrer le broker, puis ouvrir le panneau Coati (icône dans la barre d'outils) : il se
+   connecte seul.
 
-4. Après une modification du code source : relancer `./scripts/build.sh`, puis dans
+5. Après une modification du code source : relancer `./scripts/build.sh`, puis dans
    `about:debugging`, cliquer **Recharger** sur la ligne de l'extension. Un chargement temporaire
-   disparaît à la fermeture de Firefox — à refaire à chaque session de développement, et l'uuid
-   change à chaque fois (voir « Dépannage »).
-
-## Appairage
-
-1. Le broker doit tourner (`./scripts/start.sh`).
-2. Ouvrir `http://127.0.0.1:8787/pair` dans un onglet Firefox : adresse tapée, ou bouton « Ouvrir
-   /pair » du bandeau du panneau tant que l'extension n'est pas appairée. La page ne répond qu'à
-   une navigation d'onglet ; toute autre requête reçoit `forbidden`.
-3. La page affiche le code d'appairage (le secret permanent du broker) dans un bloc à
-   sélectionner, et la liste des uuid Firefox déjà épinglés. **Rien à cliquer** : la copie se fait
-   à la main.
-4. Copier le code, ouvrir les réglages de l'extension (icône Coati dans la barre d'outils → clic
-   droit → **Gérer l'extension** → **Options**, ou `about:addons` → Coati → **Options**), le
-   coller dans le champ prévu, **Enregistrer**. Le champ est en écriture seule : il n'affiche
-   jamais le code déjà enregistré.
-5. Le panneau passe à « Connecté » aussitôt : l'enregistrement relance la connexion. Le broker
-   épingle l'uuid ; pour une extension installée, les connexions suivantes se font sans collage,
-   y compris après un redémarrage de Firefox ou du broker. Une extension chargée temporairement
-   revient avec un nouvel uuid à chaque chargement : un collage par chargement.
+   disparaît à la fermeture de Firefox : à refaire à chaque session de développement.
 
 ## Installation permanente — signature via AMO (auto-distribution)
 
@@ -93,27 +75,15 @@ Mozilla — même pour un usage strictement personnel, non publié. La voie « a
 6. Une fois validée, télécharger le `.xpi` signé proposé par AMO.
 7. L'installer : glisser le fichier `.xpi` dans une fenêtre Firefox, ou `about:addons` → l'icône
    en engrenage → **Installer un module depuis un fichier…**.
-8. Réappairer une fois (voir « Appairage » ci-dessus) — le `.xpi` signé a son propre uuid, distinct
-   de celui d'un chargement temporaire précédent.
 
 **Pour republier une nouvelle version** : incrémenter `"version"` dans `extension/manifest.json`
 **et** `extension/manifest.firefox.json` (les deux, ils doivent rester synchronisés — voir
 `scripts/build.sh`) avant de reconstruire — AMO refuse de resigner deux fois le même numéro de
 version pour un même `id` (`browser_specific_settings.gecko.id`, fixé à `coati@getcoati.com`).
+Cet identifiant ne doit pas changer : c'est lui que l'hôte natif reconnaît.
 
 ## Dépannage
 
-- **« Pas de jeton — voir réglages » persiste après le collage** : le code collé n'est pas le
-  secret permanent actuel (copie incomplète, ou `pairing.txt` supprimé et régénéré depuis).
-  Recopier le code depuis `/pair`. Le journal du broker (`journalctl --user -u coati-broker`, ou
-  `./scripts/start.sh --log`) affiche dans ce cas `reject stage=handshake
-  origin=moz-extension://…`. Un nouvel uuid (réinstallation, nouveau chargement temporaire,
-  passage au `.xpi` signé) ne demande ni de supprimer un fichier ni de redémarrer le broker : le
-  collage l'ajoute à la liste.
-- **Révoquer un uuid** (profil abandonné, ancienne installation) : supprimer sa ligne dans
-  `~/.local/share/coati/firefox-extension-uuids.txt`. Le broker relit ce fichier à chaque
-  connexion : la suppression prend effet à la connexion suivante, sans redémarrage ; une connexion
-  déjà ouverte n'est coupée que par un redémarrage du broker. L'ancien fichier à uuid unique,
-  `firefox-extension-uuid.txt`, est migré au démarrage puis renommé en `.migrated`.
-- **La page `/pair` affiche `forbidden`** : elle n'est servie qu'à une navigation dans un onglet,
-  à l'adresse `127.0.0.1:8787` ou `localhost:8787`. Retaper l'adresse dans la barre d'adresse.
+Les bandeaux du panneau (« Programme local introuvable », « Broker non vérifié », « Pas de
+jeton ») sont les mêmes que sous Chrome : voir `docs/INSTALL.md`, section « Dépannage ». Sous
+Firefox, le cas le plus courant de « Programme local introuvable » est un Firefox en Snap.

@@ -1,0 +1,7 @@
+{
+  "name": "com.getcoati.broker",
+  "description": "Coati local broker - pairing helper",
+  "path": "@@HOST_PATH@@",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://hehlgipomfminodhahcjbencblepjhah/"]
+}

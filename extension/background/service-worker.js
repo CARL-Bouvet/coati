@@ -13,6 +13,15 @@
 // lib/browser-compat.js) so this file works unmodified on both.
 
 import { api } from "../lib/browser-compat.js";
+import { requestBrokerKeyFromHost } from "../lib/native-host.js";
+import {
+  isHex64,
+  randomHex32,
+  hmacHex,
+  verifyHmacHex,
+  brokerProofMessage,
+  extensionProofMessage,
+} from "../lib/handshake-crypto.js";
 
 // Amendement 2026-09-25 (docs/PROTOCOL.md "Transport") — port fixed at 8787
 // for the extension: neither WS_URL below nor the manifests' connect-src CSP
@@ -21,13 +30,31 @@ import { api } from "../lib/browser-compat.js";
 // paste included; the broker no longer reads a "port" config key either.
 const BROKER_PORT = 8787;
 const WS_URL = `ws://127.0.0.1:${BROKER_PORT}/ws`;
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 const RECONNECT_ALARM = "coati-reconnect";
 const MAX_BACKOFF_MS = 30000;
-// Must stay below the broker's own handshake timeout (3000ms, server.ts:193-195)
-// so the client — not the server closing the socket first — is the one to
-// report "handshake timeout" as a distinct state.
+// Must stay below the broker's own handshake timeout (3s, docs/PROTOCOL.md
+// "Poignée de main v: 2") so the client — not the server closing the socket
+// first — is the one to report "handshake timeout" as a distinct state.
 const HELLO_TIMEOUT_MS = 2500;
+
+// docs/PROTOCOL.md amendement 2026-09-30, "Côté extension": chrome.storage.session
+// keys for the handshake v2 key material. Never chrome.storage.local — see
+// CLAUDE.md rule #1 and the invariants comment below.
+const BROKER_KEY_STORAGE_KEY = "brokerKey";
+const PASTED_KEY_STORAGE_KEY = "pastedKey";
+
+// --- Invariants (docs/PROTOCOL.md "Règles invariantes, ajouts") ------------
+// - Never `api.storage.session.setAccessLevel(...)` anywhere in this file:
+//   the default access level (extension pages/scripts only) is what keeps
+//   brokerKey/pastedKey out of reach of content scripts and web pages.
+// - No `externally_connectable` in the manifests, no
+//   `runtime.onMessageExternal` / `onConnectExternal` listener here or
+//   anywhere else: only this extension's own pages can reach this worker at
+//   all (checked again per-message by isTrustedInternalSender below).
+// - onMessage handlers below never send back brokerKey/pastedKey in any
+//   sendResponse — only opaque status/ids.
+// ---------------------------------------------------------------------------
 // How long a single request is held in memory while the socket is down
 // before it is dropped with an explicit error (deliverable B2). Bounded on
 // purpose: silently queueing forever would just move the hang from "no
@@ -62,17 +89,22 @@ const CONTEXT_MENU_ACTIONS = {
 };
 
 let ws = null;
-let wsState = "disconnected"; // disconnected | connecting | handshaking | connected
+// disconnected | connecting | handshaking | connected | no-host |
+// broker-untrusted | no-token | handshake-timeout — see docs/PROTOCOL.md
+// amendement 2026-09-30, "États et bandeaux".
+let wsState = "disconnected";
 let backoffMs = 1000;
-let helloTimeoutId = null;
+let handshakeTimeoutId = null;
 // At most one request held while reconnecting (deliverable B2) —
 // { payload, timeoutId }, or null when nothing is queued.
 let pendingRequest = null;
-// docs/PROTOCOL.md "Appairage silencieux", "Jeton refusé": at most one
-// no-secret retry per connection cycle after a 4401 that followed a `secret`.
-// A cycle runs from a disconnection to the next `hello-ok`, which resets this
-// flag — never a silent infinite loop against a broker that keeps refusing.
-let retriedWithoutSecretThisCycle = false;
+// docs/PROTOCOL.md "Poignée de main v: 2": at most one automatic retry per
+// connection cycle after the broker's proof fails to verify (close 4000) or
+// after a 4401. A cycle runs from a disconnection to the next `hello-ok`,
+// which resets this flag — never a silent infinite loop against a broker
+// that keeps failing. Only meaningful when the key just used came from the
+// native host (there is nothing to re-call for a pasted legacy key).
+let retriedThisCycle = false;
 
 api.runtime.onInstalled.addListener(() => {
   // Chrome/Brave only — openPanelOnActionClick left false on purpose. When
@@ -219,7 +251,7 @@ api.alarms.onAlarm.addListener((alarm) => {
 // another (malicious) extension able to reach this one (e.g. via
 // externally_connectable, or a content script sharing an isolated world)
 // could forge "coati:client-message" (talk to the broker as this user) or
-// "coati:set-token" (overwrite the pairing token). Deliberately NOT
+// "coati:set-pasted-key" (overwrite the legacy pasted key). Deliberately NOT
 // `!sender.tab` — the options page can be opened in a regular tab (it's a
 // full page, not just a popup), so that would wrongly reject it. What must
 // hold is that the sender IS this extension: `sender.id` matches our own
@@ -256,20 +288,27 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return undefined;
   }
 
-  // Sent by options.js on paste/save (docs/PROTOCOL.md "Appairage
-  // silencieux", "Collage (options, Firefox)"). Centralised here (rather than
-  // options.js writing storage.session directly) so the same force-reconnect
-  // path — which also resets backoffMs and the retry-once flag below — always
-  // runs right after the token changes. An empty token clears it instead of
-  // storing "".
-  if (message.type === "coati:set-token") {
+  // Sent by options.js on paste/save (docs/PROTOCOL.md "Mode hérité:
+  // legacyPairing", section "Navigateur sans programme natif (Flatpak,
+  // Snap)"). Centralised here (rather than options.js writing
+  // storage.session directly) so the same force-reconnect path — which also
+  // resets backoffMs and the retry-once flag below — always runs right after
+  // the key changes. An empty value clears it instead of storing "". A
+  // non-empty value that isn't exactly 64 lowercase hex chars is rejected
+  // without being stored (options.js already validates before sending this,
+  // this is the defense-in-depth copy).
+  if (message.type === "coati:set-pasted-key") {
     if (!isTrustedInternalSender(sender)) return undefined;
     (async () => {
-      const token = typeof message.token === "string" ? message.token.trim() : "";
-      if (token) {
-        await api.storage.session.set({ pairingToken: token });
+      const raw = typeof message.key === "string" ? message.key.trim().toLowerCase() : "";
+      if (raw && !isHex64(raw)) {
+        sendResponse({ ok: false });
+        return;
+      }
+      if (raw) {
+        await api.storage.session.set({ [PASTED_KEY_STORAGE_KEY]: raw });
       } else {
-        await api.storage.session.remove("pairingToken");
+        await api.storage.session.remove(PASTED_KEY_STORAGE_KEY);
       }
       forceReconnect();
       sendResponse({ ok: true });
@@ -291,20 +330,58 @@ function setState(next) {
   broadcast({ type: "coati:status", state: wsState });
 }
 
+/** Resolves the key (K) used for the v2 handshake, per docs/PROTOCOL.md
+ * "Ordre des essais": a stored native key first (no host call — the whole
+ * point of storage.session surviving a service-worker restart), else a
+ * fresh host call (stored on success), else the legacy pasted key (used
+ * "only when the host call fails" — Flatpak/Snap browsers with no native
+ * messaging at all), else null (⇒ state "no-host").
+ * @returns {Promise<{key: string, source: "native"|"pasted"} | null>} */
+async function resolveBrokerKey() {
+  const stored = await api.storage.session.get([BROKER_KEY_STORAGE_KEY, PASTED_KEY_STORAGE_KEY]);
+  if (isHex64(stored[BROKER_KEY_STORAGE_KEY])) {
+    return { key: stored[BROKER_KEY_STORAGE_KEY], source: "native" };
+  }
+
+  try {
+    const key = await requestBrokerKeyFromHost(api);
+    await api.storage.session.set({ [BROKER_KEY_STORAGE_KEY]: key });
+    return { key, source: "native" };
+  } catch {
+    // Host unreachable/not installed/wrong id/timed out — the browser's own
+    // rejection reason is never inspected (docs/PROTOCOL.md: it varies by
+    // browser/version). Fall back to a pasted legacy key if one is stored.
+    if (isHex64(stored[PASTED_KEY_STORAGE_KEY])) {
+      return { key: stored[PASTED_KEY_STORAGE_KEY], source: "pasted" };
+    }
+    return null;
+  }
+}
+
 async function connectIfNeeded() {
   if (wsState === "connected" || wsState === "connecting" || wsState === "handshaking") return;
   if (ws) return;
 
-  // With no stored token, still attempt the handshake — this Chrome install
-  // may already be trusted (its origin is fixed, unforgeable, and derived
-  // from manifest.json's pinned key; see docs/PROTOCOL.md "Appairage
-  // silencieux"), in which case the broker silently auto-grants a token on
-  // hello-ok. Same thing for a Firefox uuid already pinned. If the broker
-  // doesn't know this origin, it refuses and the close handler below falls
-  // back to "no-token".
-  const { pairingToken } = await api.storage.session.get("pairingToken");
-
   setState("connecting");
+
+  const keyInfo = await resolveBrokerKey();
+  if (!keyInfo) {
+    setState("no-host");
+    return; // next attempt: the 30s reconnect alarm, or any panel-ready/get-status call
+  }
+
+  // docs/PROTOCOL.md "Poignée de main v: 2", step 2 — cN: 32 fresh random
+  // bytes, 64 lowercase hex, new for every connection attempt (never reused
+  // across retries, so a captured `auth` can't be replayed against a new one).
+  const cN = randomHex32();
+  let handshakeSettled = false; // true once past the challenge step (success or fail)
+  // I3 (final security review): true only once the broker's HMAC proof has
+  // actually verified for THIS connection. Every message before that point —
+  // hello-ok included — is refused: accepting hello-ok (or relaying
+  // chunk/error/prompts) on the strength of an unverified challenge would let
+  // a broker that never proved its identity talk to the panel anyway.
+  let brokerVerified = false;
+
   try {
     ws = new WebSocket(WS_URL);
   } catch {
@@ -315,10 +392,8 @@ async function connectIfNeeded() {
 
   ws.addEventListener("open", () => {
     setState("handshaking");
-    const hello = { type: "hello", v: PROTOCOL_VERSION };
-    if (pairingToken) hello.secret = pairingToken;
-    ws.send(JSON.stringify(hello));
-    helloTimeoutId = setTimeout(() => {
+    ws.send(JSON.stringify({ type: "hello", v: PROTOCOL_VERSION, nonce: cN, key: keyInfo.source }));
+    handshakeTimeoutId = setTimeout(() => {
       if (wsState !== "connected") {
         setState("handshake-timeout");
         ws?.close();
@@ -327,44 +402,100 @@ async function connectIfNeeded() {
   });
 
   ws.addEventListener("message", (event) => {
-    handleBrokerMessage(event.data);
+    let message;
+    try {
+      message = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+
+    // I3 (final security review): before the broker's proof has verified,
+    // the ONLY acceptable message is a first `challenge` — anything else
+    // (hello-ok, chunk, error, prompts, or a second challenge racing the
+    // first) means the peer on the other end never proved it holds the
+    // shared key, so the socket is dropped outright rather than partially
+    // trusted. docs/PROTOCOL.md "Poignée de main v: 2", steps 3-5: the
+    // challenge is expected exactly once, before hello-ok, never again after.
+    if (!brokerVerified) {
+      if (message.type === "challenge" && !handshakeSettled && wsState === "handshaking") {
+        handleChallenge(message);
+        return;
+      }
+      ws?.close(4000);
+      return;
+    }
+
+    handleBrokerMessage(message);
   });
 
+  async function handleChallenge(message) {
+    // Set synchronously, before the `await` below: a second `challenge`
+    // arriving while this one is still mid-verification must find
+    // handshakeSettled already true (it flips before any suspension point in
+    // this function) — otherwise two overlapping verifications could race,
+    // and a slow/malicious broker could reorder their effects.
+    handshakeSettled = true;
+    // Pinned so the continuations below can tell "this exact socket, still
+    // the live one" apart from "closed (e.g. by the second-challenge guard
+    // above) or replaced by a reconnect while verifyHmacHex/hmacHex were
+    // pending" — sending auth (or trusting a stale `ok`) on the wrong/dead
+    // socket would misattribute the proof to a connection it was never
+    // computed for.
+    const socket = ws;
+    const bN = message.nonce;
+    const bP = message.proof;
+    // Malformed shape (nonce/proof not 64 lowercase hex) fails the same way
+    // as a wrong proof below — verifyHmacHex would fail anyway, but the hex
+    // check also guards against passing garbage into crypto.subtle.
+    const ok = isHex64(bN) && (await verifyHmacHex(keyInfo.key, brokerProofMessage(cN, bN), bP));
+    if (socket !== ws || wsState !== "handshaking") return; // stale — see comment above
+    if (!ok) {
+      // docs/PROTOCOL.md step 4: close 4000, send nothing else. The close
+      // handler below does the actual key-clearing/retry/terminal-state work.
+      ws?.close(4000);
+      return;
+    }
+    // Proof verified — this connection now trusts the peer. Set BEFORE
+    // sending `auth`: the ordering itself isn't racy in JS's single-threaded
+    // model, but it keeps "verified" and "about to prove ourselves" in the
+    // same statement block, matching how the rest of this file reasons about
+    // handshake state.
+    brokerVerified = true;
+    const eP = await hmacHex(keyInfo.key, extensionProofMessage(cN, bN));
+    if (socket !== ws || wsState !== "handshaking") return; // stale again after the 2nd await
+    ws.send(JSON.stringify({ type: "auth", v: PROTOCOL_VERSION, proof: eP }));
+  }
+
   ws.addEventListener("close", (event) => {
-    clearTimeout(helloTimeoutId);
+    clearTimeout(handshakeTimeoutId);
     ws = null;
+    handshakeSettled = true;
 
-    // docs/PROTOCOL.md "Jeton refusé": a 4401 during the handshake, after we
-    // sent a `secret` (permanent secret or session token), means that secret
-    // is stale — typically a broker restart, which invalidates every session
-    // token in memory. Drop it and retry once, immediately, without any
-    // secret: an already-known origin (Chromium id, pinned Firefox uuid)
-    // gets a silent grant; an unknown one falls through to "no-token" below
-    // on this very next attempt. At most once per cycle (flag reset on
-    // hello-ok) so a broker that keeps refusing never loops silently.
-    if (event.code === 4401 && wsState === "handshaking" && pairingToken && !retriedWithoutSecretThisCycle) {
-      retriedWithoutSecretThisCycle = true;
-      setState("disconnected");
-      // Wait for the removal before reconnecting: connectIfNeeded() re-reads
-      // storage.session, and an un-awaited remove() let it read the SAME stale
-      // token and loop on refusals (broker journal, 2026-09-25 08:48 — several
-      // refusals per second after a broker restart).
+    // docs/PROTOCOL.md "Poignée de main v: 2": 4000 = the broker's own proof
+    // didn't verify (our own close code, chosen above); 4401 = the broker
+    // rejected `auth` (or the Origin, before any challenge). Both clear the
+    // key that was just proven wrong/refused and retry once — but only when
+    // that key came from the native host: a pasted legacy key has no host
+    // to re-call, so it goes straight to the terminal state.
+    if (event.code === 4000 || event.code === 4401) {
+      const terminalState = event.code === 4000 ? "broker-untrusted" : "no-token";
+      const storageKey = keyInfo.source === "pasted" ? PASTED_KEY_STORAGE_KEY : BROKER_KEY_STORAGE_KEY;
+      const canRetry = keyInfo.source === "native" && !retriedThisCycle;
       api.storage.session
-        .remove("pairingToken")
+        .remove(storageKey)
         .catch(() => {})
-        .finally(() => connectIfNeeded());
+        .finally(() => {
+          if (canRetry) {
+            retriedThisCycle = true;
+            setState("disconnected");
+            connectIfNeeded(); // immediate: re-resolves the key (fresh host call)
+            return;
+          }
+          setState(terminalState);
+        });
       return;
     }
 
-    // No secret was sent (or the no-secret retry above just ran), and the
-    // handshake still didn't reach "connected": the broker doesn't know this
-    // origin (silent auto-grant was refused). Retrying immediately with
-    // backoff would just get refused again — fall back to "no-token" and let
-    // the existing reconnect alarm (every 30s) retry later.
-    if (!pairingToken && wsState === "handshaking") {
-      setState("no-token");
-      return;
-    }
     setState("disconnected");
     scheduleReconnect();
   });
@@ -376,11 +507,11 @@ async function connectIfNeeded() {
   });
 }
 
-// Called right after the options page changes the stored token (paste or
-// clear — see "coati:set-token" above): any stale socket/backoff state
-// from repeated failed attempts on the OLD (or absent) token must not delay
-// the very next attempt. A deliberate token change also starts a fresh
-// handshake cycle, so the no-secret-retry flag resets here too.
+// Called right after the options page changes the stored pasted key (paste
+// or clear — see "coati:set-pasted-key" above): any stale socket/backoff
+// state from repeated failed attempts must not delay the very next attempt.
+// A deliberate key change also starts a fresh handshake cycle, so the
+// retry-once flag resets here too.
 function forceReconnect() {
   if (ws) {
     try {
@@ -391,7 +522,7 @@ function forceReconnect() {
     ws = null;
   }
   backoffMs = 1000;
-  retriedWithoutSecretThisCycle = false;
+  retriedThisCycle = false;
   setState("disconnected");
   connectIfNeeded();
 }
@@ -403,29 +534,19 @@ function scheduleReconnect() {
   }, backoffMs);
 }
 
-function handleBrokerMessage(raw) {
-  let message;
-  try {
-    message = JSON.parse(raw);
-  } catch {
-    return;
-  }
-
+function handleBrokerMessage(message) {
   if (message.type === "hello-ok") {
-    clearTimeout(helloTimeoutId);
+    // I3: only reachable here once brokerVerified is true (see the message
+    // listener above), but re-asserted per the spec — hello-ok is only ever
+    // meaningful while still mid-handshake, never once already connected.
+    if (wsState !== "handshaking") return;
+    clearTimeout(handshakeTimeoutId);
     backoffMs = 1000;
-    // hello-ok is the end of a handshake cycle (docs/PROTOCOL.md "Jeton
-    // refusé") — the next 4401 gets its own single no-secret retry again.
-    retriedWithoutSecretThisCycle = false;
-    // token is always present now (docs/PROTOCOL.md "Poignée de main"): a
-    // fresh session token (silent grant, or after presenting the permanent
-    // secret / a session token), or the same one echoed back. Store it in
-    // chrome.storage.session, never local (CLAUDE.md rule #1), replacing
-    // whatever was there — in particular a permanent secret pasted by hand
-    // is replaced by the session token from this very hello-ok.
-    if (message.token) {
-      api.storage.session.set({ pairingToken: message.token }).catch(() => {});
-    }
+    // hello-ok is the end of a handshake cycle (docs/PROTOCOL.md "Poignée de
+    // main v: 2") — the next 4000/4401 gets its own single retry again.
+    retriedThisCycle = false;
+    // No token to store (docs/PROTOCOL.md amendement 2026-09-30: hello-ok
+    // v2 carries no token at all — the key already proved everything).
     setState("connected");
     flushPendingRequest();
     return;

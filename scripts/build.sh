@@ -40,7 +40,10 @@ if [ "$CHROME_VERSION" != "$FIREFOX_VERSION" ]; then
   exit 1
 fi
 
-rm -rf "$DIST"
+# Only wipe this script's own outputs — dist/ is shared with
+# scripts/build-binaries.sh's dist/bin/, which must survive a build.sh run
+# regardless of run order.
+rm -rf "$DIST/stage" "$DIST/coati-chrome.zip" "$DIST/coati-firefox.zip"
 mkdir -p "$DIST"
 
 build_target() {

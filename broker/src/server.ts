@@ -2,26 +2,35 @@
 // network interface. Handshake: Origin check, then a `hello` with the pairing
 // secret within 3s, else close 4401 with a plain-language reason.
 
-import { timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   DEFAULT_CONFIG,
-  FIREFOX_UUIDS_FILENAME,
   defaultDirs,
   loadConfig,
-  loadFirefoxPins,
-  loadOrCreatePairingSecret,
-  recordFirefoxSeen,
   saveConfig,
   type Dirs,
   type ProviderId,
   type CoatiConfig,
 } from "./config.ts";
 import { isHostAllowed, resolvePeerUid } from "./admission.ts";
-import { SessionTokenStore } from "./session-tokens.ts";
+import {
+  brokerProof,
+  extensionProof,
+  freshNonceHex,
+  isHex64,
+  keyToHex,
+  loadOrCreatePairingSecret,
+  deletePairingSecretIfDisabled,
+  safeEqualHex,
+  writeBrokerKeyFile,
+  deleteBrokerKeyFileIfOwned,
+  generateBrokerKey,
+} from "./broker-key.ts";
+import { isNativeHostInvocation, runNativeHost } from "./native-host.ts";
+import { hardenDir } from "./fs-atomic.ts";
 import { ProviderStatusCache } from "./provider-status.ts";
 import {
   MAX_MESSAGE_BYTES,
@@ -49,7 +58,6 @@ import {
 } from "./model.ts";
 import { listPrompts, savePrompt, deletePrompt, setPromptSite, withDirLock, type PromptsDirs } from "./prompts.ts";
 import { getPrefs, setSitePrefs, moveInPrefs, type PrefsDirs } from "./prefs.ts";
-import { renderPairPage } from "./pair.ts";
 import { getProviders, getProvider, initRegistry } from "./providers/registry.ts";
 import type { ModelProvider, ProviderRuntimeOptions } from "./providers/types.ts";
 
@@ -214,67 +222,50 @@ export function checkOrigin(origin: string | null | undefined, allowedExtensionI
 // Firefox's own extension origin scheme. The uuid is a standard RFC 4122
 // v4-shaped string; Firefox assigns it randomly per install, so — unlike
 // Chrome's "key"-derived id — it cannot be part of allowedExtensionIds ahead
-// of time (see config.ts's loadFirefoxExtensionUuid comment).
+// of time. Amendement 2026-09-30 (G4): no pinning anymore — ANY well-formed
+// uuid passes this step, because the v: 2 handshake's key (not the origin)
+// is what actually authenticates (docs/PROTOCOL.md "Poignée de main `v: 2`").
 const MOZ_EXTENSION_ORIGIN_RE = /^moz-extension:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 /** Pure: extracts the uuid out of a moz-extension://<uuid> origin, or null if
- * `origin` isn't one. */
+ * `origin` isn't one. Only used to validate the origin is WELL-FORMED — its
+ * value plays no further role (no pinning since amendement 2026-09-30). */
 export function parseMozExtensionOrigin(origin: string | null | undefined): string | null {
   if (!origin) return null;
   const match = MOZ_EXTENSION_ORIGIN_RE.exec(origin);
   return match ? match[1].toLowerCase() : null;
 }
 
-export type OriginDecision =
-  | { ok: true; kind: "chrome" }
-  | { ok: true; kind: "firefox-known" }
-  // Origin looks like a Firefox install not (yet) in the pinned uuid list: the
-  // connection may proceed to the hello step, but is NOT authenticated by
-  // origin alone — only a valid pairing secret in the following hello
-  // promotes it, and only then is its uuid pinned (see
-  // handleHandshakeMessage). This is the one case where checkOrigin's usual
-  // "reject before hello" guarantee is deliberately relaxed, because Firefox
-  // gives us no way to know the uuid ahead of time.
-  | { ok: true; kind: "firefox-provisional"; uuid: string }
-  | { ok: false; kind: "rejected" };
-
-/** Pure: decides what to do with a connection's Origin header, given the
- * Chrome allowlist and the CURRENT list of pinned Firefox uuids (amendement
- * 2026-09-25 — a list, not a single value: several profiles/installs/
- * temporary-loads can each pin their own uuid, none excluding the others).
- * Never accepts an origin that is neither a known-good chrome-extension://
- * id nor a moz-extension:// uuid eligible for (or already through) pairing. */
-export function evaluateOrigin(
-  origin: string | null | undefined,
-  allowedExtensionIds: string[],
-  pinnedFirefoxUuids: readonly string[],
-): OriginDecision {
-  if (checkOrigin(origin, allowedExtensionIds)) return { ok: true, kind: "chrome" };
-
-  const uuid = parseMozExtensionOrigin(origin);
-  if (uuid) {
-    return pinnedFirefoxUuids.includes(uuid)
-      ? { ok: true, kind: "firefox-known" }
-      : { ok: true, kind: "firefox-provisional", uuid };
-  }
-
-  return { ok: false, kind: "rejected" };
+/** Pure: true iff `origin` is a chrome-extension:// origin on the allowlist,
+ * or a well-formed moz-extension://<uuid> origin (any uuid) — docs/PROTOCOL.md
+ * "Poignée de main `v: 2`", step 1. Never accepts anything else; this step
+ * only ever stops web pages, the key (not the origin) does the rest. */
+export function isOriginAllowed(origin: string | null | undefined, allowedExtensionIds: string[]): boolean {
+  if (checkOrigin(origin, allowedExtensionIds)) return true;
+  return parseMozExtensionOrigin(origin) !== null;
 }
 
-/** Pure: constant-time secret comparison. */
-export function checkSecret(provided: string | null | undefined, expected: string): boolean {
-  if (typeof provided !== "string") return false;
-  const a = Buffer.from(provided, "utf8");
-  const b = Buffer.from(expected, "utf8");
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
+// --- v: 2 handshake state machine ------------------------------------------
+//
+// docs/PROTOCOL.md "Poignée de main `v: 2`": client hello (nonce + which key)
+// -> broker challenge (fresh nonce + its own proof) -> client auth (its
+// proof) -> hello-ok. A single 3s deadline covers the whole exchange (armed
+// at open(), never reset mid-handshake).
+
+type HandshakeState =
+  | { stage: "awaiting-hello" }
+  | { stage: "awaiting-auth"; key: Buffer; keyLabel: "native" | "pasted"; cNonce: string; bNonce: string };
 
 interface ConnData {
   origin: string | null;
   authed: boolean;
   active: Map<string, AbortController>;
   helloTimer: ReturnType<typeof setTimeout> | null;
+  hs: HandshakeState;
+  /** True while this connection counts toward MAX_UNAUTH_CONNECTIONS — set at
+   * open(), cleared the moment it authenticates or closes (whichever first),
+   * so it is only ever decremented once. */
+  countedUnauth: boolean;
 }
 
 function send(ws: { send(data: string): unknown }, msg: ServerMessage): void {
@@ -602,7 +593,8 @@ function handleMessage(
 ): void {
   switch (message.type) {
     case "hello":
-      // Duplicate hello after an already-authed handshake: no-op.
+    case "auth":
+      // Duplicate hello/auth after an already-authed handshake: no-op.
       return;
     case "chat": {
       handleStreamingRequest(ws, message, active, settingsCtx, {
@@ -741,149 +733,77 @@ function handleMessage(
 }
 
 /**
- * Handshake decision table (docs/PROTOCOL.md "Poignée de main", amendement
- * 2026-09-25):
+ * The v: 2 handshake state machine (docs/PROTOCOL.md "Poignée de main
+ * `v: 2`", amendement 2026-09-30, G4):
  *
- * | origin (step 1)      | no secret    | permanent secret valid | session token valid | other |
- * |-----------------------|--------------|-------------------------|----------------------|-------|
- * | allowed (chrome)      | silent grant | grant                   | grant                | reject|
- * | pinned (firefox)      | silent grant | grant                   | grant                | reject|
- * | provisional (firefox) | reject       | grant AND pin           | reject               | reject|
+ *   1. client `hello` (nonce cN, which key) — this connection's ONE hello.
+ *   2. broker `challenge` (fresh nonce bN, its own proof bP = HMAC(K, cN:bN)).
+ *   3. client `auth` (its proof eP = HMAC(K, cN:bN)).
+ *   4. broker compares eP in constant time -> `hello-ok`, or the generic
+ *      failure (4401).
  *
- * A session token is only valid when issued to the SAME origin and that
- * origin is still allowed/pinned at hello time — `knownKind` below is
- * exactly that "still allowed or pinned" check, computed by evaluateOrigin()
- * at `open()` from the CURRENT pin list (re-read every WebSocket open — see
- * config.ts's loadFirefoxPins).
+ * `key` in step 1 selects K: the broker's own native key (default), or — only
+ * when `legacyPairing` is on — the permanent secret `S` ("pasted"). A single
+ * 3s deadline (armed at open(), see startServer) covers the whole exchange.
  */
 function handleHandshakeMessage(
   ws: { close(code: number, reason: string): unknown; send(data: string): unknown; data: ConnData },
   raw: string,
-  pairingSecret: string,
-  sessionTokens: SessionTokenStore,
-  firefoxDirs: Pick<Dirs, "dataDir">,
-  allowedExtensionIds: string[],
+  nativeKey: Buffer,
+  getLegacySecret: () => Buffer,
+  legacyPairingEnabled: boolean,
+  onAuthed: () => void,
 ): void {
+  const origin = ws.data.origin;
+  const result = parseClientMessage(raw);
+
+  if (ws.data.hs.stage === "awaiting-hello") {
+    if (!result.ok || result.message.type !== "hello") {
+      rejectHandshake(ws, origin, "expected hello message");
+      return;
+    }
+    const { nonce: cNonce, key } = result.message;
+    if (!isHex64(cNonce)) {
+      rejectHandshake(ws, origin, "malformed client nonce");
+      return;
+    }
+    const keyLabel: "native" | "pasted" = key ?? "native";
+    if (keyLabel === "pasted" && !legacyPairingEnabled) {
+      rejectHandshake(ws, origin, "legacy-pairing-disabled");
+      return;
+    }
+    const activeKey = keyLabel === "pasted" ? getLegacySecret() : nativeKey;
+    const bNonce = freshNonceHex();
+    const bProof = brokerProof(activeKey, cNonce, bNonce);
+    ws.data.hs = { stage: "awaiting-auth", key: activeKey, keyLabel, cNonce, bNonce };
+    send(ws, { type: "challenge", v: 2, nonce: bNonce, proof: bProof });
+    return;
+  }
+
+  // stage === "awaiting-auth"
+  const hs = ws.data.hs;
+  if (!result.ok || result.message.type !== "auth") {
+    rejectHandshake(ws, origin, "expected auth message");
+    return;
+  }
+  const { proof: eProof } = result.message;
+  if (!isHex64(eProof)) {
+    rejectHandshake(ws, origin, "malformed extension proof");
+    return;
+  }
+  const expected = extensionProof(hs.key, hs.cNonce, hs.bNonce);
+  if (!safeEqualHex(eProof, expected)) {
+    rejectHandshake(ws, origin, "invalid extension proof");
+    return;
+  }
   if (ws.data.helloTimer) {
     clearTimeout(ws.data.helloTimer);
     ws.data.helloTimer = null;
   }
-  const origin = ws.data.origin;
-  const result = parseClientMessage(raw);
-  if (!result.ok || result.message.type !== "hello") {
-    rejectHandshake(ws, origin, "expected hello message with pairing secret");
-    return;
-  }
-
-  // L1 (lot7 security review): the decision made at open() can go stale — a
-  // pin deleted by hand during the up to 3s window before this hello arrives
-  // must not still be honoured. Every
-  // hello re-reads the pin list and re-runs evaluateOrigin() fresh, rather
-  // than trusting the value computed at open() — same fail-closed posture as
-  // L2: any I/O error here (loadFirefoxPins can throw) is treated exactly
-  // like a rejected origin, never like a known one.
-  let originKind: OriginDecision["kind"];
-  try {
-    const pins = loadFirefoxPins(firefoxDirs);
-    originKind = evaluateOrigin(origin, allowedExtensionIds, pins.map((p) => p.uuid)).kind;
-  } catch {
-    originKind = "rejected";
-  }
-  if (originKind === "rejected") {
-    rejectHandshake(ws, origin, "origin no longer valid at hello time");
-    return;
-  }
-
-  const knownKind = originKind === "chrome" || originKind === "firefox-known";
-  // Non-null for both firefox-known and firefox-provisional origins — used
-  // to touch `lastSeen` on every grant and, for a provisional origin, to pin.
-  const firefoxUuid = parseMozExtensionOrigin(origin);
-
-  /** Finalizes a grant: records the Firefox pin/lastSeen touch (if this
-   * origin is a moz-extension:// one — recordFirefoxSeen creates a fresh pin
-   * only when `mayCreate` is true, otherwise just refreshes lastSeen for an
-   * EXISTING entry and is a no-op for a missing one), marks the connection
-   * authed, logs, and replies hello-ok. L2 (lot7 security review): wrapped in
-   * try/catch — a throw here (e.g. recordFirefoxSeen's file I/O) used to
-   * leave the socket authed=false with its helloTimer already cleared
-   * (see the top of this function), so it would never time out either;
-   * now it fails the handshake explicitly instead. */
-  function grant(via: "silent" | "silent-renew" | "secret" | "session", token: string): void {
-    try {
-      if (firefoxUuid) {
-        const nowIso = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-        // mayCreate (L1): only the permanent-secret path on a not-yet-pinned
-        // (provisional) origin may CREATE a pin. The silent and session-token
-        // paths only ever touch an existing entry's lastSeen — per the
-        // decision table above (and docs/PROTOCOL.md), neither can reach
-        // this function unless `knownKind` was already true, i.e. the origin
-        // is already pinned, so mayCreate:false here is a pure safety net,
-        // not a normal path.
-        const mayCreate = via === "secret" && originKind === "firefox-provisional";
-        const pinResult = recordFirefoxSeen(firefoxDirs, firefoxUuid, nowIso, mayCreate);
-        // grant/pin/evict/reject all go to stderr (docs/PROTOCOL.md
-        // "Journalisation") — item 7, lot7 security review: these three used
-        // console.log (stdout) until now, the odd ones out among this file's
-        // reject* lines, which were already console.error.
-        if (pinResult.pinned) console.error(`coati-broker: pin uuid=${sanitizeLogValue(firefoxUuid)}`);
-        if (pinResult.evicted) {
-          console.error(
-            `coati-broker: evict uuid=${sanitizeLogValue(pinResult.evicted.uuid)} lastSeen=${sanitizeLogValue(pinResult.evicted.lastSeen)}`,
-          );
-        }
-      }
-      ws.data.authed = true;
-      console.error(`coati-broker: grant via=${via} origin=${sanitizeLogValue(origin)}`);
-      send(ws, { type: "hello-ok", v: 1, token });
-    } catch {
-      rejectHandshake(ws, origin, "grant failed");
-    }
-  }
-
-  const secret = result.message.secret;
-
-  if (secret === undefined) {
-    // No secret at all: silent-pairing request (see HelloMessage.secret and
-    // docs/PROTOCOL.md "Appairage silencieux", extended 2026-09-25 to pinned
-    // Firefox uuids alongside allowed chrome-extension ids). A provisional
-    // (not-yet-pinned) Firefox origin gets nothing here — first use is still
-    // a deliberate secret paste.
-    if (!knownKind) {
-      rejectHandshake(ws, origin, "hello without a secret is only allowed for an already-trusted origin");
-      return;
-    }
-    grant("silent", sessionTokens.issue(origin ?? ""));
-    return;
-  }
-
-  if (checkSecret(secret, pairingSecret)) {
-    // Permanent secret: grants for any of the three origin kinds reachable
-    // here (a "rejected" kind never reaches hello — the connection is closed
-    // at open()). For a provisional origin, this is also the ONLY thing that
-    // pins it.
-    grant("secret", sessionTokens.issue(origin ?? ""));
-    return;
-  }
-
-  // Not the permanent secret — maybe a session token. Only chrome/pinned
-  // origins are eligible (see docs/PROTOCOL.md's decision table); the token
-  // must have been issued to THIS SAME origin string.
-  if (knownKind) {
-    const tokenOrigin = sessionTokens.lookupOrigin(secret);
-    if (tokenOrigin !== null && tokenOrigin === origin) {
-      grant("session", secret); // same token echoed back, no rotation
-      return;
-    }
-    // Stale or foreign token from an origin that would get a silent grant
-    // anyway: a broker restart invalidates every session token, and refusing
-    // here left the client to a retry dance that, when it misfired, made the
-    // user paste the secret again (Romain, 2026-09-25). Same exposure as a
-    // hello without secret from this origin: grant a fresh token.
-    grant("silent-renew", sessionTokens.issue(origin ?? ""));
-    return;
-  }
-
-  rejectHandshake(ws, origin, "invalid pairing secret or session token");
+  ws.data.authed = true;
+  onAuthed();
+  console.error(`coati-broker: grant via=${hs.keyLabel} origin=${sanitizeLogValue(origin)}`);
+  send(ws, { type: "hello-ok", v: 2 });
 }
 
 /** promptsDirs, widened with an optional configDir so startServer can persist
@@ -961,10 +881,33 @@ function logAdmissionRejection(outcome: Extract<AdmissionOutcome, { ok: false }>
 
 const FORBIDDEN_RESPONSE_HEADERS = { "content-type": "text/plain" };
 
-export function startServer(config: CoatiConfig, pairingSecret: string, dirs: ServerDirs) {
+// docs/PROTOCOL.md "Poignée de main `v: 2`" — "Plafond de connexions non
+// authentifiées".
+export const MAX_UNAUTH_CONNECTIONS = 16;
+// Rate limit for the cap-rejection log line: at most one line per window,
+// carrying the count of rejections that happened during it.
+const UNAUTH_CAP_LOG_WINDOW_MS = 10_000;
+
+/**
+ * `nativeKey` is the broker key for this run (32 bytes, generated by the
+ * caller — see main() below — and never written to disk by startServer
+ * itself; the caller decides when/whether to persist it, per
+ * docs/PROTOCOL.md's "seulement après que l'écoute a réussi"). Legacy mode's
+ * permanent secret `S` is loaded lazily, at most once, only if a `"pasted"`
+ * hello is actually attempted AND `config.legacyPairing` is on.
+ */
+export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: ServerDirs) {
   const promptsDirs: PromptsDirs = { dataDir: dirs.dataDir };
-  const firefoxDirs: Pick<Dirs, "dataDir"> = { dataDir: dirs.dataDir };
-  const pinsFilePath = join(dirs.dataDir, FIREFOX_UUIDS_FILENAME);
+  const legacyPairingEnabled = config.legacyPairing === true;
+  // Final security review: a stale pairing-secret from a previous run with
+  // legacyPairing:true must not keep sitting on disk once the mode is off —
+  // see deletePairingSecretIfDisabled's own comment.
+  if (!legacyPairingEnabled) deletePairingSecretIfDisabled({ dataDir: dirs.dataDir });
+  let cachedLegacySecret: Buffer | undefined;
+  function getLegacySecret(): Buffer {
+    if (!cachedLegacySecret) cachedLegacySecret = loadOrCreatePairingSecret({ dataDir: dirs.dataDir });
+    return cachedLegacySecret;
+  }
 
   // Config is process-wide for the lifetime of this server instance — one
   // broker serves one user, so there is no per-connection config. Defaults
@@ -977,12 +920,30 @@ export function startServer(config: CoatiConfig, pairingSecret: string, dirs: Se
     ...config,
   };
 
-  // Session tokens and the provider-status probe cache are broker-wide (one
-  // broker instance serves one user across many connections/panel opens),
-  // never per-connection — see docs/PROTOCOL.md "Jeton de session" and
-  // "Disponibilité du fournisseur".
-  const sessionTokens = new SessionTokenStore();
+  // Provider-status probe cache is broker-wide (one broker instance serves
+  // one user across many connections/panel opens), never per-connection —
+  // see docs/PROTOCOL.md "Disponibilité du fournisseur".
   const providerStatusCache = new ProviderStatusCache();
+
+  // Unauthenticated-connection cap state (docs/PROTOCOL.md "Plafond de
+  // connexions non authentifiées") — broker-wide, not per-connection.
+  let unauthCount = 0;
+  let capRejectCount = 0;
+  let capRejectTimer: ReturnType<typeof setTimeout> | null = null;
+  function logUnauthCapRejection(): void {
+    capRejectCount++;
+    if (capRejectTimer) return; // already inside a logging window
+    console.error(`coati-broker: reject stage=unauth-cap count=${capRejectCount}`);
+    capRejectCount = 0;
+    capRejectTimer = setTimeout(() => {
+      capRejectTimer = null;
+      if (capRejectCount > 0) {
+        console.error(`coati-broker: reject stage=unauth-cap count=${capRejectCount}`);
+        capRejectCount = 0;
+      }
+    }, UNAUTH_CAP_LOG_WINDOW_MS);
+    capRejectTimer.unref?.();
+  }
 
   console.log(
     `coati-broker: peer-uid check: ${
@@ -1024,9 +985,23 @@ export function startServer(config: CoatiConfig, pairingSecret: string, dirs: Se
     };
   }
 
+  /** Decrements unauthCount exactly once for this connection — called either
+   * when it authenticates (frees its cap slot even though the socket stays
+   * open) or when it closes without ever authenticating. */
+  function releaseUnauthSlot(ws: { data: ConnData }): void {
+    if (ws.data.countedUnauth) {
+      ws.data.countedUnauth = false;
+      unauthCount--;
+    }
+  }
+
   return Bun.serve<ConnData, {}>({
     hostname: "127.0.0.1", // NEVER 0.0.0.0 — see CLAUDE.md non-negotiable rule #2.
     port: config.port,
+    // docs/PROTOCOL.md "Écoute exclusive du port" (amendement 2026-09-30,
+    // G4): explicit even though it's Bun's own default — a second broker
+    // trying to bind the same port must fail, never silently share it.
+    reusePort: false,
     fetch(req, server) {
       // "le port" always means the port ACTUALLY listened on (server.port),
       // not the requested one — matters for tests (`port: 0`, OS-assigned) —
@@ -1040,42 +1015,9 @@ export function startServer(config: CoatiConfig, pairingSecret: string, dirs: Se
 
       const url = new URL(req.url);
 
-      if (url.pathname === "/pair") {
-        if (req.method !== "GET") {
-          return new Response("method not allowed", { status: 405, headers: { Allow: "GET" } });
-        }
-        // L5 (lot7 security review), amendement 2026-09-25 ter: /pair only
-        // answers a top-level navigation — Sec-Fetch-Mode: navigate AND
-        // Sec-Fetch-Dest: document — else 403. Defense in depth only (a
-        // fetch() from another extension's service worker, which has a
-        // 127.0.0.1 host permission, no longer reads the permanent secret
-        // this way; an extension that opens a TAB on /pair and injects a
-        // content script still reads it — only Native Messaging closes that
-        // path). Every modern Chromium/Firefox sends both headers on a real
-        // navigation; a same-origin `fetch()` or `<img>`/`<script>` load
-        // never does.
-        if (req.headers.get("sec-fetch-mode") !== "navigate" || req.headers.get("sec-fetch-dest") !== "document") {
-          return new Response("forbidden", { status: 403, headers: FORBIDDEN_RESPONSE_HEADERS });
-        }
-        const pins = loadFirefoxPins(firefoxDirs);
-        const html = renderPairPage({
-          port: server.port,
-          token: pairingSecret,
-          pinned: pins.map((p) => ({ uuid: p.uuid, pinnedAt: p.pinnedAt, lastSeen: p.lastSeen })),
-          pinsFilePath,
-        });
-        return new Response(html, {
-          headers: {
-            "content-type": "text/html; charset=utf-8",
-            "cache-control": "no-store",
-            "referrer-policy": "no-referrer",
-            "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
-            "x-content-type-options": "nosniff",
-            "cross-origin-resource-policy": "same-origin",
-          },
-        });
-      }
-
+      // amendement 2026-09-30 (G4): /pair no longer exists, in any mode —
+      // docs/PROTOCOL.md "Mode hérité" / "Règles invariantes, ajouts". Falls
+      // through to the generic 404 below like any other unknown route.
       if (url.pathname !== "/ws") {
         return new Response("not found", { status: 404 });
       }
@@ -1087,6 +1029,8 @@ export function startServer(config: CoatiConfig, pairingSecret: string, dirs: Se
           authed: false,
           active: new Map(),
           helloTimer: null,
+          hs: { stage: "awaiting-hello" },
+          countedUnauth: false,
         } satisfies ConnData,
       });
       if (!upgraded) {
@@ -1095,52 +1039,70 @@ export function startServer(config: CoatiConfig, pairingSecret: string, dirs: Se
       return undefined;
     },
     websocket: {
+      // Final security review: without an explicit cap, Bun buffers a
+      // WebSocket frame of any size in full before this handler ever runs —
+      // a multi-hundred-MB frame sent before auth (when there is no other
+      // gate yet) would be fully received into memory regardless of what
+      // the `message` handler below goes on to check. 4 KiB of slack over
+      // MAX_MESSAGE_BYTES (256 KiB, docs/PROTOCOL.md "Limites côté broker")
+      // covers the JSON envelope/framing around the largest legitimate
+      // prompt payload without meaningfully widening the DoS window.
+      maxPayloadLength: MAX_MESSAGE_BYTES + 4096,
       open(ws) {
-        // L2 (lot7 security review): the hello timer is armed FIRST, before
-        // any file I/O — an unauthenticated socket must always time out, even
-        // if the origin evaluation below throws (unreadable pins file, EISDIR,
-        // a chmod EPERM). close() (below) clears this timer either way, so
-        // rejecting the origin right after arming it is not a leak.
-        ws.data.helloTimer = setTimeout(() => {
-          rejectHandshake(ws, ws.data.origin, "handshake timeout: no hello within 3s");
-        }, 3000);
-
-        let decision: OriginDecision;
-        try {
-          // Firefox pin list is relu à chaud — re-read from disk at EVERY
-          // WebSocket open, never cached — see docs/PROTOCOL.md "Cas Firefox".
-          const pins = loadFirefoxPins(firefoxDirs);
-          decision = evaluateOrigin(ws.data.origin, config.allowedExtensionIds, pins.map((p) => p.uuid));
-        } catch {
-          // Fail closed (L2): a failure to even READ the pin list must never
-          // fall through to "origin unknown, treat as allowed" — it is
-          // treated exactly like an explicitly rejected origin.
-          rejectOrigin(ws, ws.data.origin);
+        // docs/PROTOCOL.md "Plafond de connexions non authentifiées": checked
+        // FIRST, before the origin step — a 17th unauthenticated connection
+        // is refused immediately, before any message (not even the generic
+        // error frame).
+        if (unauthCount >= MAX_UNAUTH_CONNECTIONS) {
+          logUnauthCapRejection();
+          ws.close(4401, "unauthorized");
           return;
         }
-        if (!decision.ok) {
+        unauthCount++;
+        ws.data.countedUnauth = true;
+
+        // A single 3s deadline covers the whole handshake (hello -> challenge
+        // -> auth) — docs/PROTOCOL.md "Poignée de main `v: 2`": never reset
+        // mid-handshake, only cleared on success or on this timeout firing.
+        ws.data.helloTimer = setTimeout(() => {
+          rejectHandshake(ws, ws.data.origin, "handshake timeout: no auth within 3s");
+        }, 3000);
+
+        if (!isOriginAllowed(ws.data.origin, config.allowedExtensionIds)) {
           rejectOrigin(ws, ws.data.origin);
           return;
         }
       },
       message(ws, raw) {
-        const text = typeof raw === "string" ? raw : Buffer.from(raw).toString("utf8");
-        if (!ws.data.authed) {
-          handleHandshakeMessage(ws, text, pairingSecret, sessionTokens, firefoxDirs, config.allowedExtensionIds);
+        // Final security review: the raw frame's byte length is checked
+        // BEFORE any UTF-8 decoding or JSON.parse, and before/regardless of
+        // auth state — a frame this large gets no CPU/memory spent turning
+        // it into a JS string at all. `websocket.maxPayloadLength` below
+        // (set to MAX_MESSAGE_BYTES + slack) is the hard backstop at the Bun
+        // protocol layer, closing the socket before this handler even runs
+        // for anything past that; this check catches the remaining gap
+        // between MAX_MESSAGE_BYTES and that slack, pre- or post-auth alike.
+        const rawByteLength = typeof raw === "string" ? Buffer.byteLength(raw, "utf8") : raw.byteLength;
+        if (rawByteLength > MAX_MESSAGE_BYTES) {
+          console.error(`coati-broker: reject stage=oversized origin=${sanitizeLogValue(ws.data.origin)}`);
+          if (ws.data.authed) {
+            send(ws, {
+              type: "error",
+              id: "oversized",
+              code: "bad-request",
+              message: `message exceeds ${MAX_MESSAGE_BYTES} byte cap`,
+            });
+            ws.close(1009, "oversized");
+          } else {
+            // Pre-auth: no `error` frame — same as every other handshake
+            // rejection (docs/PROTOCOL.md "Journalisation"/rejectHandshake).
+            rejectHandshake(ws, ws.data.origin, "oversized message before auth");
+          }
           return;
         }
-        // Oversized, post-auth: docs/PROTOCOL.md "Limites côté broker" —
-        // checked on the raw byte length BEFORE any parsing (the message is
-        // never analyzed, its own `id` is never looked for).
-        if (Buffer.byteLength(text, "utf8") > MAX_MESSAGE_BYTES) {
-          console.error(`coati-broker: reject stage=oversized origin=${sanitizeLogValue(ws.data.origin)}`);
-          send(ws, {
-            type: "error",
-            id: "oversized",
-            code: "bad-request",
-            message: `message exceeds ${MAX_MESSAGE_BYTES} byte cap`,
-          });
-          ws.close(1009, "oversized");
+        const text = typeof raw === "string" ? raw : Buffer.from(raw).toString("utf8");
+        if (!ws.data.authed) {
+          handleHandshakeMessage(ws, text, nativeKey, getLegacySecret, legacyPairingEnabled, () => releaseUnauthSlot(ws));
           return;
         }
         const result = parseClientMessage(text);
@@ -1154,6 +1116,7 @@ export function startServer(config: CoatiConfig, pairingSecret: string, dirs: Se
       },
       close(ws) {
         if (ws.data.helloTimer) clearTimeout(ws.data.helloTimer);
+        releaseUnauthSlot(ws);
         for (const controller of ws.data.active.values()) controller.abort();
         ws.data.active.clear();
       },
@@ -1162,6 +1125,57 @@ export function startServer(config: CoatiConfig, pairingSecret: string, dirs: Se
 }
 
 if (import.meta.main) {
+  // docs/PROTOCOL.md "Hôte natif : lancement et détection": the switch to
+  // host mode happens BEFORE ANYTHING ELSE this file's own top-level code
+  // does — no port opened, no config read, no dynamic module ever loaded
+  // (fixed comment, final security review: this file's own static imports
+  // above are already evaluated by this point, ES modules being loaded
+  // before any module-level code runs — but none of them writes to stdout,
+  // so nothing beyond the host's own single reply frame ever does either).
+  // process.argv (not just argv.slice(2)) is scanned: Chrome and Firefox
+  // both only ever append their own arguments, which can't collide with the
+  // runtime/script path entries ahead of them.
+  if (isNativeHostInvocation(process.argv)) {
+    const dirs: Dirs = defaultDirs();
+    const code = await runNativeHost(process.argv, dirs);
+    process.exit(code);
+  }
+
+  // docs/PROTOCOL.md "Mode hérité": the only way to read the permanent
+  // secret `S` — prints it and exits, never opens a port. Refuses (and
+  // creates nothing) when legacyPairing is off.
+  if (process.argv.includes("--show-pairing-secret")) {
+    const dirs: Dirs = defaultDirs();
+    const config = loadConfig(dirs);
+    if (config.legacyPairing !== true) {
+      console.error(
+        "coati-broker: --show-pairing-secret refusé — legacyPairing est éteint dans config.json " +
+          '(voir docs/PROTOCOL.md « Mode hérité »).',
+      );
+      process.exit(1);
+    }
+    const secret = loadOrCreatePairingSecret({ dataDir: dirs.dataDir });
+    console.log(keyToHex(secret));
+    process.exit(0);
+  }
+
+  // --check-modules: a no-network, no-listen smoke test proving a compiled
+  // (`bun build --compile`) binary can still dynamic-`import()` an external
+  // provider module from an absolute path named in config.json's `modules`
+  // (docs/MODULES.md) — the whole point of the registry staying a plain
+  // `import()` rather than something bundle-time. Prints one line per
+  // registered provider id and exits 0, or exits 1 if any configured module
+  // failed to load (initRegistry's warnings).
+  if (process.argv.includes("--check-modules")) {
+    const dirs: Dirs = defaultDirs();
+    const config = loadConfig(dirs);
+    // initRegistry already logs each warning (via its host's logger) — no
+    // need to print them again here.
+    const { warnings } = await initRegistry(config.modules ?? []);
+    for (const p of getProviders()) console.log(p.id);
+    process.exit(warnings.length > 0 ? 1 : 0);
+  }
+
   // A1: warn (never block) if the unit we were launched from has drifted
   // from the repo's packaging/coati-broker.service — see
   // checkUnitDriftAtStartup's doc for exactly what today's incident was.
@@ -1170,7 +1184,14 @@ if (import.meta.main) {
     repoUnitPath: join(dirname(fileURLToPath(import.meta.url)), "..", "..", "packaging", "coati-broker.service"),
   });
   const dirs: Dirs = defaultDirs();
+  // docs/PROTOCOL.md "Durcissement du dossier de données": checked at start,
+  // before startServer opens the port and before any prompts/prefs I/O can
+  // touch dataDir — not deferred to the first broker-key.json/pairing-secret
+  // write, which could otherwise happen after the port is already accepting
+  // connections.
+  hardenDir(dirs.dataDir);
   const config = loadConfig(dirs);
+  console.log(`coati-broker: legacy pairing: ${config.legacyPairing ? "ON (secret permanent, --show-pairing-secret)" : "off"}`);
   // COATI_PORT is for tests only (a free port for a test server) — the
   // extension only ever knows 8787, see config.ts's FIXED_PORT and
   // docs/PROTOCOL.md "Transport".
@@ -1178,15 +1199,33 @@ if (import.meta.main) {
     console.log(`coati-broker: COATI_PORT=${process.env.COATI_PORT} — mode test, l'extension ne se connectera pas`);
   }
   const port = Number(process.env.COATI_PORT) || config.port;
-  const pairingSecret = loadOrCreatePairingSecret(dirs);
+  const nativeKey = generateBrokerKey();
   // Amendement 2026-09-29 (docs/PROTOCOL.md "Modules externes"): load
   // config.json's `modules` BEFORE serving anything — a broken module is
   // logged (by initRegistry itself) and skipped, never fatal (CLAUDE.md
   // security rule #3).
   await initRegistry(config.modules ?? []);
-  const server = startServer({ ...config, port }, pairingSecret, {
+  const server = startServer({ ...config, port }, nativeKey, {
     dataDir: dirs.dataDir,
     configDir: dirs.configDir,
   });
+  // docs/PROTOCOL.md "Clé de broker": written only AFTER a successful listen
+  // (startServer above throws synchronously on bind failure, so reaching
+  // this line means it succeeded), and never when COATI_PORT is set without
+  // COATI_DATA_DIR — a test broker must never clobber the real one's key.
+  const shouldWriteKeyFile = !(process.env.COATI_PORT && !process.env.COATI_DATA_DIR);
+  const startedAt = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  if (shouldWriteKeyFile) {
+    writeBrokerKeyFile({ dataDir: dirs.dataDir }, nativeKey, process.pid, startedAt);
+    console.log("coati-broker: broker key: written");
+  } else {
+    console.log("coati-broker: broker key: not written (COATI_PORT sans COATI_DATA_DIR)");
+  }
+  const shutdown = () => {
+    if (shouldWriteKeyFile) deleteBrokerKeyFileIfOwned({ dataDir: dirs.dataDir }, process.pid);
+    process.exit(0);
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
   console.log(`coati-broker listening on ws://127.0.0.1:${server.port}/ws`);
 }

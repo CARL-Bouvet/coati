@@ -1,8 +1,11 @@
+// v: 2 handshake — docs/PROTOCOL.md "Poignée de main `v: 2`" (amendement
+// 2026-09-30, G4). No pinning, no session tokens, no v: 1: the key (native or
+// the legacy-mode permanent secret S) is what authenticates a connection.
+
 import { describe, expect, test, afterEach } from "bun:test";
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { checkOrigin, checkSecret, evaluateOrigin, parseMozExtensionOrigin, startServer } from "../src/server.ts";
+import { checkOrigin, isOriginAllowed, parseMozExtensionOrigin, startServer } from "../src/server.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
+import { connectAndAuthV2 } from "./helpers/handshake-v2.ts";
 
 describe("checkOrigin", () => {
   const allowed = ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"];
@@ -50,85 +53,33 @@ describe("parseMozExtensionOrigin", () => {
   });
 });
 
-describe("evaluateOrigin", () => {
+// Amendement 2026-09-30 (G4): no pinning — ANY well-formed moz-extension uuid
+// passes this step; the key (not the origin) authenticates.
+describe("isOriginAllowed", () => {
   const allowed = ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"];
   const uuid = "12345678-1234-1234-1234-123456789abc";
-  const otherUuid = "87654321-4321-4321-4321-cba987654321";
 
   test("accepts a chrome-extension origin on the allowlist", () => {
-    expect(evaluateOrigin(`chrome-extension://${allowed[0]}`, allowed, [])).toEqual({
-      ok: true,
-      kind: "chrome",
-    });
+    expect(isOriginAllowed(`chrome-extension://${allowed[0]}`, allowed)).toBe(true);
   });
 
-  test("accepts an unpaired moz-extension origin as provisional, not yet authenticated", () => {
-    expect(evaluateOrigin(`moz-extension://${uuid}`, allowed, [])).toEqual({
-      ok: true,
-      kind: "firefox-provisional",
-      uuid,
-    });
+  test("rejects a chrome-extension origin NOT on the allowlist", () => {
+    expect(isOriginAllowed(`chrome-extension://cccccccccccccccccccccccccccccccc`, allowed)).toBe(false);
   });
 
-  test("accepts a moz-extension origin matching an already-pinned uuid", () => {
-    expect(evaluateOrigin(`moz-extension://${uuid}`, allowed, [uuid])).toEqual({
-      ok: true,
-      kind: "firefox-known",
-    });
-  });
-
-  // Amendement 2026-09-25: pins are a LIST, not a single value — a second
-  // uuid pinning does not exclude the first. An uuid absent from the list is
-  // always "firefox-provisional" (eligible for pairing via the permanent
-  // secret), regardless of what else is already pinned.
-  test("an uuid not in the pin list is provisional even when another uuid is already pinned", () => {
-    expect(evaluateOrigin(`moz-extension://${otherUuid}`, allowed, [uuid])).toEqual({
-      ok: true,
-      kind: "firefox-provisional",
-      uuid: otherUuid,
-    });
-  });
-
-  test("both of two pinned uuids are recognized as firefox-known", () => {
-    expect(evaluateOrigin(`moz-extension://${uuid}`, allowed, [uuid, otherUuid])).toEqual({
-      ok: true,
-      kind: "firefox-known",
-    });
-    expect(evaluateOrigin(`moz-extension://${otherUuid}`, allowed, [uuid, otherUuid])).toEqual({
-      ok: true,
-      kind: "firefox-known",
-    });
+  test("accepts any well-formed moz-extension origin", () => {
+    expect(isOriginAllowed(`moz-extension://${uuid}`, allowed)).toBe(true);
   });
 
   test("rejects an unrelated origin outright", () => {
-    expect(evaluateOrigin("https://example.com", allowed, [])).toEqual({ ok: false, kind: "rejected" });
-    expect(evaluateOrigin(null, allowed, [])).toEqual({ ok: false, kind: "rejected" });
+    expect(isOriginAllowed("https://example.com", allowed)).toBe(false);
+    expect(isOriginAllowed(null, allowed)).toBe(false);
   });
 });
 
-describe("checkSecret", () => {
-  const expected = "0123456789abcdef0123456789abcdef";
-
-  test("refuses missing secret", () => {
-    expect(checkSecret(undefined, expected)).toBe(false);
-    expect(checkSecret(null, expected)).toBe(false);
-  });
-
-  test("refuses wrong secret", () => {
-    expect(checkSecret("wrong-secret-wrong-secret-wrong!", expected)).toBe(false);
-  });
-
-  test("accepts the correct secret", () => {
-    expect(checkSecret(expected, expected)).toBe(true);
-  });
-});
-
-// Integration tests for CHANGE 1 (2026-09-21): silent-pairing auto-grant for
-// an already-trusted chrome-extension:// origin. See docs/PROTOCOL.md
-// "Appairage silencieux".
-describe("silent pairing — hello with no secret", () => {
+describe("v: 2 handshake — integration", () => {
   const ALLOWED_ID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  const SECRET = "0123456789abcdef0123456789abcdef";
+  const KEY = Buffer.alloc(32, 0xab);
   const FIREFOX_UUID = "12345678-1234-1234-1234-123456789abc";
 
   let servers: ReturnType<typeof startServer>[] = [];
@@ -137,177 +88,153 @@ describe("silent pairing — hello with no secret", () => {
     servers = [];
   });
 
-  function boot() {
-    const dataDir = makeTmpDir("coati-silent-pair-");
-    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID] }, SECRET, { dataDir });
+  function boot(overrides: Partial<Parameters<typeof startServer>[0]> = {}) {
+    const dataDir = makeTmpDir("coati-handshake-v2-");
+    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID], ...overrides }, KEY, { dataDir });
     servers.push(server);
     return server;
   }
 
-  /** Opens a raw ws with the given Origin, sends a hello (secret omitted when
-   * `undefined`), and resolves with the parsed hello-ok message (if any) and
-   * the close code (if the server closed the socket instead). */
-  function connect(
-    server: ReturnType<typeof startServer>,
-    origin: string,
-    secret?: string,
-  ): Promise<{ helloOk?: { token?: string }; closeCode?: number }> {
-    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, { headers: { Origin: origin } } as any);
-    return new Promise((resolve) => {
-      ws.addEventListener("open", () => {
-        const hello: Record<string, unknown> = { type: "hello", v: 1 };
-        if (secret !== undefined) hello.secret = secret;
-        ws.send(JSON.stringify(hello));
-      });
-      ws.addEventListener("message", (event) => {
-        const msg = JSON.parse(event.data as string);
-        if (msg.type === "hello-ok") {
-          resolve({ helloOk: msg });
-          ws.close();
-        }
-      });
-      ws.addEventListener("close", (event) => {
-        resolve({ closeCode: event.code });
-      });
-    });
-  }
-
-  // Amendement 2026-09-25: hello-ok.token is now ALWAYS a fresh session
-  // token (64 hex chars), never the permanent secret itself — see
-  // docs/PROTOCOL.md "Poignée de main" / "Jeton de session".
-  const SESSION_TOKEN_RE = /^[0-9a-f]{64}$/;
-
-  test("a known chrome-extension origin with no secret is auto-granted a fresh session token", async () => {
+  test("a valid native handshake on a chrome-extension origin succeeds", async () => {
     const server = boot();
-    const result = await connect(server, `chrome-extension://${ALLOWED_ID}`, undefined);
-    expect(result.helloOk?.token).toMatch(SESSION_TOKEN_RE);
-    expect(result.helloOk?.token).not.toBe(SECRET);
+    const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY);
+    expect(result.ok).toBe(true);
+    result.ws.close();
   });
 
-  test("the permanent secret is never echoed back by GET /pair's page as the granted token", async () => {
-    // /pair does show the permanent secret itself (by design) — this checks
-    // the auto-granted session token specifically is NOT that same value.
+  test("a valid native handshake on any well-formed moz-extension origin succeeds (no pinning)", async () => {
     const server = boot();
-    const result = await connect(server, `chrome-extension://${ALLOWED_ID}`, undefined);
-    expect(result.helloOk?.token).not.toBe(SECRET);
+    const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `moz-extension://${FIREFOX_UUID}`, KEY);
+    expect(result.ok).toBe(true);
+    result.ws.close();
   });
 
   test("a chrome-extension origin NOT in allowedExtensionIds never reaches hello — rejected at Origin", async () => {
     const server = boot();
-    const result = await connect(server, "chrome-extension://cccccccccccccccccccccccccccccccc", undefined);
+    const result = await connectAndAuthV2(
+      `ws://127.0.0.1:${server.port}/ws`,
+      "chrome-extension://cccccccccccccccccccccccccccccccc",
+      KEY,
+    );
     expect(result.closeCode).toBe(4401);
-    expect(result.helloOk).toBeUndefined();
+    expect(result.ok).toBe(false);
   });
 
-  // Amendement 2026-09-25 (quater): a known origin could get a token with NO
-  // secret anyway, so refusing a wrong or stale one protected nothing and
-  // locked honest clients out after every broker restart. It now gets a fresh
-  // session token — never the one it presented, never the permanent secret.
-  test("a known chrome-extension origin with a stale or wrong secret gets a FRESH session token", async () => {
+  test("a wrong extension proof is rejected (4401), never an exception", async () => {
     const server = boot();
-    const stale = "wrong-secret-wrong-secret-wrong!";
-    const result = await connect(server, `chrome-extension://${ALLOWED_ID}`, stale);
-    expect(result.helloOk).toBeDefined();
-    expect(result.helloOk?.token).toMatch(SESSION_TOKEN_RE);
-    expect(result.helloOk?.token).not.toBe(stale);
-    expect(result.helloOk?.token).not.toBe(SECRET);
-  });
-
-  test("an UNKNOWN origin with a wrong secret is still rejected", async () => {
-    const server = boot();
-    const result = await connect(server, `moz-extension://00000000-0000-4000-8000-000000000000`, "wrong-secret-wrong-secret-wrong!");
+    const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY, {
+      authProofOverride: "b".repeat(64),
+    });
     expect(result.closeCode).toBe(4401);
   });
 
-  test("a known chrome-extension origin with the correct secret also gets a fresh session token", async () => {
+  for (const badProof of ["c".repeat(63), "c".repeat(65), "C".repeat(64), "z".repeat(64)]) {
+    test(`a malformed proof (${badProof.length} chars, "${badProof[0]}") is rejected, not an exception`, async () => {
+      const server = boot();
+      const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY, {
+        authProofOverride: badProof,
+      });
+      expect(result.closeCode).toBe(4401);
+    });
+  }
+
+  test("the broker's own proof, replayed back as the extension's auth proof, is rejected", async () => {
     const server = boot();
-    const result = await connect(server, `chrome-extension://${ALLOWED_ID}`, SECRET);
-    expect(result.helloOk).toBeDefined();
-    expect(result.helloOk?.token).toMatch(SESSION_TOKEN_RE);
+    const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY, {
+      authProofOverride: undefined,
+    });
+    // Sanity: the plain flow already succeeds; now redo it but hand back the
+    // broker's own challenge proof as our auth proof.
+    expect(result.ok).toBe(true);
+    result.ws.close();
+
+    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
+      headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
+    } as any);
+    const cNonce = "d".repeat(64);
+    const outcome = await new Promise<{ ok: boolean; closeCode?: number }>((resolve) => {
+      ws.addEventListener("open", () => ws.send(JSON.stringify({ type: "hello", v: 2, nonce: cNonce })));
+      ws.addEventListener("message", (event) => {
+        const msg = JSON.parse(event.data as string);
+        if (msg.type === "challenge") {
+          ws.send(JSON.stringify({ type: "auth", v: 2, proof: msg.proof }));
+        } else if (msg.type === "hello-ok") {
+          resolve({ ok: true });
+        }
+      });
+      ws.addEventListener("close", (event) => resolve({ ok: false, closeCode: event.code }));
+    });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.closeCode).toBe(4401);
   });
 
-  // Amendement 2026-09-25: silent pairing is extended to PINNED Firefox
-  // uuids — the first connection pins via the permanent secret, every later
-  // connection (including with no secret) is auto-granted.
-  test("a pinned Firefox uuid is auto-granted a token with no secret, once pinned", async () => {
+  test("Origin-only, no hello sent at all: the handshake timeout (3s) eventually closes 4401", async () => {
     const server = boot();
-    const first = await connect(server, `moz-extension://${FIREFOX_UUID}`, SECRET);
-    expect(first.helloOk).toBeDefined();
+    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
+      headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
+    } as any);
+    const code = await new Promise<number>((resolve) => {
+      ws.addEventListener("close", (event) => resolve(event.code));
+    });
+    expect(code).toBe(4401);
+  }, 4000);
 
-    const second = await connect(server, `moz-extension://${FIREFOX_UUID}`, undefined);
-    expect(second.helloOk?.token).toMatch(SESSION_TOKEN_RE);
-    expect(second.closeCode).toBeUndefined();
-  });
-
-  test("an unpinned Firefox uuid is never auto-granted", async () => {
-    const server = boot();
-    const result = await connect(server, `moz-extension://${FIREFOX_UUID}`, undefined);
+  test('key: "pasted" while legacyPairing is off is rejected (reason logged, never on the wire)', async () => {
+    const server = boot({ legacyPairing: false });
+    const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY, {
+      keyLabel: "pasted",
+    });
     expect(result.closeCode).toBe(4401);
-    expect(result.helloOk).toBeUndefined();
   });
 
-  // Amendement 2026-09-25 (quater), Firefox side: a pinned uuid presenting a
-  // stale session token (from a previous broker process, now gone) is not
-  // locked out — same treatment as a known chrome-extension origin above.
-  test("a pinned Firefox uuid with a stale session token gets a FRESH session token (silent-renew)", async () => {
-    const server = boot();
-    const first = await connect(server, `moz-extension://${FIREFOX_UUID}`, SECRET);
-    expect(first.helloOk).toBeDefined();
-
-    const stale = "0".repeat(64); // well-formed shape, but never issued
-    const result = await connect(server, `moz-extension://${FIREFOX_UUID}`, stale);
-    expect(result.helloOk).toBeDefined();
-    expect(result.helloOk?.token).toMatch(SESSION_TOKEN_RE);
-    expect(result.helloOk?.token).not.toBe(stale);
-  });
-
-  // Companion to the above: once the uuid is REVOKED (unpinned again), its
-  // old — previously valid — session token must no longer work. Unlike the
-  // stale-token case, this origin is no longer "known" at all (back to
-  // firefox-provisional), so PROTOCOL's decision table says refus, not
-  // silent-renew.
-  test("a revoked Firefox uuid presenting its old session token is refused", async () => {
-    const dataDir = makeTmpDir("coati-silent-pair-");
-    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID] }, SECRET, { dataDir });
+  test('key: "pasted" with legacyPairing on and the correct secret S succeeds', async () => {
+    const dataDir = makeTmpDir("coati-handshake-legacy-");
+    const { loadOrCreatePairingSecret } = await import("../src/broker-key.ts");
+    const legacySecret = loadOrCreatePairingSecret({ dataDir });
+    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID], legacyPairing: true }, KEY, { dataDir });
     servers.push(server);
+    const result = await connectAndAuthV2(
+      `ws://127.0.0.1:${server.port}/ws`,
+      `chrome-extension://${ALLOWED_ID}`,
+      legacySecret,
+      { keyLabel: "pasted" },
+    );
+    expect(result.ok).toBe(true);
+    result.ws.close();
+  });
 
-    const first = await connect(server, `moz-extension://${FIREFOX_UUID}`, SECRET);
-    const oldToken = first.helloOk?.token;
-    expect(oldToken).toMatch(SESSION_TOKEN_RE);
-
-    // Revoke: remove the pin by hand (same mechanism as
-    // firefox-pairing.test.ts's L1 test — truncate the pins file to empty).
-    writeFileSync(join(dataDir, "firefox-extension-uuids.txt"), "", { mode: 0o600 });
-
-    const result = await connect(server, `moz-extension://${FIREFOX_UUID}`, oldToken);
+  test('key: "pasted" with legacyPairing on but the WRONG secret is rejected', async () => {
+    const server = boot({ legacyPairing: true });
+    const wrongSecret = Buffer.alloc(32, 0xee);
+    const result = await connectAndAuthV2(
+      `ws://127.0.0.1:${server.port}/ws`,
+      `chrome-extension://${ALLOWED_ID}`,
+      wrongSecret,
+      { keyLabel: "pasted" },
+    );
     expect(result.closeCode).toBe(4401);
-    expect(result.helloOk).toBeUndefined();
   });
 });
 
-// L2 (lot7 security review): open() must fail closed — a failure to even
-// READ the Firefox pin list (unreadable file, EISDIR, a chmod EPERM) must
-// never fall through to "origin unknown, treat it as if nothing were
-// pinned"; it is rejected outright, same as an explicitly rejected origin.
-describe("L2 — open() fails closed when evaluating the origin throws", () => {
+// L2-equivalent (amendement 2026-09-30, G4): open() no longer does any file
+// I/O for the origin check (it's pure now — no Firefox pin list to read), so
+// there is nothing left to "fail closed" against at that step. This is a
+// regression guard: an unrelated origin must still be rejected outright.
+describe("origin check has no I/O left to fail on", () => {
   const ALLOWED_ID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-
   let servers: ReturnType<typeof startServer>[] = [];
   afterEach(() => {
     for (const s of servers) s.stop(true);
     servers = [];
   });
 
-  test("a dataDir that makes loadFirefoxPins throw rejects every connection at open(), even a normally-allowed chrome origin", async () => {
-    // A NUL byte makes every node:fs call on a path built from this dataDir
-    // throw synchronously (ERR_INVALID_ARG_VALUE) — a reliable, dependency-free
-    // way to force config.ts's ensureDir0700()/loadFirefoxPins() to throw.
-    const dataDir = makeTmpDir("coati-l2-open-") + "\0bad";
-    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID] }, "0123456789abcdef0123456789abcdef", { dataDir });
+  test("an unrelated origin is rejected at open(), even against a dataDir that cannot be written to further", async () => {
+    const dataDir = makeTmpDir("coati-l2-open-");
+    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID] }, Buffer.alloc(32, 1), { dataDir });
     servers.push(server);
 
     const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-      headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
+      headers: { Origin: "https://example.com" },
     } as any);
     const closeCode = await new Promise<number>((resolve) => {
       ws.addEventListener("close", (event) => resolve(event.code));

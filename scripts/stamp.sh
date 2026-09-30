@@ -22,6 +22,8 @@ FILES=(
   "content/extract.js"
   "lib/browser-compat.js"
   "lib/build-fingerprint.js"
+  "lib/handshake-crypto.js"
+  "lib/native-host.js"
   "manifest.json"
   "options.css"
   "options.html"

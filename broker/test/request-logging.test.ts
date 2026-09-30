@@ -11,9 +11,10 @@ import { startServer } from "../src/server.ts";
 import { __setFetchImplForTests, __resetFetchImplForTests } from "../src/providers/ollama.ts";
 import type { ServerMessage } from "../src/protocol.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
+import { connectAndAuthV2, connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
 
 const ALLOWED_ID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const SECRET = "0123456789abcdef0123456789abcdef";
+const KEY = Buffer.from("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd", "hex");
 const SECRET_VALUE = "s3cr3t-page-content-should-never-leak";
 
 let servers: ReturnType<typeof startServer>[] = [];
@@ -24,7 +25,7 @@ function boot() {
   const dataDir = makeTmpDir("coati-logging-");
   const server = startServer(
     { port: 0, allowedExtensionIds: [ALLOWED_ID], provider: "ollama", model: "llama3.2" },
-    SECRET,
+    KEY,
     { dataDir },
   );
   servers.push(server);
@@ -32,23 +33,7 @@ function boot() {
 }
 
 async function connectAndAuth(server: ReturnType<typeof startServer>): Promise<WebSocket> {
-  const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-    headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
-  } as any);
-  await new Promise<void>((resolve) => ws.addEventListener("open", () => resolve()));
-  const helloOk = new Promise<void>((resolve) => {
-    const onMessage = (event: MessageEvent) => {
-      const msg = JSON.parse(event.data as string);
-      if (msg.type === "hello-ok") {
-        ws.removeEventListener("message", onMessage);
-        resolve();
-      }
-    };
-    ws.addEventListener("message", onMessage);
-  });
-  ws.send(JSON.stringify({ type: "hello", secret: SECRET, v: 1 }));
-  await helloOk;
-  return ws;
+  return connectAndAuthV2OrThrow(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY);
 }
 
 const TAGS_OK = () => new Response(JSON.stringify({ models: [{ name: "llama3.2:latest" }] }), { status: 200 });
@@ -105,10 +90,10 @@ describe("A2 — one journal line per request", () => {
     expect(completed[0]).toContain("outcome=ok");
     expect(completed[0]).toMatch(/elapsedMs=\d+/);
 
-    // Never the request's own text content or the pairing secret.
+    // Never the request's own text content or the broker key.
     for (const line of lines) {
       expect(line).not.toContain(SECRET_VALUE);
-      expect(line).not.toContain(SECRET);
+      expect(line).not.toContain(KEY.toString("hex"));
     }
   });
 
@@ -221,11 +206,11 @@ describe("A2 — one journal line per request", () => {
   });
 });
 
-// Item 7 (lot7 security review): grant/pin/evict lines must go to stderr —
-// same as every reject* line already does — per docs/PROTOCOL.md
-// "Journalisation" ("le broker écrit sur sa sortie d'erreur"). They used to
-// go to console.log (stdout), the odd ones out.
-describe("grant/pin/evict — stderr, not stdout", () => {
+// Item 7 (lot7 security review) + amendement 2026-09-30 (G4): grant lines
+// must go to stderr — same as every reject* line already does — per
+// docs/PROTOCOL.md "Journalisation" ("le broker écrit sur sa sortie
+// d'erreur"), never console.log (stdout).
+describe("grant — stderr, not stdout", () => {
   let errorSpy: ReturnType<typeof mock>;
   let originalError: typeof console.error;
 
@@ -233,7 +218,7 @@ describe("grant/pin/evict — stderr, not stdout", () => {
     console.error = originalError;
   });
 
-  test("a silent grant on an already-known origin logs 'grant' to console.error, never console.log", async () => {
+  test("a successful v: 2 handshake logs 'grant via=native' to console.error, never console.log", async () => {
     originalLog = console.log;
     logSpy = mock(() => {});
     console.log = logSpy as unknown as typeof console.log;
@@ -242,39 +227,20 @@ describe("grant/pin/evict — stderr, not stdout", () => {
     console.error = errorSpy as unknown as typeof console.error;
 
     const server = boot();
-    const ws = await connectAndAuth(server); // sends the permanent secret — a "grant via=secret" line
+    const ws = await connectAndAuth(server);
     ws.close();
 
     const errorLines = errorSpy.mock.calls.map((call: unknown[]) => String(call[0]));
     const logLines = logSpy.mock.calls.map((call: unknown[]) => String(call[0]));
-    expect(errorLines.some((l) => l.includes("grant via=secret"))).toBe(true);
+    expect(errorLines.some((l) => l.includes("grant via=native"))).toBe(true);
     expect(logLines.some((l) => l.includes("grant"))).toBe(false);
   });
 
-  test("pinning a Firefox uuid logs 'pin' to console.error, never console.log", async () => {
-    originalLog = console.log;
-    logSpy = mock(() => {});
-    console.log = logSpy as unknown as typeof console.log;
-    originalError = console.error;
-    errorSpy = mock(() => {});
-    console.error = errorSpy as unknown as typeof console.error;
-
+  test("a moz-extension origin with a valid proof also authenticates (no pinning, amendement 2026-09-30)", async () => {
     const server = boot();
     const uuid = "12345678-1234-1234-1234-123456789abc";
-    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-      headers: { Origin: `moz-extension://${uuid}` },
-    } as any);
-    await new Promise<void>((resolve) => {
-      ws.addEventListener("open", () => ws.send(JSON.stringify({ type: "hello", secret: SECRET, v: 1 })));
-      ws.addEventListener("message", (event) => {
-        if (JSON.parse(event.data as string).type === "hello-ok") resolve();
-      });
-    });
-    ws.close();
-
-    const errorLines = errorSpy.mock.calls.map((call: unknown[]) => String(call[0]));
-    const logLines = logSpy.mock.calls.map((call: unknown[]) => String(call[0]));
-    expect(errorLines.some((l) => l.includes(`pin uuid=${uuid}`))).toBe(true);
-    expect(logLines.some((l) => l.includes("pin uuid="))).toBe(false);
+    const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `moz-extension://${uuid}`, KEY);
+    expect(result.ok).toBe(true);
+    result.ws.close();
   });
 });

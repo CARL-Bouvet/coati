@@ -257,13 +257,33 @@
       },
     },
 
-    // Bandeau de connexion — "Ouvrir /pair" (texte Firefox, cf. IS_GECKO).
-    // Task note: le CTA "Ouvrir /pair" n'existe QUE sous Firefox
-    // (applyConnectionBanner, panel.js) — ce fixture force donc `gecko:true`
-    // pour l'atteindre sans toucher au code produit.
+    // Bandeau de connexion — "no-token" : id d'extension refusé par le
+    // broker (allowedExtensionIds), même texte sur tous les navigateurs
+    // depuis le G4 (Native Messaging) — plus de variante Firefox/Chromium.
     disconnected: {
       status: "no-token",
-      gecko: true,
+      tab: null,
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      prompts: [],
+    },
+
+    // Bandeau de connexion — "no-host" : programme natif introuvable (G4,
+    // docs/PROTOCOL.md amendement 2026-09-30). Deux liens : doc d'install et
+    // réglages (section Flatpak/Snap).
+    "no-host": {
+      status: "no-host",
+      tab: null,
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      prompts: [],
+    },
+
+    // Bandeau de connexion — "broker-untrusted" : un programme répond sur le
+    // port 8787 mais n'a pas prouvé être le broker Coati (preuve HMAC
+    // fausse). Aucun lien : rien à faire depuis l'extension.
+    "broker-untrusted": {
+      status: "broker-untrusted",
       tab: null,
       faviconUrl: FAVICON,
       storageLocal: { "coati:conversation": [], "coati:attachPage": null },

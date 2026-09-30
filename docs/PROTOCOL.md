@@ -74,6 +74,14 @@ silence par un autre.** Interface complète qu'un module doit implémenter, et c
 fournit en retour (invite système, délai, classes d'erreur, journal) : `docs/MODULES.md`. Tout
 passage touché par cet amendement porte la mention « Amendement 2026-09-29 ».
 
+Amendement 2026-09-30 (Native Messaging, goal G4) : le broker tire une clé à chaque démarrage et
+l'écrit dans un fichier 0600 ; un hôte natif `com.getcoati.broker`, que le navigateur ne lance que
+pour l'ID épinglé de l'extension, la lui remet. La poignée de main WebSocket passe en `v: 2`,
+défi-réponse HMAC dans les deux sens. L'appairage silencieux sur l'`Origin` seul disparaît ; `/pair`,
+le collage du secret et la poignée de main `v: 1` passent derrière la clé `legacyPairing` de
+`config.json`, éteinte par défaut. Motif : une autre extension peut réécrire l'`Origin` (prouvé le
+25/09). Voir la section du même nom en fin de document.
+
 ## Transport
 
 WebSocket, `ws://127.0.0.1:8787/ws`.
@@ -109,6 +117,8 @@ manuel compris ; le protocole cesse de promettre le contraire.
   effectivement écouté.
 
 ## Frontière de menace
+
+*Remplacé par défaut par l'amendement du 2026-09-30 (Native Messaging, en fin de document).*
 
 Amendement 2026-09-25. Remplace la « Note honnête » du 2026-09-16, qui promettait « le compte
 utilisateur » alors que le code laissait passer tout processus de la machine, y compris sous un
@@ -157,6 +167,8 @@ remis à 0700 à chaque démarrage ; les fichiers qu'ils contiennent (`config.js
 
 ## Admission HTTP et WebSocket
 
+*Complété par l'amendement du 2026-09-30 (Native Messaging, en fin de document).*
+
 Amendement 2026-09-25. **Avant tout routage**, sur chaque requête HTTP — `/pair`, `/ws` avant la
 montée en WebSocket, route inconnue comprise —, le broker applique dans cet ordre :
 
@@ -190,6 +202,8 @@ d'un uuid Firefox et la rotation du secret permanent se font à la main, dans le
 « Poignée de main »), jamais par une requête.
 
 ## Poignée de main
+
+*Remplacé par défaut par l'amendement du 2026-09-30 (Native Messaging, en fin de document).*
 
 Après l'admission HTTP ci-dessus, à l'ouverture du WebSocket, le broker vérifie **dans cet
 ordre**, et ferme la connexion au premier échec (code 4401, raison **générique** `unauthorized` —
@@ -300,6 +314,8 @@ l'avance ; il l'apprend :
 
 ### Appairage silencieux
 
+*Remplacé par défaut par l'amendement du 2026-09-30 (Native Messaging, en fin de document).*
+
 Amendement 2026-09-21. Problème : le jeton vit en `chrome.storage.session` (règle de sécurité n°1,
 non négociable — jamais `storage.local`), donc il est effacé à **chaque** redémarrage du
 navigateur, et sans ça l'utilisateur devait rouvrir `/pair` et cliquer à chaque fois. Trop de
@@ -370,6 +386,8 @@ distinguer laquelle des vérifications a échoué — la raison précise part se
 journal du broker (voir « Journalisation »).
 
 ## Page `/pair` (Firefox seulement)
+
+*Remplacé par défaut par l'amendement du 2026-09-30 (Native Messaging, en fin de document).*
 
 Amendement 2026-09-25 — remplace « Appairage en un clic » (2026-09-20 (2)).
 
@@ -1361,6 +1379,8 @@ Codes d'erreur : `bad-request`, `unauthorized`, `model-unavailable`, `auth-requi
 
 ## Journalisation
 
+*Complété par l'amendement du 2026-09-30 (Native Messaging, en fin de document).*
+
 Amendement 2026-09-25. Le broker écrit sur sa sortie d'erreur (donc dans `journalctl` sous systemd)
 **une ligne par octroi, par épinglage et par refus**, préfixée `coati-broker:` :
 
@@ -1404,6 +1424,8 @@ français d'après `code` seul, pas d'après `message`. **Ne s'applique pas à `
 contrat inchangé par cet amendement.
 
 ## Règles invariantes
+
+*Complété par l'amendement du 2026-09-30 (Native Messaging, en fin de document).*
 
 - Un `id` reçoit **toujours** un terminal : `done`, `error` ou la réponse propre à son type
   (`prompts`, `settings`, `settings.test-result`, `provider.status-result`). Jamais deux, jamais
@@ -1501,3 +1523,565 @@ Ce qui **ne change pas** : l'ID d'extension Chromium `hehlgipomfminodhahcjbencbl
 la clé `extension/manifest.json:key`, `extension-key.pem` inchangée) ; le port 8787 ; le dossier du
 dépôt (`~/projets/wingpen`) et son dépôt GitHub, renommés par Romain hors de ce protocole, GitHub
 redirigeant l'ancien nom.
+
+## Amendement 2026-09-30 : Native Messaging (G4)
+
+**Pourquoi.** Le 25/09, une autre extension munie d'une permission d'hôte sur `127.0.0.1` a réécrit
+l'en-tête `Origin` de son WebSocket (Brave : `declarativeNetRequest` depuis une page d'extension ;
+Firefox : `webRequest` bloquant) et obtenu l'appairage silencieux, donc une session complète (voir
+« Frontière de menace »). Tant que l'`Origin` est la seule chose qui distingue Coati d'une autre
+extension, ce trou reste ouvert. Native Messaging le ferme : c'est le navigateur qui lance le
+programme natif, et il ne le lance que pour une extension dont l'ID figure dans le manifeste d'hôte
+(`allowed_origins` sous Chromium, `allowed_extensions` sous Firefox), sans joker. Une autre
+extension ne peut pas l'appeler, quels que soient ses en-têtes.
+
+**Ce qui change, en bref.**
+- À chaque démarrage, le broker tire au sort une **clé de broker** (256 bits), la garde en mémoire
+  et l'écrit dans un fichier 0600. Un **hôte natif** — le même exécutable que le broker, lancé par
+  le navigateur — lit ce fichier et remet la clé à l'extension, et à elle seule.
+- Le WebSocket reste le transport, sur `ws://127.0.0.1:8787/ws`. Sa poignée de main passe en
+  `v: 2` : un défi-réponse HMAC dans les deux sens. Le broker prouve qu'il détient la clé avant que
+  l'extension n'envoie quoi que ce soit ; l'extension prouve ensuite la même chose. La clé ne
+  circule jamais sur le WebSocket.
+- L'appairage silencieux sur l'`Origin` seul, `/pair`, le collage historique, la poignée de main
+  `v: 1` et les jetons de session disparaissent du code, dans tous les modes — pas seulement
+  derrière un drapeau. Pour les navigateurs en Flatpak ou Snap, qui ne peuvent pas lancer d'hôte
+  natif, la clé `legacyPairing` de `config.json` (éteinte par défaut) ajoute juste une seconde clé
+  possible — un secret permanent `S` — à la même poignée de main `v: 2`.
+- L'épinglage des uuid Firefox est retiré : c'est la clé, pas l'`Origin`, qui authentifie.
+
+Native Messaging sert ici à **livrer une clé**, pas à transporter les messages : pas de relais, pas
+de fichier de socket par système, pas de plafond d'1 Mo à contourner pour la réponse `prompts`. Le
+reste du protocole (messages, limites, fournisseurs) est inchangé ; seuls les messages de la
+poignée de main portent `v: 2`.
+
+### Hôte natif : nom et manifestes
+
+Nom : **`com.getcoati.broker`**. Il respecte les règles des deux familles (minuscules, chiffres,
+`_`, points non consécutifs, ni en tête ni en fin).
+
+Un fichier par famille de navigateurs, jamais les deux clés dans un même fichier.
+
+Chromium (Chrome, Chromium, Brave, Edge) :
+
+```json
+{
+  "name": "com.getcoati.broker",
+  "description": "Coati local broker - pairing helper",
+  "path": "<chemin absolu de l'exécutable ou du lanceur>",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://hehlgipomfminodhahcjbencblepjhah/"]
+}
+```
+
+Firefox :
+
+```json
+{
+  "name": "com.getcoati.broker",
+  "description": "Coati local broker - pairing helper",
+  "path": "<chemin absolu de l'exécutable ou du lanceur>",
+  "type": "stdio",
+  "allowed_extensions": ["coati@getcoati.com"]
+}
+```
+
+- `allowed_origins` ne contient que l'ID épinglé, avec la barre oblique finale exigée par Chrome ;
+  `allowed_extensions` ne contient que l'ID gecko. Une copie de l'extension publiée sous un autre ID
+  ne peut pas se servir de l'hôte : c'est voulu.
+- `path` est absolu sur tous les systèmes (Windows admet un chemin relatif au manifeste ; on ne s'en
+  sert pas). Il désigne soit l'exécutable compilé `coati-broker`, soit un petit script lanceur (voir
+  « Lanceur »). Un manifeste d'hôte ne peut pas porter d'arguments : d'où la détection décrite plus
+  bas.
+- Le manifeste ne contient aucun secret : 0644, dans un dossier `NativeMessagingHosts/` créé en
+  0700 s'il n'existe pas.
+
+### Emplacements des manifestes
+
+Aucun droit d'administrateur. Linux et macOS : un fichier `com.getcoati.broker.json` dans le
+dossier indiqué.
+
+| Navigateur | Linux | macOS |
+|---|---|---|
+| Chrome | `~/.config/google-chrome/NativeMessagingHosts/` | `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/` |
+| Chromium | `~/.config/chromium/NativeMessagingHosts/` | `~/Library/Application Support/Chromium/NativeMessagingHosts/` |
+| Brave | `~/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/` | `~/Library/Application Support/BraveSoftware/Brave-Browser/NativeMessagingHosts/` |
+| Edge | `~/.config/microsoft-edge/NativeMessagingHosts/` | `~/Library/Application Support/Microsoft Edge/NativeMessagingHosts/` |
+| Firefox | `~/.mozilla/native-messaging-hosts/` | `~/Library/Application Support/Mozilla/NativeMessagingHosts/` |
+
+L'installateur écrit dans chaque dossier dont le dossier de configuration du navigateur existe déjà
+(par exemple `~/.config/BraveSoftware/Brave-Browser/`), pas ailleurs ; une option `--all` force
+l'écriture dans tous. Brave sous Linux lit son propre dossier et ignore celui de Chrome (mesuré le
+25/09, Brave 152) ; les emplacements Brave et Edge hors Linux sont ceux de leur dossier de profil,
+non mesurés à ce jour (voir « Risques »).
+
+Windows : les deux manifestes sont écrits dans `%LOCALAPPDATA%\Coati\native-host\`
+(`com.getcoati.broker.chromium.json`, `com.getcoati.broker.firefox.json`, barres obliques inverses
+échappées dans `path`). Pour chaque navigateur, une clé de registre sous `HKEY_CURRENT_USER`, dont
+la **valeur par défaut** (`REG_SZ`) est le chemin complet du manifeste de sa famille :
+
+| Navigateur | Clé |
+|---|---|
+| Chrome | `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.getcoati.broker` |
+| Chromium | `HKCU\Software\Chromium\NativeMessagingHosts\com.getcoati.broker` |
+| Brave | `HKCU\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.getcoati.broker`, et la clé Chrome ci-dessus |
+| Edge | `HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.getcoati.broker` |
+| Firefox | `HKCU\Software\Mozilla\NativeMessagingHosts\com.getcoati.broker` |
+
+Forme : `reg add "HKCU\Software\Google\Chrome\NativeMessagingHosts\com.getcoati.broker" /ve /t
+REG_SZ /d "<chemin du manifeste>" /f`. Écrire la clé Chrome en plus de celle de Brave ne coûte rien
+et couvre une version de Brave qui lirait celle de Chrome.
+
+### Clé de broker
+
+- **Tirage.** `randomBytes(32)` à chaque démarrage du broker, gardée en mémoire. Représentation :
+  64 caractères hexadécimaux minuscules. La clé HMAC est les 32 octets, pas la chaîne.
+- **Fichier.** `~/.local/share/coati/broker-key.json` (le dossier de données actuel, sur tous les
+  systèmes), contenu :
+  `{"v":1,"key":"<64 hex>","pid":<pid du broker>,"startedAt":"<ISO 8601 UTC>"}`.
+- **Écriture** seulement **après** que l'écoute sur le port a réussi : un second broker qui échoue à
+  écouter ne touche jamais le fichier du premier. Écriture atomique : fichier temporaire
+  `broker-key.json.tmp` créé en 0600 dans le dossier 0700, remis à 0600, puis renommé par-dessus.
+- **Effacement** à l'arrêt propre (`SIGTERM`, `SIGINT`), seulement si le `pid` du fichier est celui
+  du broker qui s'arrête.
+- **Durée de vie** : celle du processus broker. **Rotation** : redémarrer le broker. Pas d'autre
+  expiration.
+- Jamais journalisée, ni entière, ni tronquée, ni son empreinte ; jamais envoyée sur le WebSocket.
+- **Tests.** Nouvelle variable `COATI_DATA_DIR`, pour les tests seulement : elle remplace
+  `~/.local/share/coati` pour le broker et pour l'hôte, et le broker le dit au démarrage. Quand
+  `COATI_PORT` est défini sans `COATI_DATA_DIR`, le broker **n'écrit pas** `broker-key.json` : un
+  broker de test n'écrase jamais la clé du vrai.
+
+### Écoute exclusive du port, durcissement du dossier et fichiers temporaires
+
+**Pourquoi pas de MAC par trame.** Relayer le WebSocket d'une extension légitime demanderait soit
+d'intercepter la connexion ouverte par une autre extension (les navigateurs ne le permettent pas :
+aucune extension ne peut lire le WebSocket d'une autre), soit de partager le port 8787 avec un
+second processus. La parade porte donc sur le port, pas sur chaque trame :
+
+- **Écoute exclusive.** `Bun.serve` est appelé avec `reusePort: false` (son défaut, rendu explicite
+  ici) : un second processus qui tente d'écouter sur `127.0.0.1:8787` échoue à l'appel (erreur
+  `EADDRINUSE` ou équivalente), jamais un partage silencieux du port. Sous Windows, faute d'un
+  réglage plus fin exposé par Bun, l'exclusivité par défaut du système suffit au même effet.
+  **Test** : un second `startServer` sur le même port lève, jamais n'écoute.
+- **Risque résiduel.** Le fichier de clé n'est écrit qu'après une écoute réussie (voir « Clé de
+  broker » ci-dessus) : un processus qui échouerait à écouter, pour une raison qui ne serait pas le
+  port déjà pris (droits, ressource système), n'écrit jamais de clé et ne peut donc jamais être pris
+  pour le broker. Repris dans « Frontière de menace, révisée ».
+
+**Durcissement du dossier de données.** Au démarrage, avant toute lecture ou écriture dans
+`~/.local/share/coati` (ou `COATI_DATA_DIR`) : `lstat` du dossier. Un lien symbolique, ou un dossier
+existant dont le propriétaire (UID, POSIX seulement) n'est pas celui du broker, fait **refuser le
+démarrage** avec un message clair, plutôt que de suivre le lien ou d'écrire chez un autre compte. Un
+dossier existant du bon compte mais aux droits plus larges que 0700 est remis à 0700. Même règle
+pour le dossier de configuration (`~/.config/coati`).
+
+**Fichiers temporaires.** `broker-key.json`, `pairing-secret` et `config.json` s'écrivent tous de la
+même façon : un fichier `<nom>.tmp` ouvert `O_CREAT | O_EXCL | O_NOFOLLOW`, mode 0600 — un `.tmp`
+laissé par un plantage précédent est supprimé d'abord, jamais réouvert ni suivi s'il s'agit d'un
+lien — puis renommage atomique par-dessus le fichier final.
+
+### Hôte natif : lancement et détection
+
+**Même exécutable que le broker.** Il passe en mode hôte si l'une de ces conditions tient :
+- un argument `--native-host` (tests, lanceurs) ;
+- un argument de la forme `chrome-extension://<32 lettres a-p>/` — Chrome passe l'origine de
+  l'appelant en argument ; sous Windows il ajoute `--parent-window=<n>`, l'ordre n'est pas supposé :
+  tous les arguments sont examinés ;
+- un argument égal à `coati@getcoati.com` — Firefox passe le chemin du manifeste puis l'ID de
+  l'extension.
+
+Sinon, mode broker (systemd le lance sans argument ; `--check-modules` reste un mode à part). La
+bascule se fait **avant tout le reste** : en mode hôte, aucun port ouvert, aucune configuration lue,
+aucun module chargé, rien écrit sur la sortie standard hormis la réponse. Aucun module importé par
+l'exécutable ne doit écrire sur la sortie standard au chargement.
+
+**Contrôle de l'appelant** (défense en profondeur : le navigateur a déjà vérifié l'appelant avant de
+lancer le processus, via `allowed_origins`/`allowed_extensions` ci-dessus ; ce qui suit ne protège
+que contre un appel direct de l'exécutable, hors navigateur) :
+- forme Chromium : un argument valant exactement `chrome-extension://hehlgipomfminodhahcjbencblepjhah/` ;
+- forme Firefox : **les deux** doivent être présents — un argument égal à `coati@getcoati.com` **et**
+  un autre argument qui ressemble à un chemin de fichier (le chemin du manifeste, que Firefox
+  transmet toujours avant l'ID). L'ID seul, sans second argument, est un appelant non reconnu :
+  Firefox ne l'invoque jamais ainsi ; un exécutable lancé à la main avec le seul ID ne doit pas
+  passer pour lui.
+
+Aucun appelant reconnu (par exemple `--native-host` seul, un ID Firefox sans chemin, ou un autre ID
+ou une autre origine) : réponse `forbidden-caller`.
+
+**Lanceur.** Pour un broker lancé depuis les sources, `path` désigne un script (0700), par
+exemple :
+
+```sh
+#!/bin/sh
+exec /chemin/absolu/vers/bun /chemin/absolu/vers/coati/broker/src/native-host.ts "$@"
+```
+
+- Chemins absolus obligatoires : l'hôte hérite de l'environnement du navigateur, pas de celui du
+  service ; sous macOS, un navigateur lancé depuis le Dock n'a qu'un `PATH` minimal.
+- `"$@"` obligatoire : le contrôle de l'appelant lit les arguments.
+- Le lanceur n'écrit rien sur la sortie standard.
+
+`broker/src/native-host.ts` s'exécute seul (`import.meta.main`) ; l'exécutable compilé, construit
+depuis `broker/src/server.ts`, y bascule selon la règle ci-dessus.
+
+**Pourquoi le même exécutable.** Un seul fichier à installer, à débloquer (binaire non signé) et à
+mettre à jour ; aucun décalage de version possible entre l'hôte et le format de `broker-key.json` ;
+l'hôte réutilise le code des dossiers de `config.ts`. Le coût, charger tout l'exécutable pour
+répondre à une question, se paie une fois par session de navigateur.
+
+### Cadrage et échange avec l'hôte
+
+- **Trame** : 4 octets de longueur, entier non signé dans l'ordre natif de la machine
+  (petit-boutiste sur toutes les plateformes visées : x86-64, arm64), puis le JSON UTF-8 de cette
+  longueur **en octets**.
+- L'hôte lit **exactement une** trame et n'attend pas la fin de l'entrée (Chrome garde l'entrée
+  ouverte en mode « un coup »). Longueur hors de 1 à 4 096 : aucune réponse, sortie 1. Pas de trame
+  complète dans les 5 s, ou fin de l'entrée avant : aucune réponse, sortie 1. JSON invalide ou
+  message inattendu : réponse `bad-request`.
+- **Requête** (extension → hôte) : `{"type":"key.get","v":1}`.
+- **Réponses** (hôte → extension), une seule :
+  - `{"type":"key","v":1,"key":"<64 hex>"}` ;
+  - `{"type":"error","v":1,"code":"broker-not-running"}` : fichier absent, illisible ou malformé,
+    ou `pid` qui ne désigne pas un processus vivant du même compte (`process.kill(pid, 0)` échoue,
+    `ESRCH` comme `EPERM` : un processus d'un autre compte n'est pas notre broker) ;
+  - `{"type":"error","v":1,"code":"forbidden-caller"}`, `"bad-request"`, `"internal"`.
+- La réponse part en **une seule écriture** (longueur et corps ensemble). L'hôte ne se termine
+  (code 0) qu'une fois l'écriture confirmée : sous Windows, un tube peut perdre des données non
+  vidées à la sortie.
+- Journal de l'hôte : sur sa sortie d'erreur seulement (lue par le navigateur), une ligne préfixée
+  `coati-native-host:` par erreur, jamais la clé.
+- L'hôte n'écrit rien sur le disque et n'ouvre aucune connexion.
+
+**Côté extension** : `runtime.sendNativeMessage("com.getcoati.broker", {"type":"key.get","v":1})`,
+en mode « un coup » : le navigateur lance un processus par appel et le ferme après la réponse. Pas
+de `connectNative` : rien à garder ouvert, le WebSocket reste le transport et garde son alarme de
+30 s. L'extension borne l'appel à 5 s.
+
+| Résultat | Conduite de l'extension |
+|---|---|
+| `key` | range la clé dans `chrome.storage.session` sous `brokerKey`, puis poignée de main `v: 2` |
+| erreur `broker-not-running` | état `"disconnected"`, reconnexion au rythme habituel ; l'essai suivant rappelle l'hôte |
+| promesse rejetée (hôte non installé, manifeste absent ou mauvais ID, navigateur en Flatpak ou Snap, hôte planté, 5 s dépassées) | `S` (secret permanent) présent en `chrome.storage.session` : poignée de main `v: 2` avec `key: "pasted"` ; sinon état `"no-host"`, nouvel essai au rythme de l'alarme de 30 s |
+| autre code d'erreur | état `"no-host"`, une ligne dans la console de l'extension |
+
+Les messages d'erreur des navigateurs ne sont pas analysés : ils varient d'un navigateur et d'une
+version à l'autre.
+
+### Poignée de main `v: 2`
+
+Après l'admission HTTP (liste `Host`, UID du pair sous Linux — inchangées) :
+
+1. **`Origin`** : `chrome-extension://<ID>` avec `<ID>` dans `allowedExtensionIds`, ou
+   `moz-extension://<uuid>` bien formé (n'importe quel uuid : c'est la clé qui authentifie, plus
+   l'uuid). Sinon refus, avant la lecture de tout message. Cette étape n'arrête plus que les pages
+   web.
+2. Client → `{"type":"hello","v":2,"nonce":"<cN>","key":"native"|"pasted"}`. `cN` : 32 octets
+   aléatoires, 64 hex minuscules, nouveau à chaque connexion. `key` dit quelle clé sert de `K` pour
+   la suite : `"native"` (la clé de broker, obtenue par l'hôte natif) si absent, ou `"pasted"` (le
+   secret permanent `S` du mode hérité, collé à la main — voir « Mode hérité »). `"pasted"` alors
+   que `legacyPairing` est éteint est un échec, raison `legacy-pairing-disabled` (journal
+   seulement, jamais sur le fil).
+3. Broker → `{"type":"challenge","v":2,"nonce":"<bN>","proof":"<bP>"}`. `bN` : 32 octets frais du
+   générateur cryptographique ; `bP = HMAC-SHA256(K, "coati-v2-broker:" + cN + ":" + bN)`, en hex
+   minuscules, `K` étant les 32 octets de la clé désignée par `key` à l'étape 2.
+4. L'extension vérifie `bP`. **Différent** : elle ferme (code 4000) sans rien envoyer d'autre,
+   efface `brokerKey`, rappelle l'hôte et retente **une fois par cycle de connexion** (un broker
+   redémarré entre la lecture de la clé et la connexion en a changé). Nouvel échec : état
+   `"broker-untrusted"` ; ni texte de page ni prompt ne part jusqu'au cycle suivant.
+5. Client → `{"type":"auth","v":2,"proof":"<eP>"}`,
+   `eP = HMAC-SHA256(K, "coati-v2-extension:" + cN + ":" + bN)`.
+6. Le broker compare `eP` en temps constant (`timingSafeEqual` sur 32 octets). Égal :
+   `{"type":"hello-ok","v":2}`, sans jeton, et `grant via=<key>` au journal (`native` ou `pasted`).
+   Sinon, l'échec générique habituel (`error` `unauthorized`, fermeture 4401).
+
+Un seul délai de **3 s**, de l'ouverture du WebSocket à la réception d'`auth`. Tout message de forme
+inattendue (`auth` avant `hello`, second `hello`) est un échec. `cN`, `bN`, `bP` et `eP` sont chacun
+validés contre `^[0-9a-f]{64}$` **avant** tout décodage hexadécimal ; une valeur qui ne passe pas ce
+filtre est un échec immédiat, jamais une exception qui remonterait. La comparaison en temps constant
+ne s'exécute qu'une fois ce filtre passé, sur deux tampons de 32 octets chacun, et ne lève jamais —
+une entrée qui la ferait échouer produit `false`, jamais une exception non rattrapée. Un `hello`
+`v: 1` — quel que soit `legacyPairing` — est un échec : `v` non reconnu, comme toute valeur hors `2`
+(voir « Mode hérité » : la poignée de main `v: 1` est retirée du code, pas seulement masquée).
+
+**Pourquoi cette forme.** Les deux libellés distincts empêchent de renvoyer au broker sa propre
+preuve comme preuve d'extension ; `bN`, frais à chaque connexion, empêche de rejouer un `auth`
+capturé. Le broker prouve le premier : un programme qui occupe le port pendant que le broker est
+arrêté ne reçoit qu'un nonce aléatoire, puis plus rien. Un HMAC ne révèle pas la clé.
+
+**4401 avant le défi** (origine refusée, typiquement un ID absent d'`allowedExtensionIds`) ou après
+`auth` : l'extension efface `brokerKey`, rappelle l'hôte une fois et retente une fois par cycle ;
+nouvel échec : état `"no-token"`. L'hôte natif ne sert jamais que l'ID épinglé (`allowed_origins` du
+manifeste Chromium) : un `"no-token"` persistant signale presque toujours un `allowedExtensionIds`
+modifié à la main dans `config.json` pour un ID différent de celui que l'hôte sert — le corriger là,
+pas côté extension.
+
+**Plafond de connexions non authentifiées.** Le broker n'accepte pas plus de **16** connexions
+WebSocket simultanées n'ayant pas encore atteint `hello-ok` (comptées dès l'ouverture, décomptées à
+l'authentification ou à la fermeture). Une dix-septième est refusée immédiatement (fermeture 4401,
+avant tout message). Les refus sont journalisés avec une limite de débit : une ligne au plus toutes
+les 10 s, portant le nombre de refus survenus dans cette fenêtre — pas une ligne par refus, pour
+qu'une machine qui ouvrirait des connexions en boucle ne remplisse pas le journal.
+
+**Cycle de vie côté extension.**
+- Redémarrage du service worker : `chrome.storage.session` survit, la clé est réutilisée, aucun
+  appel à l'hôte.
+- Redémarrage du navigateur : `chrome.storage.session` est vidé, un appel à l'hôte (15 à 25 ms
+  mesurés le 25/09).
+- Redémarrage du broker : la preuve du broker ne correspond plus (étape 4), un appel à l'hôte.
+- Aucun geste de l'utilisateur, dans aucun de ces cas. L'alarme de 30 s est inchangée.
+
+### Mode hérité : `legacyPairing`
+
+Clé `legacyPairing` de `~/.config/coati/config.json`, booléen, absente par défaut (équivaut à
+`false`). Lue au démarrage seulement, comme `allowedExtensionIds`. Une valeur présente autre que
+`true` ou `false` vaut `false`, avec une ligne d'avertissement au démarrage.
+
+Pour les navigateurs qui ne peuvent pas lancer d'hôte natif (Flatpak, Snap) : `legacyPairing: true`
+ne rouvre ni jeton de session, ni page HTML, ni poignée de main distincte. Il ajoute une **seconde
+clé possible** à la même poignée de main `v: 2` (« Poignée de main `v: 2` ») :
+
+- Le broker crée, **une seule fois**, un secret permanent `S` de 32 octets, au premier besoin
+  (premier `--show-pairing-secret`, ou premier démarrage avec `legacyPairing: true`) —
+  `~/.local/share/coati/pairing-secret`, mêmes règles de dossier et de fichier que
+  `broker-key.json` (« Durcissement du dossier de données »). `S` ne change jamais de lui-même ;
+  seule sa suppression à la main en force le renouvellement.
+- `coati-broker --show-pairing-secret` l'imprime sur la sortie standard et se termine (code 0),
+  sans ouvrir de port ni rien d'autre que lire `legacyPairing` : c'est le seul moyen de le lire, à
+  copier dans les options de l'extension. Si `legacyPairing` vaut `false`, la commande refuse avec
+  un message clair plutôt que d'imprimer ou de créer `S` — pas de secret permanent créé pour un mode
+  éteint.
+- Le client colle `S` dans les options de l'extension ; celles-ci envoient
+  `{"type":"hello","v":2,"nonce":cN,"key":"pasted"}` à la place de `"native"`, et déroulent
+  exactement la même poignée de main `v: 2` avec `K = S`. `"pasted"` alors que `legacyPairing` est
+  éteint est un échec, raison `legacy-pairing-disabled` (journal seulement).
+- Jamais journalisé, ni entier ni tronqué ; jamais servi par une page HTML — il n'en existe plus,
+  dans aucun mode ; jamais transmis par Native Messaging (l'hôte ne connaît que la clé de broker).
+
+**Retiré, dans tous les modes, y compris hérité** : la poignée de main `v: 1`, les jetons de
+session, la page `GET /pair`, le champ de collage historique, et l'appairage silencieux sur la seule
+foi de l'`Origin`. Un `hello` `v: 1` — quel que soit `legacyPairing` — est un échec : `v` non
+reconnu, comme n'importe quelle valeur hors `2`.
+
+Conséquence : en mode hérité, `S` est permanent et lisible par n'importe quel processus du même
+compte (comme l'était `pairing.txt` avant lui) — un tel processus peut s'authentifier. Ce risque,
+déjà accepté dans l'amendement 2026-09-25 pour le secret permanent, subsiste ici sous la même forme,
+mais réduit à la même poignée de main `v: 2` que le mode par défaut : pas de jeton, pas de page HTML,
+pas d'octroi silencieux. Écrit dans `docs/INSTALL.md`, à côté de la commande `--show-pairing-secret`.
+
+### Frontière de menace, révisée
+
+En mode par défaut, cette table remplace celle de l'amendement 2026-09-25.
+
+| Adversaire | Arrêté par |
+|---|---|
+| Machine du réseau local | l'écoute sur `127.0.0.1` seulement |
+| Page web hostile | l'en-tête `Origin` ; elle ne peut ni appeler l'hôte natif ni connaître la clé |
+| Page web par *DNS rebinding* | la liste `Host` |
+| Autre extension, Chromium ou Firefox, `Origin` réécrit compris | la clé : seul l'hôte natif la délivre, et le navigateur ne le lance que pour l'ID épinglé ; sans elle, pas de preuve |
+| Processus d'un autre compte, Linux | l'UID du pair (inchangé) ; `broker-key.json` en 0600 dans un dossier 0700 |
+| Processus d'un autre compte, macOS | `broker-key.json` en 0600 dans un dossier 0700 : il ne peut pas lire la clé, donc pas prouver |
+| Processus d'un autre compte, Windows | `broker-key.json` sous le profil de l'utilisateur, protégé par l'ACL héritée du profil (voir « Windows ») |
+| Programme qui occupe le port 8787 pendant que le broker est arrêté | la preuve du broker : l'extension n'envoie rien à qui ne connaît pas la clé (vrai aussi en mode hérité : la preuve porte sur `S`, pas sur l'`Origin`) |
+| Un second processus qui tente d'écouter sur le port 8787 pendant que le broker tourne | `reusePort: false` : l'écoute échoue, aucune clé n'est jamais écrite par ce second processus (« Écoute exclusive du port ») |
+
+**UID du pair hors Linux : non porté.** Il faudrait `proc_pidinfo` ou `lsof` sous macOS, et
+`GetExtendedTcpTable` plus le jeton du processus propriétaire sous Windows : des appels natifs que
+Bun n'offre pas sans FFI. La clé et les droits de son fichier suffisent contre un autre compte. La
+différence qui reste : hors Linux, un processus d'un autre compte peut encore ouvrir une connexion
+et envoyer un `hello` ; il reçoit un défi (un nonce aléatoire et une preuve inutilisable sans la
+clé), puis un refus. Sous Linux, il est refusé dès l'admission. Dans les deux cas il n'obtient rien.
+La ligne de démarrage `peer-uid check: NOT enforced on <plateforme>` reste.
+
+**Ce qui reste accepté :**
+- un processus du même compte : il lit `broker-key.json` comme il lisait `pairing.txt`
+  (inchangé) ;
+- un administrateur de la machine (`root`, groupe Administrateurs de Windows) ;
+- avec `legacyPairing` à `true` : `S` est lisible par tout processus du même compte, comme
+  `broker-key.json` — mais l'authentification reste la poignée de main `v: 2` complète (défi-réponse,
+  jamais d'octroi sur la seule foi de l'`Origin`) ; aucune page HTML ne le sert, il ne peut être lu
+  qu'en console via `--show-pairing-secret`, gagné par un accès au compte du même niveau que celui
+  qui suffisait déjà à lire `pairing.txt`.
+- la dépendance à Local Network Access (voir « Transport ») ne change pas : le WebSocket reste le
+  transport.
+
+### Windows
+
+- **Lancement.** Chrome lance l'hôte par `cmd.exe /d /c`, entrée et sortie redirigées vers des
+  tubes, avec `--parent-window=<n>` en plus de l'origine ; Firefox lance l'exécutable directement.
+  `path` désigne `coati-broker.exe`, par exemple sous `%LOCALAPPDATA%\Coati\`. Un lanceur `.bat`
+  fonctionne aussi (il commence par `@echo off` et transmet `%*`), mais l'exécutable compilé n'en a
+  pas besoin.
+- **Mode binaire.** Bun, comme Node, lit l'entrée et écrit la sortie standard en octets, sans
+  conversion des fins de ligne. En mode hôte : jamais d'encodage fixé sur ces flux, jamais de
+  `console.log`.
+- **Vidage** avant la sortie : voir « Cadrage ».
+- **Droits des fichiers.** Les modes Unix ne s'appliquent pas (`chmod` n'y bascule que la lecture
+  seule). Le broker ne pose pas d'ACL lui-même : son dossier de données est sous le profil
+  (`%USERPROFILE%\.local\share\coati`), dont l'ACL par défaut, héritée, ne laisse passer que
+  l'utilisateur, `SYSTEM` et les Administrateurs. Un profil déplacé vers un emplacement partagé perd
+  cette protection ; la politique de sécurité le dit.
+- **ACL explicite.** L'installateur (`scripts/install/`) applique en plus `icacls` à ce dossier pour
+  n'y laisser que l'utilisateur courant, `SYSTEM` et les Administrateurs, en défense en profondeur au-delà de l'héritage
+  du profil. Le broker lui-même ne pose toujours pas d'ACL (voir « Droits des fichiers » ci-dessus).
+- **Binaire non signé.** L'installateur retire la marque « téléchargé depuis Internet » de
+  l'exécutable qu'il pose (`Unblock-File`) ; sans cela SmartScreen peut bloquer son lancement par le
+  navigateur sans message visible, et l'extension affiche `"no-host"`.
+
+### macOS
+
+- Emplacements : voir la table ci-dessus. Modes 0600 et 0700 comme sous Linux.
+- Un navigateur lancé depuis le Dock transmet un environnement minimal : chemins absolus dans le
+  lanceur.
+- **Binaire non signé.** Sur puce Apple, un exécutable doit porter au moins une signature ad hoc
+  (`codesign -s -`), qui n'est pas une signature de développeur. L'installateur retire l'attribut
+  `com.apple.quarantine` de l'exécutable qu'il pose ; sans cela Gatekeeper bloque le lancement et
+  l'extension affiche `"no-host"`.
+
+### Côté extension
+
+- **Permission `nativeMessaging` obligatoire**, dans `manifest.json` et `manifest.firefox.json`.
+  Les tables de compatibilité de MDN la donnent facultative depuis Chrome 29 et Firefox 87, mais un
+  bogue Firefox (1630415) l'a signalée en échec sous Firefox 90, sans correction établie ; et une
+  permission facultative exigerait un `permissions.request()` depuis un geste dans un document avant
+  le premier appairage, donc un clic de plus. Obligatoire : un avertissement à l'installation,
+  accepté.
+- Aucun changement de `connect-src` : Native Messaging n'est pas soumis à la CSP.
+- Clés de `chrome.storage.session` : `brokerKey` (la clé de broker, ou `S` en mode hérité — même
+  emplacement, même règle). Jamais `storage.local`, jamais `storage.session.setAccessLevel` (voir
+  « Règles invariantes »).
+- **Ordre des essais** dans `connectIfNeeded()` : `brokerKey` déjà en mémoire, ou à défaut un appel à
+  l'hôte natif, puis la poignée de main `v: 2` avec la clé obtenue ; hôte injoignable et `S` collé
+  présent (mode hérité) : la même poignée de main `v: 2` avec `key: "pasted"`.
+- **États et bandeaux.**
+  - `"no-host"` (nouveau) : Coati ne joint pas son programme d'appairage ; réinstaller le broker ;
+    navigateur en Flatpak ou Snap : voir `docs/INSTALL.md`, appairage manuelle avec `S`.
+  - `"broker-untrusted"` (nouveau) : le programme qui écoute sur le port 8787 n'a pas prouvé qu'il
+    est le broker Coati ; rien ne lui a été envoyé.
+  - `"no-token"` : ID absent d'`allowedExtensionIds`, ou `S` collé refusé en mode hérité.
+- **Collage.** Le champ n'est plus affiché d'office, sur aucun navigateur. Il vit dans les options,
+  sous un volet « Navigateur en Flatpak ou Snap (appairage manuel) » qui dit que le broker doit
+  avoir `legacyPairing` à `true` et que `S` s'obtient par `coati-broker --show-pairing-secret`.
+  Coller range `S` dans `brokerKey` et déclenche la poignée de main `v: 2` avec `key: "pasted"`.
+
+### Journalisation, ajouts
+
+```
+coati-broker: grant via=native origin=<origine>
+coati-broker: grant via=pasted origin=<origine>
+coati-broker: reject stage=handshake origin=<origine> reason=legacy-pairing-disabled
+coati-broker: reject stage=unauth-cap count=<n depuis 10s>
+coati-broker: legacy pairing: off
+coati-broker: legacy pairing: ON (secret permanent, --show-pairing-secret)
+coati-broker: broker key: written
+coati-broker: broker key: not written (COATI_PORT sans COATI_DATA_DIR)
+coati-native-host: <raison>
+```
+
+`grant via=silent`, `via=silent-renew`, `pin`, `evict` et toute mention de `/pair` disparaissent.
+Jamais la clé, ni `S`, ni une preuve.
+
+### Règles invariantes, ajouts
+
+- Le broker n'envoie jamais la clé de broker ni `S`. Elles ne sortent de leur fichier 0600 que vers
+  l'appelant que le navigateur a vérifié (clé) ou vers l'opérateur en console (`S`, uniquement par
+  `--show-pairing-secret`).
+- Aucun octroi sur la seule foi de l'`Origin`, dans aucun mode.
+- `hello-ok.token` et `GET /pair`, les deux exceptions nommées de l'amendement 2026-09-25,
+  n'existent plus, dans aucun mode : ni jeton de session, ni page `/pair`.
+- Côté extension (`extension/`) : jamais `chrome.storage.session.setAccessLevel` ; pas
+  d'`externally_connectable` dans le manifeste ; pas de `runtime.onMessageExternal` ni de
+  `runtime.onConnectExternal` ; le `onMessage` du service worker vérifie `sender.id ===
+  chrome.runtime.id` et ne répond jamais avec `brokerKey` ; le content script ne relaie jamais un
+  `postMessage` de la page vers le service worker. Une vérification statique
+  (`broker/test/extension-invariants.test.ts`) fait échouer `bun test` si `setAccessLevel`,
+  `externally_connectable`, `onMessageExternal` ou `onConnectExternal` apparaît sous `extension/`.
+
+### Plan de test
+
+**Tests unitaires** (`bun test`, sur les trois systèmes sauf mention) :
+- *Cadrage* : aller-retour encodage-décodage ; préfixe coupé entre deux morceaux ; caractères UTF-8
+  multi-octets (longueur en octets) ; longueurs 1 et 4 096 acceptées, 0 et 4 097 refusées (sortie 1,
+  aucune réponse) ; fin de l'entrée avant la trame complète : sortie 1 ; deux trames : seule la
+  première est traitée.
+- *Détection de l'appelant* : Chrome Linux, Chrome Windows avec `--parent-window` avant et après
+  l'origine (`forbidden-caller` si l'origine attendue est absente), Firefox avec le chemin du
+  manifeste **et** l'ID (accepté), Firefox avec l'ID seul sans chemin (`forbidden-caller`),
+  `--native-host` seul (`forbidden-caller`), autre ID ou autre origine (`forbidden-caller`), aucun
+  argument (mode broker).
+- *Fichier de clé* : créé en 0600 dans un dossier 0700 (modes vérifiés hors Windows ; sous Windows,
+  présence et contenu) ; aucun `.tmp` laissé ; clé différente à chaque démarrage ; pas d'écriture
+  si l'écoute échoue ; pas d'écriture sous `COATI_PORT` sans `COATI_DATA_DIR` ; effacement à
+  `SIGTERM` seulement si le `pid` correspond (hors Windows).
+- *Durcissement du dossier* : dossier symbolique refusé (POSIX) ; dossier d'un autre UID refusé
+  (POSIX) ; dossier aux droits plus larges que 0700 remis à 0700 ; un `.tmp` laissé par un plantage
+  précédent est supprimé avant réécriture, jamais suivi s'il s'agit d'un lien.
+- *Hôte* : fichier absent, malformé ou `pid` mort : `broker-not-running` ; fichier valide : la même
+  clé.
+- *Vecteurs HMAC* : un fichier de valeurs fixes (`K`, `cN`, `bN`, `bP`, `eP` attendus,
+  `broker/test/fixtures/hmac-v2-vectors.json`) vérifié par le code du broker (`node:crypto`) et par
+  celui de l'extension (WebCrypto sous Bun) — même fichier des deux côtés.
+- *Poignée de main `v: 2`* : succès (`key` absent ou `"native"`) ; preuve fausse, ou de longueur
+  63/65, ou en majuscules, ou non hexadécimale : 4401 générique, jamais une exception ; preuve du
+  broker renvoyée comme `auth` : 4401 ; `auth` d'une connexion précédente rejoué : 4401 ; `auth`
+  avant `hello` : 4401 ; délai de 3 s ; `Origin` seul sans `hello` valide : 4401 ; `key: "pasted"`
+  avec `legacyPairing` éteint : 4401, raison `legacy-pairing-disabled` au journal ; `key: "pasted"`
+  avec `legacyPairing` allumé et `S` correct : `hello-ok` ; un `hello` `v: 1` : 4401, quel que soit
+  `legacyPairing`.
+- *Plafond de connexions non authentifiées* : la 17ᵉ connexion simultanée non authentifiée est
+  refusée (4401, avant tout message) ; les refus sont journalisés avec une limite de débit (une
+  ligne par fenêtre de 10 s, avec le compte).
+- *Écoute exclusive* : un second `startServer` sur le port déjà pris par le premier échoue à
+  écouter, n'écrit aucun fichier de clé.
+- *Vérification statique de l'extension* : `bun test` échoue si `setAccessLevel`,
+  `externally_connectable`, `onMessageExternal` ou `onConnectExternal` apparaît sous `extension/`.
+- *Mode hérité* : `--show-pairing-secret` imprime et crée `S` si absent quand `legacyPairing` est
+  allumé, refuse sans rien créer ni imprimer quand il est éteint.
+- *Extension* : logique du service worker avec un `runtime.sendNativeMessage` simulé — clé rangée
+  en `storage.session`, jamais en `storage.local` ; preuve du broker fausse : un seul rappel de
+  l'hôte, puis `"broker-untrusted"` et plus aucun message envoyé ; promesse rejetée : `"no-host"`,
+  ou chemin `key: "pasted"` si `S` est présent en `storage.session`.
+
+**Poignée de main Native Messaging simulée** (CI, exécuteurs Linux, macOS et Windows) :
+1. Démarrer un broker sur un port libre (`COATI_PORT`) avec `COATI_DATA_DIR` pointant vers un
+   dossier temporaire ; attendre `broker-key.json`.
+2. Lancer l'hôte comme le ferait le navigateur : `bun broker/src/native-host.ts
+   chrome-extension://hehlgipomfminodhahcjbencblepjhah/` (Windows : plus `--parent-window=0`), puis
+   la forme Firefox `<chemin d'un manifeste> coati@getcoati.com`, avec `COATI_DATA_DIR` ; écrire la
+   trame `key.get` ; lire une trame ; vérifier la clé et une sortie 0 en moins de 2 s.
+3. Ouvrir le WebSocket avec l'`Origin` Chromium, dérouler `v: 2` avec cette clé, vérifier
+   `hello-ok`, puis un aller-retour `settings.get`.
+4. Refaire l'étape 2 avec l'exécutable compilé (`bun build --compile broker/src/server.ts`) lancé
+   directement : c'est ce qui éprouve la détection par les arguments, une sortie standard polluée
+   et le vidage sous Windows.
+5. Installateur à blanc : `--dry-run` avec un faux dossier personnel ; vérifier les chemins et le
+   contenu des manifestes. Sous Windows, le mode à blanc affiche les commandes `reg add` sans
+   toucher au registre.
+
+**Vérification à la main avant publication** (non simulable) : lancement réel par Brave, Chrome et
+Firefox sous Linux ; Chrome et Firefox sous macOS et Windows.
+
+### Risques
+
+| # | Risque | Parade |
+|---|---|---|
+| 1 | Navigateurs Flatpak et Snap : pas d'hôte natif | `legacyPairing`, éteint par défaut, réutilise la poignée de main `v: 2` (pas de jeton, pas de page HTML, pas d'octroi silencieux) ; motif et risques écrits dans `docs/INSTALL.md` |
+| 2 | Emplacements Brave et Edge hors Linux, et un Firefox récent qui rangerait son profil sous `~/.config/mozilla/`, non mesurés | l'installateur écrit dans chaque dossier existant ; vérification à la main par système avant publication |
+| 3 | Binaire non signé bloqué sans message (Gatekeeper, SmartScreen) | l'installateur retire la quarantaine et la marque web ; bandeau `"no-host"` qui renvoie à `docs/INSTALL.md` |
+| 4 | Avertissement `nativeMessaging` : refus d'installer, ou revue de boutique plus lente | précédents de gestionnaires de mots de passe sur les deux boutiques ; aucun contournement |
+| 5 | Local Network Access étendu aux origines d'extension : le transport WebSocket casse | repli déjà écrit (« Transport ») : permission d'hôte `http://127.0.0.1:8787/*`, ou relais Native Messaging complet |
+| 6 | Windows : profil déplacé ou ACL modifiée, la clé devient lisible par un autre compte | écrit dans la politique de sécurité ; hors de portée du broker sans ACL explicite |
+| 7 | Fichier de clé périmé après un plantage, `pid` réutilisé | la preuve du broker échoue ou la connexion est refusée ; un rappel de l'hôte, sans effet de bord |
+| 8 | Une boutique publie l'extension sous un autre ID que l'ID épinglé | publier avec la clé `key` ; sinon `allowed_origins` ne correspond pas et l'extension affiche `"no-host"` |
+| 9 | Une plateforme ignorerait `reusePort: false` et laisserait un second processus partager le port 8787 | testé qu'un second `startServer` sur le même port échoue à écouter ; aucune clé n'est jamais écrite sans écoute réussie |
+| 10 | L'ID Firefox `coati@getcoati.com` n'est pas encore enregistré sur AMO à la date de cet amendement | à faire avant publication de l'hôte (action Romain) ; le manifeste Firefox reste sans effet tant que l'extension n'est pas publiée sous cet ID |
+| 11 | macOS et Windows : un autre compte local peut occuper les 16 connexions non authentifiées et bloquer l'appairage légitime (déni de service, aucune exposition de clé) | hors de portée sans le contrôle de compte de l'appelant (Linux seulement, ligne 1 des « Limites connues » de `SECURITY.md`) |
+| 12 | Revue de sécurité finale (lot G4) : durcissement du workflow de release CI | `TAG` en variable d'environnement (jamais interpolé dans `run:`), `persist-credentials: false`, `bun install --frozen-lockfile`, version de bun figée, job `build` (lecture seule) séparé du job `release` (`contents: write`) |
+
+### Passages remplacés ou complétés
+
+Une ligne en tête de chacun le signale, sans rien retirer du texte historique : « Frontière de
+menace », « Poignée de main » (remplacés) ; « Appairage silencieux », « Page `/pair` (Firefox
+seulement) », « Jeton de session » (retirés, dans tous les modes — voir « Mode hérité ») ;
+« Admission HTTP et WebSocket », « Journalisation », « Règles invariantes » (complétés). Décisions :
+T48 et T49 de `docs/DECISIONS.md`.

@@ -18,7 +18,8 @@
     "storage",
     "scripting",
     "alarms",
-    "contextMenus"
+    "contextMenus",
+    "nativeMessaging"
   ],
   "optional_host_permissions": [
     "http://*/*",

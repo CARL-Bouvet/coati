@@ -7,9 +7,10 @@ import { describe, expect, test, afterEach } from "bun:test";
 import { startServer } from "../src/server.ts";
 import type { ServerMessage } from "../src/protocol.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
+import { connectAndAuthV2, connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
 
 const ALLOWED_ID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const SECRET = "0123456789abcdef0123456789abcdef";
+const KEY = Buffer.from("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd", "hex");
 
 let servers: ReturnType<typeof startServer>[] = [];
 
@@ -17,7 +18,7 @@ function boot() {
   const dataDir = makeTmpDir("coati-errors-");
   const server = startServer(
     { port: 0, allowedExtensionIds: [ALLOWED_ID] },
-    SECRET,
+    KEY,
     { dataDir },
   );
   servers.push(server);
@@ -54,41 +55,34 @@ describe("unauthorized error emission on bad handshake", () => {
     expect(messages[0]).toMatchObject({ type: "error", code: "unauthorized" });
   });
 
-  // A known chrome-extension origin with a wrong secret now gets a fresh
-  // token (amendement 2026-09-25 quater); the secret only matters for an
-  // origin that is not trusted yet — a provisional Firefox uuid.
-  test("wrong pairing secret: emits error(unauthorized) then closes 4401", async () => {
+  // A wrong `auth` proof: 4401 generic failure — docs/PROTOCOL.md "Poignée
+  // de main `v: 2`".
+  test("wrong auth proof: emits error(unauthorized) then closes 4401", async () => {
     const { server } = boot();
-    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-      headers: { Origin: `moz-extension://00000000-0000-4000-8000-000000000000` },
-    } as any);
-    const donePromise = collectUntilClose(ws);
-    await new Promise<void>((resolve) => ws.addEventListener("open", () => resolve()));
-    ws.send(JSON.stringify({ type: "hello", secret: "not-the-secret", v: 1 }));
-    const { messages, code } = await donePromise;
-    expect(code).toBe(4401);
-    expect(messages).toHaveLength(1);
-    expect(messages[0]).toMatchObject({ type: "error", code: "unauthorized" });
+    const result = await connectAndAuthV2(
+      `ws://127.0.0.1:${server.port}/ws`,
+      `moz-extension://00000000-0000-4000-8000-000000000000`,
+      KEY,
+      { authProofOverride: "0".repeat(64) },
+    );
+    expect(result.closeCode).toBe(4401);
+    expect(result.ok).toBe(false);
   });
 
   test("correct handshake: no error, gets hello-ok", async () => {
     const { server } = boot();
-    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-      headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
-    } as any);
-    const helloOk = new Promise<ServerMessage>((resolve) => {
-      ws.addEventListener("message", (event) => resolve(JSON.parse(event.data as string)));
-    });
-    await new Promise<void>((resolve) => ws.addEventListener("open", () => resolve()));
-    ws.send(JSON.stringify({ type: "hello", secret: SECRET, v: 1 }));
-    const msg = await helloOk;
-    expect(msg).toMatchObject({ type: "hello-ok" });
-    ws.close();
+    const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY);
+    expect(result.ok).toBe(true);
+    result.ws.close();
   });
 
   // Oversized message BEFORE authentication: still the generic handshake
   // failure (4401), same as any other malformed hello — see
-  // docs/PROTOCOL.md "Limites côté broker".
+  // docs/PROTOCOL.md "Limites côté broker". Sized between MAX_MESSAGE_BYTES
+  // (256 KiB) and the server's `websocket.maxPayloadLength` (final security
+  // review: MAX_MESSAGE_BYTES + 4 KiB slack, server.ts) so the frame still
+  // reaches the app-level size check exercised here, rather than being
+  // dropped by Bun itself first (see the next test for that case).
   test("an oversized message during the handshake gets the generic unauthorized/4401, not a distinct oversized error", async () => {
     const { server } = boot();
     const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
@@ -96,11 +90,34 @@ describe("unauthorized error emission on bad handshake", () => {
     } as any);
     const donePromise = collectUntilClose(ws);
     await new Promise<void>((resolve) => ws.addEventListener("open", () => resolve()));
-    ws.send(JSON.stringify({ type: "hello", v: 1, secret: "x".repeat(300_000) }));
+    ws.send(JSON.stringify({ type: "hello", v: 2, nonce: "x".repeat(264_000) }));
     const { messages, code } = await donePromise;
     expect(code).toBe(4401);
     expect(messages).toHaveLength(1);
     expect(messages[0]).toMatchObject({ type: "error", id: "hello", code: "unauthorized" });
+  });
+
+  // Final security review: a frame past `websocket.maxPayloadLength` itself
+  // (not just past the app-level MAX_MESSAGE_BYTES check above) is dropped
+  // by Bun at the protocol layer before the `message` handler ever runs —
+  // closed, never delivered, and the server keeps serving other connections
+  // afterwards (no crash).
+  test("a frame past maxPayloadLength before auth is closed outright, server survives", async () => {
+    const { server } = boot();
+    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
+      headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
+    } as any);
+    const donePromise = collectUntilClose(ws);
+    await new Promise<void>((resolve) => ws.addEventListener("open", () => resolve()));
+    ws.send(JSON.stringify({ type: "hello", v: 2, nonce: "x".repeat(2_000_000) }));
+    const { code } = await donePromise;
+    expect(code).toBeGreaterThan(0); // closed one way or another — never hangs
+
+    // Server itself is unaffected: a normal connection right after still
+    // completes the handshake.
+    const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY);
+    expect(result.ok).toBe(true);
+    result.ws.close();
   });
 });
 
@@ -110,22 +127,7 @@ describe("unauthorized error emission on bad handshake", () => {
 // is never parsed (its own `id`, if any, is never looked for).
 describe("oversized message, post-authentication", () => {
   async function connectAndAuth(server: ReturnType<typeof startServer>): Promise<WebSocket> {
-    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-      headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
-    } as any);
-    await new Promise<void>((resolve) => ws.addEventListener("open", () => resolve()));
-    const helloOk = new Promise<void>((resolve) => {
-      const onMessage = (event: MessageEvent) => {
-        if (JSON.parse(event.data as string).type === "hello-ok") {
-          ws.removeEventListener("message", onMessage);
-          resolve();
-        }
-      };
-      ws.addEventListener("message", onMessage);
-    });
-    ws.send(JSON.stringify({ type: "hello", secret: SECRET, v: 1 }));
-    await helloOk;
-    return ws;
+    return connectAndAuthV2OrThrow(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY);
   }
 
   test("an oversized message after auth gets error id=oversized then close(1009)", async () => {
@@ -139,10 +141,15 @@ describe("oversized message, post-authentication", () => {
       ws.addEventListener("message", (event) => resolve(JSON.parse(event.data as string)));
     });
 
-    // Well over the 256 KiB cap, but otherwise a syntactically valid chat
-    // message with a real `id` — that `id` must NOT be echoed back (the spec
-    // says the message is never analyzed for oversized).
-    const oversized = JSON.stringify({ type: "chat", id: "should-never-be-echoed", text: "x".repeat(300_000) });
+    // Over the 256 KiB cap (MAX_MESSAGE_BYTES) but still under the server's
+    // websocket.maxPayloadLength (final security review: MAX_MESSAGE_BYTES +
+    // 4 KiB slack, server.ts) — otherwise Bun itself drops the frame before
+    // this app-level check/response ever runs (see errors.test.ts's
+    // "maxPayloadLength" test for that separate case). Otherwise a
+    // syntactically valid chat message with a real `id` — that `id` must NOT
+    // be echoed back (the spec says the message is never analyzed for
+    // oversized).
+    const oversized = JSON.stringify({ type: "chat", id: "should-never-be-echoed", text: "x".repeat(264_000) });
     ws.send(oversized);
 
     const msg = await errorMsg;

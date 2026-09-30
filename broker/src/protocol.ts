@@ -126,15 +126,31 @@ export interface PrefsData {
   sites: Record<string, SitePrefs>;
 }
 
+// v: 2 handshake — docs/PROTOCOL.md "Poignée de main `v: 2`" (amendement
+// 2026-09-30, G4). `v: 1` (secret-based) no longer exists anywhere in the
+// code, not even behind `legacyPairing` — see "Mode hérité".
 export interface HelloMessage {
   type: "hello";
-  // Omitted (not just empty) means "I have no token — auto-grant me one if
-  // my origin is already trusted". The server only honours that for a
-  // chrome-extension:// origin already in allowedExtensionIds; see
-  // server.ts's handleHandshakeMessage and docs/PROTOCOL.md's "Appairage
-  // silencieux". Firefox's flow is unchanged — always sends a secret.
-  secret?: string;
-  v: 1;
+  v: 2;
+  /** 64 lowercase hex chars (32 random bytes), fresh per connection. Format
+   * checked here (parseClientMessage); cryptographic validity (HEX64_RE) is
+   * re-checked by broker-key.ts's isHex64 before any HMAC use. */
+  nonce: string;
+  /** Which key the client will use for the rest of the handshake —
+   * `"native"` (the broker key, via the native host) when absent, or
+   * `"pasted"` (the legacy-mode permanent secret `S`). */
+  key?: "native" | "pasted";
+}
+
+/** Client's second handshake message, after verifying the broker's own
+ * challenge — docs/PROTOCOL.md step 5. Never part of ClientMessage: it only
+ * ever appears mid-handshake, parsed by server.ts's own
+ * parseHandshakeAuthMessage, never by the general parseClientMessage used
+ * for authenticated traffic. */
+export interface AuthMessage {
+  type: "auth";
+  v: 2;
+  proof: string;
 }
 
 export interface ChatMessage {
@@ -251,6 +267,7 @@ export interface ProviderStatusMessage {
 
 export type ClientMessage =
   | HelloMessage
+  | AuthMessage
   | ChatMessage
   | SummarizeMessage
   | ActMessage
@@ -301,15 +318,12 @@ export interface PrefsMessage {
   sites: Record<string, SitePrefs>;
 }
 
+// Amendement 2026-09-30 (G4): no token, no `v: 1` — the v: 2 handshake proves
+// possession of the key on each connection instead of minting anything to
+// remember. See docs/PROTOCOL.md "Poignée de main `v: 2`".
 export interface HelloOkMessage {
   type: "hello-ok";
-  v: 1;
-  // Amendement 2026-09-25: ALWAYS present on every grant, whatever the path —
-  // a fresh session token (memory-only, invalid after a broker restart) if
-  // the hello didn't already present a valid one, or the SAME session token
-  // echoed back if it did (no rotation on every reconnect). Never the
-  // permanent secret — see docs/PROTOCOL.md "Jeton de session".
-  token: string;
+  v: 2;
 }
 
 /** Reported per known provider in a SettingsMessage's `available` array —
@@ -373,6 +387,16 @@ export interface ProviderStatusResultMessage {
   checkedAt: string;
 }
 
+// Broker's step-3 challenge in the v: 2 handshake — docs/PROTOCOL.md. Never
+// part of the general message() dispatch: server.ts's handshake state
+// machine sends this directly, before the connection is authed.
+export interface ChallengeMessage {
+  type: "challenge";
+  v: 2;
+  nonce: string;
+  proof: string;
+}
+
 export type ServerMessage =
   | ChunkMessage
   | DoneMessage
@@ -380,6 +404,7 @@ export type ServerMessage =
   | PromptsMessage
   | PrefsMessage
   | HelloOkMessage
+  | ChallengeMessage
   | SettingsMessage
   | SettingsTestResultMessage
   | ProviderStatusResultMessage;
@@ -516,20 +541,38 @@ export function parseClientMessage(raw: string): ParseResult {
     return { ok: false, error: { code: "bad-request", message: "missing type" } };
   }
 
-  // hello is the only message without an id. `secret` may be omitted
-  // entirely (auto-grant request, see HelloMessage) but if present must be a
-  // non-empty string — never silently treated as "omitted".
+  // hello and auth are the only messages without an id — both mid-handshake
+  // only (docs/PROTOCOL.md "Poignée de main `v: 2`"). `nonce`/`proof` shape
+  // (64 lowercase hex chars) is re-validated by broker-key.ts's isHex64
+  // before any HMAC use; a malformed value here is still parsed through (so
+  // the handshake state machine can fail it uniformly as `unauthorized`),
+  // EXCEPT when it isn't even a string, or absurdly oversized — caught here
+  // as bad-request, same "never let a wildly wrong shape reach the crypto
+  // helpers" stance as elsewhere in this file.
   if (type === "hello") {
-    if (parsed.secret !== undefined && !isNonEmptyString(parsed.secret)) {
-      return { ok: false, error: { code: "bad-request", message: "hello: invalid secret" } };
-    }
-    if (parsed.v !== 1) {
+    if (parsed.v !== 2) {
       return { ok: false, error: { code: "bad-request", message: "hello: unsupported v" } };
+    }
+    if (!isNonEmptyString(parsed.nonce) || parsed.nonce.length > 200) {
+      return { ok: false, error: { code: "bad-request", message: "hello: invalid nonce" } };
+    }
+    if (parsed.key !== undefined && parsed.key !== "native" && parsed.key !== "pasted") {
+      return { ok: false, error: { code: "bad-request", message: "hello: invalid key" } };
     }
     return {
       ok: true,
-      message: { type: "hello", secret: typeof parsed.secret === "string" ? parsed.secret : undefined, v: 1 },
+      message: { type: "hello", v: 2, nonce: parsed.nonce, key: parsed.key },
     };
+  }
+
+  if (type === "auth") {
+    if (parsed.v !== 2) {
+      return { ok: false, error: { code: "bad-request", message: "auth: unsupported v" } };
+    }
+    if (!isNonEmptyString(parsed.proof) || parsed.proof.length > 200) {
+      return { ok: false, error: { code: "bad-request", message: "auth: invalid proof" } };
+    }
+    return { ok: true, message: { type: "auth", v: 2, proof: parsed.proof } };
   }
 
   const id = parsed.id;

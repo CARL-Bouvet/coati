@@ -27,10 +27,12 @@ un humain — README, DECISIONS, PROTOCOL, JOURNAL, textes d'interface — en fr
 Ces cinq règles ne se relâchent pas pour aller plus vite. Les quatre premières viennent de
 `coati-interne/etudes/technique.md`, la cinquième de `coati-interne/etudes/faisabilite.md`.
 
-1. **Aucun secret dans `chrome.storage.local`** — non chiffré sur disque. Jeton de pairage en
-   `chrome.storage.session`. Identifiants du modèle : jamais dans l'extension, uniquement dans le broker.
+1. **Aucun secret dans `chrome.storage.local`** — non chiffré sur disque. La clé de broker
+   (`brokerKey`, obtenue par Native Messaging) vit en `chrome.storage.session`. Identifiants du
+   modèle : jamais dans l'extension, uniquement dans le broker.
 2. **Le broker écoute sur `127.0.0.1` uniquement.** Jamais `0.0.0.0`, jamais une interface réseau.
-   Il vérifie l'en-tête `Origin` et exige le jeton de pairage avant tout traitement.
+   Il vérifie l'en-tête `Origin` et exige la preuve HMAC de la poignée de main `v: 2` (voir
+   `docs/PROTOCOL.md`) avant tout traitement.
 3. **Le contenu de page est une donnée, jamais une instruction.** Le content script extrait du
    texte assaini, jamais du HTML ; aucun `innerHTML` depuis le contenu de page ; le broker n'exécute
    rien de ce qui vient d'une page.

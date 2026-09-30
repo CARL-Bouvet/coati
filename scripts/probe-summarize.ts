@@ -12,6 +12,7 @@
 // `error`, timeout). Les lignes destinées à un humain sont en français ; le
 // code reste en anglais, comme le reste du dépôt (voir CLAUDE.md).
 
+import { createHmac, randomBytes } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -33,16 +34,21 @@ function fail(message: string): never {
 async function main(): Promise<void> {
   const dataDir = join(homedir(), ".local", "share", "coati");
   const configDir = join(homedir(), ".config", "coati");
-  const pairingPath = join(dataDir, "pairing.txt");
+  // Handshake v2 (docs/PROTOCOL.md, amendement 2026-09-30): the broker key
+  // K is read from the file the running broker writes, as ws-probe.js does.
+  const keyPath = join(process.env.COATI_DATA_DIR ?? dataDir, "broker-key.json");
   const configPath = join(configDir, "config.json");
 
-  let token: string;
+  let key: Buffer;
   try {
-    token = (await Bun.file(pairingPath).text()).trim();
+    const keyFile = await Bun.file(keyPath).json();
+    if (typeof keyFile?.key !== "string" || !/^[0-9a-f]{64}$/.test(keyFile.key)) throw new Error("bad key");
+    key = Buffer.from(keyFile.key, "hex");
   } catch {
-    fail(`Jeton de pairage introuvable : ${pairingPath} (le broker a-t-il déjà tourné une fois ?).`);
+    fail(`Clé de broker introuvable ou invalide : ${keyPath} (le broker tourne-t-il ?).`);
   }
-  if (!token) fail(`Jeton de pairage vide : ${pairingPath}`);
+  const cNonce = randomBytes(32).toString("hex");
+  const hmacHex = (message: string) => createHmac("sha256", key).update(message, "utf8").digest("hex");
 
   let config: { port?: number; allowedExtensionIds?: string[] };
   try {
@@ -83,8 +89,8 @@ async function main(): Promise<void> {
     };
 
     ws.onopen = () => {
-      console.error("→ connecté, envoi du hello");
-      ws.send(JSON.stringify({ type: "hello", secret: token, v: 1 }));
+      console.error("→ connecté, envoi du hello (v: 2)");
+      ws.send(JSON.stringify({ type: "hello", v: 2, nonce: cNonce }));
     };
 
     ws.onmessage = (event) => {
@@ -96,9 +102,18 @@ async function main(): Promise<void> {
         return;
       }
 
+      if (msg.type === "challenge") {
+        if (msg.proof !== hmacHex(`coati-v2-broker:${cNonce}:${msg.nonce}`)) {
+          finish(new Error("Preuve du broker invalide — clé périmée ou broker usurpé."));
+          return;
+        }
+        ws.send(JSON.stringify({ type: "auth", v: 2, proof: hmacHex(`coati-v2-extension:${cNonce}:${msg.nonce}`) }));
+        return;
+      }
+
       if (msg.type === "hello-ok") {
         handshakeDone = true;
-        console.error(`← hello-ok, capabilities: ${msg.capabilities?.join(",")}`);
+        console.error("← hello-ok (v: 2)");
         console.error("→ envoi d'un summarize (faux transcript YouTube)");
         ws.send(
           JSON.stringify({
@@ -142,8 +157,8 @@ async function main(): Promise<void> {
       if (!handshakeDone) {
         finish(
           new Error(
-            `Poignée de main refusée (fermeture code ${event.code}) — jeton ou Origin invalide. ` +
-              `Vérifiez ${pairingPath} et ${configPath}.`,
+            `Poignée de main refusée (fermeture code ${event.code}) — clé ou Origin invalide. ` +
+              `Vérifiez ${keyPath} et ${configPath}.`,
           ),
         );
         return;

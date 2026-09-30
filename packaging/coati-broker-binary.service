@@ -1,0 +1,27 @@
+[Unit]
+Description=Coati broker — passerelle locale extension/modèle IA (binaire distribué)
+Documentation=https://github.com/CARL-Bouvet/coati
+After=network.target
+
+[Service]
+Type=simple
+ExecStart="@@BINARY_PATH@@"
+# See packaging/coati-broker.service for the reasoning behind `always` +
+# RestartSec=2s (2026-09-21 incident: `on-failure` misses a plain `pkill`,
+# which exits 0).
+Restart=always
+RestartSec=2s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=coati-broker
+
+# Hardening — loopback-only local server, no privileges needed
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+# Config and data dirs the broker reads/writes at runtime
+ReadWritePaths=%h/.config/coati %h/.local/share/coati
+
+[Install]
+WantedBy=default.target

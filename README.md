@@ -39,12 +39,9 @@ chose par écrit et ont été démenties par analyse de trafic ; la différence 
 lire le code plutôt qu'à ce qu'on affirme. Chaque ligne qui touche aux données de l'utilisateur est
 dans ce dépôt.
 
-## Démarrer
+## Installer
 
-```sh
-cd broker && bun install && bun run start     # écoute sur 127.0.0.1:8787
-```
-
-Puis charger `extension/` dans Chrome via `chrome://extensions` → « Charger l'extension non
-empaquetée ». Le broker écrit un jeton de pairage dans `~/.local/share/coati/pairing.txt` au
-premier démarrage : le coller dans les options de l'extension.
+Les exécutables du broker sont sur la page des
+[versions publiées](https://github.com/CARL-Bouvet/coati/releases). L'installation (Linux, macOS,
+Windows), l'installation depuis les sources et le dépannage sont décrits dans
+[`docs/INSTALL.md`](docs/INSTALL.md).

@@ -1,0 +1,17 @@
+# Normalize line endings on checkout regardless of the checking-out OS
+# (Windows CI runners with core.autocrlf=true were turning LF fixtures into
+# CRLF, breaking byte-exact test expectations). Text files: LF always.
+* text=auto eol=lf
+
+# Binary assets: never touched by line-ending normalization.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.pem binary

@@ -26,6 +26,11 @@ export const CONNECTION_STATUS_LABELS = {
   "handshake-timeout": "Connexion…",
   disconnected: "Déconnecté",
   "no-token": "Pas de jeton",
+  // docs/PROTOCOL.md amendement 2026-09-30 ("Poignée de main v: 2"):
+  // "no-host" = the native-messaging host is unreachable; "broker-untrusted"
+  // = a program is listening on the port but didn't prove it's the broker.
+  "no-host": "Programme local introuvable",
+  "broker-untrusted": "Broker non vérifié",
   unknown: "…",
 };
 

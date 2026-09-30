@@ -77,9 +77,12 @@ textarea {
 
 .status--connected .status-dot { background: var(--status-connected); }
 .status--connecting .status-dot,
-.status--handshaking .status-dot { background: var(--status-connecting); }
+.status--handshaking .status-dot,
+.status--handshake-timeout .status-dot { background: var(--status-connecting); }
 .status--disconnected .status-dot,
-.status--no-token .status-dot { background: var(--status-disconnected); }
+.status--no-token .status-dot,
+.status--no-host .status-dot,
+.status--broker-untrusted .status-dot { background: var(--status-disconnected); }
 
 .connection-banner {
   display: flex;

@@ -266,8 +266,9 @@ describe("contextBudgetError (item 2)", () => {
   test("a full end-to-end summarize over budget gets context-too-large without a model call", async () => {
     const { startServer } = await import("../src/server.ts");
     const { __setFetchImplForTests, __resetFetchImplForTests } = await import("../src/providers/ollama.ts");
+    const { connectAndAuthV2OrThrow } = await import("./helpers/handshake-v2.ts");
     const ALLOWED_ID = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-    const SECRET = "1111111111111111111111111111111111";
+    const KEY = Buffer.alloc(32, 0x11);
     let fetchCalled = false;
     __setFetchImplForTests((async () => {
       fetchCalled = true;
@@ -275,21 +276,9 @@ describe("contextBudgetError (item 2)", () => {
     }) as unknown as typeof fetch);
 
     const dataDir = makeTmpDir("coati-pagekind-");
-    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID] }, SECRET, { dataDir });
+    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID] }, KEY, { dataDir });
     try {
-      const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-        headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
-      } as any);
-      await new Promise<void>((resolve) => ws.addEventListener("open", () => resolve()));
-      await new Promise<void>((resolve) => {
-        ws.addEventListener("message", function onMsg(event: MessageEvent) {
-          if (JSON.parse(event.data as string).type === "hello-ok") {
-            ws.removeEventListener("message", onMsg);
-            resolve();
-          }
-        });
-        ws.send(JSON.stringify({ type: "hello", secret: SECRET, v: 1 }));
-      });
+      const ws = await connectAndAuthV2OrThrow(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY);
 
       const errorMsg = await new Promise<any>((resolve) => {
         ws.addEventListener("message", function onMsg(event: MessageEvent) {
@@ -653,8 +642,9 @@ describe("over-cap contexts are refused, never truncated (item 5)", () => {
   test("41 items via a full summarize round-trip gets context-too-large, no model call", async () => {
     const { startServer } = await import("../src/server.ts");
     const { __setFetchImplForTests, __resetFetchImplForTests } = await import("../src/providers/ollama.ts");
+    const { connectAndAuthV2OrThrow } = await import("./helpers/handshake-v2.ts");
     const ALLOWED_ID = "cccccccccccccccccccccccccccccccc".slice(0, 32);
-    const SECRET = "2222222222222222222222222222222222";
+    const KEY = Buffer.alloc(32, 0x22);
     let fetchCalled = false;
     __setFetchImplForTests((async () => {
       fetchCalled = true;
@@ -662,21 +652,9 @@ describe("over-cap contexts are refused, never truncated (item 5)", () => {
     }) as unknown as typeof fetch);
 
     const dataDir = makeTmpDir("coati-pagekind-items-");
-    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID] }, SECRET, { dataDir });
+    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID] }, KEY, { dataDir });
     try {
-      const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-        headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
-      } as any);
-      await new Promise<void>((resolve) => ws.addEventListener("open", () => resolve()));
-      await new Promise<void>((resolve) => {
-        ws.addEventListener("message", function onMsg(event: MessageEvent) {
-          if (JSON.parse(event.data as string).type === "hello-ok") {
-            ws.removeEventListener("message", onMsg);
-            resolve();
-          }
-        });
-        ws.send(JSON.stringify({ type: "hello", secret: SECRET, v: 1 }));
-      });
+      const ws = await connectAndAuthV2OrThrow(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY);
 
       const items = Array.from({ length: 41 }, (_, i) => ({ title: `Item ${i}` }));
       const errorMsg = await new Promise<any>((resolve) => {
@@ -767,8 +745,9 @@ describe("nothing page-controlled reaches the logs, even with facts/items (item 
   test("received/completed log lines carry pageKind and counts, never fact/item content", async () => {
     const { startServer } = await import("../src/server.ts");
     const { __setFetchImplForTests, __resetFetchImplForTests } = await import("../src/providers/ollama.ts");
+    const { connectAndAuthV2OrThrow } = await import("./helpers/handshake-v2.ts");
     const ALLOWED_ID = "dddddddddddddddddddddddddddddddd";
-    const SECRET = "3333333333333333333333333333333333";
+    const KEY = Buffer.alloc(32, 0x33);
     const SECRET_FACT_VALUE = "s3cr3t-listing-fact-should-never-leak";
 
     __setFetchImplForTests((async (url: string) => {
@@ -782,26 +761,14 @@ describe("nothing page-controlled reaches the logs, even with facts/items (item 
     const dataDir = makeTmpDir("coati-pagekind-logs-");
     const server = startServer(
       { port: 0, allowedExtensionIds: [ALLOWED_ID], provider: "ollama", model: "llama3.2" },
-      SECRET,
+      KEY,
       { dataDir },
     );
     const originalLog = console.log;
     const logSpy = mock(() => {});
     console.log = logSpy as unknown as typeof console.log;
     try {
-      const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-        headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
-      } as any);
-      await new Promise<void>((resolve) => ws.addEventListener("open", () => resolve()));
-      await new Promise<void>((resolve) => {
-        ws.addEventListener("message", function onMsg(event: MessageEvent) {
-          if (JSON.parse(event.data as string).type === "hello-ok") {
-            ws.removeEventListener("message", onMsg);
-            resolve();
-          }
-        });
-        ws.send(JSON.stringify({ type: "hello", secret: SECRET, v: 1 }));
-      });
+      const ws = await connectAndAuthV2OrThrow(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY);
 
       await new Promise<void>((resolve) => {
         ws.addEventListener("message", function onMsg(event: MessageEvent) {

@@ -8,9 +8,10 @@ import { startServer, MAX_CONCURRENT_STREAMS } from "../src/server.ts";
 import { __setFetchImplForTests, __resetFetchImplForTests } from "../src/providers/ollama.ts";
 import type { ServerMessage } from "../src/protocol.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
+import { connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
 
 const ALLOWED_ID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const SECRET = "0123456789abcdef0123456789abcdef";
+const KEY = Buffer.from("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd", "hex");
 
 let servers: ReturnType<typeof startServer>[] = [];
 
@@ -18,7 +19,7 @@ function boot() {
   const dataDir = makeTmpDir("coati-concurrency-");
   const server = startServer(
     { port: 0, allowedExtensionIds: [ALLOWED_ID], provider: "ollama", model: "llama3.2" },
-    SECRET,
+    KEY,
     { dataDir },
   );
   servers.push(server);
@@ -32,23 +33,7 @@ afterEach(() => {
 });
 
 async function connectAndAuth(server: ReturnType<typeof startServer>): Promise<WebSocket> {
-  const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-    headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
-  } as any);
-  await new Promise<void>((resolve) => ws.addEventListener("open", () => resolve()));
-  const helloOk = new Promise<void>((resolve) => {
-    const onMessage = (event: MessageEvent) => {
-      const msg = JSON.parse(event.data as string);
-      if (msg.type === "hello-ok") {
-        ws.removeEventListener("message", onMessage);
-        resolve();
-      }
-    };
-    ws.addEventListener("message", onMessage);
-  });
-  ws.send(JSON.stringify({ type: "hello", secret: SECRET, v: 1 }));
-  await helloOk;
-  return ws;
+  return connectAndAuthV2OrThrow(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY);
 }
 
 describe("MAX_CONCURRENT_STREAMS", () => {

@@ -12,6 +12,7 @@ import { startServer } from "../src/server.ts";
 import { claudeApiProvider } from "../src/providers/claude-api.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
 import { ollamaProvider, __setFetchImplForTests, __resetFetchImplForTests } from "../src/providers/ollama.ts";
+import { connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
 
 afterEach(() => {
   __resetFetchImplForTests();
@@ -217,7 +218,7 @@ describe("ollama checkStatus", () => {
 
 describe("server.ts — provider.status wiring", () => {
   const ALLOWED_ID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  const SECRET = "0123456789abcdef0123456789abcdef";
+  const KEY = Buffer.from("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd", "hex");
 
   let servers: ReturnType<typeof startServer>[] = [];
   afterEach(() => {
@@ -230,7 +231,7 @@ describe("server.ts — provider.status wiring", () => {
     const configDir = makeTmpDir("coati-provider-status-cfg-");
     const server = startServer(
       { port: 0, allowedExtensionIds: [ALLOWED_ID], provider: "ollama", ollamaUrl: "http://x", ...overrides },
-      SECRET,
+      KEY,
       { dataDir, configDir },
     );
     servers.push(server);
@@ -238,20 +239,7 @@ describe("server.ts — provider.status wiring", () => {
   }
 
   async function connectAndAuth(server: ReturnType<typeof startServer>): Promise<WebSocket> {
-    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-      headers: { Origin: `chrome-extension://${ALLOWED_ID}` },
-    } as any);
-    await new Promise<void>((resolve) => {
-      ws.addEventListener("open", () => ws.send(JSON.stringify({ type: "hello", secret: SECRET, v: 1 })));
-      const onMessage = (event: MessageEvent) => {
-        if (JSON.parse(event.data as string).type === "hello-ok") {
-          ws.removeEventListener("message", onMessage);
-          resolve();
-        }
-      };
-      ws.addEventListener("message", onMessage);
-    });
-    return ws;
+    return connectAndAuthV2OrThrow(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY);
   }
 
   function request(ws: WebSocket, msg: object): Promise<any> {
