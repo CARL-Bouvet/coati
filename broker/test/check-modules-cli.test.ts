@@ -42,7 +42,8 @@ function fakeHomeWithModule(fixtureFile: string): string {
 async function run(cmd: string[], home: string): Promise<{ code: number; stdout: string; stderr: string }> {
   const proc = Bun.spawn(cmd, {
     cwd: REPO_ROOT,
-    env: { ...process.env, HOME: home },
+    // os.homedir() reads HOME on POSIX but USERPROFILE on Windows: set both.
+    env: { ...process.env, HOME: home, USERPROFILE: home },
     stdout: "pipe",
     stderr: "pipe",
   });

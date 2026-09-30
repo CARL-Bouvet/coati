@@ -30,26 +30,24 @@ ENTRY="broker/src/server.ts"
 OUT="dist/bin"
 mkdir -p "$OUT"
 
-# name -> bun --target value
-declare -A TARGETS=(
-  [linux-x64]="bun-linux-x64"
-  [linux-arm64]="bun-linux-arm64"
-  [darwin-arm64]="bun-darwin-arm64"
-  [darwin-x64]="bun-darwin-x64"
-  [windows-x64]="bun-windows-x64"
-)
+# Known targets; the bun --target value is "bun-<name>". No associative
+# array: macOS runners ship bash 3.2, which has none.
+KNOWN="linux-x64 linux-arm64 darwin-arm64 darwin-x64 windows-x64"
 
 names=("$@")
 if [ "${#names[@]}" -eq 0 ]; then
-  names=(linux-x64 linux-arm64 darwin-arm64 darwin-x64 windows-x64)
+  # shellcheck disable=SC2206
+  names=($KNOWN)
 fi
 
 for name in "${names[@]}"; do
-  target="${TARGETS[$name]:-}"
-  if [ -z "$target" ]; then
-    echo "build-binaries.sh: unknown target '$name' (known: ${!TARGETS[*]})" >&2
-    exit 1
-  fi
+  case " $KNOWN " in
+    *" $name "*) target="bun-$name" ;;
+    *)
+      echo "build-binaries.sh: unknown target '$name' (known: $KNOWN)" >&2
+      exit 1
+      ;;
+  esac
   outfile="$OUT/coati-broker-$name"
   if [[ "$name" == windows-* ]]; then
     outfile="$outfile.exe"

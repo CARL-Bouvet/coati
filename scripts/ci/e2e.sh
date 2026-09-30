@@ -169,6 +169,10 @@ case "$OS" in
 esac
 [ -f "$INSTALLED_BIN" ] || fail "installer did not produce $INSTALLED_BIN"
 pass "install ($OS installer, --no-service, prefix=$PREFIX_DIR)"
+# Used below as a CLI ARG to bun (nm-handshake.ts) — needs the same cygpath -w
+# conversion as every other native-process CLI arg (see this file's header).
+# Plain bash file tests above keep using the POSIX form.
+INSTALLED_BIN_WIN="$(to_win "$INSTALLED_BIN")"
 
 # --- (b) start the installed binary as the broker, wait for the key -----
 
@@ -177,6 +181,10 @@ COATI_PORT=18787 COATI_DATA_DIR="$DATA_DIR_WIN" "$INSTALLED_BIN" \
 BROKER_PID=$!
 
 KEY_FILE="$DATA_DIR/broker-key.json"
+# Same as INSTALLED_BIN_WIN above: this path is read via `bun -e` as a CLI arg
+# below, so it needs the native Windows form there; the [ -f ] wait loop right
+# below keeps the POSIX form (plain bash file test).
+KEY_FILE_WIN="$(to_win "$KEY_FILE")"
 tries=0
 until [ -f "$KEY_FILE" ]; do
   tries=$((tries + 1))
@@ -188,7 +196,7 @@ until [ -f "$KEY_FILE" ]; do
 done
 pass "broker started (pid $BROKER_PID, port 18787), key file written"
 
-BROKER_KEY="$(bun -e 'console.log(JSON.parse(await Bun.file(process.argv[1]).text()).key)' "$KEY_FILE")"
+BROKER_KEY="$(bun -e 'console.log(JSON.parse(await Bun.file(process.argv[1]).text()).key)' "$KEY_FILE_WIN")"
 [ -n "$BROKER_KEY" ] || fail "could not read key from $KEY_FILE"
 
 # --- (c) simulated Native Messaging handshake ---------------------------
@@ -203,12 +211,12 @@ else
   FOREIGN_ARGS=("$FOREIGN_ORIGIN")
 fi
 
-REPLY="$(COATI_DATA_DIR="$DATA_DIR_WIN" bun scripts/ci/nm-handshake.ts "$INSTALLED_BIN" "${HANDSHAKE_ARGS[@]}")"
+REPLY="$(COATI_DATA_DIR="$DATA_DIR_WIN" bun scripts/ci/nm-handshake.ts "$INSTALLED_BIN_WIN" "${HANDSHAKE_ARGS[@]}")"
 REPLY_KEY="$(bun -e 'console.log(JSON.parse(process.argv[1]).key ?? "")' "$REPLY")"
 [ "$REPLY_KEY" = "$BROKER_KEY" ] || fail "native host reply key mismatch: got '$REPLY_KEY', expected '$BROKER_KEY' (reply: $REPLY)"
 pass "native host, pinned caller: key matches broker-key.json"
 
-FOREIGN_REPLY="$(COATI_DATA_DIR="$DATA_DIR_WIN" bun scripts/ci/nm-handshake.ts "$INSTALLED_BIN" "${FOREIGN_ARGS[@]}")"
+FOREIGN_REPLY="$(COATI_DATA_DIR="$DATA_DIR_WIN" bun scripts/ci/nm-handshake.ts "$INSTALLED_BIN_WIN" "${FOREIGN_ARGS[@]}")"
 FOREIGN_CODE="$(bun -e 'console.log(JSON.parse(process.argv[1]).code ?? "")' "$FOREIGN_REPLY")"
 [ "$FOREIGN_CODE" = "forbidden-caller" ] || fail "native host, foreign caller: expected code forbidden-caller, got '$FOREIGN_CODE' (reply: $FOREIGN_REPLY)"
 pass "native host, foreign caller: forbidden-caller"

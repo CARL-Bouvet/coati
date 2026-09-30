@@ -112,12 +112,10 @@ else
   LOG_DIR="$PREFIX/Library/Logs/Coati"
   ensure_dir "$DRY_RUN" "$LAUNCH_AGENTS_DIR" 0755
   ensure_dir "$DRY_RUN" "$LOG_DIR" 0755
-  # XML-escape the paths first (they land inside plist <string> elements),
-  # then sed-escape the already-XML-escaped text for safe use as sed's
-  # replacement (final security review).
-  BIN_DEST_XML="$(sed_escape_replacement "$(xml_escape "$BIN_DEST")")"
-  LOG_DIR_XML="$(sed_escape_replacement "$(xml_escape "$LOG_DIR")")"
-  RENDERED="$(sed -e "s#@@BINARY_PATH@@#$BIN_DEST_XML#g" -e "s#@@LOG_DIR@@#$LOG_DIR_XML#g" "$PLIST_SRC")"
+  # XML-escape the paths (they land inside plist <string> elements); the
+  # substitution itself is literal (lib.sh replace_literal).
+  RENDERED="$(replace_literal @@BINARY_PATH@@ "$(xml_escape "$BIN_DEST")" < "$PLIST_SRC" \
+    | replace_literal @@LOG_DIR@@ "$(xml_escape "$LOG_DIR")")"
   write_file "$DRY_RUN" "$PLIST_DEST" "$RENDERED" 0644
   say "$DRY_RUN" "agent launchd écrit : $PLIST_DEST"
 

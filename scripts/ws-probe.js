@@ -11,7 +11,12 @@
 
 import { createHmac, randomBytes } from "node:crypto";
 
-const dataDir = process.env.COATI_DATA_DIR ?? `${process.env.HOME}/.local/share/coati`;
+// os.homedir() reads $HOME on POSIX but $USERPROFILE on Windows (same idiom
+// as .github/workflows/tests.yml and scripts/ci/e2e.sh) — COATI_DATA_DIR
+// always wins when set (e2e.sh always sets it), so this fallback only
+// matters for a bare manual run.
+const home = process.env.HOME ?? process.env.USERPROFILE;
+const dataDir = process.env.COATI_DATA_DIR ?? `${home}/.local/share/coati`;
 const keyFile = await Bun.file(`${dataDir}/broker-key.json`).json().catch(() => null);
 if (!keyFile?.key) {
   console.error(
@@ -22,7 +27,7 @@ if (!keyFile?.key) {
 }
 const key = Buffer.from(keyFile.key, "hex");
 
-const config = await Bun.file(`${process.env.HOME}/.config/coati/config.json`).json();
+const config = await Bun.file(`${home}/.config/coati/config.json`).json();
 const extensionId = config.allowedExtensionIds?.[0];
 if (!extensionId) {
   console.error("Aucun allowedExtensionIds dans la config — le broker refusera l'Origin.");

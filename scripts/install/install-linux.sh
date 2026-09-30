@@ -101,7 +101,7 @@ else
   SYSTEMD_DIR="$PREFIX/.config/systemd/user"
   UNIT_DEST="$SYSTEMD_DIR/coati-broker.service"
   ensure_dir "$DRY_RUN" "$SYSTEMD_DIR" 0755
-  RENDERED="$(sed "s#@@BINARY_PATH@@#$(sed_escape_replacement "$BIN_DEST")#g" "$UNIT_SRC")"
+  RENDERED="$(replace_literal @@BINARY_PATH@@ "$(systemd_escape "$BIN_DEST")" < "$UNIT_SRC")"
   write_file "$DRY_RUN" "$UNIT_DEST" "$RENDERED" 0644
   say "$DRY_RUN" "unité systemd écrite : $UNIT_DEST"
 

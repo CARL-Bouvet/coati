@@ -31,7 +31,11 @@ function makeFakeBinary(dir: string): string {
   return path;
 }
 
-describe("install-linux.sh / uninstall-linux.sh", () => {
+// The POSIX installers are not meant for Windows (git-bash on a CI runner is
+// not a target); Windows is covered by install-windows.ps1 in scripts/ci/e2e.sh.
+const describePosix = process.platform === "win32" ? describe.skip : describe;
+
+describePosix("install-linux.sh / uninstall-linux.sh", () => {
   let dir: string;
 
   afterEach(() => {
@@ -295,7 +299,7 @@ describe("install-windows.ps1 / uninstall-windows.ps1 — syntax only", () => {
       "pwsh",
       "-NoProfile",
       "-Command",
-      `$null = [System.Management.Automation.Language.Parser]::ParseFile('${join(REPO_ROOT, "scripts/install/install-windows.ps1")}', [ref]$null, [ref]$errors); if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }`,
+      `$errors = $null; $null = [System.Management.Automation.Language.Parser]::ParseFile('${join(REPO_ROOT, "scripts/install/install-windows.ps1")}', [ref]$null, [ref]$errors); if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }`,
     ]);
     expect(result.code).toBe(0);
   });
@@ -305,7 +309,7 @@ describe("install-windows.ps1 / uninstall-windows.ps1 — syntax only", () => {
       "pwsh",
       "-NoProfile",
       "-Command",
-      `$null = [System.Management.Automation.Language.Parser]::ParseFile('${join(REPO_ROOT, "scripts/install/uninstall-windows.ps1")}', [ref]$null, [ref]$errors); if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }`,
+      `$errors = $null; $null = [System.Management.Automation.Language.Parser]::ParseFile('${join(REPO_ROOT, "scripts/install/uninstall-windows.ps1")}', [ref]$null, [ref]$errors); if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }`,
     ]);
     expect(result.code).toBe(0);
   });

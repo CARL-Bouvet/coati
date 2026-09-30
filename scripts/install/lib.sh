@@ -23,49 +23,46 @@ render_manifest() {
   else
     template="$CHROMIUM_TEMPLATE"
   fi
-  content="$(cat "$template")"
-  # JSON-escape backslashes and double quotes in host_path (final security
-  # review): the template's placeholder sits inside a JSON string
-  # (`"path": "@@HOST_PATH@@"`), so an unescaped `\` or `"` in a custom
-  # --prefix could break out of that string and inject arbitrary JSON.
-  escaped="${host_path//\\/\\\\}"
-  escaped="${escaped//\"/\\\"}"
-  # The replacement is quoted ("$escaped", not $escaped): bash >=5.2's
-  # patsub_replacement shell option treats an unquoted `&` in the replacement
-  # of ${var//pat/repl} like sed does (re-inserts the matched text) — a
-  # host_path containing `&` would otherwise silently turn back into the
-  # literal placeholder instead of the path.
-  printf '%s\n' "${content//@@HOST_PATH@@/"$escaped"}"
+  # The placeholder sits inside a JSON string (`"path": "@@HOST_PATH@@"`):
+  # JSON-escape the path so a `\` or `"` in a custom --prefix cannot break
+  # out of it (final security review).
+  replace_literal @@HOST_PATH@@ "$(json_escape "$host_path")" < "$template"
 }
 
-# sed_escape_replacement <text>
-# Escapes <text> for safe use as the replacement half of `sed "s#pat#<text>#g"`
-# (final security review — install-linux.sh/install-macos.sh, systemd unit
-# and launchd plist rendering): a raw `&` means "the whole match" to sed, a
-# raw `\` starts an escape sequence, and a raw `#` — our chosen delimiter —
-# would prematurely close/reopen the substitution. Order matters: backslash
-# first, or the backslashes this function inserts for `&`/`#` would
-# themselves get re-escaped.
-sed_escape_replacement() {
-  local s="$1"
-  s="${s//\\/\\\\}"
-  s="${s//&/\\&}"
-  s="${s//#/\\#}"
-  printf '%s' "$s"
+# All text substitution goes through awk with ENVIRON, never through bash's
+# ${var//pat/repl} or sed's replacement: those treat `&`, `\` and quotes
+# differently across bash 3.2 (macOS), bash >= 5.2 (patsub_replacement) and
+# sed dialects. ENVIRON values reach awk verbatim, and index()/substr() do
+# plain string matching, so a path with `&`, `#`, `\`, `"` or spaces is copied
+# byte for byte on every platform.
+
+# replace_literal <placeholder> <replacement>  — filters stdin to stdout.
+replace_literal() {
+  COATI_PH="$1" COATI_REP="$2" awk '
+    BEGIN { ph = ENVIRON["COATI_PH"]; rep = ENVIRON["COATI_REP"] }
+    {
+      out = ""; s = $0
+      while ((i = index(s, ph)) > 0) { out = out substr(s, 1, i - 1) rep; s = substr(s, i + length(ph)) }
+      print out s
+    }'
 }
 
-# xml_escape <text>
-# Escapes &, <, >, " for safe use inside XML/plist text or attribute content
-# (final security review — install-macos.sh's launchd plist rendering: the
-# binary/log paths are spliced into <string> elements). & first, so the
-# ampersands this function inserts for </>/" don't get re-escaped.
+# json_escape <text> — for a JSON string body: `\` then `"`.
+json_escape() {
+  printf '%s\n' "$1" | replace_literal '\' '\\' | replace_literal '"' '\"'
+}
+
+# xml_escape <text> — for plist <string> content: `&` first, then `<`, `>`, `"`.
 xml_escape() {
-  local s="$1"
-  s="${s//&/&amp;}"
-  s="${s//</&lt;}"
-  s="${s//>/&gt;}"
-  s="${s//\"/&quot;}"
-  printf '%s' "$s"
+  printf '%s\n' "$1" | replace_literal '&' '&amp;' | replace_literal '<' '&lt;' \
+    | replace_literal '>' '&gt;' | replace_literal '"' '&quot;'
+}
+
+# systemd_escape <text> — for a double-quoted ExecStart= argument: `\` and `"`
+# are C-style escaped, `%` (specifier) doubled, `$` (variable) doubled.
+systemd_escape() {
+  printf '%s\n' "$1" | replace_literal '\' '\\' | replace_literal '"' '\"' \
+    | replace_literal '%' '%%' | replace_literal '$' '$$'
 }
 
 # say <dry_run> <message>

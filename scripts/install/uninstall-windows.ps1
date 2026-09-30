@@ -67,6 +67,18 @@ foreach ($key in $RegistryKeys) {
 
 Remove-IfExists $ChromiumManifestDest
 Remove-IfExists $FirefoxManifestDest
+# A running broker locks its .exe on Windows: stop it (only processes started
+# from this exact binary), then retry the removal while the handle is released.
+if (-not $DryRun -and (Test-Path -LiteralPath $BinDest)) {
+    Get-Process -ErrorAction SilentlyContinue |
+        Where-Object { $_.Path -and ($_.Path -ieq $BinDest) } |
+        Stop-Process -Force -ErrorAction SilentlyContinue
+    for ($i = 0; $i -lt 10 -and (Test-Path -LiteralPath $BinDest); $i++) {
+        try { Remove-Item -LiteralPath $BinDest -Force -ErrorAction Stop } catch { Start-Sleep -Milliseconds 500 }
+    }
+    if (Test-Path -LiteralPath $BinDest) { throw "Impossible de supprimer $BinDest (fichier encore utilisé)." }
+    Write-Host "Supprimé : $BinDest"
+}
 Remove-IfExists $BinDest
 
 Write-Host ""
