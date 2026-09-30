@@ -122,6 +122,11 @@ try {
   ctx = await chromium.launchPersistentContext(userDataDir, {
     headless: true,
     channel: "chromium",
+    // The native host is launched BY Chromium and inherits its environment:
+    // without the test HOME/COATI_DATA_DIR it would read the key file of
+    // whatever broker belongs to the real account (none on a CI runner →
+    // "no-host"; a developer's real broker locally → "broker-untrusted").
+    env: { ...process.env, HOME: home, COATI_DATA_DIR: dataDir },
     args: [`--disable-extensions-except=${EXT_DIR}`, `--load-extension=${EXT_DIR}`, "--no-sandbox"],
   });
 
@@ -146,11 +151,24 @@ try {
     },
     20000,
     "status--connected",
-  ).catch((err) => {
-    throw new Error(`${err.message}\n--- broker log ---\n${brokerLog}`);
+  ).catch(async (err) => {
+    const cls = await page.locator("#status").getAttribute("class").catch(() => "?");
+    const text = await page.locator("#status").textContent().catch(() => "?");
+    const banner = await page.locator("body").innerText().catch(() => "?");
+    throw new Error(
+      `${err.message}\nstatus class="${cls}" text="${text}"\n--- panel text ---\n${banner.slice(0, 800)}` +
+        `\n--- broker log ---\n${brokerLog}`,
+    );
   });
   pass("panel reached status--connected (Native Messaging handshake succeeded)");
 
+  // The panel is opened as a plain tab, so there is no page Coati may read;
+  // with "Lire la page" on (the default) the question would be held back
+  // ("Coati n'a pas accès à cette page"). Turn it off: this test is about the
+  // pairing and the round trip, not page reading.
+  if ((await page.locator("#attachPage").getAttribute("aria-checked")) === "true") {
+    await page.locator("#attachPage").click();
+  }
   const question = `coati extension e2e ${Date.now()}`;
   await page.locator("#input").fill(question);
   await page.locator("#send").click();
@@ -165,13 +183,26 @@ try {
     },
     30000,
     "assistant answer from the fake provider",
-  );
+  ).catch(async (err) => {
+    const panel = await page.locator("body").innerText().catch(() => "?");
+    const html = await page.locator("#messages, main, body").first().innerHTML().catch(() => "?");
+    throw new Error(
+      `${err.message}\n--- panel text ---\n${panel.slice(0, 800)}\n--- markup ---\n${html.slice(0, 1500)}` +
+        `\n--- broker log ---\n${brokerLog}`,
+    );
+  });
   const answerText = await page.locator(".message--assistant").last().textContent();
   pass(`assistant answer received from the fake provider: ${answerText.slice(0, 80)}`);
 
   console.log("== scripts/ci/extension-e2e.mjs: ALL PASS ==");
 } catch (err) {
   console.error(`FAIL: ${err.stack || err}`);
+  if (process.env.GITHUB_ACTIONS) {
+    // Job logs need a signed-in account; annotations are public.
+    const enc = (s) => String(s).replace(/%/g, "%25").replace(/\r/g, "").replace(/\n/g, "%0A");
+    const body = `${err.stack || err}\n--- broker log (tail) ---\n${brokerLog.split("\n").slice(-25).join("\n")}`;
+    console.log(`::error title=scripts/ci/extension-e2e.mjs::${enc(body).slice(0, 6000)}`);
+  }
   process.exitCode = 1;
 } finally {
   if (ctx) await ctx.close().catch(() => {});

@@ -51,8 +51,30 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 STEP=0
-pass() { STEP=$((STEP + 1)); echo "PASS [$STEP] $1"; }
-fail() { STEP=$((STEP + 1)); echo "FAIL [$STEP] $1" >&2; exit 1; }
+LAST_PASS="(none)"
+pass() { STEP=$((STEP + 1)); LAST_PASS="$1"; echo "PASS [$STEP] $1"; }
+fail() { STEP=$((STEP + 1)); FAIL_MSG="$1"; echo "FAIL [$STEP] $1" >&2; exit 1; }
+
+# On GitHub Actions, job logs need a signed-in account to read, annotations
+# don't: turn any failure (explicit fail or a command stopped by `set -e`)
+# into an ::error annotation carrying the step, the command and the end of
+# the broker log. Newlines are encoded as %0A per the workflow-command syntax.
+FAIL_MSG=""
+on_err() { FAILED_CMD="$BASH_COMMAND"; }
+trap on_err ERR
+on_exit() {
+  local code=$?
+  [ "$code" -eq 0 ] && return
+  [ -n "${GITHUB_ACTIONS:-}" ] || return
+  local body="exit $code after step $STEP (last pass: $LAST_PASS)"
+  [ -n "$FAIL_MSG" ] && body="$body%0AFAIL: $FAIL_MSG"
+  [ -n "${FAILED_CMD:-}" ] && body="$body%0Acommand: ${FAILED_CMD}"
+  if [ -n "${HOME_DIR:-}" ] && [ -f "$HOME_DIR/broker.log" ]; then
+    body="$body%0A--- broker.log (tail) ---%0A$(tail -n 25 "$HOME_DIR/broker.log" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+  fi
+  echo "::error title=scripts/ci/e2e.sh ($(uname -s))::$body"
+}
+trap on_exit EXIT
 
 # --- OS / target detection ---------------------------------------------
 
