@@ -16,6 +16,7 @@ import {
   type StreamAnswerOptions,
 } from "../model.ts";
 import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck } from "./types.ts";
+import { t, DEFAULT_LANG } from "../messages.ts";
 
 // Testing seam: production code always drives the real global `fetch`. Tests
 // substitute a fake here so the NDJSON-parsing and availability paths can be
@@ -65,16 +66,17 @@ async function fetchModelNames(baseUrl: string): Promise<string[]> {
 }
 
 async function isAvailable(opts: ProviderRuntimeOptions): Promise<Availability> {
+  const lang = opts.lang ?? DEFAULT_LANG;
   const baseUrl = resolveBaseUrl(opts.ollamaUrl);
   let names: string[];
   try {
     names = await fetchModelNames(baseUrl);
   } catch {
-    return { available: false, reason: `Ollama unreachable at ${baseUrl}` };
+    return { available: false, reason: t("availability.ollama.unreachable", lang, { url: baseUrl }) };
   }
   const model = opts.model?.trim();
   if (model && !names.some((name) => matchesModel(name, model))) {
-    return { available: false, reason: `model "${model}" not found in Ollama (ollama pull ${model})` };
+    return { available: false, reason: t("availability.ollama.modelNotFound", lang, { model }) };
   }
   return { available: true };
 }
@@ -222,7 +224,7 @@ export async function* streamAnswer(
           model,
           stream: true,
           messages: [
-            { role: "system", content: buildSystemPrompt(built.nonce) },
+            { role: "system", content: buildSystemPrompt(built.nonce, built.lang) },
             { role: "user", content: built.prompt },
           ],
         }),

@@ -286,12 +286,15 @@
   // realistic DOM shapes.
   // ==========================================================================
 
+  // Page-content heuristic (detects cookie-consent banners on arbitrary
+  // pages, in whatever language they're written), not extension UI text —
+  // deliberately mixes French and English words, see below.
   const CONSENT_LEXICON = [
     "cookie",
     "cookies",
-    "consentement",
-    "vie privée",
-    "confidentialité",
+    "consentement", // i18n-allow: page-content heuristic word, not UI text
+    "vie privée", // i18n-allow: page-content heuristic word, not UI text
+    "confidentialité", // i18n-allow: page-content heuristic word, not UI text
     "rgpd",
     "traceurs",
     "consent",
@@ -349,8 +352,7 @@
   // infobox's chief-numeric-fact check pass and misclassified the page as
   // `listing`. Never a bare number either way ("21 langues" still has no
   // match: no currency, and "langues" isn't a listed unit).
-  const NUMERIC_VALUE_RE =
-    /(?:[€$£]\s?\d(?:[\d\s.,]*\d)?|\d(?:[\d\s.,]*\d)?\s?(?:€|EUR|\$|£|m²|m2|km|pièces?|p\.|ch\.))/i;
+  const NUMERIC_VALUE_RE = /(?:[€$£]\s?\d(?:[\d\s.,]*\d)?|\d(?:[\d\s.,]*\d)?\s?(?:€|EUR|\$|£|m²|m2|km|pièces?|p\.|ch\.))/i; // i18n-allow: page-content unit heuristic, not UI text
   function hasNumericValue(text) {
     return NUMERIC_VALUE_RE.test(text || "");
   }

@@ -11,15 +11,15 @@
 //               wording when the address is known, plus an explanation line.
 //   null      — hidden: the page is already accessible.
 
-// --- User-facing strings (French; G6 moves them to _locales) --------------
+import { t } from "../lib/i18n.js";
+
+// --- User-facing strings, from _locales/<lang>/messages.json --------------
 export const READ_BUTTON_TEXT = {
-  invite: "Lire cette page",
-  reading: "Lecture…",
-  activateSite: "Activer ce site",
-  refusedNote:
-    "Accès refusé. Vous pouvez activer ce seul site, ou cliquer sur l'icône Coati de la barre d'outils pour lire la page une fois.",
-  refusedNoteUnknownSite:
-    "Accès refusé. Cliquez sur l'icône Coati de la barre d'outils pour lire la page une fois, ou réessayez.",
+  invite: t("panel_read_button_invite"),
+  reading: t("panel_read_button_reading"),
+  activateSite: t("panel_read_button_activate_site"),
+  refusedNote: t("panel_read_button_refused_note"),
+  refusedNoteUnknownSite: t("panel_read_button_refused_note_unknown_site"),
 };
 
 // The one "all sites" request of T42 (amended 30/09): explicit schemes,

@@ -39,6 +39,12 @@ chose par écrit et ont été démenties par analyse de trafic ; la différence 
 lire le code plutôt qu'à ce qu'on affirme. Chaque ligne qui touche aux données de l'utilisateur est
 dans ce dépôt.
 
+## Langues de l'interface
+
+L'interface est disponible en français, anglais et chinois simplifié.
+The Chinese interface is machine-translated and awaits review by a native speaker.
+中文界面由机器翻译生成，尚待母语者审校。
+
 ## Installer
 
 Les exécutables du broker sont sur la page des

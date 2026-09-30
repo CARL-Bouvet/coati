@@ -3,11 +3,13 @@
 // No DOM, no chrome.* — kept separate from panel.js so both are unit
 // testable without a browser (see broker/test/ui-unreadable.test.ts).
 
-const HINT = "Décochez « Lire la page » pour poser une question générale.";
+import { t } from "../lib/i18n.js";
 
-export const PDF_MESSAGE = `⚠ Coati ne peut pas lire un PDF affiché par le navigateur. ${HINT}`;
-export const CANVAS_MESSAGE = `⚠ Cette page est dessinée (carte, éditeur) : Coati n'y trouve pas de texte à lire. ${HINT}`;
-export const EMPTY_MESSAGE = `⚠ Coati ne trouve presque pas de texte sur cette page. ${HINT}`;
+const HINT = t("panel_unreadable_hint");
+
+export const PDF_MESSAGE = `${t("panel_unreadable_pdf")} ${HINT}`;
+export const CANVAS_MESSAGE = `${t("panel_unreadable_canvas")} ${HINT}`;
+export const EMPTY_MESSAGE = `${t("panel_unreadable_empty")} ${HINT}`;
 
 /** True when `url`'s path (ignoring query/fragment) ends in ".pdf" — the
  * browser's own PDF viewer refuses script injection there, so extraction

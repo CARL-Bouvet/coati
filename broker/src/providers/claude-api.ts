@@ -17,6 +17,7 @@ import {
   type StreamAnswerOptions,
 } from "../model.ts";
 import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck } from "./types.ts";
+import { t, DEFAULT_LANG } from "../messages.ts";
 
 // Testing seam: production code always drives the real global `fetch`. Tests
 // substitute a fake here so the SSE-parsing and error-classification paths
@@ -45,15 +46,17 @@ export const CLAUDE_API_DEFAULT_MODEL = "claude-opus-5";
 // guidance), but nothing here needs more than a few thousand output tokens.
 const MAX_TOKENS = 8192;
 
-// French, user-facing (sent verbatim as ErrorMessage.message — the panel
+// Goal G6: user-facing (sent verbatim as ErrorMessage.message — the panel
 // displays it as-is), per task brief: a 401/403 names the remedy. Never
-// includes the key itself.
-export const CLAUDE_API_AUTH_MESSAGE = "Clé API refusée — vérifiez-la dans les réglages.";
+// includes the key itself. Localised per-connection at the throw site below
+// (opts.lang) — this constant is the DEFAULT_LANG (en) wording, kept exported
+// for tests that don't set up a lang at all.
+export const CLAUDE_API_AUTH_MESSAGE = t("auth.apiKeyRejected", DEFAULT_LANG);
 
 async function isAvailable(opts: ProviderRuntimeOptions): Promise<Availability> {
   const key = opts.apiKey?.trim();
   if (!key) {
-    return { available: false, reason: "no Anthropic API key configured" };
+    return { available: false, reason: t("availability.claudeApi.noKey", opts.lang ?? DEFAULT_LANG) };
   }
   return { available: true };
 }
@@ -207,7 +210,7 @@ export async function* streamAnswer(
           model,
           max_tokens: MAX_TOKENS,
           stream: true,
-          system: buildSystemPrompt(built.nonce),
+          system: buildSystemPrompt(built.nonce, built.lang),
           messages: [{ role: "user", content: built.prompt }],
         }),
         signal: abortController.signal,
@@ -231,7 +234,7 @@ export async function* streamAnswer(
       // Never read the key back out, never include it below — only the HTTP
       // status is used to classify the failure.
       if (response.status === 401 || response.status === 403) {
-        throw new AuthRequiredError(CLAUDE_API_AUTH_MESSAGE);
+        throw new AuthRequiredError(t("auth.apiKeyRejected", opts.lang ?? DEFAULT_LANG));
       }
       if (response.status === 429 || response.status >= 500) {
         throw new ModelUnavailableError(`Anthropic API returned HTTP ${response.status}`);

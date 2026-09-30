@@ -14,6 +14,7 @@
 
 import { api } from "../lib/browser-compat.js";
 import { requestBrokerKeyFromHost } from "../lib/native-host.js";
+import { t } from "../lib/i18n.js";
 import {
   isHex64,
   randomHex32,
@@ -399,7 +400,21 @@ async function connectIfNeeded() {
 
   ws.addEventListener("open", () => {
     setState("handshaking");
-    ws.send(JSON.stringify({ type: "hello", v: PROTOCOL_VERSION, nonce: cN, key: keyInfo.source }));
+    // docs/PROTOCOL.md amendement 2026-09-30 ter (goal G6, "Langue de la
+    // connexion"): raw BCP 47 tag, sent as-is — the broker normalises it
+    // (fr*/zh*-Simplified/else) and keeps it for the connection's lifetime.
+    // Never verified against a closed list here: an absent or malformed
+    // value just means the broker falls back to English, nothing fails.
+    const lang = api.i18n?.getUILanguage?.();
+    ws.send(
+      JSON.stringify({
+        type: "hello",
+        v: PROTOCOL_VERSION,
+        nonce: cN,
+        key: keyInfo.source,
+        ...(lang ? { lang } : {}),
+      }),
+    );
     handshakeTimeoutId = setTimeout(() => {
       if (wsState !== "connected") {
         setState("handshake-timeout");
@@ -584,14 +599,11 @@ function sendToBroker(payload) {
  * arrives before the first was flushed. Never queues silently/unboundedly. */
 function holdPendingRequest(payload) {
   if (pendingRequest) {
-    rejectPendingRequest(pendingRequest, "Une nouvelle requête a pris la priorité ; celle-ci a été abandonnée.");
+    rejectPendingRequest(pendingRequest, t("sw_request_superseded"));
   }
   const timeoutId = setTimeout(() => {
     if (pendingRequest && pendingRequest.payload === payload) {
-      rejectPendingRequest(
-        pendingRequest,
-        "Le broker ne répond pas depuis 15 s. Vérifiez qu'il tourne sur cette machine, puis réessayez.",
-      );
+      rejectPendingRequest(pendingRequest, t("sw_broker_silent_15s"));
     }
   }, PENDING_REQUEST_TIMEOUT_MS);
   pendingRequest = { payload, timeoutId };

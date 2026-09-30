@@ -138,8 +138,10 @@ function buildHtmlPage(opts: {
     moduleTagRe,
     [
       // Fixtures FIRST: browser-stub.js reads window.__COATI_LAB_FIXTURES__
-      // synchronously at its own top level, so it must already exist.
+      // (and, G6, window.__COATI_LAB_MESSAGES__) synchronously at its own top
+      // level, so both must already exist.
       `<script src="${opts.fixturesRelPath}"></script>`,
+      `<script src="${opts.stubRelPath.replace("browser-stub.js", "lab-messages.js")}"></script>`,
       `<script src="${opts.stubRelPath}"></script>`,
       `<script src="${opts.bundleRelPath}"></script>`,
       `<script src="${opts.harnessRelPath}"></script>`,
@@ -193,6 +195,19 @@ async function main() {
   cpSync(join(LAB_SRC, "fixtures", "options-fixtures.js"), join(labDir, "options-fixtures.js"));
   cpSync(join(LAB_SRC, "fixtures", "identity-pairs.js"), join(labDir, "identity-pairs.js"));
   cpSync(join(LAB_SRC, "static", "lab-pair.js"), join(labDir, "lab-pair.js"));
+
+  // i18n (G6): embed the REAL _locales/<lang>/messages.json files so
+  // browser-stub.js's chrome.i18n.getMessage() reflects real wording per
+  // `?lang=en|fr|zh_CN` (default fr — see browser-stub.js) instead of a
+  // hand-duplicated copy that could drift.
+  const langMessages: Record<string, unknown> = {};
+  for (const lang of ["en", "fr", "zh_CN"]) {
+    langMessages[lang] = JSON.parse(readFileSync(join(EXT, "_locales", lang, "messages.json"), "utf8"));
+  }
+  writeFile(
+    join(labDir, "lab-messages.js"),
+    `window.__COATI_LAB_MESSAGES__ = ${JSON.stringify(langMessages)};\n`,
+  );
 
   // --- Identity board: fonts + board page --------------------------------
   const fontsDir = join(assetsDir, "fonts");

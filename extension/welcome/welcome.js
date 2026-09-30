@@ -5,36 +5,39 @@
 
 import { api, IS_GECKO } from "../lib/browser-compat.js";
 import { RELEASES_URL } from "../panel/first-run.js";
+import { t, setDocumentLanguage } from "../lib/i18n.js";
 
-// --- User-facing strings (French; G6 moves them to _locales) --------------
+setDocumentLanguage();
+
+// --- User-facing strings, from _locales/<lang>/messages.json --------------
 const TEXT = {
-  pageTitle: "Bienvenue dans Coati",
-  title: "Bienvenue dans Coati",
-  lead: "Coati résume une page ou une vidéo et répond à vos questions sur ce que vous lisez, avec le modèle de votre choix, par un programme qui tourne sur votre machine.",
-  pinTitle: "Épinglez l'icône",
-  pinBrowserChromium: "Chrome, Brave, Edge",
-  pinBrowserGecko: "Firefox",
+  pageTitle: t("welcome_title"),
+  title: t("welcome_title"),
+  lead: t("welcome_lead"),
+  pinTitle: t("welcome_pin_title"),
+  pinBrowserChromium: t("welcome_pin_browser_chromium"),
+  pinBrowserGecko: t("welcome_pin_browser_gecko"),
   pinStepsChromium: [
-    "Cliquez sur l'icône des extensions (la pièce de puzzle), à droite de la barre d'adresse.",
-    "Cliquez sur l'épingle à côté de « Coati ».",
-    "L'icône de Coati reste alors dans la barre d'outils : un clic ouvre le panneau.",
+    t("welcome_pin_step1_chromium"),
+    t("welcome_pin_step2_chromium"),
+    t("welcome_pin_step3_chromium"),
   ],
   pinStepsGecko: [
-    "Cliquez sur le bouton des extensions (la pièce de puzzle), à droite de la barre d'adresse.",
-    "Cliquez sur la roue dentée à côté de « Coati », puis sur « Épingler à la barre d'outils ».",
-    "L'icône de Coati reste alors dans la barre d'outils : un clic ouvre la barre latérale.",
+    t("welcome_pin_step1_gecko"),
+    t("welcome_pin_step2_gecko"),
+    t("welcome_pin_step3_gecko"),
   ],
-  stepsTitle: "Trois étapes",
-  programTitle: "Installez le programme local",
-  programText: "Coati passe par un petit programme installé sur votre ordinateur : c'est lui qui parle au modèle et garde vos clés, jamais l'extension.",
-  programLink: "Télécharger le programme",
-  modelTitle: "Choisissez un modèle",
-  modelText: "Dans les réglages : un modèle qui tourne chez vous (Ollama), ou un service en ligne avec votre propre clé.",
-  modelAction: "Ouvrir les réglages",
-  pageTitleStep: "Ouvrez Coati sur une page",
-  pageTextChromium: "Cliquez sur l'icône de Coati, puis sur « Lire cette page » en haut du panneau. Le navigateur vous demandera une fois l'accès à tous les sites.",
-  pageTextGecko: "Cliquez sur l'icône de Coati, puis sur « Lire cette page » en haut de la barre latérale. Firefox vous demandera une fois l'accès à tous les sites.",
-  gesture: "Coati ne lit une page que lorsque vous cliquez : jamais en arrière-plan, jamais en changeant d'onglet.",
+  stepsTitle: t("welcome_steps_title"),
+  programTitle: t("welcome_program_title"),
+  programText: t("welcome_program_text"),
+  programLink: t("welcome_program_link"),
+  modelTitle: t("welcome_model_title"),
+  modelText: t("welcome_model_text"),
+  modelAction: t("panel_open_settings"),
+  pageTitleStep: t("welcome_page_title"),
+  pageTextChromium: t("welcome_page_text_chromium"),
+  pageTextGecko: t("welcome_page_text_gecko"),
+  gesture: t("welcome_gesture"),
 };
 
 function setText(id, text) {

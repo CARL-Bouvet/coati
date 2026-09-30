@@ -2,6 +2,7 @@
 // The 256 KB per-message cap is enforced here, at parse time.
 
 import { isProviderId, type ProviderId } from "./config.ts";
+import type { Lang } from "./messages.ts";
 
 export const MAX_MESSAGE_BYTES = 256 * 1024;
 
@@ -140,6 +141,12 @@ export interface HelloMessage {
    * `"native"` (the broker key, via the native host) when absent, or
    * `"pasted"` (the legacy-mode permanent secret `S`). */
   key?: "native" | "pasted";
+  /** Goal G6 (docs/PROTOCOL.md "Langue de la connexion"): the client's UI
+   * language, raw BCP 47 (e.g. "fr", "en-US", "zh-CN") straight from
+   * chrome.i18n.getUILanguage() — normalised by messages.ts's normalizeLang()
+   * once, at hello time (server.ts), and kept for the life of the
+   * connection. Optional; missing/unrecognised normalises to "en". */
+  lang?: string;
 }
 
 /** Client's second handshake message, after verifying the broker's own
@@ -600,9 +607,16 @@ export function parseClientMessage(raw: string): ParseResult {
     if (parsed.key !== undefined && parsed.key !== "native" && parsed.key !== "pasted") {
       return { ok: false, error: { code: "bad-request", message: "hello: invalid key" } };
     }
+    // Goal G6: lang is a raw BCP 47 tag, not yet normalised — only its shape
+    // is checked here (string, reasonably short); server.ts's normalizeLang()
+    // turns anything it doesn't recognise into "en", so there is nothing to
+    // reject here beyond "not a string at all" / "absurdly oversized".
+    if (parsed.lang !== undefined && (typeof parsed.lang !== "string" || parsed.lang.length > 64)) {
+      return { ok: false, error: { code: "bad-request", message: "hello: invalid lang" } };
+    }
     return {
       ok: true,
-      message: { type: "hello", v: 2, nonce: parsed.nonce, key: parsed.key },
+      message: { type: "hello", v: 2, nonce: parsed.nonce, key: parsed.key, lang: parsed.lang },
     };
   }
 

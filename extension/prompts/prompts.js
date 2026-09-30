@@ -11,6 +11,9 @@ import { armOrConfirm } from "../panel/confirm-arm.js";
 import { ALL_SITES_ORIGINS } from "../panel/read-button.js";
 import Sortable from "../vendor/sortable/sortable.esm.js";
 import { coatiItemsForSite, computeCaseItems as computeCaseItemsPure, buildCaseDescriptors as buildCaseDescriptorsPure, replaceInOrder } from "./prompts-cases.js";
+import { t, applyI18n } from "../lib/i18n.js";
+
+applyI18n(document);
 
 // How long a delete stays "armed" (confirm-arm.js) before disarming itself —
 // no value is specified anywhere else in the plan; picked to match a
@@ -19,10 +22,10 @@ import { coatiItemsForSite, computeCaseItems as computeCaseItemsPure, buildCaseD
 const ARM_TIMEOUT_MS = 4000;
 
 // --- "Tous les sites" (docs/DECISIONS.md T42, amendement 2026-09-30 bis) ---
-// User-facing strings grouped here (French; G6 moves them to _locales).
+// User-facing strings grouped here, from _locales/<lang>/messages.json.
 const ALL_SITES_TEXT = {
-  line: "Coati a accès à tous les sites, et ne lit une page qu'à votre clic.",
-  revoke: "Revenir au site par site",
+  line: t("prompts_all_sites_line"),
+  revoke: t("prompts_all_sites_revoke"),
 };
 
 const els = {
@@ -158,12 +161,12 @@ function applyStatus(state) {
 // the broker either.
 function applyConnectionBanner(state) {
   if (state === "no-token") {
-    els.connectionBannerText.textContent = "Broker non connecté — ouvrez les réglages de l'extension pour l'appairer.";
+    els.connectionBannerText.textContent = t("prompts_banner_no_token");
     els.connectionBanner.hidden = false;
     return;
   }
   if (state === "disconnected") {
-    els.connectionBannerText.textContent = "Broker non connecté — impossible d'afficher ou de modifier vos prompts.";
+    els.connectionBannerText.textContent = t("prompts_banner_disconnected");
     els.connectionBanner.hidden = false;
     return;
   }
@@ -253,14 +256,14 @@ function buildHeadCaseElement() {
   part1.className = "prompt-case-head-part";
   const heading = document.createElement("h2");
   heading.className = "prompt-case-title";
-  heading.textContent = "Sur tous les sites";
+  heading.textContent = t("prompts_all_sites_heading");
   part1.appendChild(heading);
 
   const part1Items = computeCaseItems("*");
   if (part1Items.length === 0) {
     const empty = document.createElement("p");
     empty.className = "prompt-case-empty";
-    empty.textContent = "Aucun prompt pour l'instant.";
+    empty.textContent = t("prompts_empty");
     part1.appendChild(empty);
   }
   part1.appendChild(buildRowsList("*", part1Items));
@@ -301,7 +304,7 @@ function buildCaseElement(descriptor, items) {
   if (items.length === 0) {
     const empty = document.createElement("p");
     empty.className = "prompt-case-empty";
-    empty.textContent = "Aucun prompt pour l'instant.";
+    empty.textContent = t("prompts_empty");
     section.appendChild(empty);
   }
   section.appendChild(list);
@@ -311,7 +314,7 @@ function buildCaseElement(descriptor, items) {
     const restore = document.createElement("button");
     restore.type = "button";
     restore.className = "prompt-case-restore";
-    restore.textContent = "Rétablir les suggestions de Coati";
+    restore.textContent = t("prompts_restore_suggestions");
     restore.addEventListener("click", () => prefsSet(descriptor.key, { removed: [] }));
     section.appendChild(restore);
   }
@@ -343,7 +346,7 @@ function buildActiveSwitch(siteKey) {
 
   const text = document.createElement("span");
   text.className = "switch-text";
-  text.textContent = "Actif";
+  text.textContent = t("prompts_active_switch");
 
   btn.appendChild(track);
   btn.appendChild(text);
@@ -433,7 +436,7 @@ function buildRowElement(caseKey, item, index, total) {
     // expand (FACTS: "not editable (no expand)"), but still movable/deletable.
     label = document.createElement("span");
     label.className = "prompt-row-label prompt-row-label--static";
-    label.title = "Action intégrée : lit les sous-titres de la vidéo";
+    label.title = t("prompts_action_title");
   } else {
     label = document.createElement("button");
     label.type = "button";
@@ -450,7 +453,7 @@ function buildRowElement(caseKey, item, index, total) {
   up.type = "button";
   up.className = "prompt-row-up";
   up.textContent = "▲";
-  up.setAttribute("aria-label", `Monter « ${item.label} »`);
+  up.setAttribute("aria-label", t("prompts_move_up_aria", [item.label]));
   up.disabled = index === 0;
   up.addEventListener("click", () => moveWithinCase(caseKey, item.key, -1));
   controls.appendChild(up);
@@ -459,7 +462,7 @@ function buildRowElement(caseKey, item, index, total) {
   down.type = "button";
   down.className = "prompt-row-down";
   down.textContent = "▼";
-  down.setAttribute("aria-label", `Descendre « ${item.label} »`);
+  down.setAttribute("aria-label", t("prompts_move_down_aria", [item.label]));
   down.disabled = index === total - 1;
   down.addEventListener("click", () => moveWithinCase(caseKey, item.key, 1));
   controls.appendChild(down);
@@ -468,8 +471,11 @@ function buildRowElement(caseKey, item, index, total) {
   del.type = "button";
   const armed = armedDeleteKey === item.key;
   del.className = armed ? "prompt-row-delete is-armed" : "prompt-row-delete";
-  del.textContent = armed ? "Confirmer ?" : "🗑";
-  del.setAttribute("aria-label", armed ? `Confirmer l'effacement de « ${item.label} »` : `Effacer « ${item.label} »`);
+  del.textContent = armed ? t("prompts_delete_confirm") : "🗑";
+  del.setAttribute(
+    "aria-label",
+    armed ? t("prompts_delete_confirm_aria", [item.label]) : t("prompts_delete_aria", [item.label]),
+  );
   del.addEventListener("click", () => handleDeleteClick(caseKey, item));
   controls.appendChild(del);
 
@@ -486,7 +492,7 @@ function buildEditorElement() {
   wrap.className = "prompt-editor";
 
   const titleLabel = document.createElement("label");
-  titleLabel.textContent = "Titre (facultatif)";
+  titleLabel.textContent = t("prompts_editor_title_label");
   titleLabel.htmlFor = "promptEditorTitle";
   const titleInput = document.createElement("input");
   titleInput.type = "text";
@@ -498,7 +504,7 @@ function buildEditorElement() {
   titleInput.addEventListener("keydown", handleEditorKeydown);
 
   const bodyLabel = document.createElement("label");
-  bodyLabel.textContent = "Texte";
+  bodyLabel.textContent = t("prompts_editor_body_label");
   bodyLabel.htmlFor = "promptEditorBody";
   const bodyInput = document.createElement("textarea");
   bodyInput.id = "promptEditorBody";
@@ -509,12 +515,12 @@ function buildEditorElement() {
   const cancel = document.createElement("button");
   cancel.type = "button";
   cancel.className = "is-secondary";
-  cancel.textContent = "Annuler";
+  cancel.textContent = t("panel_cancel");
   cancel.addEventListener("click", () => closeEditor());
   const save = document.createElement("button");
   save.type = "button";
   save.className = "is-primary";
-  save.textContent = "Enregistrer";
+  save.textContent = t("options_save");
   save.addEventListener("click", () => commitEditor());
   const updateSaveDisabled = () => {
     save.disabled = bodyInput.value.trim().length === 0;

@@ -7,6 +7,7 @@
 
 import type { AnswerEvent, BuiltPrompt, StreamAnswerOptions } from "../model.ts";
 import type { ProviderStatusState } from "../protocol.ts";
+import type { Lang } from "../messages.ts";
 
 export interface Availability {
   available: boolean;
@@ -32,6 +33,14 @@ export interface ProviderRuntimeOptions {
    * echoed back in the `settings` response for the active provider. Ignored
    * by every other provider. */
   baseUrl?: string;
+  /** Goal G6: the connection's negotiated language — used by isAvailable()
+   * to localise its human-readable `reason` (Availability.reason, shown
+   * verbatim by the extension's settings UI) and by streamAnswer() to
+   * localise an AuthRequiredError's message (docs/PROTOCOL.md: that one
+   * message IS shown to a human, unlike model-unavailable/internal). Ignored
+   * by any provider (built-in or external module) that doesn't care — see
+   * messages.ts's DEFAULT_LANG for the fallback when absent. */
+  lang?: Lang;
 }
 
 /** One provider's answer to `provider.status` (docs/PROTOCOL.md, amendement

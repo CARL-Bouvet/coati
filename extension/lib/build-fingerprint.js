@@ -8,12 +8,15 @@
 // broker/test/ui-options-page.test.ts fails if they drift apart.
 
 export const FINGERPRINT_FILES = [
+  "_locales/en/messages.json",
+  "_locales/fr/messages.json",
   "background/service-worker.js",
   "content/detect.js",
   "content/extract.js",
   "lib/browser-compat.js",
   "lib/build-fingerprint.js",
   "lib/handshake-crypto.js",
+  "lib/i18n.js",
   "lib/model-provider-presets.js",
   "lib/native-host.js",
   "manifest.json",

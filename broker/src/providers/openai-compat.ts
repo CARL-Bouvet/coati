@@ -18,6 +18,7 @@ import {
   type StreamAnswerOptions,
 } from "../model.ts";
 import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck } from "./types.ts";
+import { t, DEFAULT_LANG } from "../messages.ts";
 
 // Testing seam: production code always drives the real global `fetch`. Tests
 // substitute a fake here (a real Bun.serve fake server on 127.0.0.1, per the
@@ -39,12 +40,14 @@ export function __resetFetchImplForTests(): void {
 // slow server.
 const MODELS_TIMEOUT_MS = 1500;
 
-// Same reasoning as claude-api.ts's CLAUDE_API_AUTH_MESSAGE: French,
-// user-facing, sent verbatim as ErrorMessage.message / settings.test-result's
-// message — never includes the key itself. Reused (same text) so the panel's
-// one fixed string for `auth-required` names the same remedy regardless of
-// which BYOK provider rejected the key.
-export const OPENAI_COMPAT_AUTH_MESSAGE = "Clé API refusée — vérifiez-la dans les réglages.";
+// Same reasoning as claude-api.ts's CLAUDE_API_AUTH_MESSAGE: user-facing,
+// sent verbatim as ErrorMessage.message / settings.test-result's message —
+// never includes the key itself. Same message CODE as claude-api (goal G6:
+// messages.ts's "auth.apiKeyRejected") so the panel names the same remedy
+// regardless of which BYOK provider rejected the key. This constant is the
+// DEFAULT_LANG (en) wording — localised per-connection at the throw site
+// below (opts.lang).
+export const OPENAI_COMPAT_AUTH_MESSAGE = t("auth.apiKeyRejected", DEFAULT_LANG);
 
 /**
  * Security gate for `baseUrl` (docs/PROTOCOL.md "Fournisseur de modèle"):
@@ -104,17 +107,24 @@ async function fetchModelIds(baseUrl: string, apiKey: string | undefined): Promi
 }
 
 async function isAvailable(opts: ProviderRuntimeOptions): Promise<Availability> {
+  const lang = opts.lang ?? DEFAULT_LANG;
   const baseUrl = resolveBaseUrl(opts.baseUrl);
   if (!baseUrl) {
-    return { available: false, reason: "no base URL configured" };
+    return { available: false, reason: t("availability.openaiCompat.noBaseUrl", lang) };
   }
   if (!isAllowedBaseUrl(baseUrl)) {
-    return { available: false, reason: "base URL must be https://, or http:// restricted to loopback" };
+    return { available: false, reason: t("availability.openaiCompat.invalidBaseUrl", lang) };
   }
   try {
     await fetchModelIds(baseUrl, opts.apiKey);
   } catch (err) {
-    return { available: false, reason: `cannot reach ${baseUrl}: ${err instanceof Error ? err.message : String(err)}` };
+    return {
+      available: false,
+      reason: t("availability.openaiCompat.cannotReach", lang, {
+        url: baseUrl,
+        detail: err instanceof Error ? err.message : String(err),
+      }),
+    };
   }
   return { available: true };
 }
@@ -281,7 +291,7 @@ export async function* streamAnswer(
           stream: true,
           stream_options: { include_usage: true },
           messages: [
-            { role: "system", content: buildSystemPrompt(built.nonce) },
+            { role: "system", content: buildSystemPrompt(built.nonce, built.lang) },
             { role: "user", content: built.prompt },
           ],
         }),
@@ -299,7 +309,7 @@ export async function* streamAnswer(
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        throw new AuthRequiredError(OPENAI_COMPAT_AUTH_MESSAGE);
+        throw new AuthRequiredError(t("auth.apiKeyRejected", opts.lang ?? DEFAULT_LANG));
       }
       if (response.status === 404) {
         throw new ModelUnavailableError(`model "${model}" not found at ${baseUrl}`);

@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Coati",
+  "name": "__MSG_extName__",
   "version": "0.1.0",
-  "description": "Assistant IA local : résumer une page ou une vidéo, discuter avec un modèle, agir sur une sélection, via un broker qui tourne sur votre machine.",
+  "default_locale": "en",
+  "description": "__MSG_extDescription__",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyC1xUB0LzJG2o64i7HT8Vu0D5oc59M9ew7lADCV2mezy8dGlsco2sFbxNMDa7e+hV95qGSYSHuTChiqmT+FdgHpZ/NELXGXh87jpKIE/qOh6m2D1V6BTe7YKpg0tlUAcDOBLDtUjyUzhflC2H1y+5re9HkGUYy4d9Oze3gfGGoFvEiJkdwtmW5qZGAkT+U0X3bSakQbd1nlQQsIbG31mdKmZZvcGjSOdL7jFAcyi09fx/PIL1qP/d5vcjguC2mkRaiVmN8ALChB9oGswxBxcsmsVSyQjGDgvayKRbTFpSK3GqyXX5jxTNaaoQC2OJEGZIMAvT1VyrnRWRKz8CXyIQQIDAQAB",
   "permissions": [
     "sidePanel",
@@ -52,7 +53,7 @@
       "suggested_key": {
         "default": "Alt+Shift+C"
       },
-      "description": "Ouvrir Coati"
+      "description": "__MSG_extCommandOpen__"
     }
   }
 }

@@ -283,14 +283,24 @@ describe("summarize instruction", () => {
     close: prompt.indexOf(`coati-${nonce}>>>`),
   });
 
-  test("asks for French bullets and a takeaway line, below the fence", () => {
+  test("asks for French bullets and a takeaway line, below the fence, when the connection's lang is fr", () => {
     const context: Context = { kind: "page", text: "Some article text." };
-    const { prompt, nonce } = buildPrompt({ kind: "summarize", context });
+    const { prompt, nonce } = buildPrompt({ kind: "summarize", context }, "fr");
     expect(prompt).toContain("IN FRENCH");
     expect(prompt).toContain("6 à 8");
     expect(prompt).toContain("À retenir : ");
     const { close } = fence(prompt, nonce);
     expect(prompt.indexOf("IN FRENCH")).toBeGreaterThan(close);
+  });
+
+  // Goal G6: en is the default when no lang is negotiated — see messages.ts's
+  // normalizeLang and docs/PROTOCOL.md "Langue de la connexion".
+  test("defaults to English when no lang is passed", () => {
+    const context: Context = { kind: "page", text: "Some article text." };
+    const { prompt } = buildPrompt({ kind: "summarize", context });
+    expect(prompt).toContain("IN ENGLISH");
+    expect(prompt).toContain("Key takeaway: ");
+    expect(prompt).not.toContain("IN FRENCH");
   });
 
   test("a YouTube context asks for timestamps, a page context does not", () => {

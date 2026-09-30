@@ -83,6 +83,22 @@ le collage du secret et la poignée de main `v: 1` passent derrière la clé `le
 `config.json`, éteinte par défaut. Motif : une autre extension peut réécrire l'`Origin` (prouvé le
 25/09). Voir la section du même nom en fin de document.
 
+Amendement 2026-09-30 ter (goal G6, langue) : le `hello` v: 2 gagne un champ
+optionnel `lang` — la langue d'interface du navigateur, chaîne BCP 47 brute
+telle que rendue par `chrome.i18n.getUILanguage()` (`"fr"`, `"en-US"`,
+`"zh-CN"`…). Le broker la normalise une fois, à la poignée de main, vers l'une
+de ses trois langues (`messages.ts`'s `normalizeLang()`) : `fr*` → `fr` ;
+`zh*` dans ses variantes simplifiées (`zh`, `zh-CN`, `zh-Hans`, `zh-SG`,
+`zh-Hans-*`) → `zh_CN` ; tout le reste, y compris `lang` absent ou les
+variantes traditionnelles (`zh-Hant`, `zh-TW`, `zh-HK`, `zh-MO`) → `en`
+(défaut). La langue négociée s'applique pour la durée de la connexion : elle
+choisit la langue des messages humains du broker (`broker/src/messages.ts` —
+table `code → { en, fr, zh_CN }`, un code stable par phrase) et instruit le
+modèle de répondre dans cette langue, sauf demande explicite contraire de
+l'utilisateur (voir « Construction du prompt »). Aucun message `hello` ne
+force plus rien côté extension : `lang` est informatif, jamais vérifié contre
+une liste fermée — une valeur absurde normalise silencieusement vers `en`.
+
 Amendement 2026-09-30 bis (goal G5, fournisseur générique « Compatible OpenAI ») : troisième
 fournisseur **intégré**, `openai-compat` — un seul adaptateur pour toute API qui parle le format
 `/v1/chat/completions` d'OpenAI (LM Studio, Ollama via son `/v1`, OpenAI, Mistral, OpenRouter,
@@ -1875,12 +1891,16 @@ Après l'admission HTTP (liste `Host`, UID du pair sous Linux — inchangées) :
    `moz-extension://<uuid>` bien formé (n'importe quel uuid : c'est la clé qui authentifie, plus
    l'uuid). Sinon refus, avant la lecture de tout message. Cette étape n'arrête plus que les pages
    web.
-2. Client → `{"type":"hello","v":2,"nonce":"<cN>","key":"native"|"pasted"}`. `cN` : 32 octets
-   aléatoires, 64 hex minuscules, nouveau à chaque connexion. `key` dit quelle clé sert de `K` pour
-   la suite : `"native"` (la clé de broker, obtenue par l'hôte natif) si absent, ou `"pasted"` (le
-   secret permanent `S` du mode hérité, collé à la main — voir « Mode hérité »). `"pasted"` alors
-   que `legacyPairing` est éteint est un échec, raison `legacy-pairing-disabled` (journal
-   seulement, jamais sur le fil).
+2. Client → `{"type":"hello","v":2,"nonce":"<cN>","key":"native"|"pasted","lang":"fr"}`. `cN` : 32
+   octets aléatoires, 64 hex minuscules, nouveau à chaque connexion. `key` dit quelle clé sert de
+   `K` pour la suite : `"native"` (la clé de broker, obtenue par l'hôte natif) si absent, ou
+   `"pasted"` (le secret permanent `S` du mode hérité, collé à la main — voir « Mode hérité »).
+   `"pasted"` alors que `legacyPairing` est éteint est un échec, raison `legacy-pairing-disabled`
+   (journal seulement, jamais sur le fil). `lang` (amendement 2026-09-30 ter, goal G6, voir le paragraphe daté en tête de
+   ce document) : optionnel, chaîne BCP 47 brute, normalisée côté broker vers `en`/`fr`/`zh_CN`.
+   Une valeur absente ou de forme invalide n'échoue jamais la poignée de main ;
+   seule une valeur qui n'est pas une chaîne, ou une chaîne de plus de 64 caractères, est un
+   `bad-request` (avant même l'authentification — la langue n'a rien de secret).
 3. Broker → `{"type":"challenge","v":2,"nonce":"<bN>","proof":"<bP>"}`. `bN` : 32 octets frais du
    générateur cryptographique ; `bP = HMAC-SHA256(K, "coati-v2-broker:" + cN + ":" + bN)`, en hex
    minuscules, `K` étant les 32 octets de la clé désignée par `key` à l'étape 2.

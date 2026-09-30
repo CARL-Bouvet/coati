@@ -23,8 +23,32 @@ const isGecko =
 
 /** The extension API namespace. Import this instead of touching `chrome` or
  * `browser` directly, so one source runs unpacked in Chrome and as a signed
- * .xpi in Firefox. See docs/FIREFOX.md. */
-export const api = isGecko ? globalThis.browser : globalThis.chrome;
+ * .xpi in Firefox. See docs/FIREFOX.md.
+ *
+ * A live Proxy, not a plain `const target = ...` snapshot: `bun test` runs
+ * every test file in one process, and several unrelated files now import
+ * this module transitively (lib/i18n.js, itself pulled in by most
+ * extension/**\/*.js — G6). A frozen-at-first-import binding would capture
+ * `globalThis.chrome` as `undefined` if this module happened to load before
+ * a test's own `globalThis.chrome = chromeMock` ran (import order across
+ * files sharing one process is not something any single test controls), and
+ * every property access below would then throw for the rest of the process.
+ * Resolving on every access instead makes each test's own
+ * `beforeEach`/module-scope mock assignment take effect immediately, however
+ * many other files already imported this module first. */
+export const api = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      const target = isGecko ? globalThis.browser : globalThis.chrome;
+      return target ? target[prop] : undefined;
+    },
+    has(_target, prop) {
+      const target = isGecko ? globalThis.browser : globalThis.chrome;
+      return target ? prop in target : false;
+    },
+  },
+);
 
 /** True on Firefox and its derivatives. Exported for the handful of places
  * where the two engines genuinely differ (sidebar vs side panel, the

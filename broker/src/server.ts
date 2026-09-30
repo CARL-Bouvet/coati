@@ -63,6 +63,7 @@ import { listPrompts, savePrompt, deletePrompt, setPromptSite, withDirLock, type
 import { getPrefs, setSitePrefs, moveInPrefs, type PrefsDirs } from "./prefs.ts";
 import { getProviders, getProvider, initRegistry } from "./providers/registry.ts";
 import type { ModelProvider, ProviderRuntimeOptions } from "./providers/types.ts";
+import { t, normalizeLang, DEFAULT_LANG, type Lang } from "./messages.ts";
 
 // Content is truncated to 40 000 chars by the content script (see PROTOCOL.md).
 // The broker enforces the same cap server-side as a safety net.
@@ -269,6 +270,11 @@ interface ConnData {
    * open(), cleared the moment it authenticates or closes (whichever first),
    * so it is only ever decremented once. */
   countedUnauth: boolean;
+  /** Goal G6 (docs/PROTOCOL.md "Langue de la connexion"): normalised from the
+   * `hello`'s raw `lang` at handshake time (messages.ts's normalizeLang) —
+   * defaults to "en" until a hello sets it, and for the handful of tests that
+   * connect without ever sending one. */
+  lang: Lang;
 }
 
 function send(ws: { send(data: string): unknown }, msg: ServerMessage): void {
@@ -375,7 +381,7 @@ async function runStream(
  * one, its listModels() (when it has one) — the full payload of a `settings`
  * reply. A provider that errors while probing is reported unavailable rather
  * than crashing the whole response; never hidden (see docs/PROTOCOL.md). */
-async function buildSettingsPayload(config: CoatiConfig): Promise<{
+async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Promise<{
   provider: ProviderId;
   model?: string;
   available: ProviderStatus[];
@@ -393,6 +399,7 @@ async function buildSettingsPayload(config: CoatiConfig): Promise<{
     ollamaUrl: config.ollamaUrl,
     apiKey: resolveApiKey(config, provider),
     baseUrl: config.baseUrl,
+    lang,
   };
   const available = await Promise.all(
     getProviders().map(async (p): Promise<ProviderStatus> => {
@@ -400,6 +407,7 @@ async function buildSettingsPayload(config: CoatiConfig): Promise<{
         ollamaUrl: config.ollamaUrl,
         apiKey: resolveApiKey(config, p.id as ProviderId),
         baseUrl: config.baseUrl,
+        lang,
       };
       // `configured` (task 2) deliberately omits `model`: it answers "does
       // this provider have what it needs at all" (a stored key, a reachable
@@ -450,61 +458,63 @@ export const SETTINGS_TEST_TIMEOUT_MS = 20_000;
 // Built-in providers keep their own French wording; anything else — an
 // external module — gets a generic message naming the provider's own
 // `label`, since the broker has no fixed text for an id it doesn't own.
-function settingsTestSuccessMessage(providerId: ProviderId): string {
+function settingsTestSuccessMessage(providerId: ProviderId, lang: Lang): string {
   switch (providerId) {
     case "claude-api":
-      return "Connexion à l'API Anthropic réussie.";
+      return t("settingsTest.success.claude-api", lang);
     case "ollama":
-      return "Connexion à Ollama réussie.";
+      return t("settingsTest.success.ollama", lang);
     case "openai-compat":
-      return "Connexion au serveur réussie.";
+      return t("settingsTest.success.openai-compat", lang);
     default:
-      return "Connexion réussie.";
+      return t("settingsTest.success.default", lang);
   }
 }
 
-/** French, names the remedy — never the raw error text (which is English and
- * provider-internal), per task brief: wrong key, Ollama not running, expired
- * session. */
-function settingsTestFailureMessage(providerId: ProviderId, err: unknown): string {
+/** Names the remedy, in the connection's language — never the raw error text
+ * (which is English and provider-internal), per task brief: wrong key, Ollama
+ * not running, expired session. */
+function settingsTestFailureMessage(providerId: ProviderId, err: unknown, lang: Lang): string {
   if (isAuthRequiredError(err)) {
-    // Already French and already names the remedy (e.g. claude-api's
-    // CLAUDE_API_AUTH_MESSAGE, or an external module's own text).
+    // Already localised and already names the remedy (e.g. the
+    // "auth.apiKeyRejected" message thrown by claude-api/openai-compat with
+    // this same lang, or an external module's own text).
     return (err as Error).message;
   }
   if (err instanceof ModelTimeoutError) {
-    return "La vérification a dépassé le délai imparti — réessayez.";
+    return t("settingsTest.timeout", lang);
   }
   switch (providerId) {
     case "claude-api":
-      return "Impossible de joindre l'API Anthropic — vérifiez la clé ou votre connexion réseau.";
+      return t("settingsTest.failure.claude-api", lang);
     case "ollama":
-      return "Ollama ne répond pas — vérifiez qu'il est bien lancé sur cette machine.";
+      return t("settingsTest.failure.ollama", lang);
     case "openai-compat":
-      return "Impossible de joindre le serveur — vérifiez l'adresse et votre connexion réseau.";
+      return t("settingsTest.failure.openai-compat", lang);
     default:
-      return "Impossible de joindre ce fournisseur.";
+      return t("settingsTest.failure.default", lang);
   }
 }
 
 export async function testProviderConnection(
   providerId: ProviderId,
   config: CoatiConfig,
+  lang: Lang = DEFAULT_LANG,
 ): Promise<{ ok: boolean; message: string }> {
   const provider = getProvider(providerId);
-  if (!provider) return { ok: false, message: "Fournisseur inconnu." };
+  if (!provider) return { ok: false, message: t("testConnection.unknownProvider", lang) };
 
   if (providerId === "claude-api" && !resolveApiKey(config, providerId)) {
-    return { ok: false, message: "Aucune clé API configurée — ajoutez-la dans les réglages." };
+    return { ok: false, message: t("testConnection.noApiKey", lang) };
   }
   if (providerId === "ollama" && !config.model) {
-    return { ok: false, message: "Aucun modèle Ollama configuré — choisissez-en un dans les réglages." };
+    return { ok: false, message: t("testConnection.noOllamaModel", lang) };
   }
   if (providerId === "openai-compat" && !config.baseUrl) {
-    return { ok: false, message: "Aucune adresse de serveur configurée — ajoutez-en une dans les réglages." };
+    return { ok: false, message: t("testConnection.noBaseUrl", lang) };
   }
   if (providerId === "openai-compat" && !config.model) {
-    return { ok: false, message: "Aucun modèle configuré — choisissez-en un dans les réglages." };
+    return { ok: false, message: t("testConnection.noModel", lang) };
   }
 
   const opts: ProviderRuntimeOptions = {
@@ -512,8 +522,12 @@ export async function testProviderConnection(
     ollamaUrl: config.ollamaUrl,
     apiKey: resolveApiKey(config, providerId),
     baseUrl: config.baseUrl,
+    lang,
   };
-  const built = buildPrompt({ kind: "chat", text: "Réponds uniquement par le mot ok." });
+  // Internal probe text, discarded (draining only, no chunk reaches the
+  // client) — never shown to a human, so it stays English regardless of
+  // `lang` (scaffolding, not a message — see messages.ts's own header).
+  const built = buildPrompt({ kind: "chat", text: "Reply with exactly one word: ok." }, lang);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SETTINGS_TEST_TIMEOUT_MS);
   try {
@@ -525,9 +539,9 @@ export async function testProviderConnection(
       // Draining only — a minimal connectivity probe, no chunk reaches the
       // client (the extension only cares about ok/message, see PROTOCOL.md).
     }
-    return { ok: true, message: settingsTestSuccessMessage(providerId) };
+    return { ok: true, message: settingsTestSuccessMessage(providerId, lang) };
   } catch (err) {
-    return { ok: false, message: settingsTestFailureMessage(providerId, err) };
+    return { ok: false, message: settingsTestFailureMessage(providerId, err, lang) };
   } finally {
     clearTimeout(timer);
   }
@@ -629,6 +643,7 @@ function handleMessage(
   active: Map<string, AbortController>,
   promptsDirs: PromptsDirs,
   settingsCtx: SettingsCtx,
+  lang: Lang,
 ): void {
   switch (message.type) {
     case "hello":
@@ -645,7 +660,7 @@ function handleMessage(
         logItemsCount: message.context?.items?.length ?? 0,
         tooLargeText: message.text,
         budgetContext: message.context,
-        build: () => buildPrompt({ kind: "chat", text: message.text, context: message.context }),
+        build: () => buildPrompt({ kind: "chat", text: message.text, context: message.context }, lang),
       });
       return;
     }
@@ -658,7 +673,7 @@ function handleMessage(
         logFactsCount: message.context.facts?.length ?? 0,
         logItemsCount: message.context.items?.length ?? 0,
         budgetContext: message.context,
-        build: () => buildPrompt({ kind: "summarize", context: message.context }),
+        build: () => buildPrompt({ kind: "summarize", context: message.context }, lang),
       });
       return;
     }
@@ -672,12 +687,15 @@ function handleMessage(
         logItemsCount: 0,
         tooLargeText: message.text,
         build: () =>
-          buildPrompt({
-            kind: "act",
-            action: message.action,
-            text: message.text,
-            params: message.params,
-          }),
+          buildPrompt(
+            {
+              kind: "act",
+              action: message.action,
+              text: message.text,
+              params: message.params,
+            },
+            lang,
+          ),
       });
       return;
     }
@@ -733,7 +751,7 @@ function handleMessage(
       return;
     }
     case "settings.get": {
-      void buildSettingsPayload(settingsCtx.getConfig()).then((payload) => {
+      void buildSettingsPayload(settingsCtx.getConfig(), lang).then((payload) => {
         send(ws, { type: "settings", id: message.id, ...payload });
       });
       return;
@@ -745,13 +763,13 @@ function handleMessage(
         apiKey: message.apiKey,
         baseUrl: message.baseUrl,
       });
-      void buildSettingsPayload(updated).then((payload) => {
+      void buildSettingsPayload(updated, lang).then((payload) => {
         send(ws, { type: "settings", id: message.id, ...payload });
       });
       return;
     }
     case "settings.test": {
-      void testProviderConnection(message.provider, settingsCtx.getConfig()).then(({ ok, message: resultMessage }) => {
+      void testProviderConnection(message.provider, settingsCtx.getConfig(), lang).then(({ ok, message: resultMessage }) => {
         send(ws, { type: "settings.test-result", id: message.id, provider: message.provider, ok, message: resultMessage });
       });
       return;
@@ -803,6 +821,9 @@ function handleHandshakeMessage(
       return;
     }
     const { nonce: cNonce, key } = result.message;
+    // Goal G6: recorded even if this hello later fails (harmless — the
+    // connection never authenticates and its lang plays no further role).
+    ws.data.lang = normalizeLang(result.message.lang);
     if (!isHex64(cNonce)) {
       rejectHandshake(ws, origin, "malformed client nonce");
       return;
@@ -991,7 +1012,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
     }`,
   );
 
-  function settingsCtx(): SettingsCtx {
+  function settingsCtx(lang: Lang): SettingsCtx {
     const cfg = currentConfig;
     const providerId = cfg.provider ?? DEFAULT_CONFIG.provider!;
     const providerOpts: ProviderRuntimeOptions = {
@@ -999,6 +1020,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       ollamaUrl: cfg.ollamaUrl,
       apiKey: resolveApiKey(cfg, providerId),
       baseUrl: cfg.baseUrl,
+      lang,
     };
     return {
       providerId,
@@ -1091,6 +1113,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           helloTimer: null,
           hs: { stage: "awaiting-hello" },
           countedUnauth: false,
+          lang: DEFAULT_LANG,
         } satisfies ConnData,
       });
       if (!upgraded) {
@@ -1172,7 +1195,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           }
           return;
         }
-        handleMessage(ws, result.message, ws.data.active, promptsDirs, settingsCtx());
+        handleMessage(ws, result.message, ws.data.active, promptsDirs, settingsCtx(ws.data.lang), ws.data.lang);
       },
       close(ws) {
         if (ws.data.helloTimer) clearTimeout(ws.data.helloTimer);

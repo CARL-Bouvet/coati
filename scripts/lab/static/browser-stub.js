@@ -14,6 +14,29 @@
 
   var params = new URLSearchParams(location.search);
   var stateId = params.get("state") || "idle";
+
+  // --- i18n (G6) -----------------------------------------------------------
+  // `?lang=en|fr|zh_CN`, default "fr" so existing captures made before G6
+  // don't change. window.__COATI_LAB_MESSAGES__ is written by build-lab.ts
+  // from the REAL extension/_locales/<lang>/messages.json files — never
+  // hand-duplicated here.
+  var lang = params.get("lang") || "fr";
+  var messagesTable = (window.__COATI_LAB_MESSAGES__ && window.__COATI_LAB_MESSAGES__[lang]) || {};
+  document.documentElement.lang = lang;
+  function labGetMessage(key, substitutions) {
+    var entry = messagesTable[key];
+    if (!entry) return key;
+    var text = entry.message;
+    if (substitutions != null) {
+      var values = Array.isArray(substitutions) ? substitutions : [substitutions];
+      var i = 0;
+      text = text.replace(/\$[A-Z][A-Z0-9_]*\$/g, function () {
+        var v = values[i++];
+        return v == null ? "" : String(v);
+      });
+    }
+    return text;
+  }
   var table = window.__COATI_LAB_FIXTURES__ || {};
   var fixture = table[stateId];
   if (!fixture) {
@@ -282,6 +305,12 @@
   var permissionListeners = { added: [], removed: [] };
 
   var api = {
+    i18n: {
+      getMessage: labGetMessage,
+      getUILanguage: function () {
+        return lang;
+      },
+    },
     runtime: {
       id: "coati-lab",
       getManifest: function () {

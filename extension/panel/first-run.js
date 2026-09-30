@@ -14,30 +14,36 @@
 //   page    — the encart button (T50) already read a page once, or the
 //             current page is accessible anyway (all sites / this site).
 
-// --- User-facing strings (French; G6 moves them to _locales) --------------
+import { t } from "../lib/i18n.js";
+
+// --- User-facing strings, from _locales/<lang>/messages.json --------------
 export const FIRST_RUN_TEXT = {
-  title: "Premiers pas avec Coati",
+  title: t("panel_first_run_title"),
   program: {
-    ok: "Programme local détecté",
-    missing: "Programme local introuvable",
-    pending: "Recherche du programme local…",
-    action: "Télécharger le programme",
+    ok: t("panel_first_run_program_ok"),
+    missing: t("panel_first_run_program_missing"),
+    pending: t("panel_first_run_program_pending"),
+    action: t("panel_first_run_program_action"),
   },
   model: {
-    ok: "Modèle connecté",
-    missing: "Aucun modèle ne répond",
-    pending: "Vérification du modèle…",
-    waiting: "Modèle : en attente du programme local",
-    action: "Ouvrir les réglages",
+    ok: t("panel_first_run_model_ok"),
+    missing: t("panel_first_run_model_missing"),
+    pending: t("panel_first_run_model_pending"),
+    waiting: t("panel_first_run_model_waiting"),
+    action: t("panel_first_run_model_action"),
   },
   page: {
-    ok: "Accès aux pages accordé",
-    missing: "Donnez-lui accès à la page",
-    hint: "Cliquez sur « Lire cette page » en haut de l'encart. Le navigateur demandera l'accès à tous les sites ; Coati ne lit une page que lorsque vous cliquez.",
-    action: "Montrer le bouton",
+    ok: t("panel_first_run_page_ok"),
+    missing: t("panel_first_run_page_missing"),
+    hint: t("panel_first_run_page_hint"),
+    action: t("panel_first_run_page_action"),
   },
   marks: { ok: "✓", missing: "✗", pending: "…" },
-  markNames: { ok: "fait", missing: "à faire", pending: "en cours" },
+  markNames: {
+    ok: t("panel_first_run_mark_done"),
+    missing: t("panel_first_run_mark_todo"),
+    pending: t("panel_first_run_mark_pending"),
+  },
 };
 
 export const RELEASES_URL = "https://github.com/CARL-Bouvet/coati/releases/latest";

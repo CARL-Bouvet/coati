@@ -1,0 +1,439 @@
+{
+  "extName": { "message": "Coati" },
+  "extDescription": {
+    "message": "本地 AI 助手：总结页面或视频，与模型对话，对所选内容执行操作，通过运行在本机的本地程序实现。"
+  },
+  "extCommandOpen": { "message": "打开 Coati" },
+
+  "common_provider_claude_api": { "message": "Claude（API 密钥）" },
+  "common_provider_ollama": { "message": "Ollama（本地）" },
+  "common_provider_openai_compat": { "message": "OpenAI 兼容" },
+  "common_status_connected": { "message": "已连接" },
+  "common_status_connecting": { "message": "连接中…" },
+  "common_status_disconnected": { "message": "已断开" },
+  "common_status_no_token": { "message": "无令牌" },
+  "common_status_no_host": { "message": "未找到本地程序" },
+  "common_status_broker_untrusted": { "message": "本地程序未验证" },
+  "common_status_unknown": { "message": "…" },
+  "common_error_bad_request": { "message": "请求无效。" },
+  "common_error_unauthorized": { "message": "未授权。" },
+  "common_error_model_unavailable": { "message": "模型未响应。" },
+  "common_error_auth_required": { "message": "需要向模型提供商进行身份验证。" },
+  "common_error_context_too_large": { "message": "发送的内容对该模型而言过大。" },
+  "common_error_cancelled": { "message": "请求已取消。" },
+  "common_error_internal": { "message": "本地程序内部错误。" },
+  "common_error_generic": { "message": "发生错误。" },
+  "common_error_detail": {
+    "message": "详情：$MESSAGE$",
+    "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
+  },
+  "common_provider_unavailable": { "message": "不可用。" },
+  "common_extraction_timeout": { "message": "页面读取超时。" },
+  "common_access_denied_hint": {
+    "message": "点击其图标，右键 → 「使用 Coati 阅读此页面」，或使用键盘快捷键。"
+  },
+  "common_extraction_empty": { "message": "提取内容为空" },
+  "common_no_active_tab_internal": { "message": "无活动标签页" },
+  "common_all_sites": { "message": "所有网站" },
+  "common_this_page": { "message": "此页面" },
+  "common_this_page_lowercase": { "message": "此页面" },
+
+  "panel_settings_title": { "message": "设置" },
+  "panel_install_doc_link": { "message": "安装说明" },
+  "panel_open_settings": { "message": "打开设置" },
+  "panel_my_prompts": { "message": "我的提示词 ↗" },
+  "panel_read_the_page": { "message": "读取页面" },
+  "panel_save_prompt": { "message": "将当前文本保存为提示词" },
+  "panel_input_placeholder": { "message": "与 Coati 对话…" },
+  "panel_erase_conversation": { "message": "清除对话" },
+  "panel_cancel": { "message": "取消" },
+  "panel_send": { "message": "发送" },
+  "panel_confirm_erase": { "message": "确认清除？" },
+
+  "panel_summarize_video": { "message": "总结此视频" },
+  "panel_summarize_article": { "message": "总结此文章" },
+  "panel_summarize_page": { "message": "总结此页面" },
+  "panel_summarize_results": { "message": "总结这些结果" },
+  "panel_summarize_listing": { "message": "总结此列表" },
+  "panel_summarize_default": { "message": "总结" },
+
+  "panel_auth_session_expired": { "message": "⚠ Claude 会话已过期。" },
+  "panel_auth_key_refused": { "message": "⚠ 提供商拒绝了该密钥：请在设置中检查。" },
+  "panel_auth_unknown": {
+    "message": "⚠ 提供商拒绝了访问（会话已过期或密钥被拒）：请检查设置。"
+  },
+  "panel_copy": { "message": "复制" },
+  "panel_copied": { "message": "已复制！" },
+  "panel_copy_failed": { "message": "复制失败" },
+  "panel_retry_session": { "message": "已重启，重试" },
+  "panel_retry_key": { "message": "已修复，重试" },
+
+  "panel_error_oversized": {
+    "message": "⚠ 发送的消息超过了本地程序接受的最大大小（256 KB）；连接已关闭。请缩短内容后重试。"
+  },
+  "panel_error_model_unavailable": {
+    "message": "⚠ 模型未响应（$MESSAGE$）。本地程序运行正常；是模型出了问题。请稍后重试。",
+    "placeholders": { "message": { "content": "$1", "example": "timeout" } }
+  },
+  "panel_unavailable": { "message": "不可用" },
+  "panel_request_cancelled": { "message": "请求已取消。" },
+  "panel_error_context_too_large_warn": { "message": "⚠ 发送的内容对该模型而言过大。" },
+
+  "panel_status_no_token": { "message": "无令牌 — 请查看设置" },
+  "panel_banner_no_host": {
+    "message": "Coati 找不到本地配对程序。请重新安装，或在使用 Flatpak/Snap 浏览器时使用手动配对。"
+  },
+  "panel_banner_broker_untrusted": {
+    "message": "监听 8787 端口的程序未能证明其为 Coati 本地程序。未向其发送任何内容。"
+  },
+  "panel_banner_no_token": {
+    "message": "此扩展程序的 ID（$EXT_ID$）未在本地程序中注册。请将其添加至 allowedExtensionIds，然后重启本地程序。",
+    "placeholders": { "ext_id": { "content": "$1", "example": "abcdefghijklmnop" } }
+  },
+  "panel_banner_disconnected": {
+    "message": "Coati 本地程序无响应。请在本机启动它（见 README），然后重试。"
+  },
+
+  "panel_provider_ready": { "message": "就绪" },
+  "panel_provider_logged_in": { "message": "会话已打开" },
+  "panel_provider_no_key": { "message": "未保存 API 密钥" },
+  "panel_provider_key_unverified": { "message": "API 密钥已保存，未验证" },
+  "panel_provider_cli_missing": { "message": "未找到可执行文件" },
+  "panel_provider_not_logged_in": { "message": "会话未认证" },
+  "panel_provider_probe_failed": { "message": "状态未知" },
+  "panel_provider_ollama_unreachable": { "message": "Ollama 无响应" },
+  "panel_provider_model_missing": { "message": "已配置的模型在 Ollama 中不存在" },
+  "panel_provider_no_model_installed": { "message": "Ollama 中未安装任何模型" },
+  "panel_provider_unknown_state": { "message": "未知状态" },
+  "panel_provider_default_label": { "message": "模型" },
+  "panel_provider_status_line": {
+    "message": "$LABEL$：$REASON$",
+    "placeholders": {
+      "label": { "content": "$1", "example": "Ollama（本地）" },
+      "reason": { "content": "$2", "example": "就绪" }
+    }
+  },
+
+  "panel_with_page_content_marker": { "message": "*含页面内容*" },
+
+  "panel_access_denied_question": {
+    "message": "⚠ Coati 无法访问此页面，问题未发送。$HINT$",
+    "placeholders": { "hint": { "content": "$1" } }
+  },
+  "panel_read_error_question": {
+    "message": "⚠ 无法读取页面，问题未发送：$DETAIL$",
+    "placeholders": { "detail": { "content": "$1" } }
+  },
+  "panel_access_denied_generic": {
+    "message": "⚠ Coati 无法访问此页面。$HINT$",
+    "placeholders": { "hint": { "content": "$1" } }
+  },
+  "panel_read_error_generic": {
+    "message": "⚠ 无法读取页面：$DETAIL$",
+    "placeholders": { "detail": { "content": "$1" } }
+  },
+  "panel_access_denied_relaunch": {
+    "message": "⚠ Coati 无法访问此页面，重试未发送。$HINT$",
+    "placeholders": { "hint": { "content": "$1" } }
+  },
+  "panel_read_error_relaunch": {
+    "message": "⚠ 无法读取页面，重试未发送：$DETAIL$",
+    "placeholders": { "detail": { "content": "$1" } }
+  },
+
+  "panel_transcript_missing": {
+    "message": "无法读取字幕。在视频下方：点击「…」→「显示字幕」，然后重试。若该按钮不存在，则视频没有字幕。"
+  },
+  "panel_worker_restarted": {
+    "message": "请求已中断（后台服务重启），请重试。"
+  },
+  "panel_no_response_130s": {
+    "message": "130 秒内无响应。本地程序未响应；请确认其正在运行，然后重试。"
+  },
+  "panel_no_active_tab": { "message": "⚠ 没有活动的标签页可供读取。" },
+  "panel_nothing_readable": {
+    "message": "⚠ 此页面未找到可读内容。内容是否在后续加载，或仅供订阅者查看？"
+  },
+  "panel_request_in_progress": { "message": "⚠ 已有请求正在进行中，请稍后重试。" },
+
+  "panel_prompt_saved_no_site": {
+    "message": "已保存，无网站：Coati 无法获取此页面的地址。"
+  },
+  "panel_prompt_saved_for": {
+    "message": "已为 $SITE$ 保存",
+    "placeholders": { "site": { "content": "$1", "example": "Reddit" } }
+  },
+
+  "panel_relaunch": { "message": "重试" },
+  "panel_relaunch_title": { "message": "重新发送此问题" },
+  "panel_seek_timestamp_title": { "message": "跳转到视频中的此时刻" },
+  "panel_build_fingerprint": {
+    "message": "v$VERSION$ · $FINGERPRINT$",
+    "placeholders": {
+      "version": { "content": "$1", "example": "0.1.0" },
+      "fingerprint": { "content": "$2", "example": "a1b2c3d4" }
+    }
+  },
+  "panel_build_fingerprint_unavailable": {
+    "message": "v$VERSION$ · 指纹不可用",
+    "placeholders": { "version": { "content": "$1", "example": "0.1.0" } }
+  },
+
+  "panel_read_button_invite": { "message": "读取此页面" },
+  "panel_read_button_reading": { "message": "读取中…" },
+  "panel_read_button_activate_site": { "message": "启用此网站" },
+  "panel_read_button_refused_note": {
+    "message": "访问被拒绝。你可以仅启用此网站，或点击工具栏中的 Coati 图标单次读取页面。"
+  },
+  "panel_read_button_refused_note_unknown_site": {
+    "message": "访问被拒绝。点击工具栏中的 Coati 图标单次读取页面，或重试。"
+  },
+
+  "panel_first_run_title": { "message": "Coati 入门" },
+  "panel_first_run_program_ok": { "message": "本地程序已检测到" },
+  "panel_first_run_program_missing": { "message": "未找到本地程序" },
+  "panel_first_run_program_pending": { "message": "正在查找本地程序…" },
+  "panel_first_run_program_action": { "message": "下载程序" },
+  "panel_first_run_model_ok": { "message": "模型已连接" },
+  "panel_first_run_model_missing": { "message": "没有模型响应" },
+  "panel_first_run_model_pending": { "message": "正在检查模型…" },
+  "panel_first_run_model_waiting": { "message": "模型：等待本地程序" },
+  "panel_first_run_model_action": { "message": "打开设置" },
+  "panel_first_run_page_ok": { "message": "已获得页面访问权限" },
+  "panel_first_run_page_missing": { "message": "授予页面访问权限" },
+  "panel_first_run_page_hint": {
+    "message": "点击卡片顶部的「读取此页面」。浏览器将请求所有网站的访问权限；Coati 只在你点击时才会读取页面。"
+  },
+  "panel_first_run_page_action": { "message": "显示按钮" },
+  "panel_first_run_mark_done": { "message": "已完成" },
+  "panel_first_run_mark_todo": { "message": "待完成" },
+  "panel_first_run_mark_pending": { "message": "进行中" },
+
+  "panel_unreadable_hint": { "message": "取消勾选「读取页面」以提问一般问题。" },
+  "panel_unreadable_pdf": { "message": "⚠ Coati 无法读取浏览器显示的 PDF。" },
+  "panel_unreadable_canvas": {
+    "message": "⚠ 此页面是绘制的（地图、编辑器）：Coati 找不到可读的文本。"
+  },
+  "panel_unreadable_empty": { "message": "⚠ Coati 在此页面几乎找不到文本。" },
+
+  "options_page_title": { "message": "设置 — Coati" },
+  "options_heading": { "message": "Coati 设置" },
+  "options_model_title": { "message": "模型" },
+  "options_model_help": {
+    "message": "用于回答请求的模型。此选项由本地程序保存在本机上。"
+  },
+  "options_model_disconnected": { "message": "本地程序未连接：无法查看或更改模型。" },
+  "options_model_name_label": { "message": "模型名称" },
+  "options_model_name_placeholder": { "message": "例如：llama3.2（可选）" },
+  "options_model_save": { "message": "保存模型" },
+  "options_attach_title": { "message": "读取页面" },
+  "options_attach_checkbox": { "message": "将当前页面附加到我的问题中" },
+  "options_attach_help": { "message": "面板中「读取页面」开关的初始值。" },
+  "options_shortcut_title": { "message": "键盘快捷键" },
+  "options_shortcut_edit": { "message": "修改快捷键" },
+  "options_shortcut_help": {
+    "message": "如需更改：打开 about:addons，点击齿轮图标，然后选择「管理扩展程序快捷键」。"
+  },
+  "options_sites_title": { "message": "已启用的网站" },
+  "options_sites_link_intro": { "message": "每个网站的推荐提示词在" },
+  "options_sites_link_text": { "message": "我的提示词" },
+  "options_history_title": { "message": "历史记录" },
+  "options_history_help": {
+    "message": "对话内容以未加密形式保存在本机，并在此时间后自动删除。"
+  },
+  "options_retention_label": { "message": "保留" },
+  "options_retention_7d": { "message": "7 天" },
+  "options_retention_30d": { "message": "30 天" },
+  "options_retention_90d": { "message": "90 天" },
+  "options_retention_never": { "message": "无限制" },
+  "options_about_title": { "message": "关于" },
+  "options_about_version": { "message": "版本" },
+  "options_about_fingerprint": { "message": "代码指纹" },
+  "options_about_license": { "message": "许可证" },
+  "options_about_source": { "message": "源代码" },
+  "options_legacy_title": { "message": "无原生程序的浏览器（Flatpak、Snap）" },
+  "options_legacy_token_label": { "message": "配对密钥" },
+  "options_legacy_token_help_before": {
+    "message": "仅当您的浏览器（Flatpak、Snap）无法启动原生程序时使用。在终端中运行"
+  },
+  "options_legacy_token_help_after": { "message": "，然后将密钥粘贴到此处。该密钥不会写入磁盘。" },
+  "options_legacy_token_placeholder": { "message": "在此处粘贴密钥" },
+  "options_legacy_save": { "message": "保存" },
+
+  "options_sites_help_gecko": {
+    "message": "在这些网站上，Firefox 允许 Coati 检测当前网站：面板将立即提供相应按钮。"
+  },
+  "options_sites_help_chrome": {
+    "message": "在这些网站上，Chrome 允许 Coati 检测当前网站：面板将立即提供相应按钮。"
+  },
+  "options_provider_desc_claude_api": { "message": "您自己的 Anthropic 密钥，费用计入您的账户。" },
+  "options_provider_desc_ollama": { "message": "在本机运行的模型：数据不离开本机。" },
+  "options_provider_desc_openai_compat": {
+    "message": "兼容 OpenAI 的服务器：LM Studio、Ollama、OpenAI、Mistral、OpenRouter、DeepSeek 或其他地址。"
+  },
+  "options_invalid_secret": { "message": "密钥无效（需要 64 个十六进制字符）。" },
+  "options_test_in_progress": { "message": "测试中…" },
+  "options_test_connection": { "message": "测试连接" },
+  "options_test_ok": { "message": "连接成功。" },
+  "options_test_failed": { "message": "连接失败。" },
+  "options_key_saved": { "message": "密钥已保存" },
+  "options_configured": { "message": "已配置" },
+  "options_apikey_placeholder_optional": { "message": "API 密钥（可选，取决于服务器）" },
+  "options_apikey_placeholder_anthropic": { "message": "Anthropic API 密钥（sk-ant-…）" },
+  "options_save": { "message": "保存" },
+  "options_apikey_clear": { "message": "清除密钥" },
+  "options_apikey_clear_confirm": { "message": "确认清除" },
+  "options_other_address": { "message": "其他地址" },
+  "options_save_address": { "message": "保存地址" },
+  "options_address_refused": { "message": "地址被拒绝：仅支持 HTTPS，或 HTTP 到 localhost/127.0.0.1。" },
+  "options_choose_model": { "message": "选择模型…" },
+  "options_model_placeholder_claude": { "message": "例如：claude-sonnet-4-5（可选）" },
+  "options_model_placeholder_openai_compat": { "message": "服务器所需的精确名称" },
+  "options_shortcut_not_set": { "message": "未设置" },
+
+  "welcome_title": { "message": "欢迎使用 Coati" },
+  "welcome_lead": {
+    "message": "Coati 能总结页面或视频，并回答您关于所阅读内容的问题，使用您选择的模型，通过运行在本机的程序实现。"
+  },
+  "welcome_pin_title": { "message": "固定图标" },
+  "welcome_pin_browser_chromium": { "message": "Chrome、Brave、Edge" },
+  "welcome_pin_browser_gecko": { "message": "Firefox" },
+  "welcome_pin_step1_chromium": {
+    "message": "点击地址栏右侧的扩展程序图标（拼图形状）。"
+  },
+  "welcome_pin_step2_chromium": { "message": "点击「Coati」旁边的固定图标。" },
+  "welcome_pin_step3_chromium": {
+    "message": "Coati 图标将保留在工具栏中：单击即可打开面板。"
+  },
+  "welcome_pin_step1_gecko": {
+    "message": "点击地址栏右侧的扩展程序按钮（拼图形状）。"
+  },
+  "welcome_pin_step2_gecko": {
+    "message": "点击「Coati」旁边的齿轮图标，然后选择「固定到工具栏」。"
+  },
+  "welcome_pin_step3_gecko": {
+    "message": "Coati 图标将保留在工具栏中：单击即可打开侧边栏。"
+  },
+  "welcome_steps_title": { "message": "三个步骤" },
+  "welcome_program_title": { "message": "安装本地程序" },
+  "welcome_program_text": {
+    "message": "Coati 通过安装在本机的小程序运行：由它与模型通信并保管密钥，而不是扩展程序。"
+  },
+  "welcome_program_link": { "message": "下载程序" },
+  "welcome_model_title": { "message": "选择模型" },
+  "welcome_model_text": {
+    "message": "在设置中：选择在本机运行的模型（Ollama），或使用您自己密钥的在线服务。"
+  },
+  "welcome_page_title": { "message": "在页面上打开 Coati" },
+  "welcome_page_text_chromium": {
+    "message": "点击 Coati 图标，然后点击面板顶部的「读取此页面」。浏览器将请求一次对所有网站的访问权限。"
+  },
+  "welcome_page_text_gecko": {
+    "message": "点击 Coati 图标，然后点击侧边栏顶部的「读取此页面」。Firefox 将请求一次对所有网站的访问权限。"
+  },
+  "welcome_gesture": {
+    "message": "Coati 只在您点击时才读取页面：不在后台运行，不在切换标签页时运行。"
+  },
+
+  "prompts_page_title": { "message": "我的提示词 — Coati" },
+  "prompts_heading": { "message": "我的提示词" },
+  "prompts_intro": {
+    "message": "每个网站对应一个分组，存放其提示词：包含 Coati 的建议和您自己的提示词，按您选择的顺序排列。"
+  },
+  "prompts_all_sites_line": {
+    "message": "Coati 可访问所有网站，仅在您点击时才读取页面。"
+  },
+  "prompts_all_sites_revoke": { "message": "恢复按网站设置" },
+  "prompts_banner_no_token": {
+    "message": "本地程序未连接 — 请打开扩展程序设置进行配对。"
+  },
+  "prompts_banner_disconnected": {
+    "message": "本地程序未连接 — 无法查看或编辑提示词。"
+  },
+  "prompts_all_sites_heading": { "message": "在所有网站上" },
+  "prompts_empty": { "message": "暂无提示词。" },
+  "prompts_restore_suggestions": { "message": "恢复 Coati 的建议" },
+  "prompts_active_switch": { "message": "启用" },
+  "prompts_action_title": { "message": "内置操作：读取视频字幕" },
+  "prompts_move_up_aria": {
+    "message": "上移「$LABEL$」",
+    "placeholders": { "label": { "content": "$1", "example": "总结此视频" } }
+  },
+  "prompts_move_down_aria": {
+    "message": "下移「$LABEL$」",
+    "placeholders": { "label": { "content": "$1", "example": "总结此视频" } }
+  },
+  "prompts_delete_confirm": { "message": "确认？" },
+  "prompts_delete_confirm_aria": {
+    "message": "确认删除「$LABEL$」",
+    "placeholders": { "label": { "content": "$1", "example": "总结此视频" } }
+  },
+  "prompts_delete_aria": {
+    "message": "删除「$LABEL$」",
+    "placeholders": { "label": { "content": "$1", "example": "总结此视频" } }
+  },
+  "prompts_editor_title_label": { "message": "标题（可选）" },
+  "prompts_editor_body_label": { "message": "文本" },
+
+  "sw_request_superseded": {
+    "message": "更新的请求已取代此请求；本次请求已丢弃。"
+  },
+  "sw_broker_silent_15s": {
+    "message": "本地程序已 15 秒无响应。请确认其在本机上运行，然后重试。"
+  },
+
+  "sugg_wikipedia_name": { "message": "维基百科" },
+
+  "sugg_youtube_key_points_label": { "message": "带时间戳的要点" },
+  "sugg_youtube_key_points_prompt": {
+    "message": "列出视频的要点，每条附上对应时间戳。"
+  },
+  "sugg_youtube_fact_check_label": { "message": "值得核查的内容" },
+  "sugg_youtube_fact_check_prompt": {
+    "message": "指出视频中值得核查的说法，并说明原因。"
+  },
+
+  "sugg_google_refine_label": { "message": "优化我的搜索" },
+  "sugg_google_refine_prompt": {
+    "message": "将此页面上显示的搜索词转换为高级搜索：使用引号表示精确短语，使用 site:、filetype:、用 - 排除词，以及在时间范围相关时添加 before:/after: 限定。"
+  },
+  "sugg_google_compare_label": { "message": "对比这些结果" },
+  "sugg_google_compare_prompt": {
+    "message": "对比此页面上的搜索结果：共同点、差异点，以及哪个最能回答我的搜索需求。"
+  },
+  "sugg_google_sources_label": { "message": "这些来源是谁？" },
+  "sugg_google_sources_prompt": {
+    "message": "对此页面上的每个结果，说明来源是谁，以及其在该主题上是否可靠。"
+  },
+
+  "sugg_wikipedia_essentials_label": { "message": "5 个要点" },
+  "sugg_wikipedia_essentials_prompt": {
+    "message": "按重要性顺序将本文总结为 5 个要点。"
+  },
+  "sugg_wikipedia_explain_label": { "message": "简单解释" },
+  "sugg_wikipedia_explain_prompt": {
+    "message": "简单解释本文的主题，如同向初次接触的人介绍一样。"
+  },
+  "sugg_wikipedia_dates_label": { "message": "重要日期" },
+  "sugg_wikipedia_dates_prompt": {
+    "message": "列出本文提到的重要日期，以及每个日期发生的事情。"
+  },
+
+  "sugg_reddit_thread_gist_label": { "message": "帖子的主要观点" },
+  "sugg_reddit_thread_gist_prompt": {
+    "message": "总结此帖子的内容：主流观点和讨论最多的话题。"
+  },
+  "sugg_reddit_opposing_label": { "message": "对立观点" },
+  "sugg_reddit_opposing_prompt": {
+    "message": "指出此帖子中的对立观点，以及各方的主要论据。"
+  },
+
+  "sugg_amazon_reviews_label": { "message": "评论说了什么" },
+  "sugg_amazon_reviews_prompt": {
+    "message": "总结此产品的评论：优点和最常提及的缺点。"
+  },
+  "sugg_amazon_weaknesses_label": { "message": "已报告的缺点" },
+  "sugg_amazon_weaknesses_prompt": {
+    "message": "指出此产品评论中报告的缺点，即使是少数意见。"
+  }
+}

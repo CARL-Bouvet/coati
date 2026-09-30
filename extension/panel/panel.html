@@ -17,14 +17,14 @@
         <span class="status-label">…</span>
       </span>
     </div>
-    <button id="openOptions" class="icon-button" type="button" title="Réglages">⚙︎</button>
+    <button id="openOptions" class="icon-button" type="button" data-i18n-title="panel_settings_title">⚙︎</button>
   </header>
 
   <div id="connectionBanner" class="connection-banner" hidden>
     <span id="connectionBannerText" class="connection-banner-text"></span>
     <span class="connection-banner-actions">
-      <button id="installDocLink" class="connection-banner-cta" type="button" hidden>Comment l'installer</button>
-      <button id="connectCoati" class="connection-banner-cta" type="button" hidden>Ouvrir les réglages</button>
+      <button id="installDocLink" class="connection-banner-cta" type="button" hidden data-i18n="panel_install_doc_link">Comment l'installer</button>
+      <button id="connectCoati" class="connection-banner-cta" type="button" hidden data-i18n="panel_open_settings">Ouvrir les réglages</button>
     </span>
   </div>
 
@@ -41,13 +41,13 @@
       <span id="siteCardLabel" class="site-card-label"></span>
       <button id="attachPage" class="switch" type="button" role="switch" aria-checked="false" disabled>
         <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-        <span class="switch-text">Lire la page</span>
+        <span class="switch-text" data-i18n="panel_read_the_page">Lire la page</span>
       </button>
     </div>
     <p id="readPageNote" class="encart-read-note" hidden></p>
     <div class="site-card-actions">
       <div id="siteCardSuggestions" class="site-card-suggestions"></div>
-      <button id="openMyPrompts" class="site-card-my-prompts" type="button">Mes prompts ↗</button>
+      <button id="openMyPrompts" class="site-card-my-prompts" type="button" data-i18n="panel_my_prompts">Mes prompts ↗</button>
     </div>
   </section>
 
@@ -64,13 +64,13 @@
   <footer class="composer">
     <div class="composer-bar">
       <span id="promptSavedNotice" class="prompt-saved-notice" aria-live="polite"></span>
-      <button id="savePrompt" class="icon-button" type="button" title="Enregistrer le texte saisi comme prompt" aria-label="Enregistrer le texte saisi comme prompt" disabled>💾</button>
+      <button id="savePrompt" class="icon-button" type="button" data-i18n-title="panel_save_prompt" data-i18n-aria-label="panel_save_prompt" disabled>💾</button>
     </div>
-    <textarea id="input" class="composer-input" placeholder="Écrivez à Coati…" rows="1"></textarea>
+    <textarea id="input" class="composer-input" data-i18n-placeholder="panel_input_placeholder" placeholder="Écrivez à Coati…" rows="1"></textarea>
     <div class="composer-actions">
-      <button id="eraseConversation" class="link-button link-button--danger" type="button">Effacer la conversation</button>
-      <button id="cancel" class="composer-button composer-button--ghost" type="button" hidden>Annuler</button>
-      <button id="send" class="composer-button" type="button">Envoyer</button>
+      <button id="eraseConversation" class="link-button link-button--danger" type="button" data-i18n="panel_erase_conversation">Effacer la conversation</button>
+      <button id="cancel" class="composer-button composer-button--ghost" type="button" hidden data-i18n="panel_cancel">Annuler</button>
+      <button id="send" class="composer-button" type="button" data-i18n="panel_send">Envoyer</button>
     </div>
   </footer>
 

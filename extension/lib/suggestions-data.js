@@ -14,8 +14,16 @@
 // prefs.json's order/removed (docs/PROTOCOL.md "Identifiants dans order et removed"). Never
 // renamed once shipped — renaming would silently detach it from a user's saved order.
 
+import { t } from "./i18n.js";
+
 /** @typedef {{ id: string, label: string, prompt?: string, action?: "summarize" }} Item */
 /** @typedef {{ id: string, name: string, hosts: string[], paths: RegExp[] | null, items: Item[] }} SiteEntry */
+
+// Labels and prompt texts below come from _locales/<lang>/messages.json
+// (sugg_* keys) so the model receives the question in the user's own
+// language too, not just the label. Item `id`s are a stable identifier
+// referenced from prefs.json's order/removed — NEVER translated, NEVER
+// renamed.
 
 /** @type {SiteEntry[]} */
 export const SITES = [
@@ -30,16 +38,16 @@ export const SITES = [
       // (panel.js's "Résumer" path). Not editable in "Mes prompts" — the page
       // (lot 4) must special-case `action` items and skip the edit/delete UI
       // that applies to prompt-backed items.
-      { id: "coati:youtube:summarize", label: "Résumer cette vidéo", action: "summarize" },
+      { id: "coati:youtube:summarize", label: t("panel_summarize_video"), action: "summarize" },
       {
         id: "coati:youtube:key-points",
-        label: "Points clés minutés",
-        prompt: "Liste les points clés de la vidéo, chacun avec son horodatage.",
+        label: t("sugg_youtube_key_points_label"),
+        prompt: t("sugg_youtube_key_points_prompt"),
       },
       {
         id: "coati:youtube:fact-check",
-        label: "À vérifier",
-        prompt: "Relève les affirmations de la vidéo qui mériteraient d'être vérifiées, et dis pourquoi.",
+        label: t("sugg_youtube_fact_check_label"),
+        prompt: t("sugg_youtube_fact_check_prompt"),
       },
     ],
   },
@@ -53,42 +61,41 @@ export const SITES = [
     items: [
       {
         id: "coati:google:refine",
-        label: "Affiner ma recherche",
-        prompt:
-          "Transforme ma recherche visible sur cette page en recherche avancée : guillemets pour une expression exacte, site:, filetype:, exclusions avec -, et une borne before:/after: si une période est pertinente.",
+        label: t("sugg_google_refine_label"),
+        prompt: t("sugg_google_refine_prompt"),
       },
       {
         id: "coati:google:compare",
-        label: "Comparer ces résultats",
-        prompt: "Compare les résultats de cette page : ce qu'ils ont en commun, ce qui les distingue, et lequel répond le mieux à ma recherche.",
+        label: t("sugg_google_compare_label"),
+        prompt: t("sugg_google_compare_prompt"),
       },
       {
         id: "coati:google:sources",
-        label: "Qui sont ces sources ?",
-        prompt: "Pour chaque résultat de cette page, dis qui est la source et si elle semble fiable sur ce sujet.",
+        label: t("sugg_google_sources_label"),
+        prompt: t("sugg_google_sources_prompt"),
       },
     ],
   },
   {
     id: "wikipedia",
-    name: "Wikipédia",
+    name: t("sugg_wikipedia_name"),
     hosts: ["wikipedia.org"],
     paths: [/^\/wiki\//],
     items: [
       {
         id: "coati:wikipedia:essentials",
-        label: "L'essentiel en 5 points",
-        prompt: "Résume cet article en 5 points essentiels, dans l'ordre d'importance.",
+        label: t("sugg_wikipedia_essentials_label"),
+        prompt: t("sugg_wikipedia_essentials_prompt"),
       },
       {
         id: "coati:wikipedia:explain",
-        label: "Expliquer simplement",
-        prompt: "Explique le sujet de cet article simplement, comme à quelqu'un qui le découvre.",
+        label: t("sugg_wikipedia_explain_label"),
+        prompt: t("sugg_wikipedia_explain_prompt"),
       },
       {
         id: "coati:wikipedia:dates",
-        label: "Dates clés",
-        prompt: "Liste les dates clés mentionnées dans cet article, avec ce qui s'est passé à chacune.",
+        label: t("sugg_wikipedia_dates_label"),
+        prompt: t("sugg_wikipedia_dates_prompt"),
       },
     ],
   },
@@ -100,13 +107,13 @@ export const SITES = [
     items: [
       {
         id: "coati:reddit:thread-gist",
-        label: "Ce que le fil en dit",
-        prompt: "Résume ce que dit ce fil : l'opinion qui domine et les points les plus commentés.",
+        label: t("sugg_reddit_thread_gist_label"),
+        prompt: t("sugg_reddit_thread_gist_prompt"),
       },
       {
         id: "coati:reddit:opposing",
-        label: "Avis qui s'opposent",
-        prompt: "Relève les avis qui s'opposent dans ce fil, et l'argument principal de chaque côté.",
+        label: t("sugg_reddit_opposing_label"),
+        prompt: t("sugg_reddit_opposing_prompt"),
       },
     ],
   },
@@ -118,13 +125,13 @@ export const SITES = [
     items: [
       {
         id: "coati:amazon:reviews",
-        label: "Ce que disent les avis",
-        prompt: "Résume les avis de cette fiche produit : les points forts et les défauts qui reviennent le plus souvent.",
+        label: t("sugg_amazon_reviews_label"),
+        prompt: t("sugg_amazon_reviews_prompt"),
       },
       {
         id: "coati:amazon:weaknesses",
-        label: "Points faibles signalés",
-        prompt: "Relève les points faibles signalés dans les avis de cette fiche produit, même minoritaires.",
+        label: t("sugg_amazon_weaknesses_label"),
+        prompt: t("sugg_amazon_weaknesses_prompt"),
       },
     ],
   },

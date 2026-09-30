@@ -12,6 +12,9 @@ import { RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./panel/retention.
 import { shortcutKeys, actionShortcut } from "./lib/shortcut.js";
 import { computeCodeFingerprint } from "./lib/build-fingerprint.js";
 import { MODEL_PROVIDER_PRESETS, isAllowedBaseUrl } from "./lib/model-provider-presets.js";
+import { t, applyI18n } from "./lib/i18n.js";
+
+applyI18n(document);
 
 // Same key and value semantics as extension/panel/panel.js (ATTACH_PAGE_KEY,
 // attachPagePreference): a boolean once the user chose, null/absent = never
@@ -62,9 +65,9 @@ const els = {
 // gates behaviour. A provider not listed here (an externally loaded module,
 // see docs/MODULES.md) simply gets no description line.
 const PROVIDER_DESCRIPTIONS = {
-  "claude-api": "Votre propre clé Anthropic, facturée sur votre compte.",
-  ollama: "Un modèle qui tourne sur votre machine : rien n'en sort.",
-  "openai-compat": "Un serveur compatible OpenAI : LM Studio, Ollama, OpenAI, Mistral, OpenRouter, DeepSeek, ou une autre adresse.",
+  "claude-api": t("options_provider_desc_claude_api"),
+  ollama: t("options_provider_desc_ollama"),
+  "openai-compat": t("options_provider_desc_openai_compat"),
 };
 
 // "settings.test" is fire-and-forget per provider (deliverable D2) — these
@@ -87,8 +90,8 @@ async function init() {
   // wrong under Firefox — same IS_GECKO detection panel.js already uses for
   // its own browser-specific text (see applyConnectionBanner()).
   els.siteTogglesHelp.textContent = IS_GECKO
-    ? "Sur ces sites, Firefox laisse Coati voir quel site est ouvert : le panneau propose tout de suite les bons boutons."
-    : "Sur ces sites, Chrome laisse Coati voir quel site est ouvert : le panneau propose tout de suite les bons boutons.";
+    ? t("options_sites_help_gecko")
+    : t("options_sites_help_chrome");
 
   const data = await api.storage.local.get([RETENTION_DAYS_KEY, ATTACH_PAGE_KEY]);
   const retentionDays = parseStoredRetentionDays(data[RETENTION_DAYS_KEY]);
@@ -159,7 +162,7 @@ const PASTED_KEY_RE = /^[0-9a-f]{64}$/i;
 // always runs right after — see service-worker.js.
 async function applyPastedKey(value) {
   if (value && !PASTED_KEY_RE.test(value)) {
-    els.statusLabel.textContent = "Secret invalide (64 caractères hexadécimaux attendus).";
+    els.statusLabel.textContent = t("options_invalid_secret");
     return;
   }
   await api.runtime.sendMessage({ type: "coati:set-pasted-key", key: value.toLowerCase() }).catch(() => null);
@@ -239,7 +242,7 @@ function testProvider(providerId) {
   const button = testButtonsByProvider.get(providerId);
   if (button) {
     button.disabled = true;
-    button.textContent = "Test en cours…";
+    button.textContent = t("options_test_in_progress");
   }
   const result = testResultsByProvider.get(providerId);
   if (result) {
@@ -257,13 +260,14 @@ function applyTestResult(message) {
   const button = testButtonsByProvider.get(message.provider);
   if (button) {
     button.disabled = false;
-    button.textContent = "Tester la connexion";
+    button.textContent = t("options_test_connection");
   }
   const result = testResultsByProvider.get(message.provider);
   if (result) {
-    // `message` is the broker's French sentence (docs/PROTOCOL.md,
-    // settings.test-result); a plain fallback if it is ever missing.
-    result.textContent = message.message || (message.ok ? "Connexion réussie." : "La connexion a échoué.");
+    // `message` is the broker's own sentence (docs/PROTOCOL.md,
+    // settings.test-result, still French/English from the broker — see G6
+    // follow-up on broker `lang`), a plain fallback if it is ever missing.
+    result.textContent = message.message || (message.ok ? t("options_test_ok") : t("options_test_failed"));
     result.className = `test-result ${message.ok ? "test-result--ok" : "test-result--error"}`;
   }
 }
@@ -314,7 +318,7 @@ function renderModelSection(settings) {
     if (provider.configured) {
       const configured = document.createElement("span");
       configured.className = "provider-configured";
-      configured.textContent = provider.id === "claude-api" ? "clé enregistrée" : "configuré";
+      configured.textContent = provider.id === "claude-api" ? t("options_key_saved") : t("options_configured");
       label.appendChild(configured);
     }
     item.appendChild(label);
@@ -380,11 +384,11 @@ function buildApiKeyField(optional) {
   const input = document.createElement("input");
   input.type = "password";
   input.autocomplete = "off";
-  input.placeholder = optional ? "Clé API (facultative selon le serveur)" : "Clé API Anthropic (sk-ant-…)";
+  input.placeholder = optional ? t("options_apikey_placeholder_optional") : t("options_apikey_placeholder_anthropic");
 
   const saveBtn = document.createElement("button");
   saveBtn.type = "button";
-  saveBtn.textContent = "Enregistrer";
+  saveBtn.textContent = t("options_save");
   saveBtn.addEventListener("click", () => {
     const value = input.value.trim();
     if (!value) return;
@@ -404,22 +408,22 @@ function buildApiKeyField(optional) {
   const clearBtn = document.createElement("button");
   clearBtn.type = "button";
   clearBtn.className = "apikey-clear";
-  clearBtn.textContent = "Effacer la clé";
+  clearBtn.textContent = t("options_apikey_clear");
   clearBtn.addEventListener("click", () => {
     if (!clearConfirmPending) {
       clearConfirmPending = true;
-      clearBtn.textContent = "Confirmer l'effacement";
+      clearBtn.textContent = t("options_apikey_clear_confirm");
       clearBtn.classList.add("apikey-clear--confirm");
       clearConfirmTimer = setTimeout(() => {
         clearConfirmPending = false;
-        clearBtn.textContent = "Effacer la clé";
+        clearBtn.textContent = t("options_apikey_clear");
         clearBtn.classList.remove("apikey-clear--confirm");
       }, CLEAR_CONFIRM_MS);
       return;
     }
     clearConfirmPending = false;
     clearTimeout(clearConfirmTimer);
-    clearBtn.textContent = "Effacer la clé";
+    clearBtn.textContent = t("options_apikey_clear");
     clearBtn.classList.remove("apikey-clear--confirm");
     setApiKey("");
     input.value = "";
@@ -442,7 +446,7 @@ function buildBaseUrlField(baseUrl) {
   const presetSelect = document.createElement("select");
   const customOption = document.createElement("option");
   customOption.value = "";
-  customOption.textContent = "Autre adresse";
+  customOption.textContent = t("options_other_address");
   presetSelect.appendChild(customOption);
   for (const preset of MODEL_PROVIDER_PRESETS) {
     const option = document.createElement("option");
@@ -467,7 +471,7 @@ function buildBaseUrlField(baseUrl) {
   error.setAttribute("role", "status");
 
   presetSelect.addEventListener("change", () => {
-    if (!presetSelect.value) return; // "Autre adresse" — leave the field as is
+    if (!presetSelect.value) return; // custom address — leave the field as is
     input.value = presetSelect.value;
     error.textContent = "";
     setBaseUrl(input.value);
@@ -475,7 +479,7 @@ function buildBaseUrlField(baseUrl) {
 
   const saveBtn = document.createElement("button");
   saveBtn.type = "button";
-  saveBtn.textContent = "Enregistrer l'adresse";
+  saveBtn.textContent = t("options_save_address");
   saveBtn.addEventListener("click", () => {
     const value = input.value.trim();
     if (!value) return;
@@ -484,7 +488,7 @@ function buildBaseUrlField(baseUrl) {
     // message instead of a silent round trip to a broker that will reject it
     // anyway.
     if (!isAllowedBaseUrl(value)) {
-      error.textContent = "Adresse refusée : HTTPS, ou HTTP vers localhost/127.0.0.1 seulement.";
+      error.textContent = t("options_address_refused");
       return;
     }
     error.textContent = "";
@@ -507,7 +511,7 @@ function buildTestRow(providerId) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "test-button";
-  button.textContent = "Tester la connexion";
+  button.textContent = t("options_test_connection");
   button.addEventListener("click", () => testProvider(providerId));
   testButtonsByProvider.set(providerId, button);
 
@@ -532,7 +536,7 @@ function renderModelField(settings) {
     clearChildren(els.modelSelect);
     const placeholder = document.createElement("option");
     placeholder.value = "";
-    placeholder.textContent = "Choisir un modèle…";
+    placeholder.textContent = t("options_choose_model");
     els.modelSelect.appendChild(placeholder);
     for (const name of settings.models) {
       const option = document.createElement("option");
@@ -548,10 +552,10 @@ function renderModelField(settings) {
     els.modelInput.value = settings.model ?? "";
     els.modelInput.placeholder =
       settings.provider === "claude-api"
-        ? "ex : claude-sonnet-4-5 (facultatif)"
+        ? t("options_model_placeholder_claude")
         : settings.provider === "openai-compat"
-          ? "nom exact attendu par le serveur"
-          : "ex : llama3.2 (facultatif)";
+          ? t("options_model_placeholder_openai_compat")
+          : t("options_model_name_placeholder");
   }
 }
 
@@ -592,7 +596,7 @@ async function renderShortcut() {
   if (keys.length === 0) {
     const none = document.createElement("span");
     none.className = "shortcut-none";
-    none.textContent = "non défini";
+    none.textContent = t("options_shortcut_not_set");
     els.shortcutKeys.appendChild(none);
     return;
   }
@@ -614,7 +618,7 @@ async function renderShortcut() {
 async function showAbout() {
   els.aboutVersion.textContent = api.runtime.getManifest().version;
   const fingerprint = await computeCodeFingerprint(api).catch(() => null);
-  els.aboutFingerprint.textContent = fingerprint ?? "indisponible";
+  els.aboutFingerprint.textContent = fingerprint ?? t("panel_unavailable");
 }
 
 // --- Per-site activation (deliverable 4) -----------------------------------

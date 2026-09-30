@@ -348,12 +348,14 @@ describe("settings.test", () => {
     ws.send(JSON.stringify({ type: "settings.test", id: "t2", provider: "claude-api" }));
     const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
     expect(msg.ok).toBe(false);
-    expect(msg.message).toMatch(/clé/i);
+    // Goal G6: default lang (no `hello.lang` sent by this test's helper) is
+    // now English — see messages.ts's DEFAULT_LANG.
+    expect(msg.message).toMatch(/api key/i);
     expect(fetchCalled).toBe(false);
     ws.close();
   });
 
-  test("claude-api: a refused key (401) fails with the French auth remedy, key never in the message", async () => {
+  test("claude-api: a refused key (401) fails with the auth remedy, key never in the message", async () => {
     __setClaudeApiFetch((async () => new Response("nope", { status: 401 })) as unknown as typeof fetch);
 
     const server = boot();
@@ -363,7 +365,7 @@ describe("settings.test", () => {
     ws.send(JSON.stringify({ type: "settings.test", id: "t4", provider: "claude-api" }));
     const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
     expect(msg.ok).toBe(false);
-    expect(msg.message).toMatch(/clé/i);
+    expect(msg.message).toMatch(/api key/i);
     expect(msg.message).not.toContain("sk-ant-bad-key-value");
     ws.close();
   });
@@ -374,7 +376,7 @@ describe("settings.test", () => {
     ws.send(JSON.stringify({ type: "settings.test", id: "t5", provider: "ollama" }));
     const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
     expect(msg.ok).toBe(false);
-    expect(msg.message).toMatch(/mod[eè]le/i);
+    expect(msg.message).toMatch(/model/i);
     ws.close();
   });
 
@@ -414,15 +416,16 @@ describe("settings.test", () => {
   });
 
   // Amendement 2026-09-29: a settings.test naming a provider unknown to this
-  // broker (not built in, no module loaded it) fails with a generic French
-  // message, never a crash — mirrors testProviderConnection's own contract.
-  test("an unknown provider id fails with 'Fournisseur inconnu.'", async () => {
+  // broker (not built in, no module loaded it) fails with a generic message,
+  // never a crash — mirrors testProviderConnection's own contract. Goal G6:
+  // English by default (messages.ts's "testConnection.unknownProvider").
+  test("an unknown provider id fails with 'Unknown provider.'", async () => {
     const server = boot();
     const ws = await connectAndAuth(server);
     ws.send(JSON.stringify({ type: "settings.test", id: "t9", provider: "not-a-real-provider" }));
     const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
     expect(msg.ok).toBe(false);
-    expect(msg.message).toMatch(/inconnu/i);
+    expect(msg.message).toMatch(/unknown/i);
     ws.close();
   });
 

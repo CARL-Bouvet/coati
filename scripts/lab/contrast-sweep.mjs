@@ -254,6 +254,12 @@ async function measureAll(page) {
   return results;
 }
 
+// G6 (i18n): optional language pass, e.g. `COATI_LAB_LANG=en bun
+// scripts/lab/contrast-sweep.mjs` — appends `&lang=<x>` to every URL, same
+// param browser-stub.js already reads (default "fr" there, unchanged when
+// this is unset, so existing behaviour/results are untouched).
+const LANG = process.env.COATI_LAB_LANG || "";
+
 async function main() {
   const states = collectStates();
   const browser = await chromium.launch();
@@ -270,7 +276,7 @@ async function main() {
           : pageKind === "welcome"
             ? `welcome/welcome.html?state=${state}`
             : `options.html?state=${state}`;
-    const url = `file://${join(LAB_OUT, theme, relPath)}`;
+    const url = `file://${join(LAB_OUT, theme, relPath)}${LANG ? `&lang=${LANG}` : ""}`;
     for (const width of WIDTHS[pageKind]) {
       const page = await browser.newPage({ viewport: { width, height: VIEWPORT_HEIGHT } });
       const consoleErrors = [];

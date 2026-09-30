@@ -22,6 +22,10 @@ export interface ConnectV2Options {
   authProofOverride?: string;
   /** Skip sending `auth` entirely after the challenge (to test timeout/etc). */
   skipAuth?: boolean;
+  /** Raw BCP 47 tag sent as `hello.lang` (Goal G6 — docs/PROTOCOL.md "Langue
+   * de la connexion"). Omitted means no `lang` field at all, same as a real
+   * client that doesn't (yet) send one. */
+  lang?: string;
 }
 
 export interface ConnectV2Result {
@@ -54,6 +58,7 @@ export function connectAndAuthV2(
     ws.addEventListener("open", () => {
       const hello: Record<string, unknown> = { type: "hello", v: 2, nonce: cNonce };
       if (opts.keyLabel) hello.key = opts.keyLabel;
+      if (opts.lang !== undefined) hello.lang = opts.lang;
       ws.send(JSON.stringify(hello));
     });
     ws.addEventListener("message", (event) => {

@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Coati",
+  "name": "__MSG_extName__",
   "version": "0.1.0",
-  "description": "Assistant IA local : résumer une page ou une vidéo, discuter avec un modèle, agir sur une sélection, via un broker qui tourne sur votre machine.",
+  "default_locale": "en",
+  "description": "__MSG_extDescription__",
   "browser_specific_settings": {
     "gecko": {
       "id": "coati@getcoati.com",
@@ -68,7 +69,7 @@
       "suggested_key": {
         "default": "Alt+Shift+C"
       },
-      "description": "Ouvrir Coati"
+      "description": "__MSG_extCommandOpen__"
     }
   }
 }

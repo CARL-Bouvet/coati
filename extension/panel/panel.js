@@ -94,6 +94,9 @@ import {
   READ_BUTTON_USED_KEY,
 } from "./read-button.js";
 import { firstRunChecks, markFor, FIRST_RUN_TEXT, FIRST_RUN_DONE_KEY, RELEASES_URL } from "./first-run.js";
+import { t, applyI18n } from "../lib/i18n.js";
+
+applyI18n(document);
 
 // Design-variant hook for captures only (notes/PLAN_goal_panneau_v2.md,
 // "Contrat commun") — inert unless the panel's own address carries
@@ -124,9 +127,9 @@ const REQUEST_DEADLINE_MS = 130_000;
 const WORKER_HEARTBEAT_MS = 5_000;
 
 const MAIN_BUTTON_LABELS = {
-  video: "Résumer cette vidéo",
-  article: "Résumer cet article",
-  page: "Résumer cette page",
+  video: t("panel_summarize_video"),
+  article: t("panel_summarize_article"),
+  page: t("panel_summarize_page"),
 };
 
 // Amendement 2026-09-25 (types de page), docs/PROTOCOL.md "Types de page,
@@ -136,10 +139,10 @@ const MAIN_BUTTON_LABELS = {
 // `other` keeps today's wording so an unrecognized/absent pageKind (an older
 // client, or the amendment's own "doute → other") reads exactly as before.
 const PAGE_KIND_BUTTON_LABELS = {
-  list: "Résumer ces résultats",
-  listing: "Résumer cette fiche",
-  article: "Résumer cet article",
-  other: "Résumer cette page",
+  list: t("panel_summarize_results"),
+  listing: t("panel_summarize_listing"),
+  article: t("panel_summarize_article"),
+  other: t("panel_summarize_page"),
 };
 
 const els = {
@@ -407,7 +410,9 @@ async function showBuildInfo() {
   els.buildInfo.textContent = "";
   const version = api.runtime.getManifest().version;
   const fingerprint = await computeCodeFingerprint(api).catch(() => null);
-  els.buildInfo.textContent = fingerprint ? `v${version} · ${fingerprint}` : `v${version} · empreinte indisponible`;
+  els.buildInfo.textContent = fingerprint
+    ? t("panel_build_fingerprint", [version, fingerprint])
+    : t("panel_build_fingerprint_unavailable", [version]);
 }
 
 function onRuntimeMessage(message) {
@@ -548,15 +553,15 @@ function handleBrokerMessage(message) {
 // so the panel uses the one from the last provider.status-result; unknown
 // (no answer yet) gets a text naming both remedies.
 const AUTH_REQUIRED_TEXT = {
-  session: "⚠ La session Claude a expiré.",
-  key: "⚠ Clé refusée par le fournisseur : vérifiez-la dans les réglages.",
-  unknown: "⚠ Le fournisseur a refusé l'accès (session expirée ou clé refusée) : vérifiez les réglages.",
-  copy: "Copier",
-  copied: "Copié !",
-  copyFailed: "Échec de la copie",
-  openSettings: "Ouvrir les réglages",
-  retrySession: "J'ai relancé, réessayer",
-  retryKey: "J'ai corrigé, réessayer",
+  session: t("panel_auth_session_expired"),
+  key: t("panel_auth_key_refused"),
+  unknown: t("panel_auth_unknown"),
+  copy: t("panel_copy"),
+  copied: t("panel_copied"),
+  copyFailed: t("panel_copy_failed"),
+  openSettings: t("panel_open_settings"),
+  retrySession: t("panel_retry_session"),
+  retryKey: t("panel_retry_key"),
 };
 const SESSION_AUTH_PROVIDERS = new Set(["claude-cli"]);
 // Provider id from the last provider.status-result, null until one arrives.
@@ -579,14 +584,14 @@ function describeBrokerError(message) {
   // then closes the connection with code 1009; the normal reconnect flow
   // (backoff/alarm) takes over from there, same as any other drop.
   if (message.id === "oversized") {
-    return "⚠ Le message envoyé dépassait la taille maximale acceptée par le broker (256 Ko) ; la connexion a été fermée. Réessayez avec un contenu plus court.";
+    return t("panel_error_oversized");
   }
   switch (message.code) {
     case "model-unavailable":
       // Covers both the broker's own 120s model-call timeout and a model
       // that can't be reached at all (broker/src/model.ts, MODEL_TIMEOUT_MS)
       // — the broker itself is fine, the model is the problem.
-      return `⚠ Le modèle ne répond pas (${message.message || "indisponible"}). Le broker fonctionne normalement ; c'est le modèle qui pose problème. Réessayez dans un instant.`;
+      return t("panel_error_model_unavailable", [message.message || t("panel_unavailable")]);
     case "auth-required":
       // Provider-aware (see AUTH_REQUIRED_TEXT): the actionable part (copy
       // `claude /login`, or open the settings; then retry) is rendered
@@ -594,9 +599,9 @@ function describeBrokerError(message) {
       // see buildAuthRecoveryBlock() below.
       return AUTH_REQUIRED_TEXT[authKindFor(currentProvider)];
     case "cancelled":
-      return "Requête annulée.";
+      return t("panel_request_cancelled");
     case "context-too-large":
-      return "⚠ Le contenu envoyé est trop volumineux pour le modèle.";
+      return t("panel_error_context_too_large_warn");
     default:
       // Covers "bad-request" and any other/unknown code: a French label
       // keyed on `code` (extension/lib/labels.js, shared with options.js),
@@ -632,7 +637,7 @@ function applyStatus(state) {
 }
 
 function renderStatusLabel() {
-  const labels = { ...CONNECTION_STATUS_LABELS, "no-token": "Pas de jeton — voir réglages" };
+  const labels = { ...CONNECTION_STATUS_LABELS, "no-token": t("panel_status_no_token") };
   let text = labels[currentConnState] ?? currentConnState;
   if (currentConnState === "connected" && providerStatusSuffix) text += ` · ${providerStatusSuffix}`;
   els.statusLabel.textContent = text;
@@ -655,29 +660,25 @@ function applyConnectionBanner(state) {
   els.connectCoati.hidden = true;
 
   if (state === "no-host") {
-    els.connectionBannerText.textContent =
-      "Coati ne trouve pas son programme local d'appairage. Réinstallez-le, ou utilisez l'appairage manuel si votre navigateur est un Flatpak ou un Snap.";
+    els.connectionBannerText.textContent = t("panel_banner_no_host");
     els.installDocLink.hidden = false;
     els.connectCoati.hidden = false;
     els.connectionBanner.hidden = false;
     return;
   }
   if (state === "broker-untrusted") {
-    els.connectionBannerText.textContent =
-      "Le programme qui écoute sur le port 8787 n'a pas prouvé qu'il est le broker Coati. Rien ne lui a été envoyé.";
+    els.connectionBannerText.textContent = t("panel_banner_broker_untrusted");
     els.connectionBanner.hidden = false;
     return;
   }
   if (state === "no-token") {
-    els.connectionBannerText.textContent =
-      `L'identifiant de cette extension (${api.runtime.id}) n'est pas connu du broker. Ajoutez-le à allowedExtensionIds puis redémarrez le broker.`;
+    els.connectionBannerText.textContent = t("panel_banner_no_token", [api.runtime.id]);
     els.connectCoati.hidden = false;
     els.connectionBanner.hidden = false;
     return;
   }
   if (state === "disconnected") {
-    els.connectionBannerText.textContent =
-      "Le broker Coati ne répond pas. Lancez-le sur votre machine (voir le README), puis réessayez.";
+    els.connectionBannerText.textContent = t("panel_banner_disconnected");
     els.connectionBanner.hidden = false;
     return;
   }
@@ -729,23 +730,23 @@ function sendProviderStatus() {
 // with options.js (bug report gap 4: names must match everywhere).
 
 const PROVIDER_STATUS_REASON_TEXT = {
-  "ready": "prêt",
-  "logged-in": "session ouverte",
-  "no-key": "aucune clé API enregistrée",
-  "key-unverified": "clé API enregistrée, non vérifiée",
-  "cli-missing": "exécutable introuvable",
-  "not-logged-in": "session non authentifiée",
-  "probe-failed": "état indéterminé",
-  "ollama-unreachable": "Ollama ne répond pas",
-  "model-missing": "modèle configuré absent d'Ollama",
-  "no-model-installed": "aucun modèle installé dans Ollama",
+  "ready": t("panel_provider_ready"),
+  "logged-in": t("panel_provider_logged_in"),
+  "no-key": t("panel_provider_no_key"),
+  "key-unverified": t("panel_provider_key_unverified"),
+  "cli-missing": t("panel_provider_cli_missing"),
+  "not-logged-in": t("panel_provider_not_logged_in"),
+  "probe-failed": t("panel_provider_probe_failed"),
+  "ollama-unreachable": t("panel_provider_ollama_unreachable"),
+  "model-missing": t("panel_provider_model_missing"),
+  "no-model-installed": t("panel_provider_no_model_installed"),
 };
 
 function formatProviderStatus(message) {
-  const label = providerLabel(message.provider, "Modèle");
+  const label = providerLabel(message.provider, t("panel_provider_default_label"));
   const reasonText =
-    PROVIDER_STATUS_REASON_TEXT[message.reason] ?? (message.state === "ok" ? "prêt" : "état inconnu");
-  return `${label} : ${reasonText}`;
+    PROVIDER_STATUS_REASON_TEXT[message.reason] ?? (message.state === "ok" ? t("panel_provider_ready") : t("panel_provider_unknown_state"));
+  return t("panel_provider_status_line", [label, reasonText]);
 }
 
 // --- Chat ---------------------------------------------------------------
@@ -772,8 +773,8 @@ async function sendChat() {
     context = await extractIfAttaching();
   } catch (err) {
     reportExtractionError(err, {
-      accessDenied: `⚠ Coati n'a pas accès à cette page, la question n'a pas été envoyée. ${ACCESS_DENIED_HINT}`,
-      other: (e) => `⚠ Lecture de la page impossible, la question n'a pas été envoyée : ${e.message}`,
+      accessDenied: t("panel_access_denied_question", [ACCESS_DENIED_HINT]),
+      other: (e) => t("panel_read_error_question", [e.message]),
     });
     return;
   }
@@ -791,7 +792,7 @@ async function sendChat() {
  * suggestion click, always attached — see its own comment). */
 async function sendChatMessage(text, context) {
   const id = newId();
-  const note = context ? "\n\n*avec le contenu de la page*" : "";
+  const note = context ? PAGE_CONTENT_MARKER_SUFFIX : "";
   // `relaunch` (plan-mes-prompts-28-09.md, "Relancer"): resending this exact
   // message means resending `text` through this same function, reading the
   // page per the switch's state AT THE TIME OF THE RELAUNCH — never a cached
@@ -839,9 +840,7 @@ function reportMissingTranscript() {
   addMessage({
     id: newId(),
     role: "system",
-    text:
-      "La transcription n'a pas pu être lue. Sous la vidéo : « … » → « Afficher la transcription », " +
-      "puis relancez. Si le bouton est absent, la vidéo n'a pas de sous-titres.",
+    text: t("panel_transcript_missing"),
   });
 }
 
@@ -856,8 +855,8 @@ async function runSuggestion(promptText) {
   } catch (err) {
     setStreamingUi(false);
     reportExtractionError(err, {
-      accessDenied: `⚠ Coati n'a pas accès à cette page. ${ACCESS_DENIED_HINT}`,
-      other: (e) => `⚠ Impossible de lire la page : ${e.message}`,
+      accessDenied: t("panel_access_denied_generic", [ACCESS_DENIED_HINT]),
+      other: (e) => t("panel_read_error_generic", [e.message]),
     });
     return;
   }
@@ -888,7 +887,7 @@ function cancelActive() {
   const msg = conversation.find((m) => m.id === id);
   if (msg) {
     msg.streaming = false;
-    if (!msg.text) msg.text = "Requête annulée.";
+    if (!msg.text) msg.text = t("panel_request_cancelled");
     renderMessage(msg);
   }
   setStreamingUi(false);
@@ -907,7 +906,7 @@ function cancelActive() {
 function onEraseClick() {
   if (!eraseConfirmPending) {
     eraseConfirmPending = true;
-    els.eraseConversation.textContent = "Confirmer l'effacement ?";
+    els.eraseConversation.textContent = t("panel_confirm_erase");
     els.eraseConversation.classList.add("link-button--confirm");
     eraseConfirmTimer = setTimeout(resetEraseButton, 4000);
     return;
@@ -920,7 +919,7 @@ function resetEraseButton() {
   eraseConfirmPending = false;
   clearTimeout(eraseConfirmTimer);
   eraseConfirmTimer = null;
-  els.eraseConversation.textContent = "Effacer la conversation";
+  els.eraseConversation.textContent = t("panel_erase_conversation");
   els.eraseConversation.classList.remove("link-button--confirm");
 }
 
@@ -1090,13 +1089,13 @@ async function checkWorkerAlive(id) {
     status.workerInstanceId &&
     status.workerInstanceId !== requestWorkerInstanceId
   ) {
-    failActiveRequest(id, "La requête a été interrompue (le service en arrière-plan a redémarré), relancez-la.");
+    failActiveRequest(id, t("panel_worker_restarted"));
   }
 }
 
 function onRequestDeadline(id) {
   if (activeRequestId !== id) return;
-  failActiveRequest(id, "Aucune réponse après 130 s. Le broker ne répond pas ; vérifiez qu'il tourne, puis réessayez.");
+  failActiveRequest(id, t("panel_no_response_130s"));
 }
 
 function failActiveRequest(id, text) {
@@ -1119,7 +1118,7 @@ function failActiveRequest(id, text) {
  * exchange, a video, or a page read before the DOM classifier ran. */
 function mainButtonLabel() {
   if (pageKind && PAGE_KIND_BUTTON_LABELS[pageKind]) return PAGE_KIND_BUTTON_LABELS[pageKind];
-  return MAIN_BUTTON_LABELS[pageType] ?? "Résumer";
+  return MAIN_BUTTON_LABELS[pageType] ?? t("panel_summarize_default");
 }
 
 function updateAttachToggle() {
@@ -1208,7 +1207,7 @@ function renderSiteCard(state, result) {
   } else {
     // Unreadable URL (site not activated): the head line is reserved anyway
     // (no layout jump, T27) — a neutral label beats an empty band.
-    els.siteCardLabel.textContent = "Cette page";
+    els.siteCardLabel.textContent = t("common_this_page");
   }
 
   renderEncart(result.siteKey, result.items ?? []);
@@ -1650,7 +1649,7 @@ async function summarize() {
   setStreamingUi(true);
 
   if (currentTabId == null) {
-    addMessage({ id: newId(), role: "system", text: "⚠ Aucun onglet actif à lire." });
+    addMessage({ id: newId(), role: "system", text: t("panel_no_active_tab") });
     setStreamingUi(false);
     return;
   }
@@ -1660,8 +1659,8 @@ async function summarize() {
     context = await extractReadableFromTab(currentTabId);
   } catch (err) {
     reportExtractionError(err, {
-      accessDenied: `⚠ Coati n'a pas accès à cette page. ${ACCESS_DENIED_HINT}`,
-      other: (e) => `⚠ Impossible de lire la page : ${e.message}`,
+      accessDenied: t("panel_access_denied_generic", [ACCESS_DENIED_HINT]),
+      other: (e) => t("panel_read_error_generic", [e.message]),
     });
     setStreamingUi(false);
     return;
@@ -1678,7 +1677,7 @@ async function summarize() {
     addMessage({
       id: newId(),
       role: "system",
-      text: "⚠ Rien de lisible n'a été trouvé sur cette page. Contenu chargé après coup, ou réservé aux abonnés ?",
+      text: t("panel_nothing_readable"),
     });
     setStreamingUi(false);
     return;
@@ -1691,7 +1690,7 @@ async function summarize() {
   // Never the URL here: it is persisted to chrome.storage.local unencrypted
   // (CLAUDE.md rule #1) and a URL can carry a session token. Title only, with
   // a neutral fallback rather than reaching for context.url.
-  const description = (context.title || "").trim() || "cette page";
+  const description = (context.title || "").trim() || t("common_this_page_lowercase");
   addMessage({ id: `${id}-u`, role: "user", text: `${label} : ${description}`, relaunch: { type: "summarize" } });
   // videoId only — never context.url (rule #1: chrome.storage.local is
   // unencrypted, and a URL can carry a session token; a bare video id can't).
@@ -1710,7 +1709,7 @@ async function summarize() {
 
 async function activeTabId() {
   const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-  if (!tab || !tab.id) throw new Error("aucun onglet actif");
+  if (!tab || !tab.id) throw new Error(t("common_no_active_tab_internal"));
   return tab.id;
 }
 
@@ -1759,7 +1758,7 @@ async function extractFromTab(tabId) {
   );
 
   const result = results?.[0]?.result;
-  if (!result || typeof result !== "object") throw new Error("extraction vide");
+  if (!result || typeof result !== "object") throw new Error(t("common_extraction_empty"));
   return result;
 }
 
@@ -1853,7 +1852,7 @@ async function runAct(pending) {
   const { action, label, params, selectionText } = pending;
   if (!selectionText) return;
   if (activeRequestId) {
-    addMessage({ id: newId(), role: "system", text: "⚠ Une requête est déjà en cours ; réessayez ensuite." });
+    addMessage({ id: newId(), role: "system", text: t("panel_request_in_progress") });
     return;
   }
 
@@ -1924,10 +1923,10 @@ function saveCurrentAsPrompt() {
 function showPromptSavedNotice(siteKey) {
   clearTimeout(promptSavedNoticeTimer);
   if (siteKey === "@unsorted") {
-    els.promptSavedNotice.textContent = "Enregistré, sans site : Coati ne voit pas l'adresse de cette page.";
+    els.promptSavedNotice.textContent = t("panel_prompt_saved_no_site");
   } else {
-    const label = siteKey === "*" ? "Tous les sites" : suggestionsFor({ url: currentPageUrl }).site?.name ?? hostFromUrl(currentPageUrl) ?? siteKey;
-    els.promptSavedNotice.textContent = `Enregistré pour ${label}`;
+    const label = siteKey === "*" ? t("common_all_sites") : suggestionsFor({ url: currentPageUrl }).site?.name ?? hostFromUrl(currentPageUrl) ?? siteKey;
+    els.promptSavedNotice.textContent = t("panel_prompt_saved_for", [label]);
   }
   promptSavedNoticeTimer = setTimeout(() => {
     els.promptSavedNotice.textContent = "";
@@ -1944,8 +1943,12 @@ function showPromptSavedNotice(siteKey) {
 // from an older session) has no `relaunch` — inferRelaunch() below treats it
 // as chat text, stripping the "attached page" marker sendChatMessage() adds.
 
+const PAGE_CONTENT_MARKER_SUFFIX = `\n\n${t("panel_with_page_content_marker")}`;
+
 function inferRelaunch(text) {
-  const stripped = text.replace(/\n\n\*avec le contenu de la page\*$/, "");
+  const stripped = text.endsWith(PAGE_CONTENT_MARKER_SUFFIX)
+    ? text.slice(0, -PAGE_CONTENT_MARKER_SUFFIX.length)
+    : text;
   return { type: "chat", text: stripped };
 }
 
@@ -1963,8 +1966,8 @@ async function relaunchMessage(msg) {
     context = await extractIfAttaching();
   } catch (err) {
     reportExtractionError(err, {
-      accessDenied: `⚠ Coati n'a pas accès à cette page, la relance n'a pas été envoyée. ${ACCESS_DENIED_HINT}`,
-      other: (e) => `⚠ Lecture de la page impossible, la relance n'a pas été envoyée : ${e.message}`,
+      accessDenied: t("panel_access_denied_relaunch", [ACCESS_DENIED_HINT]),
+      other: (e) => t("panel_read_error_relaunch", [e.message]),
     });
     return;
   }
@@ -1978,8 +1981,8 @@ function buildRelaunchButton(msg) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "message-relaunch";
-  button.textContent = "Relancer";
-  button.title = "Renvoyer cette question";
+  button.textContent = t("panel_relaunch");
+  button.title = t("panel_relaunch_title");
   button.disabled = !!activeRequestId;
   button.addEventListener("click", () => relaunchMessage(msg));
   return button;
@@ -2073,7 +2076,7 @@ function linkifyTimestamps(container, videoId) {
       button.type = "button";
       button.className = "timestamp-link";
       button.textContent = token.raw;
-      button.title = "Aller à cet instant de la vidéo";
+      button.title = t("panel_seek_timestamp_title");
       button.addEventListener("click", () => seekActiveVideoTab(videoId, token.seconds));
       fragment.appendChild(button);
     }

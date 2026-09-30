@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Réglages — Coati</title>
+  <title data-i18n="options_page_title">Réglages — Coati</title>
   <link rel="stylesheet" href="lib/theme.css" />
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
   <main class="page">
     <header class="page-head">
-      <h1>Réglages Coati</h1>
+      <h1 data-i18n="options_heading">Réglages Coati</h1>
       <span id="headerStatus" class="status status--unknown" role="status">
         <span class="status-dot"></span>
         <span class="status-label">…</span>
@@ -19,22 +19,22 @@
 
     <!-- 1. Model: the only section whose content comes from the broker. -->
     <section class="section section--primary" aria-labelledby="h-model">
-      <h2 id="h-model">Modèle</h2>
-      <p class="help">
+      <h2 id="h-model" data-i18n="options_model_title">Modèle</h2>
+      <p class="help" data-i18n="options_model_help">
         Le modèle qui répond à vos demandes. Ce choix est enregistré par le
         broker, sur cette machine.
       </p>
       <div id="modelSection">
-        <p id="modelDisconnected" class="notice" hidden>
+        <p id="modelDisconnected" class="notice" hidden data-i18n="options_model_disconnected">
           Broker non connecté : impossible d'afficher ou de changer le modèle.
         </p>
         <ul id="providerList" class="provider-list"></ul>
         <div id="modelField" class="field" hidden>
-          <label for="modelSelect" id="modelLabel">Nom du modèle</label>
+          <label for="modelSelect" id="modelLabel" data-i18n="options_model_name_label">Nom du modèle</label>
           <select id="modelSelect" hidden></select>
           <div class="inline-row">
-            <input id="modelInput" type="text" aria-labelledby="modelLabel" placeholder="ex : llama3.2 (facultatif)" hidden />
-            <button id="modelSave" type="button" class="button-secondary" hidden>Enregistrer le modèle</button>
+            <input id="modelInput" type="text" aria-labelledby="modelLabel" data-i18n-placeholder="options_model_name_placeholder" placeholder="ex : llama3.2 (facultatif)" hidden />
+            <button id="modelSave" type="button" class="button-secondary" hidden data-i18n="options_model_save">Enregistrer le modèle</button>
           </div>
         </div>
       </div>
@@ -42,90 +42,88 @@
 
     <!-- 2. Default of the panel's "Lire la page" switch. -->
     <section class="section" aria-labelledby="h-attach">
-      <h2 id="h-attach">Lecture de la page</h2>
+      <h2 id="h-attach" data-i18n="options_attach_title">Lecture de la page</h2>
       <label class="check-row">
         <input id="attachPage" type="checkbox" />
-        <span>Joindre la page ouverte à mes questions</span>
+        <span data-i18n="options_attach_checkbox">Joindre la page ouverte à mes questions</span>
       </label>
-      <p class="help help--under-check">
+      <p class="help help--under-check" data-i18n="options_attach_help">
         Réglage de départ de l'interrupteur « Lire la page » du panneau.
       </p>
     </section>
 
     <!-- 3. Keyboard shortcut (read-only here; edited in the browser). -->
     <section class="section" aria-labelledby="h-shortcut">
-      <h2 id="h-shortcut">Raccourci clavier</h2>
+      <h2 id="h-shortcut" data-i18n="options_shortcut_title">Raccourci clavier</h2>
       <div class="shortcut-row">
-        <span class="shortcut-label">Ouvrir Coati</span>
+        <span class="shortcut-label" data-i18n="extCommandOpen">Ouvrir Coati</span>
         <span id="shortcutKeys" class="shortcut-keys"></span>
-        <button id="shortcutEdit" type="button" class="button-secondary" hidden>Modifier le raccourci</button>
+        <button id="shortcutEdit" type="button" class="button-secondary" hidden data-i18n="options_shortcut_edit">Modifier le raccourci</button>
       </div>
-      <p id="shortcutHelp" class="help" hidden>
+      <p id="shortcutHelp" class="help" hidden data-i18n="options_shortcut_help">
         Pour le changer : about:addons, roue dentée, puis « Gérer les raccourcis d'extensions ».
       </p>
     </section>
 
     <!-- 4. Per-site host permissions + link to the prompt library. -->
     <section class="section" aria-labelledby="h-sites">
-      <h2 id="h-sites">Sites activés</h2>
-      <p id="siteTogglesHelp" class="help">
-        Sur ces sites, Coati reconnaît la page dès l'ouverture du panneau.
-      </p>
+      <h2 id="h-sites" data-i18n="options_sites_title">Sites activés</h2>
+      <p id="siteTogglesHelp" class="help"></p>
       <ul id="siteToggles" class="site-toggles"></ul>
       <p class="help help--link">
-        Les prompts proposés sur chaque site se règlent dans
-        <a id="openPrompts" class="link" href="prompts/prompts.html">Mes prompts</a>.
+        <span data-i18n="options_sites_link_intro">Les prompts proposés sur chaque site se règlent dans</span>
+        <a id="openPrompts" class="link" href="prompts/prompts.html" data-i18n="options_sites_link_text">Mes prompts</a>.
       </p>
     </section>
 
     <!-- 5. Conversation retention. -->
     <section class="section" aria-labelledby="h-history">
-      <h2 id="h-history">Historique</h2>
-      <p class="help">
+      <h2 id="h-history" data-i18n="options_history_title">Historique</h2>
+      <p class="help" data-i18n="options_history_help">
         La conversation est gardée sur cet ordinateur, non chiffrée, puis
         effacée après ce délai.
       </p>
       <div class="field">
-        <label for="retention">Conserver pendant</label>
+        <label for="retention" data-i18n="options_retention_label">Conserver pendant</label>
         <select id="retention">
-          <option value="7">7 jours</option>
-          <option value="30">30 jours</option>
-          <option value="90">90 jours</option>
-          <option value="never">Sans limite</option>
+          <option value="7" data-i18n="options_retention_7d">7 jours</option>
+          <option value="30" data-i18n="options_retention_30d">30 jours</option>
+          <option value="90" data-i18n="options_retention_90d">90 jours</option>
+          <option value="never" data-i18n="options_retention_never">Sans limite</option>
         </select>
       </div>
     </section>
 
     <!-- 6. About. -->
     <section class="section" aria-labelledby="h-about">
-      <h2 id="h-about">À propos</h2>
+      <h2 id="h-about" data-i18n="options_about_title">À propos</h2>
       <dl class="about-list">
-        <dt>Version</dt>
+        <dt data-i18n="options_about_version">Version</dt>
         <dd id="aboutVersion">…</dd>
-        <dt>Empreinte du code</dt>
+        <dt data-i18n="options_about_fingerprint">Empreinte du code</dt>
         <dd><code id="aboutFingerprint">…</code></dd>
-        <dt>Licence</dt>
+        <dt data-i18n="options_about_license">Licence</dt>
         <dd>AGPL-3.0</dd>
-        <dt>Code source</dt>
+        <dt data-i18n="options_about_source">Code source</dt>
         <dd><a class="link" href="https://github.com/CARL-Bouvet/coati" target="_blank" rel="noopener noreferrer">github.com/CARL-Bouvet/coati</a></dd>
       </dl>
     </section>
 
     <!-- 7. Navigateur sans programme natif (Flatpak, Snap) : appairage manuel. -->
     <details id="legacyPairing" class="section advanced">
-      <summary><h2>Navigateur sans programme natif (Flatpak, Snap)</h2></summary>
+      <summary><h2 data-i18n="options_legacy_title">Navigateur sans programme natif (Flatpak, Snap)</h2></summary>
       <div class="advanced-body">
         <div class="field">
-          <label for="token">Secret d'appairage</label>
+          <label for="token" data-i18n="options_legacy_token_label">Secret d'appairage</label>
           <p class="help help--tight">
-            Seulement si votre navigateur (Flatpak, Snap) ne peut pas lancer de programme natif.
-            Dans un terminal, lancez <code>coati-broker --show-pairing-secret</code>, puis collez
-            le secret ici. Il n'est jamais écrit sur le disque.
+            <span data-i18n="options_legacy_token_help_before">Seulement si votre navigateur (Flatpak, Snap) ne peut pas lancer de programme natif. Dans un terminal, lancez</span>
+            <code>coati-broker --show-pairing-secret</code>
+            <span data-i18n="options_legacy_token_help_after">, puis collez le secret ici. Il n'est jamais écrit sur le disque.</span>
           </p>
-          <input id="token" type="password" autocomplete="off" placeholder="Coller le secret ici" />
+          <input id="token" type="password" autocomplete="off" data-i18n-placeholder="options_legacy_token_placeholder" placeholder="Coller le secret ici" />
         </div>
         <div class="actions">
-          <button id="save" type="button">Enregistrer</button>
+          <button id="save" type="button" data-i18n="options_legacy_save">Enregistrer</button>
           <span id="status" class="status status--unknown">
             <span class="status-dot"></span>
             <span class="status-label">…</span>
