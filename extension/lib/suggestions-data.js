@@ -14,7 +14,7 @@
 // prefs.json's order/removed (docs/PROTOCOL.md "Identifiants dans order et removed"). Never
 // renamed once shipped — renaming would silently detach it from a user's saved order.
 
-import { t } from "./i18n.js";
+import { t } from "./i18n-page.js";
 
 /** @typedef {{ id: string, label: string, prompt?: string, action?: "summarize" }} Item */
 /** @typedef {{ id: string, name: string, hosts: string[], paths: RegExp[] | null, items: Item[] }} SiteEntry */

@@ -12,9 +12,17 @@ import { RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./panel/retention.
 import { shortcutKeys, actionShortcut } from "./lib/shortcut.js";
 import { computeCodeFingerprint } from "./lib/build-fingerprint.js";
 import { MODEL_PROVIDER_PRESETS, isAllowedBaseUrl } from "./lib/model-provider-presets.js";
-import { t, applyI18n } from "./lib/i18n.js";
+import { t, applyI18n, reloadOnLanguageChange } from "./lib/i18n-page.js";
+import { mountLanguageSelector } from "./lib/language-selector.js";
 
 applyI18n(document);
+mountLanguageSelector(document.getElementById("languageSelectorMount"), { compact: false });
+
+// U1 — live language switch: this page also has module-level t() tables
+// (labels.js, model-provider-presets.js, shortcut.js) in its import graph;
+// a reload re-runs them all with the new catalog already loaded (see
+// lib/i18n.js's top-level await), simpler than repainting each in place.
+reloadOnLanguageChange();
 
 // Same key and value semantics as extension/panel/panel.js (ATTACH_PAGE_KEY,
 // attachPagePreference): a boolean once the user chose, null/absent = never

@@ -13,6 +13,9 @@ import {
   ModelTimeoutError,
   ModelUnavailableError,
   AuthRequiredError,
+  QuotaExceededError,
+  RateLimitedError,
+  parseRetryAfterSec,
   type AnswerEvent,
   type BuiltPrompt,
   type StreamAnswerOptions,
@@ -48,6 +51,33 @@ const MODELS_TIMEOUT_MS = 1500;
 // DEFAULT_LANG (en) wording — localised per-connection at the throw site
 // below (opts.lang).
 export const OPENAI_COMPAT_AUTH_MESSAGE = t("auth.apiKeyRejected", DEFAULT_LANG);
+
+// Goal U1 (docs/PROTOCOL.md "Fournisseur de modèle", amendement 2026-10-01):
+// same contract as OPENAI_COMPAT_AUTH_MESSAGE above.
+export const OPENAI_COMPAT_QUOTA_EXCEEDED_MESSAGE = t("provider.quotaExceeded", DEFAULT_LANG);
+export const OPENAI_COMPAT_RATE_LIMITED_MESSAGE = t("provider.rateLimited", DEFAULT_LANG);
+
+/**
+ * True when an OpenAI-compatible error response body names the
+ * `insufficient_quota` condition — the convention used by OpenAI and most
+ * compatible providers (OpenRouter, DeepSeek, Mistral…) for "this HTTP 429
+ * is actually a billing problem, not a plain rate limit". Checked on either
+ * `error.code` or `error.type` (providers are inconsistent about which field
+ * carries it). Never throws on a malformed/non-JSON body.
+ */
+function isInsufficientQuotaBody(bodyText: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch {
+    return false;
+  }
+  if (!parsed || typeof parsed !== "object") return false;
+  const error = (parsed as Record<string, unknown>).error;
+  if (!error || typeof error !== "object") return false;
+  const { type, code } = error as Record<string, unknown>;
+  return type === "insufficient_quota" || code === "insufficient_quota";
+}
 
 /**
  * Security gate for `baseUrl` (docs/PROTOCOL.md "Fournisseur de modèle"):
@@ -308,13 +338,25 @@ export async function* streamAnswer(
     }
 
     if (!response.ok) {
+      const lang = opts.lang ?? DEFAULT_LANG;
       if (response.status === 401 || response.status === 403) {
-        throw new AuthRequiredError(t("auth.apiKeyRejected", opts.lang ?? DEFAULT_LANG));
+        throw new AuthRequiredError(t("auth.apiKeyRejected", lang));
       }
       if (response.status === 404) {
         throw new ModelUnavailableError(`model "${model}" not found at ${baseUrl}`);
       }
-      if (response.status === 429 || response.status >= 500) {
+      if (response.status === 402) {
+        throw new QuotaExceededError(t("provider.quotaExceeded", lang));
+      }
+      if (response.status === 429) {
+        const bodyText = await response.text().catch(() => "");
+        if (isInsufficientQuotaBody(bodyText)) {
+          throw new QuotaExceededError(t("provider.quotaExceeded", lang));
+        }
+        const retryAfterSec = parseRetryAfterSec(response.headers.get("retry-after"));
+        throw new RateLimitedError(t("provider.rateLimited", lang), retryAfterSec);
+      }
+      if (response.status >= 500) {
         throw new ModelUnavailableError(`server returned HTTP ${response.status}`);
       }
       throw new Error(`server returned HTTP ${response.status}`);

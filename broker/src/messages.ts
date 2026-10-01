@@ -67,6 +67,21 @@ const MESSAGES: Catalog = {
     zh_CN: "API 密钥被拒绝 — 请在设置中检查。",
   },
 
+  // --- quota-exceeded / rate-limited (docs/PROTOCOL.md "Fournisseur de
+  // modèle", amendement 2026-10-01, goal U1) — same contract as
+  // auth.apiKeyRejected above: shown verbatim to a human, never
+  // model-unavailable/internal's raw English technical detail. -------------
+  "provider.quotaExceeded": {
+    en: "Your account with the provider has no credit left. Add credit on their website, or pick a free model in settings.",
+    fr: "Votre compte chez le fournisseur n'a plus de crédit. Rechargez-le sur son site, ou choisissez un modèle gratuit dans les réglages.",
+    zh_CN: "您在该提供商的账户余额不足。请在其官网充值，或在设置中选择一个免费模型。",
+  },
+  "provider.rateLimited": {
+    en: "The provider is receiving too many requests right now. Wait a moment and try again.",
+    fr: "Le fournisseur reçoit trop de requêtes en ce moment. Patientez un instant puis réessayez.",
+    zh_CN: "该提供商当前请求过多。请稍等片刻后重试。",
+  },
+
   // --- settings.test-result (docs/PROTOCOL.md "settings.test") -----------
   "settingsTest.success.claude-api": {
     en: "Connection to the Anthropic API succeeded.",

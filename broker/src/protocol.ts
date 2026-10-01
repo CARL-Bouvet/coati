@@ -11,6 +11,8 @@ export type ErrorCode =
   | "unauthorized"
   | "model-unavailable"
   | "auth-required"
+  | "quota-exceeded"
+  | "rate-limited"
   | "context-too-large"
   | "cancelled"
   | "internal";
@@ -317,6 +319,9 @@ export interface ErrorMessage {
   id: string;
   code: ErrorCode;
   message: string;
+  /** Only ever present for code "rate-limited", and only when the provider
+   * sent a Retry-After header (docs/PROTOCOL.md, amendement 2026-10-01). */
+  retryAfterSec?: number;
 }
 
 export interface PromptsMessage {

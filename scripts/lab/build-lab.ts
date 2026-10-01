@@ -81,6 +81,19 @@ const labSuggestionsPlugin: import("bun").BunPlugin = {
   },
 };
 
+// The lab bundles as IIFE, which cannot hold a top-level await: lib/i18n-page.js
+// (await i18nReady()) becomes a plain re-export of lib/i18n.js here. The lab's
+// stub answers t() synchronously, so nothing needs awaiting.
+const labI18nPagePlugin: import("bun").BunPlugin = {
+  name: "coati-lab-i18n-page",
+  setup(build) {
+    build.onLoad({ filter: /[\\/]extension[\\/]lib[\\/]i18n-page\.js$/ }, () => ({
+      contents: 'export * from "./i18n.js";\n',
+      loader: "js",
+    }));
+  },
+};
+
 // Stand-in for a site's favicon, generated here: a blue square with a white
 // dot. Must NOT be grey — the panel's "no icon" placeholder is a grey square
 // (plan-suggestions Lot 1), and captures must tell the two apart.
@@ -99,7 +112,7 @@ async function bundle(entry: string, outfile: string, opts: { withLabExtraSite?:
     target: "browser",
     minify: false,
     naming: "[dir]/[name].[ext]",
-    plugins: opts.withLabExtraSite === false ? [] : [labSuggestionsPlugin],
+    plugins: opts.withLabExtraSite === false ? [labI18nPagePlugin] : [labI18nPagePlugin, labSuggestionsPlugin],
   });
   if (!result.success) {
     for (const log of result.logs) console.error(log);

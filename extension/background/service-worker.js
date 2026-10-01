@@ -14,7 +14,8 @@
 
 import { api } from "../lib/browser-compat.js";
 import { requestBrokerKeyFromHost } from "../lib/native-host.js";
-import { t } from "../lib/i18n.js";
+import { t, i18nReady } from "../lib/i18n.js";
+import { SUPPORTED_LANGS, UI_LANG_AUTO, UI_LANG_STORAGE_KEY, resolveUiLang } from "../lib/ui-lang.js";
 import {
   isHex64,
   randomHex32,
@@ -78,16 +79,35 @@ const WORKER_INSTANCE_ID = crypto.randomUUID();
 const PENDING_ACTION_KEY = "coati:pendingAction";
 
 // Coati's four selection actions (docs/PROTOCOL.md, message "act"). Menu
-// item id -> the broker action it maps to, the French label shown both in
-// the context menu and later as the panel's own user-bubble label, and any
-// fixed params the action needs (translate defaults to French, matching the
-// rest of the UI).
+// item id -> the broker action it maps to and the i18n key for the label
+// shown both in the context menu and later as the panel's own user-bubble
+// label. U1: no hardcoded French here any more — labelKey is resolved
+// through t() at menu-build time (setupContextMenus) and again when the
+// selection is stashed (onClicked below), both after i18nReady(), so they
+// follow the current uiLang (docs/PROTOCOL.md amendement 2026-09-30 ter).
+// translate's targetLang is likewise resolved per-click (resolveEffectiveUiLang)
+// instead of being fixed to "fr".
 const CONTEXT_MENU_ACTIONS = {
-  "coati-rewrite": { action: "rewrite", label: "Reformuler" },
-  "coati-shorten": { action: "shorten", label: "Raccourcir" },
-  "coati-explain": { action: "explain", label: "Expliquer" },
-  "coati-translate": { action: "translate", label: "Traduire", params: { targetLang: "fr" } },
+  "coati-rewrite": { action: "rewrite", labelKey: "ctx_rewrite" },
+  "coati-shorten": { action: "shorten", labelKey: "ctx_shorten" },
+  "coati-explain": { action: "explain", labelKey: "ctx_explain" },
+  "coati-translate": { action: "translate", labelKey: "ctx_translate", translate: true },
 };
+
+/** Effective UI language ("en" | "fr" | "zh_CN"), same resolution as
+ * lib/i18n.js's own resolveEffectiveLang() and panel.js's hello.lang
+ * (resolveHelloLang below): the stored explicit choice, else the browser's
+ * own UI language normalised down to one of SUPPORTED_LANGS. Used for both
+ * the context menu's t() labels and translate's targetLang. */
+async function resolveEffectiveUiLang() {
+  const browserLang = api.i18n?.getUILanguage?.();
+  try {
+    const stored = await api.storage.local.get(UI_LANG_STORAGE_KEY);
+    return resolveUiLang(stored?.[UI_LANG_STORAGE_KEY], browserLang);
+  } catch {
+    return resolveUiLang(undefined, browserLang);
+  }
+}
 
 let ws = null;
 // disconnected | connecting | handshaking | connected | no-host |
@@ -138,16 +158,23 @@ api.runtime.onInstalled.addListener((details) => {
 // under the "coati" parent, which is unrelated and stays as-is.
 const READ_PAGE_MENU_ID = "coati-read-page";
 
-function setupContextMenus() {
+// U1: awaits i18nReady() first — menu titles are built from t(), and
+// without this they could still catch the runtime catalog mid-flight (the
+// SW's own load is fire-and-forget, see lib/i18n.js) and freeze on
+// chrome.i18n's browser-fixed language. Called at install and again on
+// every uiLang storage change (see the storage.onChanged listener below), so
+// menus always reflect the current choice.
+async function setupContextMenus() {
+  await i18nReady();
   api.contextMenus.removeAll(() => {
     api.contextMenus.create({
       id: READ_PAGE_MENU_ID,
-      title: "Lire cette page avec Coati",
+      title: t("ctx_read_page"),
       contexts: ["page"],
     });
     api.contextMenus.create({ id: "coati", title: "Coati", contexts: ["selection"] });
     for (const [id, entry] of Object.entries(CONTEXT_MENU_ACTIONS)) {
-      api.contextMenus.create({ id, parentId: "coati", title: entry.label, contexts: ["selection"] });
+      api.contextMenus.create({ id, parentId: "coati", title: t(entry.labelKey), contexts: ["selection"] });
     }
   });
 }
@@ -223,11 +250,18 @@ api.contextMenus.onClicked.addListener(async (info, tab) => {
   // Called synchronously, before any await — see openPanel()'s comment.
   openPanel(tab);
 
+  // U1: label and targetLang (for translate) are resolved here, at click
+  // time, not read off a module-load-time constant — both follow whatever
+  // uiLang is current right now.
+  await i18nReady();
+  const label = t(entry.labelKey);
+  const params = entry.translate ? { targetLang: await resolveEffectiveUiLang() } : undefined;
+
   await api.storage.session.set({
     [PENDING_ACTION_KEY]: {
       action: entry.action,
-      label: entry.label,
-      params: entry.params,
+      label,
+      params,
       selectionText: info.selectionText,
       url: tab.url,
       title: tab.title,
@@ -327,6 +361,21 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return undefined;
 });
 
+// U1: the user picked a different language (or switched back to "auto") in
+// the panel or options page — re-hello with the new choice. A fresh
+// connection cycle is simplest and matches "coati:set-pasted-key"'s own
+// forceReconnect() above; the broker has no message to change an
+// already-negotiated connection's language mid-stream (docs/PROTOCOL.md
+// amendement 2026-09-30 ter: "La langue négociée s'applique pour la durée
+// de la connexion"), so reconnecting is the only way to renegotiate it.
+// Also rebuilds the context menus (setupContextMenus), whose titles are
+// French-hardcoded no more — they must follow the same change.
+api.storage.onChanged?.addListener?.((changes, areaName) => {
+  if (areaName !== "local" || !(UI_LANG_STORAGE_KEY in changes)) return;
+  forceReconnect();
+  setupContextMenus();
+});
+
 function broadcast(message) {
   api.runtime.sendMessage(message).catch(() => {
     // No listener (panel/options closed) — fine, nothing to relay to.
@@ -366,6 +415,30 @@ async function resolveBrokerKey() {
   }
 }
 
+// U1 (the language selector design notes, "Technique du
+// sélecteur"): when the user picked an explicit language (uiLang !=
+// "auto"), hello.lang carries THAT choice instead of the raw browser UI
+// language — still a free-form, never-validated string from the broker's
+// point of view (docs/PROTOCOL.md amendement 2026-09-30 ter: "lang est
+// informatif, jamais vérifié contre une liste fermée"), and one of
+// SUPPORTED_LANGS normalises to itself unchanged in broker/src/messages.ts's
+// normalizeLang(). No chrome.storage.local in the g6-hello-lang.test.ts
+// mock on purpose (it predates this preference) — the catch below falls
+// back to the raw browser tag exactly as before, so that test stays green
+// unmodified.
+async function resolveHelloLang() {
+  const browserLang = api.i18n?.getUILanguage?.();
+  try {
+    const stored = await api.storage.local.get(UI_LANG_STORAGE_KEY);
+    const pref = stored?.[UI_LANG_STORAGE_KEY];
+    if (pref && pref !== UI_LANG_AUTO && SUPPORTED_LANGS.includes(pref)) return pref;
+  } catch {
+    // storage.local unavailable (e.g. the hello-lang test's minimal mock) —
+    // fall through to the raw browser tag below, same as before this preference existed.
+  }
+  return browserLang;
+}
+
 async function connectIfNeeded() {
   if (wsState === "connected" || wsState === "connecting" || wsState === "handshaking") return;
   if (ws) return;
@@ -382,6 +455,10 @@ async function connectIfNeeded() {
   // bytes, 64 lowercase hex, new for every connection attempt (never reused
   // across retries, so a captured `auth` can't be replayed against a new one).
   const cN = randomHex32();
+  // Resolved once per connection attempt (not inside the "open" listener
+  // below): computing it needs an await (storage.local.get), and the
+  // listener itself must stay synchronous — see its own comment.
+  const helloLang = await resolveHelloLang();
   let handshakeSettled = false; // true once past the challenge step (success or fail)
   // I3 (final security review): true only once the broker's HMAC proof has
   // actually verified for THIS connection. Every message before that point —
@@ -401,18 +478,19 @@ async function connectIfNeeded() {
   ws.addEventListener("open", () => {
     setState("handshaking");
     // docs/PROTOCOL.md amendement 2026-09-30 ter (goal G6, "Langue de la
-    // connexion"): raw BCP 47 tag, sent as-is — the broker normalises it
-    // (fr*/zh*-Simplified/else) and keeps it for the connection's lifetime.
-    // Never verified against a closed list here: an absent or malformed
-    // value just means the broker falls back to English, nothing fails.
-    const lang = api.i18n?.getUILanguage?.();
+    // connexion"): raw BCP 47 tag by default, or the user's explicit uiLang
+    // choice (U1, resolveHelloLang() above) — either way the broker
+    // normalises it (fr*/zh*-Simplified/else) and keeps it for the
+    // connection's lifetime. Never verified against a closed list here: an
+    // absent or malformed value just means the broker falls back to
+    // English, nothing fails.
     ws.send(
       JSON.stringify({
         type: "hello",
         v: PROTOCOL_VERSION,
         nonce: cN,
         key: keyInfo.source,
-        ...(lang ? { lang } : {}),
+        ...(helloLang ? { lang: helloLang } : {}),
       }),
     );
     handshakeTimeoutId = setTimeout(() => {

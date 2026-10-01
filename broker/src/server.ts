@@ -55,8 +55,11 @@ import {
 import {
   buildPrompt,
   isAuthRequiredError,
+  isQuotaExceededError,
+  isRateLimitedError,
   isModelUnavailableError,
   ModelTimeoutError,
+  RateLimitedError,
   type BuiltPrompt,
 } from "./model.ts";
 import { listPrompts, savePrompt, deletePrompt, setPromptSite, withDirLock, type PromptsDirs } from "./prompts.ts";
@@ -367,8 +370,17 @@ async function runStream(
       logRequestCompleted(id, "cancelled", Date.now() - startedAt);
     } else {
       const message = err instanceof Error ? err.message : String(err);
-      const code = isAuthRequiredError(err) ? "auth-required" : isModelUnavailableError(err) ? "model-unavailable" : "internal";
-      send(ws, { type: "error", id, code, message });
+      const code = isAuthRequiredError(err)
+        ? "auth-required"
+        : isQuotaExceededError(err)
+          ? "quota-exceeded"
+          : isRateLimitedError(err)
+            ? "rate-limited"
+            : isModelUnavailableError(err)
+              ? "model-unavailable"
+              : "internal";
+      const retryAfterSec = err instanceof RateLimitedError ? err.retryAfterSec : undefined;
+      send(ws, { type: "error", id, code, message, ...(retryAfterSec !== undefined ? { retryAfterSec } : {}) });
       const outcome = err instanceof ModelTimeoutError ? "timeout" : `error:${code}`;
       logRequestCompleted(id, outcome, Date.now() - startedAt, message);
     }
@@ -475,10 +487,11 @@ function settingsTestSuccessMessage(providerId: ProviderId, lang: Lang): string 
  * (which is English and provider-internal), per task brief: wrong key, Ollama
  * not running, expired session. */
 function settingsTestFailureMessage(providerId: ProviderId, err: unknown, lang: Lang): string {
-  if (isAuthRequiredError(err)) {
+  if (isAuthRequiredError(err) || isQuotaExceededError(err) || isRateLimitedError(err)) {
     // Already localised and already names the remedy (e.g. the
-    // "auth.apiKeyRejected" message thrown by claude-api/openai-compat with
-    // this same lang, or an external module's own text).
+    // "auth.apiKeyRejected"/"provider.quotaExceeded"/"provider.rateLimited"
+    // message thrown by claude-api/openai-compat with this same lang, or an
+    // external module's own text).
     return (err as Error).message;
   }
   if (err instanceof ModelTimeoutError) {

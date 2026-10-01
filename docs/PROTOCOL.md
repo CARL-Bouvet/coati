@@ -112,6 +112,14 @@ Partout où ce document disait « les deux seuls fournisseurs que ce dépôt emb
 équivalent, lire désormais « les trois ». Détail complet, y compris la contrainte de sécurité sur
 `baseUrl` (HTTPS, ou HTTP loopback seulement) : voir « Fournisseur de modèle » plus bas.
 
+Amendement 2026-10-01 (lot BROKER + PROTOCOL, goal U1) : deux nouveaux codes d'erreur,
+`quota-exceeded` et `rate-limited`, distincts de `model-unavailable` et `auth-required` — voir
+« Fournisseur de modèle » plus bas pour la classification exacte par fournisseur et « Codes
+d'erreur » pour la liste complète. Une extension plus ancienne qui ne connaît pas ces deux codes
+n'est pas cassée : son texte de repli générique pour un code inconnu (étiquette générique +
+`message` du broker en détail secondaire) s'applique, comme pour tout code qu'elle ne reconnaît
+pas déjà.
+
 ## Transport
 
 WebSocket, `ws://127.0.0.1:8787/ws`.
@@ -1186,7 +1194,27 @@ Fournisseurs intégrés :
   { "type": "error", "id": "c1", "code": "auth-required",
     "message": "Clé API refusée — vérifiez-la dans les réglages." }
   ```
-  Un 429 ou une 5xx échoue en `model-unavailable`.
+  Une 5xx échoue en `model-unavailable`. Amendement 2026-10-01 (goal U1) — le compte Anthropic de
+  l'utilisateur peut être à court de crédit, ce qui n'est ni un identifiant refusé ni un modèle
+  indisponible : un 402, ou un 400 dont le corps contient un message de facturation (texte
+  "credit balance is too low", ou un objet d'erreur dont le `type` est `billing_error`), échoue en
+  `quota-exceeded` avec un message figé (voir `broker/src/messages.ts`, code `quotaExceeded`) :
+  ```jsonc
+  { "type": "error", "id": "c1", "code": "quota-exceeded",
+    "message": "Votre compte chez le fournisseur n'a plus de crédit. Rechargez-le sur son site, ou choisissez un modèle gratuit dans les réglages." }
+  ```
+  Un 429 est examiné : si le corps porte un objet d'erreur dont `code`/`type` vaut
+  `insufficient_quota`, c'est aussi `quota-exceeded` ; sinon c'est un simple trop-plein de
+  requêtes, classé `rate-limited` (message figé, code `rateLimited`), avec un champ optionnel
+  `retryAfterSec` (entier, secondes) repris de l'en-tête HTTP `Retry-After` quand le fournisseur
+  l'envoie :
+  ```jsonc
+  { "type": "error", "id": "c1", "code": "rate-limited",
+    "message": "Le fournisseur reçoit trop de requêtes en ce moment. Réessayez dans quelques instants.",
+    "retryAfterSec": 20 }
+  ```
+  Comme pour `auth-required`, `message` est ici un texte français figé, affichable tel quel à
+  l'utilisateur — pas le détail technique anglais du contrat `model-unavailable`/`internal`.
 - **`openai-compat`** (amendement 2026-09-30 bis, goal G5) — un seul adaptateur pour tout serveur
   qui parle le format `/v1/chat/completions` d'OpenAI (`broker/src/providers/openai-compat.ts`).
   Couvre en pratique LM Studio, Ollama (via son propre `/v1`, alternative à l'API native `ollama`
@@ -1226,7 +1254,13 @@ Fournisseurs intégrés :
   - délai dépassé → `model-unavailable` (même timeout de 120 s que les autres fournisseurs) ;
   - flux interrompu en cours de réponse → l'erreur remonte telle quelle, la partie de réponse déjà
     reçue reste affichée (comportement du panel, inchangé) ;
-  - HTTP 429 → `model-unavailable`, même traitement que `claude-api`.
+  - HTTP 402 → `quota-exceeded` (amendement 2026-10-01, goal U1) : le compte du fournisseur n'a
+    plus de crédit (OpenRouter, DeepSeek, Mistral… renvoient ce statut pour ce cas) — même message
+    figé et même contrat `message` que pour `claude-api`, voir plus haut ;
+  - HTTP 429 → examiné comme pour `claude-api` : un corps d'erreur dont `error.code`/`error.type`
+    vaut `insufficient_quota` échoue en `quota-exceeded` ; sinon c'est `rate-limited` (trop-plein de
+    requêtes, cas typique des modèles gratuits d'OpenRouter), avec le même `retryAfterSec`
+    optionnel tiré de l'en-tête `Retry-After` quand présent.
   Adresses proposées par la page d'options (préremplissage seulement — l'utilisateur peut toujours
   taper une autre adresse) : LM Studio `http://localhost:1234/v1`, Ollama `http://localhost:11434/v1`,
   OpenAI `https://api.openai.com/v1`, Mistral `https://api.mistral.ai/v1`, OpenRouter
@@ -1478,6 +1512,9 @@ fournisseur. `provider.status` ne modifie aucun état du broker (hormis son cach
 { "type": "chunk", "id": "c1", "delta": "texte partiel…" }   // flux, n fois
 { "type": "done",  "id": "c1", "usage": { "inputTokens": 0, "outputTokens": 0 } }
 { "type": "error", "id": "c1", "code": "…", "message": "…" } // terminal pour cet id
+// "quota-exceeded"/"rate-limited" seulement (amendement 2026-10-01) ; "retryAfterSec" absent
+// pour tout autre code, et absent même pour "rate-limited" quand le fournisseur ne l'a pas donné.
+{ "type": "error", "id": "c1", "code": "rate-limited", "message": "…", "retryAfterSec": 20 }
 { "type": "prompts", "id": "c4", "items": [ { "id": "p_1a2b3c4d5e6f", "site": "@youtube", "title": "…", "body": "…" } ] }
 // Réponse à prompts.move uniquement : la liste complète des prompts ET les
 // préférences complètes, dans le même message — voir « prompts.move ».
@@ -1490,7 +1527,7 @@ fournisseur. `provider.status` ne modifie aucun état du broker (hormis son cach
 ```
 
 Codes d'erreur : `bad-request`, `unauthorized`, `model-unavailable`, `auth-required`,
-`context-too-large`, `cancelled`, `internal`.
+`quota-exceeded`, `rate-limited`, `context-too-large`, `cancelled`, `internal`.
 
 ## Journalisation
 
@@ -1534,9 +1571,11 @@ caractères) et :
 `message` porte (et a toujours porté — voir par ex. `ModelUnavailableError`, ou le texte brut d'une
 `fetch failed`) le détail technique, **en anglais**, destiné au journal et à une ligne secondaire
 dans le panneau — jamais le texte principal affiché à l'utilisateur. Le panneau choisit son libellé
-français d'après `code` seul, pas d'après `message`. **Ne s'applique pas à `auth-required`** : son
-`message` reste le texte français figé (`AUTH_REQUIRED_MESSAGE` ci-dessus), affichable tel quel —
-contrat inchangé par cet amendement.
+français d'après `code` seul, pas d'après `message`. **Ne s'applique pas à `auth-required`,
+`quota-exceeded` ni `rate-limited`** (ce dernier couple ajouté par l'amendement 2026-10-01, goal
+U1) : leur `message` reste un texte figé dans la langue de la connexion, affichable tel quel —
+mêmes tables `broker/src/messages.ts` (`auth.apiKeyRejected`, `provider.quotaExceeded`,
+`provider.rateLimited`) que pour `auth-required`.
 
 ## Règles invariantes
 

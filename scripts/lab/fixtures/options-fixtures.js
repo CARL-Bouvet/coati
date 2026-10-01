@@ -25,6 +25,18 @@
       permissions: ["https://www.youtube.com/*", "https://exemple-actu.fr/*"],
     },
 
+    // U1 — language selector (lib/language-selector.js), "Langue" section,
+    // menu open — same ground state as "nominal".
+    "lang-menu-open": {
+      status: "connected",
+      settings: NOMINAL_SETTINGS,
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*", "https://exemple-actu.fr/*"],
+      autoAction: {
+        steps: [{ type: "click", selector: "#languageSelectorButton", delayMs: 0 }],
+      },
+    },
+
     // G5 — fournisseur « Compatible OpenAI » actif, préréglage OpenRouter,
     // clé déjà enregistrée (configured: true, la clé ne revient jamais).
     "openai-compat-openrouter": {

@@ -51,6 +51,19 @@ describe("describeError", () => {
   test("unknown code falls back to a generic French label, not the raw code", () => {
     expect(describeError("some-future-code")).toBe("Une erreur est survenue.");
   });
+
+  // Goal U1, lot 2 — the broker's two new codes (docs/PROTOCOL.md, amendement
+  // 2026-10-01) each have their own fallback label, same table as every other
+  // code — used by describeError() only as a defense-in-depth fallback: the
+  // panel's normal path for these two shows the broker's own ready-to-display
+  // `message` instead (see panel.js's describeBrokerError()).
+  test("quota-exceeded has its own fallback label", () => {
+    expect(describeError("quota-exceeded")).toBe("Votre compte chez le fournisseur n'a plus de crédit.");
+  });
+
+  test("rate-limited has its own fallback label", () => {
+    expect(describeError("rate-limited")).toBe("Le fournisseur reçoit trop de requêtes en ce moment.");
+  });
 });
 
 describe("describeProviderUnavailable", () => {

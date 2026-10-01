@@ -3,7 +3,7 @@
 // No DOM, no chrome.* — kept separate from panel.js so both are unit
 // testable without a browser (see broker/test/ui-unreadable.test.ts).
 
-import { t } from "../lib/i18n.js";
+import { t } from "../lib/i18n-page.js";
 
 const HINT = t("panel_unreadable_hint");
 

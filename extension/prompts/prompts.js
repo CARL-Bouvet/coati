@@ -11,7 +11,7 @@ import { armOrConfirm } from "../panel/confirm-arm.js";
 import { ALL_SITES_ORIGINS } from "../panel/read-button.js";
 import Sortable from "../vendor/sortable/sortable.esm.js";
 import { coatiItemsForSite, computeCaseItems as computeCaseItemsPure, buildCaseDescriptors as buildCaseDescriptorsPure, replaceInOrder } from "./prompts-cases.js";
-import { t, applyI18n } from "../lib/i18n.js";
+import { t, applyI18n, reloadOnLanguageChange } from "../lib/i18n-page.js";
 
 applyI18n(document);
 
@@ -23,6 +23,10 @@ const ARM_TIMEOUT_MS = 4000;
 
 // --- "Tous les sites" (docs/DECISIONS.md T42, amendement 2026-09-30 bis) ---
 // User-facing strings grouped here, from _locales/<lang>/messages.json.
+// A mutable object rather than a fresh const so U1's live language switch
+// (onLanguageChange below) can refresh it in place — every reader
+// (init()'s one-time paint, render()'s board rebuild) reads through this
+// same reference.
 const ALL_SITES_TEXT = {
   line: t("prompts_all_sites_line"),
   revoke: t("prompts_all_sites_revoke"),
@@ -102,6 +106,13 @@ function prefsSet(site, prefs) {
 }
 
 init();
+
+// U1 — live language switch: this page's default-prompt list comes from
+// suggestions-data.js's SITES, a module-level t() table — repainting in
+// place here wouldn't touch it. A reload re-runs the whole import graph
+// with the new catalog already loaded (lib/i18n.js's top-level await),
+// which is simpler and covers that table too.
+reloadOnLanguageChange();
 
 async function init() {
   api.runtime.onMessage.addListener(onRuntimeMessage);

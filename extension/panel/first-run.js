@@ -14,7 +14,7 @@
 //   page    — the encart button (T50) already read a page once, or the
 //             current page is accessible anyway (all sites / this site).
 
-import { t } from "../lib/i18n.js";
+import { t } from "../lib/i18n-page.js";
 
 // --- User-facing strings, from _locales/<lang>/messages.json --------------
 export const FIRST_RUN_TEXT = {

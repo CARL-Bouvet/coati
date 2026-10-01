@@ -4,7 +4,7 @@
 // lives in `_locales/<lang>/messages.json` (common_* keys) via lib/i18n.js;
 // this module only maps ids/codes to message keys. Loaded the same way as
 // the other lib/*.js modules (plain ESM import, no build).
-import { t } from "./i18n.js";
+import { t } from "./i18n-page.js";
 
 // One id per BUILT-IN provider, used everywhere (panel status suffix,
 // options provider list, error text) — never a different name in one place
@@ -72,6 +72,8 @@ const ERROR_CODE_KEYS = {
   unauthorized: "common_error_unauthorized",
   "model-unavailable": "common_error_model_unavailable",
   "auth-required": "common_error_auth_required",
+  "quota-exceeded": "common_error_quota_exceeded",
+  "rate-limited": "common_error_rate_limited",
   "context-too-large": "common_error_context_too_large",
   cancelled: "common_error_cancelled",
   internal: "common_error_internal",

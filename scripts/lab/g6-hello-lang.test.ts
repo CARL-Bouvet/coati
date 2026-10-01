@@ -68,6 +68,11 @@ function makeSessionStore(seed: Record<string, unknown> = {}) {
 
 let onMessageHandler: ((message: any, sender: any, sendResponse: (r?: any) => void) => unknown) | null;
 let uiLanguage: string | undefined;
+// U1 (the language selector design notes): the user's explicit
+// uiLang choice, read from chrome.storage.local — undefined = "auto"/unset,
+// same as a fresh install (the g6-hello-lang tests above this one never set
+// it, exercising exactly that default path).
+let uiLangPref: string | undefined;
 
 function makeChromeMock() {
   return {
@@ -95,6 +100,14 @@ function makeChromeMock() {
     },
     storage: {
       session: makeSessionStore({ brokerKey: "a".repeat(64) }),
+      local: {
+        get: (keys: string | string[]) => {
+          if (uiLangPref === undefined) return Promise.resolve({});
+          const list = typeof keys === "string" ? [keys] : keys;
+          return Promise.resolve(list.includes("uiLang") ? { uiLang: uiLangPref } : {});
+        },
+      },
+      onChanged: { addListener() {} },
     },
     alarms: { create() {}, onAlarm: { addListener() {} } },
     contextMenus: {
@@ -131,6 +144,7 @@ const REAL_WEB_SOCKET = (globalThis as any).WebSocket;
 
 beforeEach(() => {
   onMessageHandler = null;
+  uiLangPref = undefined;
   (globalThis as any).chrome = makeChromeMock();
   delete (globalThis as any).browser;
   (globalThis as any).WebSocket = FakeWebSocket;
@@ -169,5 +183,28 @@ describe("service-worker: hello.lang (G6, docs/PROTOCOL.md 'Langue de la connexi
     uiLanguage = undefined;
     const hello = await firstHelloPayload();
     expect("lang" in hello).toBe(false);
+  });
+});
+
+describe("service-worker: hello.lang (U1, explicit uiLang preference)", () => {
+  test("uiLang preference set: overrides the raw browser UI language", async () => {
+    uiLanguage = "en-US";
+    uiLangPref = "fr";
+    const hello = await firstHelloPayload();
+    expect(hello.lang).toBe("fr");
+  });
+
+  test("uiLang 'auto': falls back to the raw browser UI language, untouched", async () => {
+    uiLanguage = "zh-CN";
+    uiLangPref = "auto";
+    const hello = await firstHelloPayload();
+    expect(hello.lang).toBe("zh-CN");
+  });
+
+  test("uiLang set to an unsupported value: ignored, raw browser UI language used", async () => {
+    uiLanguage = "fr-FR";
+    uiLangPref = "de"; // not one of SUPPORTED_LANGS
+    const hello = await firstHelloPayload();
+    expect(hello.lang).toBe("fr-FR");
   });
 });

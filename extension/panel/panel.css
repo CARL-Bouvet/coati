@@ -50,6 +50,66 @@ textarea {
   color: var(--fg);
 }
 
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Language selector (U1) — mounted by lib/language-selector.js. The compact
+ * button matches #openOptions exactly (same .icon-button base: same size,
+ * padding, hover surface); only the content and font-size differ, since a
+ * 2-character code ("EN", "FR") needs less room than the gear glyph. */
+.lang-selector {
+  position: relative;
+}
+
+.lang-button {
+  font-size: 0.75em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  min-width: 1.8em;
+  text-align: center;
+}
+
+.lang-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 10em;
+  padding: var(--space-1);
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--overlay-shadow);
+}
+
+.lang-menu-item {
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.95em;
+}
+
+.lang-menu-item:hover,
+.lang-menu-item:focus-visible {
+  background: var(--surface);
+  outline: none;
+}
+
+.lang-menu-item--active {
+  font-weight: 600;
+  color: var(--accent);
+}
+
 .brand {
   display: flex;
   align-items: center;

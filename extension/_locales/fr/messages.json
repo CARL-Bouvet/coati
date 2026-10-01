@@ -5,6 +5,12 @@
   },
   "extCommandOpen": { "message": "Ouvrir Coati" },
 
+  "lang_name_en": { "message": "English" },
+  "lang_name_fr": { "message": "Français" },
+  "lang_name_zh_cn": { "message": "简体中文" },
+  "lang_name_auto": { "message": "Langue du navigateur" },
+  "lang_selector_label": { "message": "Langue" },
+
   "common_provider_claude_api": { "message": "Claude (clé API)" },
   "common_provider_ollama": { "message": "Ollama (local)" },
   "common_provider_openai_compat": { "message": "Compatible OpenAI" },
@@ -23,6 +29,8 @@
   "common_error_cancelled": { "message": "Requête annulée." },
   "common_error_internal": { "message": "Erreur interne du programme local." },
   "common_error_generic": { "message": "Une erreur est survenue." },
+  "common_error_quota_exceeded": { "message": "Votre compte chez le fournisseur n'a plus de crédit." },
+  "common_error_rate_limited": { "message": "Le fournisseur reçoit trop de requêtes en ce moment." },
   "common_error_detail": {
     "message": "Détail : $MESSAGE$",
     "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
@@ -67,6 +75,11 @@
   "panel_copy_failed": { "message": "Échec de la copie" },
   "panel_retry_session": { "message": "J'ai relancé, réessayer" },
   "panel_retry_key": { "message": "J'ai corrigé, réessayer" },
+  "panel_retry_now": { "message": "Réessayer" },
+  "panel_retry_countdown": {
+    "message": "Réessayer dans $SECONDS$ s",
+    "placeholders": { "seconds": { "content": "$1", "example": "20" } }
+  },
 
   "panel_error_oversized": {
     "message": "⚠ Le message envoyé dépassait la taille maximale acceptée par le programme local (256 Ko) ; la connexion a été fermée. Réessayez avec un contenu plus court."
@@ -81,17 +94,17 @@
 
   "panel_status_no_token": { "message": "Pas de jeton — voir réglages" },
   "panel_banner_no_host": {
-    "message": "Coati ne trouve pas son programme local d'appairage. Réinstallez-le, ou utilisez l'appairage manuel si votre navigateur est un Flatpak ou un Snap."
+    "message": "Coati ne trouve pas son programme local sur cet ordinateur. Installez-le, ou utilisez l'appairage manuel si votre navigateur est un Flatpak ou un Snap."
   },
   "panel_banner_broker_untrusted": {
-    "message": "Le programme qui écoute sur le port 8787 n'a pas prouvé qu'il est le programme local de Coati. Rien ne lui a été envoyé."
+    "message": "Un autre programme répond à la place de celui de Coati, sans prouver qu'il est fiable. Rien ne lui a été envoyé. Fermez ce programme, ou redémarrez celui de Coati, puis réessayez."
   },
   "panel_banner_no_token": {
-    "message": "L'identifiant de cette extension ($EXT_ID$) n'est pas connu du programme local. Ajoutez-le à allowedExtensionIds puis redémarrez le programme local.",
+    "message": "Le programme local ne reconnaît pas encore cette extension (identifiant $EXT_ID$). Ouvrez ses réglages pour l'autoriser, puis redémarrez-le.",
     "placeholders": { "ext_id": { "content": "$1", "example": "abcdefghijklmnop" } }
   },
   "panel_banner_disconnected": {
-    "message": "Le programme local de Coati ne répond pas. Lancez-le sur votre machine (voir le README), puis réessayez."
+    "message": "Le programme local de Coati ne répond pas. Ouvrez-le sur votre ordinateur, puis cliquez sur Réessayer."
   },
 
   "panel_provider_ready": { "message": "prêt" },
@@ -208,6 +221,11 @@
   "panel_first_run_mark_done": { "message": "fait" },
   "panel_first_run_mark_todo": { "message": "à faire" },
   "panel_first_run_mark_pending": { "message": "en cours" },
+  "panel_first_run_lang": {
+    "message": "Langue : $LANG$",
+    "placeholders": { "lang": { "content": "$1", "example": "Français" } }
+  },
+  "panel_first_run_lang_change": { "message": "changer" },
 
   "panel_unreadable_hint": { "message": "Décochez « Lire la page » pour poser une question générale." },
   "panel_unreadable_pdf": { "message": "⚠ Coati ne peut pas lire un PDF affiché par le navigateur." },
@@ -222,7 +240,7 @@
   "options_model_help": {
     "message": "Le modèle qui répond à vos demandes. Ce choix est enregistré par le programme local, sur cette machine."
   },
-  "options_model_disconnected": { "message": "Programme local non connecté : impossible d'afficher ou de changer le modèle." },
+  "options_model_disconnected": { "message": "Le programme local ne répond pas : ouvrez-le sur votre ordinateur, puis revenez sur cette page pour voir ou changer le modèle." },
   "options_model_name_label": { "message": "Nom du modèle" },
   "options_model_name_placeholder": { "message": "ex : llama3.2 (facultatif)" },
   "options_model_save": { "message": "Enregistrer le modèle" },
@@ -246,6 +264,10 @@
   "options_retention_30d": { "message": "30 jours" },
   "options_retention_90d": { "message": "90 jours" },
   "options_retention_never": { "message": "Sans limite" },
+  "options_language_title": { "message": "Langue" },
+  "options_language_help": {
+    "message": "Langue de l'interface de Coati (panneau, réglages, Mes prompts) et langue demandée au modèle pour ses réponses."
+  },
   "options_about_title": { "message": "À propos" },
   "options_about_version": { "message": "Version" },
   "options_about_fingerprint": { "message": "Empreinte du code" },
@@ -348,7 +370,7 @@
     "message": "Programme local non connecté — ouvrez les réglages de l'extension pour l'appairer."
   },
   "prompts_banner_disconnected": {
-    "message": "Programme local non connecté — impossible d'afficher ou de modifier vos prompts."
+    "message": "Le programme local ne répond pas — ouvrez-le sur votre ordinateur, puis revenez sur cette page pour voir ou modifier vos prompts."
   },
   "prompts_all_sites_heading": { "message": "Sur tous les sites" },
   "prompts_empty": { "message": "Aucun prompt pour l'instant." },
@@ -381,6 +403,12 @@
   "sw_broker_silent_15s": {
     "message": "Le programme local ne répond pas depuis 15 s. Vérifiez qu'il tourne sur cette machine, puis réessayez."
   },
+
+  "ctx_read_page": { "message": "Lire cette page avec Coati" },
+  "ctx_rewrite": { "message": "Reformuler" },
+  "ctx_shorten": { "message": "Raccourcir" },
+  "ctx_explain": { "message": "Expliquer" },
+  "ctx_translate": { "message": "Traduire" },
 
   "sugg_wikipedia_name": { "message": "Wikipédia" },
 

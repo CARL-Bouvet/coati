@@ -207,6 +207,23 @@
       prompts: [],
     },
 
+    // U1 — language selector (lib/language-selector.js), menu open: the
+    // header button next to the gear, same "idle" ground state, the menu
+    // popped open by a scripted click (no real extension runtime behind
+    // the lab, so there is nothing to preload for "open" — it's a UI state,
+    // reached the same way a user reaches it).
+    "lang-menu-open": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      autoAction: {
+        steps: [{ type: "click", selector: "#langSelectorButton", delayMs: 0 }],
+      },
+    },
+
     // Question + longue réponse markdown (gras, liste, lien), case "lit
     // cette page" cochée.
     conversation: {
@@ -492,6 +509,91 @@
         ],
         "coati:attachPage": true,
       },
+      prompts: [],
+    },
+
+    // Goal U1, lot 2 — compte à court de crédit chez le fournisseur
+    // (quota-exceeded) : texte figé du broker + bouton « Ouvrir les réglages »
+    // (le remède est de choisir un autre modèle/fournisseur, pas de réessayer).
+    "error-quota": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      providerStatus: { provider: "claude-api", state: "ok", reason: "ready" },
+      storageLocal: {
+        "coati:conversation": [
+          { id: "eq-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          {
+            id: "eq",
+            role: "assistant",
+            text: "⚠ Votre compte chez le fournisseur n'a plus de crédit. Rechargez-le sur son site, ou choisissez un modèle gratuit dans les réglages.",
+            quotaExceeded: true,
+            streaming: false,
+          },
+        ],
+        "coati:attachPage": true,
+      },
+      prompts: [],
+    },
+
+    // Goal U1, lot 2 — trop de requêtes chez le fournisseur (rate-limited),
+    // avec un retryAfterSec connu : bouton « Réessayer » désactivé, décompte
+    // en texte brut (sûr avec "réduire les animations").
+    "error-rate-limited": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      providerStatus: { provider: "openai-compat", state: "ok", reason: "ready" },
+      storageLocal: {
+        "coati:conversation": [
+          { id: "er-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          {
+            id: "er",
+            role: "assistant",
+            text: "⚠ Le fournisseur reçoit trop de requêtes en ce moment. Réessayez dans quelques instants.",
+            rateLimited: true,
+            retryAfterSec: 20,
+            streaming: false,
+          },
+        ],
+        "coati:attachPage": true,
+      },
+      // The "Retry" button only renders when pendingRetries still holds this
+      // id (panel.js, in-memory only) — this lab's stub keeps that payload
+      // around for whatever conversation.id the panel sent last, so this
+      // fixture re-sends the exact same question first (autoAction) before
+      // the error ever reaches storage would be simpler, but the simplest
+      // faithful fixture is the static one above: it shows the text and the
+      // countdown copy, the button itself needs a live round trip to arm.
+      prompts: [],
+    },
+
+    // G5 T51, goal U1 lot 2 — premier lancement, Ollama installé mais pas
+    // démarré : commande copiable « ollama serve » sous l'étape « modèle ».
+    "first-run-ollama-not-running": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      status: "connected",
+      providerStatus: { provider: "ollama", state: "ko", reason: "ollama-unreachable" },
+      tab: HIDDEN_TAB,
+      extraction: { error: "no-access", origin: "https://exemple-actu.fr" },
+      tabAfterGrant: ARTICLE_TAB,
+      extractionAfterGrant: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: [],
+    },
+
+    // Goal U1, lot 2 — programme local introuvable : bandeau de connexion
+    // avec lien d'installation ET bouton « Réessayer » (G4 "no-host" repris
+    // sous un nom explicite pour ce lot).
+    "program-missing": {
+      status: "no-host",
+      tab: null,
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
       prompts: [],
     },
 

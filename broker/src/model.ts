@@ -476,6 +476,52 @@ export function isAuthRequiredError(err: unknown): boolean {
 }
 
 /**
+ * Thrown by a provider when it can positively determine the account behind
+ * the configured key/subscription has run out of credit or quota — a billing
+ * problem, not a wrong key (that's AuthRequiredError) and not a transient
+ * overload (that's RateLimitedError below). Amendement 2026-10-01
+ * (docs/PROTOCOL.md "Fournisseur de modèle", goal U1). `message` is the
+ * connection-language fixed remedy text (messages.ts's "provider.quotaExceeded"),
+ * same contract as AuthRequiredError's message — shown verbatim, never the
+ * raw provider detail.
+ */
+export class QuotaExceededError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "QuotaExceededError";
+  }
+}
+
+/** True when `err` is (or wraps) a QuotaExceededError. Checked by server.ts
+ * ahead of isModelUnavailableError — see PROTOCOL.md. */
+export function isQuotaExceededError(err: unknown): boolean {
+  return err instanceof QuotaExceededError;
+}
+
+/**
+ * Thrown by a provider on a plain "too many requests" rejection (HTTP 429
+ * with no quota/billing signal in the body) — typical of OpenRouter's free
+ * models. Amendement 2026-10-01 (docs/PROTOCOL.md "Fournisseur de modèle",
+ * goal U1). `message` is the connection-language fixed remedy text
+ * (messages.ts's "provider.rateLimited"). `retryAfterSec`, when the provider
+ * sent a `Retry-After` header, is forwarded on the wire's ErrorMessage.
+ */
+export class RateLimitedError extends Error {
+  readonly retryAfterSec?: number;
+  constructor(message: string, retryAfterSec?: number) {
+    super(message);
+    this.name = "RateLimitedError";
+    this.retryAfterSec = retryAfterSec;
+  }
+}
+
+/** True when `err` is (or wraps) a RateLimitedError. Checked by server.ts
+ * ahead of isModelUnavailableError — see PROTOCOL.md. */
+export function isRateLimitedError(err: unknown): boolean {
+  return err instanceof RateLimitedError;
+}
+
+/**
  * True when `err` indicates the model itself is unreachable — the `claude`
  * binary missing or not executable (spawn ENOENT/EACCES), a quota/rate-limit
  * rejection surfaced by the SDK, a hung call that hit the provider's timeout,
@@ -490,6 +536,13 @@ export function isAuthRequiredError(err: unknown): boolean {
  */
 export function isModelUnavailableError(err: unknown): boolean {
   if (err instanceof AuthRequiredError) return false;
+  // Amendement 2026-10-01 (goal U1): these two now have their own codes
+  // (quota-exceeded/rate-limited) — never folded back into model-unavailable
+  // for a provider that throws the typed class. Providers that only have a
+  // generic Error with a matching message (claude-cli, via the SDK) keep
+  // falling through to the heuristic below, unchanged.
+  if (err instanceof QuotaExceededError) return false;
+  if (err instanceof RateLimitedError) return false;
   if (err instanceof ModelTimeoutError) return true;
   if (err instanceof ModelUnavailableError) return true;
   if (!(err instanceof Error)) return false;
@@ -512,6 +565,26 @@ export function isModelUnavailableError(err: unknown): boolean {
     message.includes("fetch failed") ||
     message.includes("connection refused")
   );
+}
+
+/**
+ * Parses an HTTP `Retry-After` header value into whole seconds, per
+ * RFC 9110 §10.2.3 — this broker only supports the delay-seconds form (a
+ * plain non-negative integer), never the HTTP-date form, since no provider
+ * observed at implementation time (2026-10-01) sends the latter and a wrong
+ * parse would just be omitted rather than mislead the user. Returns
+ * `undefined` for anything else (header absent, HTTP-date, negative,
+ * non-numeric) — callers then simply omit `retryAfterSec` on the wire.
+ * Shared by claude-api.ts and openai-compat.ts (both throw RateLimitedError
+ * on a plain HTTP 429 — see docs/PROTOCOL.md "Fournisseur de modèle",
+ * amendement 2026-10-01).
+ */
+export function parseRetryAfterSec(headerValue: string | null): number | undefined {
+  if (!headerValue) return undefined;
+  const trimmed = headerValue.trim();
+  if (!/^\d+$/.test(trimmed)) return undefined;
+  const seconds = Number.parseInt(trimmed, 10);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
 }
 
 // 2 minutes: generous enough for a full-page summarize/chat turn against a

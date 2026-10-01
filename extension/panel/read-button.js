@@ -11,7 +11,7 @@
 //               wording when the address is known, plus an explanation line.
 //   null      — hidden: the page is already accessible.
 
-import { t } from "../lib/i18n.js";
+import { t } from "../lib/i18n-page.js";
 
 // --- User-facing strings, from _locales/<lang>/messages.json --------------
 export const READ_BUTTON_TEXT = {

@@ -46,6 +46,72 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* Language selector (U1) — mounted by lib/language-selector.js, compact
+ * variant (same shape as the panel header's button), pushed to the header's
+ * right edge. */
+.welcome-lang-mount {
+  margin-left: auto;
+}
+
+.lang-selector {
+  position: relative;
+}
+
+.lang-button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  min-width: 1.8em;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+}
+
+.lang-button:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.lang-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 10em;
+  padding: var(--space-1);
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+}
+
+.lang-menu-item {
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.95em;
+}
+
+.lang-menu-item:hover,
+.lang-menu-item:focus-visible {
+  background: var(--surface);
+  outline: none;
+}
+
+.lang-menu-item--active {
+  font-weight: 600;
+  color: var(--accent);
+}
+
 .welcome-main {
   max-width: 640px;
   margin: 0 auto;

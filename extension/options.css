@@ -508,6 +508,71 @@ kbd {
   gap: var(--space-3);
 }
 
+/* --- Language selector (U1) — lib/language-selector.js, mounted full-width here. */
+
+.lang-field {
+  align-self: flex-start;
+}
+
+.lang-selector--full {
+  position: relative;
+  display: inline-block;
+}
+
+.lang-button--full {
+  min-height: var(--control-height);
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: var(--font-size);
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.lang-button--full:hover {
+  background: var(--surface);
+}
+
+.lang-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 12em;
+  padding: var(--space-1);
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--overlay-shadow);
+}
+
+.lang-menu-item {
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.95em;
+}
+
+.lang-menu-item:hover,
+.lang-menu-item:focus-visible {
+  background: var(--surface);
+  outline: none;
+}
+
+.lang-menu-item--active {
+  font-weight: 600;
+  color: var(--accent);
+}
+
 /* --- Narrow ----------------------------------------------------------------- */
 
 @media (max-width: 560px) {

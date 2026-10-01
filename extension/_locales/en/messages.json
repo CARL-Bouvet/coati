@@ -5,6 +5,12 @@
   },
   "extCommandOpen": { "message": "Open Coati" },
 
+  "lang_name_en": { "message": "English" },
+  "lang_name_fr": { "message": "Français" },
+  "lang_name_zh_cn": { "message": "简体中文" },
+  "lang_name_auto": { "message": "Browser language" },
+  "lang_selector_label": { "message": "Language" },
+
   "common_provider_claude_api": { "message": "Claude (API key)" },
   "common_provider_ollama": { "message": "Ollama (local)" },
   "common_provider_openai_compat": { "message": "OpenAI-compatible" },
@@ -23,6 +29,8 @@
   "common_error_cancelled": { "message": "Request cancelled." },
   "common_error_internal": { "message": "Internal error in the local program." },
   "common_error_generic": { "message": "An error occurred." },
+  "common_error_quota_exceeded": { "message": "Your account with the provider has no credit left." },
+  "common_error_rate_limited": { "message": "The provider is getting too many requests right now." },
   "common_error_detail": {
     "message": "Detail: $MESSAGE$",
     "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
@@ -67,6 +75,11 @@
   "panel_copy_failed": { "message": "Copy failed" },
   "panel_retry_session": { "message": "I restarted it, retry" },
   "panel_retry_key": { "message": "I fixed it, retry" },
+  "panel_retry_now": { "message": "Retry" },
+  "panel_retry_countdown": {
+    "message": "Retry in $SECONDS$ s",
+    "placeholders": { "seconds": { "content": "$1", "example": "20" } }
+  },
 
   "panel_error_oversized": {
     "message": "⚠ The message sent exceeded the maximum size accepted by the local program (256 KB); the connection was closed. Try again with shorter content."
@@ -81,17 +94,17 @@
 
   "panel_status_no_token": { "message": "No token — see settings" },
   "panel_banner_no_host": {
-    "message": "Coati can't find its local pairing program. Reinstall it, or use manual pairing if your browser is a Flatpak or a Snap."
+    "message": "Coati can't find its local program on this computer. Install it, or use manual pairing if your browser is a Flatpak or a Snap."
   },
   "panel_banner_broker_untrusted": {
-    "message": "The program listening on port 8787 didn't prove it is Coati's local program. Nothing was sent to it."
+    "message": "Another program is answering in place of Coati's own, and couldn't prove it's trustworthy. Nothing was sent to it. Close that program, or restart Coati's local program, then try again."
   },
   "panel_banner_no_token": {
-    "message": "This extension's id ($EXT_ID$) is unknown to the local program. Add it to allowedExtensionIds, then restart the local program.",
+    "message": "The local program doesn't recognize this extension yet (id $EXT_ID$). Open its settings to allow it, then restart it.",
     "placeholders": { "ext_id": { "content": "$1", "example": "abcdefghijklmnop" } }
   },
   "panel_banner_disconnected": {
-    "message": "Coati's local program isn't responding. Start it on your machine (see the README), then try again."
+    "message": "Coati's local program isn't responding. Open it on your computer, then click Retry."
   },
 
   "panel_provider_ready": { "message": "ready" },
@@ -208,6 +221,11 @@
   "panel_first_run_mark_done": { "message": "done" },
   "panel_first_run_mark_todo": { "message": "to do" },
   "panel_first_run_mark_pending": { "message": "in progress" },
+  "panel_first_run_lang": {
+    "message": "Language: $LANG$",
+    "placeholders": { "lang": { "content": "$1", "example": "English" } }
+  },
+  "panel_first_run_lang_change": { "message": "change" },
 
   "panel_unreadable_hint": { "message": "Uncheck \"Read the page\" to ask a general question." },
   "panel_unreadable_pdf": { "message": "⚠ Coati can't read a PDF displayed by the browser." },
@@ -222,7 +240,7 @@
   "options_model_help": {
     "message": "The model that answers your requests. This choice is saved by the local program, on this machine."
   },
-  "options_model_disconnected": { "message": "Local program not connected: can't show or change the model." },
+  "options_model_disconnected": { "message": "The local program isn't responding: open it on your computer, then come back to this page to see or change the model." },
   "options_model_name_label": { "message": "Model name" },
   "options_model_name_placeholder": { "message": "e.g. llama3.2 (optional)" },
   "options_model_save": { "message": "Save the model" },
@@ -246,6 +264,10 @@
   "options_retention_30d": { "message": "30 days" },
   "options_retention_90d": { "message": "90 days" },
   "options_retention_never": { "message": "No limit" },
+  "options_language_title": { "message": "Language" },
+  "options_language_help": {
+    "message": "Coati's interface language (panel, settings, My prompts) and the language asked of the model for its replies."
+  },
   "options_about_title": { "message": "About" },
   "options_about_version": { "message": "Version" },
   "options_about_fingerprint": { "message": "Code fingerprint" },
@@ -348,7 +370,7 @@
     "message": "Local program not connected — open the extension's settings to pair it."
   },
   "prompts_banner_disconnected": {
-    "message": "Local program not connected — can't show or edit your prompts."
+    "message": "The local program isn't responding — open it on your computer, then come back to this page to see or edit your prompts."
   },
   "prompts_all_sites_heading": { "message": "On all sites" },
   "prompts_empty": { "message": "No prompts yet." },
@@ -381,6 +403,12 @@
   "sw_broker_silent_15s": {
     "message": "The local program hasn't responded in 15s. Check that it's running on this machine, then try again."
   },
+
+  "ctx_read_page": { "message": "Read this page with Coati" },
+  "ctx_rewrite": { "message": "Rewrite" },
+  "ctx_shorten": { "message": "Shorten" },
+  "ctx_explain": { "message": "Explain" },
+  "ctx_translate": { "message": "Translate" },
 
   "sugg_wikipedia_name": { "message": "Wikipedia" },
 

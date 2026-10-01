@@ -94,9 +94,11 @@ import {
   READ_BUTTON_USED_KEY,
 } from "./read-button.js";
 import { firstRunChecks, markFor, FIRST_RUN_TEXT, FIRST_RUN_DONE_KEY, RELEASES_URL } from "./first-run.js";
-import { t, applyI18n } from "../lib/i18n.js";
+import { t, applyI18n, getUiLangState, reloadOnLanguageChange } from "../lib/i18n-page.js";
+import { mountLanguageSelector, currentLanguageName } from "../lib/language-selector.js";
 
 applyI18n(document);
+const langSelector = mountLanguageSelector(document.getElementById("langSelectorMount"));
 
 // Design-variant hook for captures only (notes/PLAN_goal_panneau_v2.md,
 // "Contrat commun") — inert unless the panel's own address carries
@@ -152,6 +154,7 @@ const els = {
   connectionBannerText: document.getElementById("connectionBannerText"),
   connectCoati: document.getElementById("connectCoati"),
   installDocLink: document.getElementById("installDocLink"),
+  connectionBannerRetry: document.getElementById("connectionBannerRetry"),
   openOptions: document.getElementById("openOptions"),
   readPage: document.getElementById("readPage"),
   readPageIcon: document.getElementById("readPageIcon"),
@@ -160,6 +163,7 @@ const els = {
   firstRun: document.getElementById("firstRun"),
   firstRunTitle: document.getElementById("firstRunTitle"),
   firstRunSteps: document.getElementById("firstRunSteps"),
+  firstRunLang: document.getElementById("firstRunLang"),
   siteCard: document.getElementById("siteCard"),
   siteCardSpinner: document.getElementById("siteCardSpinner"),
   siteCardFavicon: document.getElementById("siteCardFavicon"),
@@ -177,6 +181,17 @@ const els = {
   buildInfo: document.getElementById("buildInfo"),
 };
 
+// U1 — live language switch: FIRST_RUN_TEXT, READ_BUTTON_TEXT, suggestions
+// SITES and every other module-level t() table in this page's import graph
+// were all computed once, at import time (see lib/i18n.js's top-level
+// await). Repainting them in place would mean re-deriving every one of
+// those tables here too; a reload re-runs the whole module graph instead,
+// which is simpler and complete. The conversation is kept (see
+// development notes U1 entry) only when the history setting
+// persists it to storage — otherwise this clears it, same as closing and
+// reopening the panel.
+reloadOnLanguageChange();
+
 /** @type {Array<{id: string, role: 'user'|'assistant'|'system', text: string}>} */
 let conversation = [];
 let activeRequestId = null;
@@ -189,8 +204,9 @@ let prefsSites = {};
 // (deliverable D1) — keyed by request id, in-memory only (never persisted to
 // chrome.storage.local: it can hold page content, same reasoning as why
 // context.url is kept out of the conversation elsewhere in this file). Only
-// kept for a request that ended in "auth-required": any other terminal
-// outcome drops its entry, so this never grows unbounded over a long session.
+// kept for a request that ended in "auth-required" or "rate-limited": any
+// other terminal outcome drops its entry, so this never grows unbounded over
+// a long session.
 const pendingRetries = new Map();
 
 // Request-watch state (deliverables B1 + B4) — armed by startRequestWatch()
@@ -284,6 +300,7 @@ async function init() {
   // "connect" flow left (docs/PROTOCOL.md: /pair removed from the extension).
   els.connectCoati.addEventListener("click", () => api.runtime.openOptionsPage());
   els.installDocLink.addEventListener("click", () => api.tabs.create({ url: INSTALL_DOC_URL }));
+  els.connectionBannerRetry.addEventListener("click", retryConnection);
   els.readPage.addEventListener("click", onReadPageClick);
   // Same Brave favicon bug as the site card's own icon below: fall back to
   // Coati's icon rather than an empty ring.
@@ -367,8 +384,7 @@ async function init() {
   await loadAccessPrefs();
   await refreshAllSitesGranted();
 
-  const status = await api.runtime.sendMessage({ type: "coati:panel-ready" }).catch(() => null);
-  applyStatus(status?.state ?? "unknown");
+  await retryConnection();
   requestPrompts();
   requestPrefs();
   updateSavePromptEnabled();
@@ -493,7 +509,21 @@ function handleBrokerMessage(message) {
       // Remedy depends on the provider (session to reopen vs key to fix) —
       // stored on the message so a reloaded conversation keeps the right block.
       const authKind = authRequired ? authKindFor(currentProvider) : undefined;
-      if (!authRequired) pendingRetries.delete(message.id);
+      // docs/PROTOCOL.md amendement 2026-10-01 (goal U1): "quota-exceeded"
+      // (no credit left at the provider — fix is to change model/provider in
+      // settings) and "rate-limited" (too many requests right now — fix is to
+      // wait, optionally a known number of seconds, then retry) each get
+      // their own recovery block, same pattern as auth-required's.
+      const quotaExceeded = message.code === "quota-exceeded";
+      const rateLimited = message.code === "rate-limited";
+      const retryAfterSec =
+        rateLimited && Number.isFinite(message.retryAfterSec) && message.retryAfterSec > 0
+          ? message.retryAfterSec
+          : undefined;
+      // A rate-limited request is worth replaying once the wait is over —
+      // keep its payload like auth-required does. quota-exceeded needs a
+      // settings change first, not a bare retry, so its payload isn't kept.
+      if (!authRequired && !rateLimited) pendingRetries.delete(message.id);
       // Clear activeRequestId BEFORE rendering: buildAuthRecoveryBlock()
       // reads it to decide whether the retry button starts enabled, and
       // this terminal error is exactly what should free it up again.
@@ -504,9 +534,12 @@ function handleBrokerMessage(message) {
         msg.text = msg.text || text;
         msg.authRequired = authRequired;
         msg.authKind = authKind;
+        msg.quotaExceeded = quotaExceeded;
+        msg.rateLimited = rateLimited;
+        msg.retryAfterSec = retryAfterSec;
         renderMessage(msg);
       } else {
-        addMessage({ id: message.id, role: "system", text, authRequired, authKind });
+        addMessage({ id: message.id, role: "system", text, authRequired, authKind, quotaExceeded, rateLimited, retryAfterSec });
       }
       persistConversation();
       break;
@@ -537,6 +570,10 @@ function handleBrokerMessage(message) {
       providerStatusSuffix = formatProviderStatus(message);
       providerState = ["ok", "ko", "unknown"].includes(message.state) ? message.state : "unknown";
       currentProvider = typeof message.provider === "string" ? message.provider : null;
+      // Kept so the first-run card's "model" step can offer the exact copy
+      // command for the two Ollama cases (not running / no usable model) —
+      // see ollamaActionFor() below.
+      lastProviderReason = typeof message.reason === "string" ? message.reason : null;
       renderStatusLabel();
       renderFirstRun();
       break;
@@ -566,6 +603,69 @@ const AUTH_REQUIRED_TEXT = {
 const SESSION_AUTH_PROVIDERS = new Set(["claude-cli"]);
 // Provider id from the last provider.status-result, null until one arrives.
 let currentProvider = null;
+
+// --- Quota / rate-limit recovery (goal U1, EXTENSION lot 2) ----------------
+//
+// quota-exceeded: no credit left at the provider — the only fix is choosing
+// another model/provider in settings, no point offering a retry button.
+// rate-limited: too many requests right now — the fix is waiting, so the
+// block is a disabled "retry" button with a plain-text countdown when the
+// broker gave retryAfterSec, enabled immediately otherwise (no reduced-motion
+// concern either way: it's text, not an animation).
+const QUOTA_RATE_TEXT = {
+  openSettings: t("panel_open_settings"),
+  retryNow: t("panel_retry_now"),
+};
+
+/** No innerHTML — real DOM nodes, same discipline as buildAuthRecoveryBlock(). */
+function buildQuotaRecoveryBlock() {
+  const block = document.createElement("div");
+  block.className = "recovery-block";
+  const settingsBtn = document.createElement("button");
+  settingsBtn.type = "button";
+  settingsBtn.className = "recovery-copy";
+  settingsBtn.textContent = QUOTA_RATE_TEXT.openSettings;
+  settingsBtn.addEventListener("click", () => api.runtime.openOptionsPage());
+  block.appendChild(settingsBtn);
+  return block;
+}
+
+function buildRateLimitRecoveryBlock(msg) {
+  const block = document.createElement("div");
+  block.className = "recovery-block";
+  const retryBtn = document.createElement("button");
+  retryBtn.type = "button";
+  retryBtn.className = "recovery-retry";
+  retryBtn.textContent = QUOTA_RATE_TEXT.retryNow;
+  block.appendChild(retryBtn);
+  armRateLimitRetry(retryBtn, msg);
+  return block;
+}
+
+/** Disables `button` until `msg.retryAfterSec` elapses, updating its label
+ * every second with a plain-text countdown — no CSS animation, so this is
+ * reduced-motion-safe by construction. Enabled right away when the broker
+ * sent no retryAfterSec, or once pendingRetries/activeRequestId allow it. */
+function armRateLimitRetry(button, msg) {
+  const canRetry = () => pendingRetries.has(msg.id) && !activeRequestId;
+  let remaining = msg.retryAfterSec ?? 0;
+  const tick = () => {
+    if (remaining > 0) {
+      button.disabled = true;
+      button.textContent = t("panel_retry_countdown", [String(remaining)]);
+      remaining -= 1;
+      setTimeout(tick, 1000);
+      return;
+    }
+    button.textContent = QUOTA_RATE_TEXT.retryNow;
+    button.disabled = !canRetry();
+  };
+  tick();
+  button.addEventListener("click", () => {
+    if (!canRetry()) return;
+    retryRequest(msg);
+  });
+}
 
 /** "session" | "key" | "unknown" — which remedy an auth-required needs. */
 function authKindFor(provider) {
@@ -602,6 +702,14 @@ function describeBrokerError(message) {
       return t("panel_request_cancelled");
     case "context-too-large":
       return t("panel_error_context_too_large_warn");
+    case "quota-exceeded":
+      // docs/PROTOCOL.md "Contrat error.message pour auth-required,
+      // quota-exceeded et rate-limited": message is already a fixed,
+      // ready-to-display sentence (broker/src/messages.ts) — shown as-is,
+      // never demoted to a secondary "Détail : …" line like model-unavailable.
+      return `⚠ ${message.message || t("common_error_quota_exceeded")}`;
+    case "rate-limited":
+      return `⚠ ${message.message || t("common_error_rate_limited")}`;
     default:
       // Covers "bad-request" and any other/unknown code: a French label
       // keyed on `code` (extension/lib/labels.js, shared with options.js),
@@ -619,6 +727,15 @@ let currentConnState = "unknown";
 // there is nothing to add (state "ok", or no check done yet this panel
 // session) — see maybeRequestProviderStatus()/renderStatusLabel() below.
 let providerStatusSuffix = "";
+
+/** Same "are you there?" message the panel already sends once at startup
+ * (connectIfNeeded() on the service-worker side) — reused as the "Retry"
+ * action on the connection banner (program not found / not responding) so
+ * the user doesn't have to close and reopen the panel to re-check. */
+async function retryConnection() {
+  const status = await api.runtime.sendMessage({ type: "coati:panel-ready" }).catch(() => null);
+  applyStatus(status?.state ?? "unknown");
+}
 
 function applyStatus(state) {
   // A dropped connection must not leave the panel permanently locked: any
@@ -658,10 +775,14 @@ function renderStatusLabel() {
 function applyConnectionBanner(state) {
   els.installDocLink.hidden = true;
   els.connectCoati.hidden = true;
+  els.connectionBannerRetry.hidden = true;
 
   if (state === "no-host") {
+    // "Program missing": offer both the install page and an immediate retry
+    // (it may just have finished installing/starting while this was shown).
     els.connectionBannerText.textContent = t("panel_banner_no_host");
     els.installDocLink.hidden = false;
+    els.connectionBannerRetry.hidden = false;
     els.connectCoati.hidden = false;
     els.connectionBanner.hidden = false;
     return;
@@ -678,7 +799,10 @@ function applyConnectionBanner(state) {
     return;
   }
   if (state === "disconnected") {
+    // "Program not responding": it is presumably installed already, just
+    // not running right now — only a retry, no install link.
     els.connectionBannerText.textContent = t("panel_banner_disconnected");
+    els.connectionBannerRetry.hidden = false;
     els.connectionBanner.hidden = false;
     return;
   }
@@ -697,6 +821,9 @@ let providerStatusRequested = false;
 let providerStatusRequestId = null;
 // Last provider.status-result `state` ("ok" | "ko" | "unknown"), null = none yet.
 let providerState = null;
+// Last provider.status-result `reason` (docs/PROTOCOL.md "Disponibilité du
+// fournisseur"), null = none yet — see ollamaActionFor() below.
+let lastProviderReason = null;
 let providerRecheckAt = 0;
 const PROVIDER_RECHECK_MIN_MS = 10_000;
 
@@ -996,16 +1123,7 @@ function buildAuthRecoveryBlock(msg) {
 }
 
 async function copyLoginCommand(button) {
-  const original = button.textContent;
-  try {
-    await navigator.clipboard.writeText("claude /login");
-    button.textContent = AUTH_REQUIRED_TEXT.copied;
-  } catch {
-    button.textContent = AUTH_REQUIRED_TEXT.copyFailed;
-  }
-  setTimeout(() => {
-    button.textContent = original;
-  }, 1500);
+  return copyCommand(button, "claude /login");
 }
 
 /** Replays the request that ended in `auth-required`, reusing its own id —
@@ -1021,6 +1139,8 @@ async function retryRequest(msg) {
 
   msg.authRequired = false;
   msg.authKind = undefined;
+  msg.rateLimited = false;
+  msg.retryAfterSec = undefined;
   msg.text = "";
   msg.streaming = true;
   renderMessage(msg);
@@ -1412,13 +1532,74 @@ function renderFirstRun() {
   els.firstRunTitle.textContent = FIRST_RUN_TEXT.title;
   els.firstRunSteps.replaceChildren(
     firstRunStep("program", checks.program, () => api.tabs.create({ url: RELEASES_URL })),
-    firstRunStep("model", checks.model, () => api.runtime.openOptionsPage()),
+    firstRunStep("model", checks.model, () => api.runtime.openOptionsPage(), buildOllamaCommandRow()),
     firstRunStep("page", checks.page, pointAtReadButton),
   );
+  renderFirstRunLang();
   els.firstRun.hidden = false;
 }
 
-function firstRunStep(check, value, onAction) {
+// Discreet one-line language mention in the first-run card (U1, "Points
+// tranchés par défaut": "Language: Français · change" is enough). "change"
+// opens the same menu as the header's language button.
+async function renderFirstRunLang() {
+  const state = await getUiLangState();
+  els.firstRunLang.replaceChildren(
+    document.createTextNode(`${t("panel_first_run_lang", [currentLanguageName(state)])} · `),
+  );
+  const change = document.createElement("button");
+  change.type = "button";
+  change.className = "link-button";
+  change.textContent = t("panel_first_run_lang_change");
+  change.addEventListener("click", () => langSelector.open());
+  els.firstRunLang.appendChild(change);
+}
+
+// Ollama's two "model" failure reasons (docs/PROTOCOL.md "Disponibilité du
+// fournisseur") each have one exact terminal command that fixes them — no
+// configured-model name reaches the panel (provider.status-result carries
+// none), so "ollama pull" falls back to llama3.2, Ollama's own default.
+const OLLAMA_DEFAULT_MODEL = "llama3.2";
+
+/** @returns {HTMLElement|null} a copyable-command row for the first-run
+ * "model" step, only when the last provider.status-result points at one of
+ * Ollama's two fixable states — null otherwise (settings button is enough). */
+function buildOllamaCommandRow() {
+  let command;
+  if (lastProviderReason === "ollama-unreachable") command = "ollama serve";
+  else if (lastProviderReason === "model-missing" || lastProviderReason === "no-model-installed") {
+    command = `ollama pull ${OLLAMA_DEFAULT_MODEL}`;
+  } else return null;
+
+  const row = document.createElement("div");
+  row.className = "recovery-command";
+  const code = document.createElement("code");
+  code.textContent = command;
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.className = "recovery-copy";
+  copyBtn.textContent = AUTH_REQUIRED_TEXT.copy;
+  copyBtn.addEventListener("click", () => copyCommand(copyBtn, command));
+  row.append(code, copyBtn);
+  return row;
+}
+
+/** Shared by copyLoginCommand() below (kept for the exact string it already
+ * copies) and buildOllamaCommandRow() above — same copy/feedback dance. */
+async function copyCommand(button, command) {
+  const original = button.textContent;
+  try {
+    await navigator.clipboard.writeText(command);
+    button.textContent = AUTH_REQUIRED_TEXT.copied;
+  } catch {
+    button.textContent = AUTH_REQUIRED_TEXT.copyFailed;
+  }
+  setTimeout(() => {
+    button.textContent = original;
+  }, 1500);
+}
+
+function firstRunStep(check, value, onAction, extraNode) {
   const text = FIRST_RUN_TEXT[check];
   const status = markFor(value);
   const li = document.createElement("li");
@@ -1448,6 +1629,7 @@ function firstRunStep(check, value, onAction) {
       hint.textContent = text.hint;
       body.appendChild(hint);
     }
+    if (extraNode) body.appendChild(extraNode);
     const action = document.createElement("button");
     action.type = "button";
     action.className = "toolbar-button first-run-action";
@@ -2042,6 +2224,12 @@ function renderMessage(msg, { append = false } = {}) {
     // "[1:23]" has none, so its timestamps stay plain text (deliverable 4).
     if (msg.role === "assistant" && msg.videoId) linkifyTimestamps(node, msg.videoId);
     if (msg.authRequired) node.appendChild(buildAuthRecoveryBlock(msg));
+    if (msg.quotaExceeded) node.appendChild(buildQuotaRecoveryBlock());
+    // No retry payload survives a panel reload (pendingRetries is in-memory
+    // only, same limitation as buildAuthRecoveryBlock() above) — in that case
+    // the message text alone (already telling the user to try again) is the
+    // fallback, rather than a button permanently stuck disabled.
+    if (msg.rateLimited && pendingRetries.has(msg.id)) node.appendChild(buildRateLimitRecoveryBlock(msg));
   }
   // Only follow the stream to the bottom if the user was already there
   // (or close enough) — a user scrolled up to read must not be yanked back

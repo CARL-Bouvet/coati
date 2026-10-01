@@ -17,13 +17,17 @@
         <span class="status-label">…</span>
       </span>
     </div>
-    <button id="openOptions" class="icon-button" type="button" data-i18n-title="panel_settings_title">⚙︎</button>
+    <span class="header-tools">
+      <span id="langSelectorMount"></span>
+      <button id="openOptions" class="icon-button" type="button" data-i18n-title="panel_settings_title">⚙︎</button>
+    </span>
   </header>
 
   <div id="connectionBanner" class="connection-banner" hidden>
     <span id="connectionBannerText" class="connection-banner-text"></span>
     <span class="connection-banner-actions">
       <button id="installDocLink" class="connection-banner-cta" type="button" hidden data-i18n="panel_install_doc_link">Comment l'installer</button>
+      <button id="connectionBannerRetry" class="connection-banner-cta" type="button" hidden data-i18n="panel_retry_now">Réessayer</button>
       <button id="connectCoati" class="connection-banner-cta" type="button" hidden data-i18n="panel_open_settings">Ouvrir les réglages</button>
     </span>
   </div>
@@ -57,6 +61,7 @@
       <h2 id="firstRunTitle" class="first-run-title"></h2>
     </div>
     <ol id="firstRunSteps" class="first-run-steps"></ol>
+    <p id="firstRunLang" class="first-run-lang"></p>
   </section>
 
   <main id="messages" class="messages" aria-live="polite"></main>

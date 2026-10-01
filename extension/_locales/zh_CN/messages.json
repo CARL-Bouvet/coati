@@ -5,6 +5,12 @@
   },
   "extCommandOpen": { "message": "打开 Coati" },
 
+  "lang_name_en": { "message": "English" },
+  "lang_name_fr": { "message": "Français" },
+  "lang_name_zh_cn": { "message": "简体中文" },
+  "lang_name_auto": { "message": "浏览器语言" },
+  "lang_selector_label": { "message": "语言" },
+
   "common_provider_claude_api": { "message": "Claude（API 密钥）" },
   "common_provider_ollama": { "message": "Ollama（本地）" },
   "common_provider_openai_compat": { "message": "OpenAI 兼容" },
@@ -23,6 +29,8 @@
   "common_error_cancelled": { "message": "请求已取消。" },
   "common_error_internal": { "message": "本地程序内部错误。" },
   "common_error_generic": { "message": "发生错误。" },
+  "common_error_quota_exceeded": { "message": "您在该提供商的账户已没有余额。" },
+  "common_error_rate_limited": { "message": "该提供商目前收到的请求过多。" },
   "common_error_detail": {
     "message": "详情：$MESSAGE$",
     "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
@@ -67,6 +75,11 @@
   "panel_copy_failed": { "message": "复制失败" },
   "panel_retry_session": { "message": "已重启，重试" },
   "panel_retry_key": { "message": "已修复，重试" },
+  "panel_retry_now": { "message": "重试" },
+  "panel_retry_countdown": {
+    "message": "$SECONDS$ 秒后可重试",
+    "placeholders": { "seconds": { "content": "$1", "example": "20" } }
+  },
 
   "panel_error_oversized": {
     "message": "⚠ 发送的消息超过了本地程序接受的最大大小（256 KB）；连接已关闭。请缩短内容后重试。"
@@ -81,17 +94,17 @@
 
   "panel_status_no_token": { "message": "无令牌 — 请查看设置" },
   "panel_banner_no_host": {
-    "message": "Coati 找不到本地配对程序。请重新安装，或在使用 Flatpak/Snap 浏览器时使用手动配对。"
+    "message": "Coati 在这台电脑上找不到本地程序。请安装它，或在使用 Flatpak/Snap 浏览器时改用手动配对。"
   },
   "panel_banner_broker_untrusted": {
-    "message": "监听 8787 端口的程序未能证明其为 Coati 本地程序。未向其发送任何内容。"
+    "message": "有另一个程序代替 Coati 的本地程序做出了响应，但无法证明它是可信的，因此未向它发送任何内容。请关闭该程序，或重启 Coati 的本地程序，然后重试。"
   },
   "panel_banner_no_token": {
-    "message": "此扩展程序的 ID（$EXT_ID$）未在本地程序中注册。请将其添加至 allowedExtensionIds，然后重启本地程序。",
+    "message": "本地程序尚未识别此扩展程序（ID：$EXT_ID$）。请打开本地程序的设置将其加入允许列表，然后重启本地程序。",
     "placeholders": { "ext_id": { "content": "$1", "example": "abcdefghijklmnop" } }
   },
   "panel_banner_disconnected": {
-    "message": "Coati 本地程序无响应。请在本机启动它（见 README），然后重试。"
+    "message": "Coati 本地程序无响应。请在电脑上打开它，然后点击「重试」。"
   },
 
   "panel_provider_ready": { "message": "就绪" },
@@ -208,6 +221,11 @@
   "panel_first_run_mark_done": { "message": "已完成" },
   "panel_first_run_mark_todo": { "message": "待完成" },
   "panel_first_run_mark_pending": { "message": "进行中" },
+  "panel_first_run_lang": {
+    "message": "语言：$LANG$",
+    "placeholders": { "lang": { "content": "$1", "example": "简体中文" } }
+  },
+  "panel_first_run_lang_change": { "message": "更改" },
 
   "panel_unreadable_hint": { "message": "取消勾选「读取页面」以提问一般问题。" },
   "panel_unreadable_pdf": { "message": "⚠ Coati 无法读取浏览器显示的 PDF。" },
@@ -222,7 +240,7 @@
   "options_model_help": {
     "message": "用于回答请求的模型。此选项由本地程序保存在本机上。"
   },
-  "options_model_disconnected": { "message": "本地程序未连接：无法查看或更改模型。" },
+  "options_model_disconnected": { "message": "本地程序无响应：请在电脑上打开它，然后回到此页面查看或更改模型。" },
   "options_model_name_label": { "message": "模型名称" },
   "options_model_name_placeholder": { "message": "例如：llama3.2（可选）" },
   "options_model_save": { "message": "保存模型" },
@@ -246,6 +264,10 @@
   "options_retention_30d": { "message": "30 天" },
   "options_retention_90d": { "message": "90 天" },
   "options_retention_never": { "message": "无限制" },
+  "options_language_title": { "message": "语言" },
+  "options_language_help": {
+    "message": "Coati 界面的语言（面板、设置、我的提示）以及要求模型回复所用的语言。"
+  },
   "options_about_title": { "message": "关于" },
   "options_about_version": { "message": "版本" },
   "options_about_fingerprint": { "message": "代码指纹" },
@@ -348,7 +370,7 @@
     "message": "本地程序未连接 — 请打开扩展程序设置进行配对。"
   },
   "prompts_banner_disconnected": {
-    "message": "本地程序未连接 — 无法查看或编辑提示词。"
+    "message": "本地程序无响应 — 请在电脑上打开它，然后回到此页面查看或编辑提示词。"
   },
   "prompts_all_sites_heading": { "message": "在所有网站上" },
   "prompts_empty": { "message": "暂无提示词。" },
@@ -381,6 +403,12 @@
   "sw_broker_silent_15s": {
     "message": "本地程序已 15 秒无响应。请确认其在本机上运行，然后重试。"
   },
+
+  "ctx_read_page": { "message": "用 Coati 阅读此页面" },
+  "ctx_rewrite": { "message": "重写" },
+  "ctx_shorten": { "message": "缩短" },
+  "ctx_explain": { "message": "解释" },
+  "ctx_translate": { "message": "翻译" },
 
   "sugg_wikipedia_name": { "message": "维基百科" },
 

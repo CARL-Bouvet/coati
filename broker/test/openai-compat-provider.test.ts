@@ -20,8 +20,12 @@ import {
   buildPrompt,
   isAuthRequiredError,
   isModelUnavailableError,
+  isQuotaExceededError,
+  isRateLimitedError,
   AuthRequiredError,
   ModelUnavailableError,
+  QuotaExceededError,
+  RateLimitedError,
 } from "../src/model.ts";
 
 afterEach(() => {
@@ -304,7 +308,7 @@ describe("openai-compat streamAnswer — integration against a real fake server"
     expect(err).toBeInstanceOf(ModelUnavailableError);
   });
 
-  test("rate-limited (429) surfaces as model-unavailable", async () => {
+  test("a plain 429 (no quota signal) surfaces as rate-limited", async () => {
     const server = fakeServer({
       "POST /v1/chat/completions": () => new Response("too many requests", { status: 429 }),
     });
@@ -319,7 +323,75 @@ describe("openai-compat streamAnswer — integration against a real fake server"
           return e as Error;
         }
       })();
-      expect(err).toBeInstanceOf(ModelUnavailableError);
+      expect(err).toBeInstanceOf(RateLimitedError);
+      expect(isRateLimitedError(err)).toBe(true);
+      expect(isModelUnavailableError(err)).toBe(false);
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("a 429 carrying a Retry-After header puts retryAfterSec on the RateLimitedError", async () => {
+    const server = fakeServer({
+      "POST /v1/chat/completions": () => new Response("too many requests", { status: 429, headers: { "retry-after": "7" } }),
+    });
+    try {
+      const built = buildPrompt({ kind: "chat", text: "salut" });
+      const err = await (async () => {
+        try {
+          for await (const _e of streamAnswer(built, { baseUrl: server.baseUrl, model: "m" })) {
+            // draining
+          }
+        } catch (e) {
+          return e as RateLimitedError;
+        }
+      })();
+      expect(err).toBeInstanceOf(RateLimitedError);
+      expect((err as RateLimitedError).retryAfterSec).toBe(7);
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("a 429 whose body names insufficient_quota (error.code or error.type) surfaces as quota-exceeded", async () => {
+    const server = fakeServer({
+      "POST /v1/chat/completions": () =>
+        new Response(JSON.stringify({ error: { code: "insufficient_quota", message: "no credit" } }), { status: 429 }),
+    });
+    try {
+      const built = buildPrompt({ kind: "chat", text: "salut" });
+      const err = await (async () => {
+        try {
+          for await (const _e of streamAnswer(built, { baseUrl: server.baseUrl, model: "m" })) {
+            // draining
+          }
+        } catch (e) {
+          return e as Error;
+        }
+      })();
+      expect(err).toBeInstanceOf(QuotaExceededError);
+      expect(isQuotaExceededError(err)).toBe(true);
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("a 402 response surfaces as quota-exceeded", async () => {
+    const server = fakeServer({
+      "POST /v1/chat/completions": () => new Response("payment required", { status: 402 }),
+    });
+    try {
+      const built = buildPrompt({ kind: "chat", text: "salut" });
+      const err = await (async () => {
+        try {
+          for await (const _e of streamAnswer(built, { baseUrl: server.baseUrl, model: "m" })) {
+            // draining
+          }
+        } catch (e) {
+          return e as Error;
+        }
+      })();
+      expect(err).toBeInstanceOf(QuotaExceededError);
     } finally {
       server.stop();
     }

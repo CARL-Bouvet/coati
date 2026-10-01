@@ -12,6 +12,9 @@ import {
   ModelTimeoutError,
   ModelUnavailableError,
   AuthRequiredError,
+  QuotaExceededError,
+  RateLimitedError,
+  parseRetryAfterSec,
   type AnswerEvent,
   type BuiltPrompt,
   type StreamAnswerOptions,
@@ -52,6 +55,38 @@ const MAX_TOKENS = 8192;
 // (opts.lang) — this constant is the DEFAULT_LANG (en) wording, kept exported
 // for tests that don't set up a lang at all.
 export const CLAUDE_API_AUTH_MESSAGE = t("auth.apiKeyRejected", DEFAULT_LANG);
+
+// Goal U1 (docs/PROTOCOL.md "Fournisseur de modèle", amendement 2026-10-01):
+// same contract as CLAUDE_API_AUTH_MESSAGE above — DEFAULT_LANG (en) wording,
+// localised per-connection at the throw site via opts.lang.
+export const CLAUDE_API_QUOTA_EXCEEDED_MESSAGE = t("provider.quotaExceeded", DEFAULT_LANG);
+export const CLAUDE_API_RATE_LIMITED_MESSAGE = t("provider.rateLimited", DEFAULT_LANG);
+
+/**
+ * True when an Anthropic API error response body signals a billing/quota
+ * problem rather than a plain rejection — the Messages API returns this as
+ * either a 402, or a 400 whose error object is a billing_error / whose
+ * message names a credit shortfall ("credit balance is too low" — the exact
+ * wording observed at implementation time, 2026-10-01), or (defensively,
+ * mirroring the OpenAI-compatible convention) a 429 whose error code/type is
+ * "insufficient_quota". Never throws on a malformed/non-JSON body — treated
+ * as "no quota signal" rather than crashing the error path.
+ */
+function isAnthropicQuotaBody(bodyText: string): boolean {
+  const lower = bodyText.toLowerCase();
+  if (lower.includes("credit balance is too low")) return true;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch {
+    return false;
+  }
+  if (!parsed || typeof parsed !== "object") return false;
+  const error = (parsed as Record<string, unknown>).error;
+  if (!error || typeof error !== "object") return false;
+  const { type, code } = error as Record<string, unknown>;
+  return type === "billing_error" || type === "insufficient_quota" || code === "insufficient_quota";
+}
 
 async function isAvailable(opts: ProviderRuntimeOptions): Promise<Availability> {
   const key = opts.apiKey?.trim();
@@ -232,11 +267,32 @@ export async function* streamAnswer(
 
     if (!response.ok) {
       // Never read the key back out, never include it below — only the HTTP
-      // status is used to classify the failure.
+      // status (and, for the two cases below, the error body's own `type`/
+      // `code`/`message` — never anything client-supplied) is used to
+      // classify the failure.
+      const lang = opts.lang ?? DEFAULT_LANG;
       if (response.status === 401 || response.status === 403) {
-        throw new AuthRequiredError(t("auth.apiKeyRejected", opts.lang ?? DEFAULT_LANG));
+        throw new AuthRequiredError(t("auth.apiKeyRejected", lang));
       }
-      if (response.status === 429 || response.status >= 500) {
+      if (response.status === 402) {
+        throw new QuotaExceededError(t("provider.quotaExceeded", lang));
+      }
+      if (response.status === 400) {
+        const bodyText = await response.text().catch(() => "");
+        if (isAnthropicQuotaBody(bodyText)) {
+          throw new QuotaExceededError(t("provider.quotaExceeded", lang));
+        }
+        throw new Error(`Anthropic API returned HTTP 400`);
+      }
+      if (response.status === 429) {
+        const bodyText = await response.text().catch(() => "");
+        if (isAnthropicQuotaBody(bodyText)) {
+          throw new QuotaExceededError(t("provider.quotaExceeded", lang));
+        }
+        const retryAfterSec = parseRetryAfterSec(response.headers.get("retry-after"));
+        throw new RateLimitedError(t("provider.rateLimited", lang), retryAfterSec);
+      }
+      if (response.status >= 500) {
         throw new ModelUnavailableError(`Anthropic API returned HTTP ${response.status}`);
       }
       throw new Error(`Anthropic API returned HTTP ${response.status}`);

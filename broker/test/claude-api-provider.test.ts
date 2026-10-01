@@ -19,8 +19,12 @@ import {
   buildPrompt,
   isAuthRequiredError,
   isModelUnavailableError,
+  isQuotaExceededError,
+  isRateLimitedError,
   AuthRequiredError,
   ModelUnavailableError,
+  QuotaExceededError,
+  RateLimitedError,
 } from "../src/model.ts";
 
 afterEach(() => {
@@ -272,7 +276,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(err).toBeInstanceOf(AuthRequiredError);
   });
 
-  test("a 429 response is classified as model-unavailable, not auth-required", async () => {
+  test("a plain 429 response (no quota signal in body) is classified as rate-limited", async () => {
     __setFetchImplForTests((async () => new Response("rate limited", { status: 429 })) as unknown as typeof fetch);
 
     const built = buildPrompt({ kind: "chat", text: "salut" });
@@ -286,9 +290,103 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
       }
     })();
 
-    expect(err).toBeInstanceOf(ModelUnavailableError);
-    expect(isModelUnavailableError(err)).toBe(true);
+    expect(err).toBeInstanceOf(RateLimitedError);
+    expect(isRateLimitedError(err)).toBe(true);
+    expect(isModelUnavailableError(err)).toBe(false);
     expect(isAuthRequiredError(err)).toBe(false);
+    expect(isQuotaExceededError(err)).toBe(false);
+  });
+
+  test("a 429 response whose body names insufficient_quota is classified as quota-exceeded", async () => {
+    __setFetchImplForTests(
+      (async () =>
+        new Response(JSON.stringify({ error: { type: "insufficient_quota", message: "no quota" } }), {
+          status: 429,
+        })) as unknown as typeof fetch,
+    );
+    const built = buildPrompt({ kind: "chat", text: "salut" });
+    const err = await (async () => {
+      try {
+        for await (const _event of streamAnswer(built, { apiKey: "k" })) {
+          // draining
+        }
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect(err).toBeInstanceOf(QuotaExceededError);
+    expect(isQuotaExceededError(err)).toBe(true);
+    expect(isModelUnavailableError(err)).toBe(false);
+  });
+
+  test("a 429 response carries retryAfterSec from the Retry-After header onto the error", async () => {
+    __setFetchImplForTests(
+      (async () => new Response("too many requests", { status: 429, headers: { "retry-after": "20" } })) as unknown as typeof fetch,
+    );
+    const built = buildPrompt({ kind: "chat", text: "salut" });
+    const err = await (async () => {
+      try {
+        for await (const _event of streamAnswer(built, { apiKey: "k" })) {
+          // draining
+        }
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect(err).toBeInstanceOf(RateLimitedError);
+    expect((err as RateLimitedError).retryAfterSec).toBe(20);
+  });
+
+  test("a 402 response is classified as quota-exceeded", async () => {
+    __setFetchImplForTests((async () => new Response("payment required", { status: 402 })) as unknown as typeof fetch);
+    const built = buildPrompt({ kind: "chat", text: "salut" });
+    const err = await (async () => {
+      try {
+        for await (const _event of streamAnswer(built, { apiKey: "k" })) {
+          // draining
+        }
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect(err).toBeInstanceOf(QuotaExceededError);
+  });
+
+  test("a 400 response naming a low credit balance is classified as quota-exceeded", async () => {
+    __setFetchImplForTests(
+      (async () =>
+        new Response(JSON.stringify({ error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API" } }), {
+          status: 400,
+        })) as unknown as typeof fetch,
+    );
+    const built = buildPrompt({ kind: "chat", text: "salut" });
+    const err = await (async () => {
+      try {
+        for await (const _event of streamAnswer(built, { apiKey: "k" })) {
+          // draining
+        }
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect(err).toBeInstanceOf(QuotaExceededError);
+  });
+
+  test("a plain 400 response (no billing signal) is neither auth-required, quota-exceeded nor model-unavailable", async () => {
+    __setFetchImplForTests((async () => new Response(JSON.stringify({ error: { type: "invalid_request_error", message: "bad request" } }), { status: 400 })) as unknown as typeof fetch);
+    const built = buildPrompt({ kind: "chat", text: "salut" });
+    const err = await (async () => {
+      try {
+        for await (const _event of streamAnswer(built, { apiKey: "k" })) {
+          // draining
+        }
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect(isAuthRequiredError(err)).toBe(false);
+    expect(isQuotaExceededError(err)).toBe(false);
+    expect(isModelUnavailableError(err)).toBe(false);
   });
 
   test("a 500 response is classified as model-unavailable", async () => {

@@ -105,6 +105,16 @@ function stripComments(source: string): string {
 
 const FRENCH_ACCENT_RE = /[àâäéèêëïîôöùûüçÀÂÄÉÈÊËÏÎÔÖÙÛÜÇ]/;
 
+// U1 bug (development notes): service-worker.js's context-menu titles
+// ("Reformuler", "Raccourcir", "Expliquer", "Traduire", "Lire cette page
+// avec Coati") were hardcoded French with NO accented character at all, so
+// the scan above missed every one of them. This second, word-boundary pass
+// catches unmistakably-French function words and verbs that have no English
+// homograph — short enough to stay a allow-listable heuristic (same
+// `// i18n-allow: <reason>` escape hatch as the accent scan), not a full
+// parser.
+const FRENCH_WORD_RE = /\b(avec|cette|lire|reformuler|raccourcir|expliquer|traduire)\b/i;
+
 function listFiles(dir: string, exts: string[], out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     if (name === "_locales" || name === "vendor" || name === "node_modules") continue;
@@ -137,7 +147,10 @@ describe("no leftover French literal outside _locales/ (.js files)", () => {
       // comments is fine; see the top-of-describe comment).
       const offendingLines = codeOnlyLines
         .map((line, i) => ({ line, i, original: originalLines[i] ?? "" }))
-        .filter(({ line, original }) => FRENCH_ACCENT_RE.test(line) && !original.includes("i18n-allow"));
+        .filter(
+          ({ line, original }) =>
+            (FRENCH_ACCENT_RE.test(line) || FRENCH_WORD_RE.test(line)) && !original.includes("i18n-allow"),
+        );
       expect(offendingLines).toEqual([]);
     });
   }
