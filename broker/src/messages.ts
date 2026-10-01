@@ -128,6 +128,15 @@ const MESSAGES: Catalog = {
     fr: "Impossible de joindre ce fournisseur.",
     zh_CN: "无法连接到此提供商。",
   },
+  // --- settings.test-result's `code: "model-missing"` (docs/PROTOCOL.md,
+  // amendement 2026-10-01, goal U2) — ollama only: the daemon answered but
+  // the configured model isn't installed, distinct from "ollama isn't
+  // responding" (settingsTest.failure.ollama above). ---------------------
+  "settingsTest.failure.ollama.modelMissing": {
+    en: "This model isn't installed in Ollama — pull it or pick another in settings.",
+    fr: "Ce modèle n'est pas installé dans Ollama — téléchargez-le ou choisissez-en un autre dans les réglages.",
+    zh_CN: "该模型未在 Ollama 中安装 — 请拉取该模型或在设置中选择其他模型。",
+  },
 
   // --- testProviderConnection's own pre-flight checks (settings.test,
   // before any network call is even attempted) ----------------------------

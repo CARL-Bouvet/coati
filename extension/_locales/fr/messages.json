@@ -211,7 +211,7 @@
   "panel_first_run_model_missing": { "message": "Aucun modèle ne répond" },
   "panel_first_run_model_pending": { "message": "Vérification du modèle…" },
   "panel_first_run_model_waiting": { "message": "Modèle : en attente du programme local" },
-  "panel_first_run_model_action": { "message": "Ouvrir les réglages" },
+  "panel_first_run_model_action": { "message": "Connecter un modèle" },
   "panel_first_run_page_ok": { "message": "Accès aux pages accordé" },
   "panel_first_run_page_missing": { "message": "Donnez-lui accès à la page" },
   "panel_first_run_page_hint": {
@@ -226,6 +226,16 @@
     "placeholders": { "lang": { "content": "$1", "example": "Français" } }
   },
   "panel_first_run_lang_change": { "message": "changer" },
+
+  "neverConnectedTitle": { "message": "Aucun modèle d'IA n'est encore connecté" },
+  "neverConnectedBody": {
+    "message": "Coati répond grâce à un modèle d'IA, installé sur votre ordinateur ou en ligne. Le guide vous aide à en connecter un."
+  },
+  "neverConnectedAction": { "message": "Connecter un modèle" },
+  "panelHelpButtonLabel": { "message": "Aide : connecter un modèle" },
+  "panelHelpPopoverText": {
+    "message": "Coati a besoin d'un modèle d'IA pour répondre : sur votre ordinateur (gratuit et privé) ou en ligne (une clé à créer). Le tutoriel vous guide pas à pas. Cliquez sur ce bouton pour l'ouvrir."
+  },
 
   "panel_unreadable_hint": { "message": "Décochez « Lire la page » pour poser une question générale." },
   "panel_unreadable_pdf": { "message": "⚠ Coati ne peut pas lire un PDF affiché par le navigateur." },
@@ -312,6 +322,160 @@
   "options_model_placeholder_claude": { "message": "ex : claude-sonnet-4-5 (facultatif)" },
   "options_model_placeholder_openai_compat": { "message": "nom exact attendu par le serveur" },
   "options_shortcut_not_set": { "message": "non défini" },
+
+  "keyInput_label": { "message": "Clé API" },
+  "keyInput_placeholder": { "message": "Collez la clé ici" },
+  "keyInput_placeholder_replace": { "message": "Collez une nouvelle clé pour remplacer l'actuelle" },
+  "keyInput_show": { "message": "Afficher" },
+  "keyInput_hide": { "message": "Masquer" },
+  "keyInput_save": { "message": "Enregistrer la clé" },
+  "keyInput_saving": { "message": "Envoi au programme local…" },
+  "keyInput_saved": { "message": "Clé enregistrée" },
+  "keyInput_verifying": { "message": "Clé enregistrée, vérification auprès du service…" },
+  "keyInput_accepted": { "message": "Clé acceptée" },
+  "keyInput_refused": { "message": "Clé refusée par le service : vérifiez qu'elle a été copiée en entier, ou créez-en une nouvelle sur son site." },
+  "keyInput_remedy_credit": { "message": "Ajoutez du crédit sur le site du service, puis cliquez sur « Vérifier à nouveau »." },
+  "keyInput_remedy_wait": { "message": "La clé est enregistrée : attendez une minute, puis cliquez sur « Vérifier à nouveau »." },
+  "keyInput_test_failed": { "message": "La vérification de la clé a échoué." },
+  "keyInput_save_failed": { "message": "La clé n'a pas été enregistrée." },
+  "keyInput_retry": { "message": "Vérifier à nouveau" },
+  "keyInput_delete": { "message": "Supprimer la clé" },
+  "keyInput_delete_confirm": { "message": "Confirmer la suppression" },
+  "keyInput_deleted": { "message": "Clé supprimée de cet ordinateur." },
+  "keyInput_not_connected": { "message": "Le programme local ne répond pas : impossible d'enregistrer une clé pour l'instant." },
+  "keyInput_note_storage": { "message": "La clé est rangée en clair sur cet ordinateur, dans un fichier que seul votre compte peut lire." },
+  "keyInput_note_never_share": { "message": "Ne la collez jamais ailleurs (chat, Discord, courriel) : Coati ne vous la demandera jamais." },
+  "keyInput_note_spending_cap": { "message": "Service payant : fixez un plafond de dépense mensuel sur son site." },
+  "keyInput_spending_cap_link": { "message": "Fixer le plafond" },
+  "setup_title": { "message": "Connecter un modèle d'IA" },
+  "setup_open_link": { "message": "Besoin d'aide ? Suivre le guide pas à pas" },
+  "setup_intro_need": { "message": "Pour vous répondre, Coati a besoin d'un modèle d'IA." },
+  "setup_intro_local_program": { "message": "Le programme local, installé avec Coati sur cet ordinateur, fait le lien entre votre navigateur et ce modèle." },
+  "setup_not_connected": { "message": "Le programme local ne répond pas : les vérifications reprendront dès qu'il sera lancé." },
+  "setup_choose": { "message": "Où le modèle doit-il tourner ?" },
+  "setup_path_local_title": { "message": "Sur mon ordinateur" },
+  "setup_path_local_text": { "message": "Gratuit et privé : vos textes ne quittent pas l'ordinateur. Il faut un ordinateur récent." },
+  "setup_path_online_title": { "message": "En ligne" },
+  "setup_path_online_text": { "message": "Plus simple : une clé à créer chez un service. Gratuit ou payant selon le service." },
+  "setup_checking": { "message": "Vérification…" },
+  "setup_check_unknown": { "message": "La vérification n'a pas abouti. Réessayez dans un instant." },
+  "setup_copy": { "message": "Copier" },
+  "setup_copied": { "message": "Copié" },
+  "setup_copy_manual": { "message": "Sélectionné : Ctrl+C pour copier" },
+  "setup_try_title": { "message": "Essayer sur une page" },
+  "setup_try_text": { "message": "Ouvrez n'importe quelle page web, puis cliquez sur l'icône de Coati dans la barre du navigateur. Si elle n'y est pas, cliquez sur l'icône en forme de pièce de puzzle et épinglez Coati." },
+  "setup_local_install_title": { "message": "Installer Ollama" },
+  "setup_local_install_text": { "message": "Ollama est un logiciel gratuit qui fait tourner le modèle sur votre ordinateur." },
+  "setup_local_download_for": {
+    "message": "Télécharger Ollama pour $OS$",
+    "placeholders": {
+      "os": { "content": "$1", "example": "Windows" }
+    }
+  },
+  "setup_local_other_os": { "message": "Autres systèmes :" },
+  "setup_local_download": { "message": "Télécharger Ollama :" },
+  "setup_local_linux_install": { "message": "Sous Linux, vous pouvez aussi l'installer depuis un terminal :" },
+  "setup_local_start_intro": { "message": "Ensuite, lancez-le :" },
+  "setup_local_start_windows": { "message": "Ouvrez Ollama depuis le menu Démarrer ; son icône apparaît près de l'horloge." },
+  "setup_local_start_mac": { "message": "Ouvrez Ollama depuis le dossier Applications ; son icône apparaît dans la barre des menus." },
+  "setup_local_start_linux": { "message": "L'installation le lance toute seule. S'il ne tourne pas, lancez cette commande dans un terminal :" },
+  "setup_local_running_title": { "message": "Vérifier qu'Ollama répond" },
+  "setup_local_running_text": { "message": "Coati va utiliser Ollama et vérifier qu'il répond sur cet ordinateur." },
+  "setup_local_running_check": { "message": "Utiliser Ollama et vérifier" },
+  "setup_local_running_ok": { "message": "Ollama répond." },
+  "setup_local_unreachable": { "message": "Ollama ne répond pas. Vérifiez qu'il est lancé (étape 1), puis réessayez." },
+  "setup_local_model_title": { "message": "Télécharger un modèle" },
+  "setup_local_model_text": { "message": "Choisissez la ligne qui correspond à la mémoire (RAM) de votre ordinateur. Plus de mémoire permet un modèle plus capable, mais plus long à télécharger." },
+  "setup_local_memory_known": {
+    "message": "D'après votre navigateur, cet ordinateur a au moins $GB$ Go de mémoire (il n'indique jamais plus de 8 Go).",
+    "placeholders": {
+      "gb": { "content": "$1", "example": "8" }
+    }
+  },
+  "setup_local_memory_unknown": { "message": "Votre navigateur n'indique pas la mémoire de cet ordinateur : regardez dans les informations système." },
+  "setup_local_col_memory": { "message": "Mémoire de l'ordinateur" },
+  "setup_local_col_model": { "message": "Modèle" },
+  "setup_local_col_size": { "message": "Téléchargement" },
+  "setup_local_memory_row": {
+    "message": "$GB$ Go ou plus",
+    "placeholders": {
+      "gb": { "content": "$1", "example": "8" }
+    }
+  },
+  "setup_local_suggested": { "message": "conseillé" },
+  "setup_size_gb": {
+    "message": "$GB$ Go",
+    "placeholders": {
+      "gb": { "content": "$1", "example": "3,3" }
+    }
+  },
+  "setup_local_pull_text": { "message": "Ouvrez un terminal (Windows : PowerShell ; macOS : Terminal), collez cette commande, puis attendez la fin du téléchargement." },
+  "setup_local_model_check": { "message": "Vérifier le modèle" },
+  "setup_local_model_ok": { "message": "Le modèle est prêt." },
+  "setup_local_model_missing": {
+    "message": "Le modèle $MODEL$ n'est pas encore dans Ollama : lancez la commande ci-dessus et attendez la fin du téléchargement.",
+    "placeholders": {
+      "model": { "content": "$1", "example": "gemma3:4b" }
+    }
+  },
+  "setup_local_no_model": { "message": "Aucun modèle n'est encore installé dans Ollama : lancez la commande ci-dessus." },
+  "setup_lmstudio_title": { "message": "Avancé : LM Studio" },
+  "setup_lmstudio_text": { "message": "LM Studio est une autre application qui fait tourner un modèle sur votre ordinateur. Installez-la, téléchargez un modèle depuis l'application, puis démarrez son serveur local (onglet « Developer », bouton « Start Server »)." },
+  "setup_lmstudio_download": { "message": "Télécharger LM Studio" },
+  "setup_lmstudio_use": { "message": "Utiliser LM Studio et vérifier" },
+  "setup_lmstudio_ok": { "message": "LM Studio répond. Choisissez son modèle dans la section « Modèle » ci-dessous." },
+  "setup_online_service_title": { "message": "Choisir un service" },
+  "setup_online_free_warning": { "message": "À savoir avant de choisir : les modèles gratuits d'OpenRouter peuvent conserver les textes que vous leur envoyez, et s'en servir. N'y envoyez rien de confidentiel." },
+  "setup_online_free_detail": {
+    "message": "Modèles gratuits : jusqu'à $PERDAY$ questions par jour, $WITHCREDIT$ si vous achetez au moins $CREDIT$ de crédit.",
+    "placeholders": {
+      "perday": { "content": "$1", "example": "50" },
+      "withcredit": { "content": "$2", "example": "1000" },
+      "credit": { "content": "$3", "example": "10 $US" }
+    }
+  },
+  "setup_online_paid_detail": {
+    "message": "Payant : environ $COST$ par question sur une page d'environ $WORDS$ mots.",
+    "placeholders": {
+      "cost": { "content": "$1", "example": "0,006 $US" },
+      "words": { "content": "$2", "example": "2000" }
+    }
+  },
+  "setup_online_others": { "message": "Autres services" },
+  "setup_online_service_ok": {
+    "message": "$NAME$ est choisi.",
+    "placeholders": {
+      "name": { "content": "$1", "example": "OpenRouter" }
+    }
+  },
+  "setup_online_pick_first": { "message": "Choisissez d'abord un service (étape 1)." },
+  "setup_online_account_title": { "message": "Créer un compte et une clé" },
+  "setup_online_account_text": { "message": "Créez un compte (ou connectez-vous), ouvrez la page des clés API, créez une clé, puis copiez-la." },
+  "setup_online_signup": {
+    "message": "Ouvrir $NAME$",
+    "placeholders": {
+      "name": { "content": "$1", "example": "OpenRouter" }
+    }
+  },
+  "setup_online_keys_page": { "message": "Page des clés API" },
+  "setup_online_openrouter_privacy": { "message": "Si un modèle gratuit refuse de répondre, autorisez les modèles gratuits dans les réglages de confidentialité d'OpenRouter." },
+  "setup_online_privacy_link": { "message": "Réglages de confidentialité" },
+  "setup_online_openrouter_quota": {
+    "message": "Limite des modèles gratuits : $PERMIN$ questions par minute.",
+    "placeholders": {
+      "permin": { "content": "$1", "example": "20" }
+    }
+  },
+  "setup_online_paid_billing": { "message": "Service payant : ajoutez un moyen de paiement ou du crédit, puis fixez un plafond de dépense mensuel (rappelé à l'étape suivante)." },
+  "setup_online_prepaid": { "message": "Service prépayé : vous achetez du crédit d'avance et ne dépensez jamais plus que ce crédit." },
+  "setup_online_key_title": { "message": "Coller la clé" },
+  "setup_online_key_text": {
+    "message": "Une clé de ce service commence en général par « $PREFIX$ ».",
+    "placeholders": {
+      "prefix": { "content": "$1", "example": "sk-or-" }
+    }
+  },
+
 
   "welcome_title": { "message": "Bienvenue dans Coati" },
   "welcome_lead": {

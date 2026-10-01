@@ -65,7 +65,7 @@ import {
 import { listPrompts, savePrompt, deletePrompt, setPromptSite, withDirLock, type PromptsDirs } from "./prompts.ts";
 import { getPrefs, setSitePrefs, moveInPrefs, type PrefsDirs } from "./prefs.ts";
 import { getProviders, getProvider, initRegistry } from "./providers/registry.ts";
-import type { ModelProvider, ProviderRuntimeOptions } from "./providers/types.ts";
+import type { ModelProvider, ProviderRuntimeOptions, TestConnectionCode } from "./providers/types.ts";
 import { t, normalizeLang, DEFAULT_LANG, type Lang } from "./messages.ts";
 
 // Content is truncated to 40 000 chars by the content script (see PROTOCOL.md).
@@ -509,25 +509,59 @@ function settingsTestFailureMessage(providerId: ProviderId, err: unknown, lang: 
   }
 }
 
+/** Maps a provider's TestConnectionResult.code (providers/types.ts) to the
+ * localised sentence shown verbatim in settings.test-result.message —
+ * reusing the SAME codes/wording as chat/summarize/act's own error messages
+ * (auth.apiKeyRejected, provider.quotaExceeded, provider.rateLimited) so the
+ * panel names the same remedy everywhere, per docs/PROTOCOL.md "settings.test"
+ * (amendement 2026-10-01, goal U2). `model-unavailable` and `model-missing`
+ * fall back to each provider's own existing settingsTest.failure.* text
+ * (model-missing only ever comes from ollama in practice). */
+function settingsTestFailureMessageForCode(providerId: ProviderId, code: TestConnectionCode | undefined, lang: Lang): string {
+  switch (code) {
+    case "auth-required":
+      return t("auth.apiKeyRejected", lang);
+    case "quota-exceeded":
+      return t("provider.quotaExceeded", lang);
+    case "rate-limited":
+      return t("provider.rateLimited", lang);
+    case "model-missing":
+      return t("settingsTest.failure.ollama.modelMissing", lang);
+    case "model-unavailable":
+    default: {
+      switch (providerId) {
+        case "claude-api":
+          return t("settingsTest.failure.claude-api", lang);
+        case "ollama":
+          return t("settingsTest.failure.ollama", lang);
+        case "openai-compat":
+          return t("settingsTest.failure.openai-compat", lang);
+        default:
+          return t("settingsTest.failure.default", lang);
+      }
+    }
+  }
+}
+
 export async function testProviderConnection(
   providerId: ProviderId,
   config: CoatiConfig,
   lang: Lang = DEFAULT_LANG,
-): Promise<{ ok: boolean; message: string }> {
+): Promise<{ ok: boolean; message: string; code?: TestConnectionCode }> {
   const provider = getProvider(providerId);
   if (!provider) return { ok: false, message: t("testConnection.unknownProvider", lang) };
 
   if (providerId === "claude-api" && !resolveApiKey(config, providerId)) {
-    return { ok: false, message: t("testConnection.noApiKey", lang) };
+    return { ok: false, message: t("testConnection.noApiKey", lang), code: "auth-required" };
   }
   if (providerId === "ollama" && !config.model) {
-    return { ok: false, message: t("testConnection.noOllamaModel", lang) };
+    return { ok: false, message: t("testConnection.noOllamaModel", lang), code: "model-unavailable" };
   }
   if (providerId === "openai-compat" && !config.baseUrl) {
-    return { ok: false, message: t("testConnection.noBaseUrl", lang) };
+    return { ok: false, message: t("testConnection.noBaseUrl", lang), code: "model-unavailable" };
   }
   if (providerId === "openai-compat" && !config.model) {
-    return { ok: false, message: t("testConnection.noModel", lang) };
+    return { ok: false, message: t("testConnection.noModel", lang), code: "model-unavailable" };
   }
 
   const opts: ProviderRuntimeOptions = {
@@ -537,6 +571,22 @@ export async function testProviderConnection(
     baseUrl: config.baseUrl,
     lang,
   };
+
+  // Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): a
+  // FREE probe, when the provider offers one — never the billed streamAnswer
+  // call below, which is now only a fallback for a provider (necessarily an
+  // external module — every built-in implements testConnection) that hasn't
+  // been updated to offer a free check of its own.
+  if (provider.testConnection) {
+    const result = await provider.testConnection({ ...opts, timeoutMs: SETTINGS_TEST_TIMEOUT_MS });
+    if (result.ok) return { ok: true, message: settingsTestSuccessMessage(providerId, lang) };
+    return {
+      ok: false,
+      code: result.code,
+      message: settingsTestFailureMessageForCode(providerId, result.code, lang),
+    };
+  }
+
   // Internal probe text, discarded (draining only, no chunk reaches the
   // client) — never shown to a human, so it stays English regardless of
   // `lang` (scaffolding, not a message — see messages.ts's own header).
@@ -782,8 +832,8 @@ function handleMessage(
       return;
     }
     case "settings.test": {
-      void testProviderConnection(message.provider, settingsCtx.getConfig(), lang).then(({ ok, message: resultMessage }) => {
-        send(ws, { type: "settings.test-result", id: message.id, provider: message.provider, ok, message: resultMessage });
+      void testProviderConnection(message.provider, settingsCtx.getConfig(), lang).then(({ ok, message: resultMessage, code }) => {
+        send(ws, { type: "settings.test-result", id: message.id, provider: message.provider, ok, message: resultMessage, code });
       });
       return;
     }

@@ -14,6 +14,9 @@ import { computeCodeFingerprint } from "./lib/build-fingerprint.js";
 import { MODEL_PROVIDER_PRESETS, isAllowedBaseUrl } from "./lib/model-provider-presets.js";
 import { t, applyI18n, reloadOnLanguageChange } from "./lib/i18n-page.js";
 import { mountLanguageSelector } from "./lib/language-selector.js";
+import { createKeyInput } from "./lib/key-input.js";
+import { ONLINE_PROVIDERS } from "./lib/setup-data.js";
+import { mountSetupGuide } from "./options-setup.js";
 
 applyI18n(document);
 mountLanguageSelector(document.getElementById("languageSelectorMount"), { compact: false });
@@ -65,6 +68,8 @@ const els = {
   modelInput: document.getElementById("modelInput"),
   modelSave: document.getElementById("modelSave"),
   siteTogglesHelp: document.getElementById("siteTogglesHelp"),
+  setup: document.getElementById("setup"),
+  openSetup: document.getElementById("openSetup"),
 };
 
 // One-line French descriptions, understandable by a non-developer (task
@@ -86,6 +91,22 @@ const PROVIDER_DESCRIPTIONS = {
 const testingProviders = new Set();
 const testButtonsByProvider = new Map();
 const testResultsByProvider = new Map();
+// Ids of the settings.test requests sent by the "Tester la connexion"
+// buttons — a key component's own verification (lib/key-input.js) also
+// sends settings.test, and shows its result itself.
+const testRequestIds = new Set();
+
+// One key component per provider (lib/key-input.js), kept across
+// renderModelSection() re-renders so an in-flight save/verification is not
+// lost when the broker's fresh `settings` reply rebuilds the cards. Keyed by
+// provider + spending-cap page (the latter changes with openai-compat's
+// address).
+const keyInputs = new Map();
+
+const sendClientMessage = (payload) => api.runtime.sendMessage({ type: "coati:client-message", payload });
+
+// "Connecter un modèle d'IA" guide (goal U2) — options.html#setup.
+const setupGuide = mountSetupGuide({ root: els.setup, send: sendClientMessage, newId });
 
 init();
 
@@ -130,13 +151,19 @@ async function init() {
   els.retention.addEventListener("change", saveRetention);
   els.modelSelect.addEventListener("change", () => setProvider(undefined, els.modelSelect.value));
   els.modelSave.addEventListener("click", () => setProvider(undefined, els.modelInput.value.trim()));
+  setupOpenOnHash();
   api.runtime.onMessage.addListener((message) => {
     if (message?.type === "coati:status") {
       applyStatus(message.state);
       if (message.state === "connected") requestSettings();
     }
+    if (message?.type === "coati:broker-message") {
+      for (const keyInput of keyInputs.values()) keyInput.handleBrokerMessage(message.message);
+      setupGuide.onBrokerMessage(message.message);
+    }
     if (message?.type === "coati:broker-message" && message.message?.type === "settings") {
       renderModelSection(message.message);
+      setupGuide.onSettings(message.message);
     }
     if (message?.type === "coati:broker-message" && message.message?.type === "settings.test-result") {
       applyTestResult(message.message);
@@ -154,6 +181,22 @@ async function init() {
 
 function newId() {
   return `opt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// --- "Connecter un modèle d'IA" guide: opened by #setup -----------------------
+
+function setupOpenOnHash() {
+  const openIfAsked = () => {
+    if (location.hash === "#setup") setupGuide.open();
+  };
+  openIfAsked();
+  window.addEventListener("hashchange", openIfAsked);
+  // Same hash already in the URL: a click would not fire hashchange.
+  els.openSetup.addEventListener("click", (event) => {
+    event.preventDefault();
+    history.replaceState(null, "", "#setup");
+    setupGuide.open();
+  });
 }
 
 // 64 lowercase hex chars — same shape as the broker's own key (docs/PROTOCOL.md
@@ -191,6 +234,8 @@ function applyStatus(state) {
   els.statusLabel.textContent = label;
   els.headerStatus.className = `status status--${state}`;
   els.headerStatusLabel.textContent = label;
+  setupGuide.onStatus(state);
+  for (const keyInput of keyInputs.values()) keyInput.setConnected(state === "connected");
 
   // "no-host" (native messaging unreachable) and "no-token" (Chromium id
   // unknown, or a legacy secret refused) are the two states where the
@@ -221,20 +266,8 @@ function setProvider(provider, model) {
   api.runtime.sendMessage({ type: "coati:client-message", payload });
 }
 
-// Write-only: the broker stores `apiKey` and never returns it (contract with
-// the backend worker implementing settings.set). An empty string means
-// "forget the stored key" — see the "Effacer la clé" button below. The key
-// must never touch chrome.storage or the console — it goes straight into
-// this one runtime.sendMessage call.
-function setApiKey(apiKey) {
-  api.runtime.sendMessage({
-    type: "coati:client-message",
-    payload: { type: "settings.set", id: newId(), apiKey },
-  });
-}
-
 // baseUrl is NOT a secret (docs/PROTOCOL.md, amendement 2026-09-30 bis) —
-// unlike setApiKey above, the broker echoes it back in the next `settings`
+// unlike apiKey (lib/key-input.js), the broker echoes it back in the next `settings`
 // message, so it is safe (and expected) to keep it visible in the address
 // input rather than clearing it after every save.
 function setBaseUrl(baseUrl) {
@@ -257,13 +290,18 @@ function testProvider(providerId) {
     result.textContent = "";
     result.className = "test-result";
   }
+  const id = newId();
+  testRequestIds.add(id);
   api.runtime.sendMessage({
     type: "coati:client-message",
-    payload: { type: "settings.test", id: newId(), provider: providerId },
+    payload: { type: "settings.test", id, provider: providerId },
   });
 }
 
 function applyTestResult(message) {
+  // A key component's own verification: it shows its result itself.
+  if (message.id && !testRequestIds.has(message.id)) return;
+  testRequestIds.delete(message.id);
   testingProviders.delete(message.provider);
   const button = testButtonsByProvider.get(message.provider);
   if (button) {
@@ -364,8 +402,13 @@ function renderModelSection(settings) {
       item.appendChild(buildBaseUrlField(provider.id === settings.provider ? settings.baseUrl : undefined));
     }
 
-    if (provider.id === "claude-api" || provider.id === "openai-compat") {
-      item.appendChild(buildApiKeyField(provider.id === "openai-compat"));
+    // Key field in the SELECTED card only: the broker binds a key to the
+    // provider named in settings.set, and selecting a card is what makes a
+    // key's destination unambiguous to the user.
+    if ((provider.id === "claude-api" || provider.id === "openai-compat") && provider.id === settings.provider) {
+      const keyInput = keyInputFor(provider.id, settings);
+      keyInput.update(provider);
+      item.appendChild(keyInput.element);
     }
 
     // The model name belongs to the selected provider: show it in its card.
@@ -379,73 +422,34 @@ function renderModelSection(settings) {
   renderModelField(settings);
 }
 
-/** Password field + Enregistrer/Effacer, shared by `claude-api` and
- * `openai-compat` (deliverable D2, extended goal G5). The field starts empty
- * on every load and after every save — the broker never echoes the key back
- * (write-only by contract), so there is nothing to prefill it with.
- * `optional` (true for openai-compat: LM Studio/Ollama need no key) only
- * changes the placeholder text — the save/clear mechanics are identical. */
-function buildApiKeyField(optional) {
-  const wrap = document.createElement("div");
-  wrap.className = "apikey-field";
-
-  const input = document.createElement("input");
-  input.type = "password";
-  input.autocomplete = "off";
-  input.placeholder = optional ? t("options_apikey_placeholder_optional") : t("options_apikey_placeholder_anthropic");
-
-  const saveBtn = document.createElement("button");
-  saveBtn.type = "button";
-  saveBtn.textContent = t("options_save");
-  saveBtn.addEventListener("click", () => {
-    const value = input.value.trim();
-    if (!value) return;
-    setApiKey(value);
-    input.value = "";
-  });
-
-  // Two-step confirm, no native dialog (options.html can be embedded by
-  // Firefox — window.confirm() is unreliable there, same reasoning as
-  // panel.js's eraseConversation button). First click arms the button for
-  // ~5s; a second click within that window actually clears. Closure state
-  // (not module-level) is fine: buildApiKeyField() is called fresh on every
-  // renderModelSection(), so a stale timer never outlives its own button.
-  const CLEAR_CONFIRM_MS = 5000;
-  let clearConfirmPending = false;
-  let clearConfirmTimer = null;
-  const clearBtn = document.createElement("button");
-  clearBtn.type = "button";
-  clearBtn.className = "apikey-clear";
-  clearBtn.textContent = t("options_apikey_clear");
-  clearBtn.addEventListener("click", () => {
-    if (!clearConfirmPending) {
-      clearConfirmPending = true;
-      clearBtn.textContent = t("options_apikey_clear_confirm");
-      clearBtn.classList.add("apikey-clear--confirm");
-      clearConfirmTimer = setTimeout(() => {
-        clearConfirmPending = false;
-        clearBtn.textContent = t("options_apikey_clear");
-        clearBtn.classList.remove("apikey-clear--confirm");
-      }, CLEAR_CONFIRM_MS);
-      return;
-    }
-    clearConfirmPending = false;
-    clearTimeout(clearConfirmTimer);
-    clearBtn.textContent = t("options_apikey_clear");
-    clearBtn.classList.remove("apikey-clear--confirm");
-    setApiKey("");
-    input.value = "";
-  });
-
-  wrap.appendChild(input);
-  wrap.appendChild(saveBtn);
-  wrap.appendChild(clearBtn);
-  return wrap;
+/** The shared key component (lib/key-input.js) for `providerId`. A paid
+ * online service gets the "set a monthly spending cap" note with a direct
+ * link (lib/setup-data.js); local servers (LM Studio, Ollama /v1) and
+ * prepaid/free services do not. */
+function keyInputFor(providerId, settings) {
+  const service = ONLINE_PROVIDERS.find((p) =>
+    providerId === "claude-api" ? p.provider === "claude-api" : p.baseUrl && p.baseUrl === settings.baseUrl,
+  );
+  const limitsUrl = service && service.group !== "free" && !service.prepaid ? service.limitsUrl : undefined;
+  const cacheKey = `${providerId}|${limitsUrl ?? ""}`;
+  let keyInput = keyInputs.get(cacheKey);
+  if (!keyInput) {
+    keyInput = createKeyInput({
+      provider: providerId,
+      send: sendClientMessage,
+      newId,
+      limitsUrl,
+      placeholder:
+        providerId === "openai-compat" ? t("options_apikey_placeholder_optional") : t("options_apikey_placeholder_anthropic"),
+    });
+    keyInputs.set(cacheKey, keyInput);
+  }
+  return keyInput;
 }
 
 /** Preset select + address field + Enregistrer, for the `openai-compat`
  * provider only (goal G5). `baseUrl` is NOT a secret (docs/PROTOCOL.md) —
- * unlike buildApiKeyField(), the field IS prefilled from the broker's last
+ * unlike the key component (lib/key-input.js), the field IS prefilled from the broker's last
  * answer and stays filled after a save (the broker echoes it back). */
 function buildBaseUrlField(baseUrl) {
   const wrap = document.createElement("div");

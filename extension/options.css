@@ -573,9 +573,439 @@ kbd {
   color: var(--accent);
 }
 
+/* --- Key entry component (lib/key-input.js) ---------------------------------
+ * Shared by the selected provider card and the setup guide. */
+
+.key-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.provider-item > .key-input {
+  margin: var(--space-3) 0 0 var(--check-indent);
+}
+
+.key-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.key-input-row > input {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+
+.key-input-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.key-input-status {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  flex: 1 1 14em;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.key-input-status[data-tone="ok"] { color: var(--success); font-weight: 500; }
+.key-input-status[data-tone="error"] { color: var(--danger); }
+.key-input-mark:empty { display: none; }
+.key-input-mark { font-weight: 700; }
+
+.key-input-notes {
+  margin: 0;
+  padding-left: 1.1em;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.key-input-notes li + li { margin-top: 2px; }
+
+/* --- 0. Setup guide (options-setup.js) -----------------------------------------
+ * Same calm column; steps are a numbered rail (28 px mark + text). */
+
+.setup-body {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.setup-intro {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.setup-intro p { margin: 0; }
+.setup-intro .help { margin-top: var(--space-1); }
+
+/* U2 illustration (Kling, cut out and mirrored only): the resting coati,
+ * shown as an icon beside the intro (Romain, 01/10). */
+.setup-illustration {
+  flex: none;
+  width: 128px;
+  height: auto;
+  align-self: center;
+}
+
+.setup-choose {
+  margin: 0;
+  font-weight: 600;
+}
+
+.setup-paths {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-3);
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.setup-path {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: 14px 16px;
+  text-align: left;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.setup-path:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+.setup-path:active {
+  background: var(--surface);
+  border-color: var(--accent-active);
+}
+
+.setup-path[aria-pressed="true"] {
+  background: var(--bg);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.setup-path-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.setup-path-text {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.setup-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.setup-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.setup-step-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+/* Done / failed: coloured glyph and ring on the page background — same
+ * text-on-bg contrast as the existing success/danger lines. */
+.setup-step[data-state="done"] .setup-step-mark {
+  color: var(--success);
+  background: var(--bg);
+  border: 2px solid var(--success);
+}
+
+.setup-step[data-state="failed"] .setup-step-mark {
+  color: var(--danger);
+  background: var(--bg);
+  border: 2px solid var(--danger);
+}
+
+.setup-step-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-top: 3px;
+}
+
+h3.setup-step-title {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.setup-step-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.setup-step-body > * { max-width: 100%; }
+
+.setup-text,
+.setup-links {
+  margin: 0;
+}
+
+.setup-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+
+.setup-other-os {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.setup-primary-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 6px 14px;
+  font-weight: 500;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+
+.setup-primary-link:hover { background: var(--accent-hover); }
+.setup-primary-link:active { background: var(--accent-active); }
+
+.setup-os-list {
+  margin: 0;
+  padding-left: 1.1em;
+}
+
+.setup-step-result {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.setup-step[data-state="done"] > .setup-step-main > .setup-step-result,
+.setup-step-result[data-tone="ok"] { color: var(--success); }
+.setup-step[data-state="failed"] > .setup-step-main > .setup-step-result,
+.setup-step-result[data-tone="error"] { color: var(--danger); }
+
+.setup-command {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.setup-command-text {
+  flex: 1 1 14em;
+  min-width: 0;
+  padding: 6px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+
+.setup-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.setup-models {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.setup-models th {
+  padding: 4px 8px;
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+  border-bottom: 1px solid var(--divider);
+}
+
+.setup-models td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--divider);
+  vertical-align: middle;
+}
+
+.setup-model-row--suggested td {
+  background: var(--surface);
+}
+
+.setup-model-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.setup-model-choice input,
+.setup-service input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+}
+
+.setup-model-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.setup-tag {
+  display: inline-block;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+}
+
+.setup-warning {
+  margin: 0;
+  padding: 10px var(--space-3);
+  font-size: 13px;
+  color: var(--banner-fg, var(--fg));
+  background: var(--banner-bg);
+  border: 1px solid var(--banner-border);
+  border-radius: var(--radius);
+}
+
+.setup-services {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.setup-service {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 10px var(--space-3);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.setup-service input { margin-top: 3px; }
+
+.setup-service:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.setup-service-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.setup-service-name { font-weight: 600; }
+
+.setup-service-detail {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* « Avancé » / « Autres » folds inside the guide: same chevron as .advanced. */
+.setup-advanced {
+  width: 100%;
+}
+
+.setup-advanced > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  list-style: none;
+  cursor: pointer;
+  font-weight: 500;
+  border-radius: var(--radius);
+}
+
+.setup-advanced > summary::-webkit-details-marker { display: none; }
+
+.setup-advanced > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin: 0 4px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+
+.setup-advanced[open] > summary::before { transform: rotate(45deg); }
+.setup-advanced > summary:hover { color: var(--accent); }
+
+.setup-advanced-body,
+.setup-others > .setup-services {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.setup-path-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.setup-path-steps[hidden] { display: none; }
+
+.setup-open-row { margin: calc(-1 * var(--space-2)) 0 var(--space-3); }
+
 /* --- Narrow ----------------------------------------------------------------- */
 
 @media (max-width: 560px) {
   .page { padding: 24px 16px 48px; }
   .section { padding: 20px 0; }
+  .setup-intro { gap: var(--space-3); }
+  .setup-illustration { width: 96px; }
+  .provider-item > .key-input { margin-left: 0; }
 }

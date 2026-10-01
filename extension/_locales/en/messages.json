@@ -211,7 +211,7 @@
   "panel_first_run_model_missing": { "message": "No model is responding" },
   "panel_first_run_model_pending": { "message": "Checking the model…" },
   "panel_first_run_model_waiting": { "message": "Model: waiting for the local program" },
-  "panel_first_run_model_action": { "message": "Open settings" },
+  "panel_first_run_model_action": { "message": "Connect a model" },
   "panel_first_run_page_ok": { "message": "Page access granted" },
   "panel_first_run_page_missing": { "message": "Give it access to the page" },
   "panel_first_run_page_hint": {
@@ -226,6 +226,16 @@
     "placeholders": { "lang": { "content": "$1", "example": "English" } }
   },
   "panel_first_run_lang_change": { "message": "change" },
+
+  "neverConnectedTitle": { "message": "No AI model connected yet" },
+  "neverConnectedBody": {
+    "message": "Coati answers through an AI model, installed on your computer or online. The guide helps you connect one."
+  },
+  "neverConnectedAction": { "message": "Connect a model" },
+  "panelHelpButtonLabel": { "message": "Help: connect a model" },
+  "panelHelpPopoverText": {
+    "message": "Coati needs an AI model to answer: on your computer (free and private) or online (a key to create). The tutorial walks you through it step by step. Click this button to open it."
+  },
 
   "panel_unreadable_hint": { "message": "Uncheck \"Read the page\" to ask a general question." },
   "panel_unreadable_pdf": { "message": "⚠ Coati can't read a PDF displayed by the browser." },
@@ -312,6 +322,160 @@
   "options_model_placeholder_claude": { "message": "e.g. claude-sonnet-4-5 (optional)" },
   "options_model_placeholder_openai_compat": { "message": "exact name expected by the server" },
   "options_shortcut_not_set": { "message": "not set" },
+
+  "keyInput_label": { "message": "API key" },
+  "keyInput_placeholder": { "message": "Paste the key here" },
+  "keyInput_placeholder_replace": { "message": "Paste a new key to replace the current one" },
+  "keyInput_show": { "message": "Show" },
+  "keyInput_hide": { "message": "Hide" },
+  "keyInput_save": { "message": "Save the key" },
+  "keyInput_saving": { "message": "Sending to the local program…" },
+  "keyInput_saved": { "message": "Key saved" },
+  "keyInput_verifying": { "message": "Key saved, checking with the service…" },
+  "keyInput_accepted": { "message": "Key accepted" },
+  "keyInput_refused": { "message": "The service refused this key: check that it was copied in full, or create a new one on its website." },
+  "keyInput_remedy_credit": { "message": "Add credit on the service's website, then click “Check again”." },
+  "keyInput_remedy_wait": { "message": "The key is saved: wait a minute, then click “Check again”." },
+  "keyInput_test_failed": { "message": "The key check failed." },
+  "keyInput_save_failed": { "message": "The key was not saved." },
+  "keyInput_retry": { "message": "Check again" },
+  "keyInput_delete": { "message": "Delete the key" },
+  "keyInput_delete_confirm": { "message": "Confirm deletion" },
+  "keyInput_deleted": { "message": "Key deleted from this computer." },
+  "keyInput_not_connected": { "message": "The local program isn't responding: a key can't be saved right now." },
+  "keyInput_note_storage": { "message": "The key is stored unencrypted on this computer, in a file only your user account can read." },
+  "keyInput_note_never_share": { "message": "Never paste it anywhere else (chat, Discord, email): Coati will never ask you for it." },
+  "keyInput_note_spending_cap": { "message": "Paid service: set a monthly spending cap on its website." },
+  "keyInput_spending_cap_link": { "message": "Set the cap" },
+  "setup_title": { "message": "Connect an AI model" },
+  "setup_open_link": { "message": "Need help? Follow the step-by-step guide" },
+  "setup_intro_need": { "message": "To answer you, Coati needs an AI model." },
+  "setup_intro_local_program": { "message": "The local program, installed with Coati on this computer, connects your browser to that model." },
+  "setup_not_connected": { "message": "The local program isn't responding: the checks will work again as soon as it is running." },
+  "setup_choose": { "message": "Where should the model run?" },
+  "setup_path_local_title": { "message": "On my computer" },
+  "setup_path_local_text": { "message": "Free and private: your texts never leave the computer. Needs a recent computer." },
+  "setup_path_online_title": { "message": "Online" },
+  "setup_path_online_text": { "message": "Simpler: create a key with a service. Free or paid, depending on the service." },
+  "setup_checking": { "message": "Checking…" },
+  "setup_check_unknown": { "message": "The check didn't complete. Try again in a moment." },
+  "setup_copy": { "message": "Copy" },
+  "setup_copied": { "message": "Copied" },
+  "setup_copy_manual": { "message": "Selected: press Ctrl+C to copy" },
+  "setup_try_title": { "message": "Try it on a page" },
+  "setup_try_text": { "message": "Open any web page, then click the Coati icon in the browser toolbar. If it isn't there, click the puzzle-piece icon and pin Coati." },
+  "setup_local_install_title": { "message": "Install Ollama" },
+  "setup_local_install_text": { "message": "Ollama is free software that runs the model on your computer." },
+  "setup_local_download_for": {
+    "message": "Download Ollama for $OS$",
+    "placeholders": {
+      "os": { "content": "$1", "example": "Windows" }
+    }
+  },
+  "setup_local_other_os": { "message": "Other systems:" },
+  "setup_local_download": { "message": "Download Ollama:" },
+  "setup_local_linux_install": { "message": "On Linux, you can also install it from a terminal:" },
+  "setup_local_start_intro": { "message": "Then start it:" },
+  "setup_local_start_windows": { "message": "Open Ollama from the Start menu; its icon appears next to the clock." },
+  "setup_local_start_mac": { "message": "Open Ollama from the Applications folder; its icon appears in the menu bar." },
+  "setup_local_start_linux": { "message": "The installer starts it for you. If it isn't running, run this command in a terminal:" },
+  "setup_local_running_title": { "message": "Check that Ollama responds" },
+  "setup_local_running_text": { "message": "Coati will switch to Ollama and check that it responds on this computer." },
+  "setup_local_running_check": { "message": "Use Ollama and check" },
+  "setup_local_running_ok": { "message": "Ollama is responding." },
+  "setup_local_unreachable": { "message": "Ollama isn't responding. Check that it is running (step 1), then try again." },
+  "setup_local_model_title": { "message": "Download a model" },
+  "setup_local_model_text": { "message": "Pick the row that matches your computer's memory (RAM). More memory allows a more capable model, but a bigger download." },
+  "setup_local_memory_known": {
+    "message": "Your browser says this computer has at least $GB$ GB of memory (it never reports more than 8 GB).",
+    "placeholders": {
+      "gb": { "content": "$1", "example": "8" }
+    }
+  },
+  "setup_local_memory_unknown": { "message": "Your browser doesn't report this computer's memory: check your system information." },
+  "setup_local_col_memory": { "message": "Computer memory" },
+  "setup_local_col_model": { "message": "Model" },
+  "setup_local_col_size": { "message": "Download" },
+  "setup_local_memory_row": {
+    "message": "$GB$ GB or more",
+    "placeholders": {
+      "gb": { "content": "$1", "example": "8" }
+    }
+  },
+  "setup_local_suggested": { "message": "suggested" },
+  "setup_size_gb": {
+    "message": "$GB$ GB",
+    "placeholders": {
+      "gb": { "content": "$1", "example": "3,3" }
+    }
+  },
+  "setup_local_pull_text": { "message": "Open a terminal (Windows: PowerShell; macOS: Terminal), paste this command, then wait for the download to finish." },
+  "setup_local_model_check": { "message": "Check the model" },
+  "setup_local_model_ok": { "message": "The model is ready." },
+  "setup_local_model_missing": {
+    "message": "The model $MODEL$ isn't in Ollama yet: run the command above and wait for the download to finish.",
+    "placeholders": {
+      "model": { "content": "$1", "example": "gemma3:4b" }
+    }
+  },
+  "setup_local_no_model": { "message": "No model is installed in Ollama yet: run the command above." },
+  "setup_lmstudio_title": { "message": "Advanced: LM Studio" },
+  "setup_lmstudio_text": { "message": "LM Studio is another app that runs a model on your computer. Install it, download a model from the app, then start its local server (“Developer” tab, “Start Server” button)." },
+  "setup_lmstudio_download": { "message": "Download LM Studio" },
+  "setup_lmstudio_use": { "message": "Use LM Studio and check" },
+  "setup_lmstudio_ok": { "message": "LM Studio is responding. Pick its model in the “Model” section below." },
+  "setup_online_service_title": { "message": "Choose a service" },
+  "setup_online_free_warning": { "message": "Before you choose: OpenRouter's free models may keep the texts you send them, and use them. Don't send anything confidential." },
+  "setup_online_free_detail": {
+    "message": "Free models: up to $PERDAY$ questions a day, $WITHCREDIT$ if you buy at least $CREDIT$ of credit.",
+    "placeholders": {
+      "perday": { "content": "$1", "example": "50" },
+      "withcredit": { "content": "$2", "example": "1000" },
+      "credit": { "content": "$3", "example": "10 $US" }
+    }
+  },
+  "setup_online_paid_detail": {
+    "message": "Paid: about $COST$ per question on a page of about $WORDS$ words.",
+    "placeholders": {
+      "cost": { "content": "$1", "example": "0,006 $US" },
+      "words": { "content": "$2", "example": "2000" }
+    }
+  },
+  "setup_online_others": { "message": "Other services" },
+  "setup_online_service_ok": {
+    "message": "$NAME$ selected.",
+    "placeholders": {
+      "name": { "content": "$1", "example": "OpenRouter" }
+    }
+  },
+  "setup_online_pick_first": { "message": "First choose a service (step 1)." },
+  "setup_online_account_title": { "message": "Create an account and a key" },
+  "setup_online_account_text": { "message": "Create an account (or sign in), open the API keys page, create a key, then copy it." },
+  "setup_online_signup": {
+    "message": "Open $NAME$",
+    "placeholders": {
+      "name": { "content": "$1", "example": "OpenRouter" }
+    }
+  },
+  "setup_online_keys_page": { "message": "API keys page" },
+  "setup_online_openrouter_privacy": { "message": "If a free model refuses to answer, allow free models in OpenRouter's privacy settings." },
+  "setup_online_privacy_link": { "message": "Privacy settings" },
+  "setup_online_openrouter_quota": {
+    "message": "Free-model limit: $PERMIN$ questions per minute.",
+    "placeholders": {
+      "permin": { "content": "$1", "example": "20" }
+    }
+  },
+  "setup_online_paid_billing": { "message": "Paid service: add a payment method or credit, then set a monthly spending cap (reminder in the next step)." },
+  "setup_online_prepaid": { "message": "Prepaid service: you buy credit in advance and never spend more than that credit." },
+  "setup_online_key_title": { "message": "Paste the key" },
+  "setup_online_key_text": {
+    "message": "A key from this service usually starts with “$PREFIX$”.",
+    "placeholders": {
+      "prefix": { "content": "$1", "example": "sk-or-" }
+    }
+  },
+
 
   "welcome_title": { "message": "Welcome to Coati" },
   "welcome_lead": {

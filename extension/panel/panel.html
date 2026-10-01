@@ -19,6 +19,19 @@
     </div>
     <span class="header-tools">
       <span id="langSelectorMount"></span>
+      <span class="help-popover-wrap">
+        <button
+          id="helpButton"
+          class="icon-button"
+          type="button"
+          aria-describedby="helpPopover"
+          data-i18n-title="panelHelpButtonLabel"
+          data-i18n-aria-label="panelHelpButtonLabel"
+        >?</button>
+        <div id="helpPopover" class="help-popover" role="tooltip">
+          <p class="help-popover-text" data-i18n="panelHelpPopoverText"></p>
+        </div>
+      </span>
       <button id="openOptions" class="icon-button" type="button" data-i18n-title="panel_settings_title">⚙︎</button>
     </span>
   </header>
@@ -60,8 +73,18 @@
       <img class="first-run-logo" src="../icons/icon48.png" alt="" width="28" height="28" />
       <h2 id="firstRunTitle" class="first-run-title"></h2>
     </div>
+    <p id="firstRunNeverConnected" class="first-run-never-connected" data-i18n="neverConnectedTitle" hidden></p>
     <ol id="firstRunSteps" class="first-run-steps"></ol>
     <p id="firstRunLang" class="first-run-lang"></p>
+  </section>
+
+  <section id="neverConnected" class="never-connected" aria-labelledby="neverConnectedTitle" hidden>
+    <span class="help-badge" aria-hidden="true"></span>
+    <div class="never-connected-body">
+      <h2 id="neverConnectedTitle" class="never-connected-title" data-i18n="neverConnectedTitle"></h2>
+      <p class="never-connected-text" data-i18n="neverConnectedBody"></p>
+      <button id="neverConnectedAction" class="toolbar-button toolbar-button--primary" type="button" data-i18n="neverConnectedAction"></button>
+    </div>
   </section>
 
   <main id="messages" class="messages" aria-live="polite"></main>

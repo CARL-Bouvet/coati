@@ -93,7 +93,15 @@ import {
   ALL_SITES_DECLINED_KEY,
   READ_BUTTON_USED_KEY,
 } from "./read-button.js";
-import { firstRunChecks, markFor, FIRST_RUN_TEXT, FIRST_RUN_DONE_KEY, RELEASES_URL } from "./first-run.js";
+import {
+  firstRunChecks,
+  markFor,
+  FIRST_RUN_TEXT,
+  FIRST_RUN_DONE_KEY,
+  MODEL_EVER_ANSWERED_KEY,
+  MODEL_TUTORIAL_PATH,
+  RELEASES_URL,
+} from "./first-run.js";
 import { t, applyI18n, getUiLangState, reloadOnLanguageChange } from "../lib/i18n-page.js";
 import { mountLanguageSelector, currentLanguageName } from "../lib/language-selector.js";
 
@@ -156,14 +164,19 @@ const els = {
   installDocLink: document.getElementById("installDocLink"),
   connectionBannerRetry: document.getElementById("connectionBannerRetry"),
   openOptions: document.getElementById("openOptions"),
+  helpButton: document.getElementById("helpButton"),
+  helpPopover: document.getElementById("helpPopover"),
   readPage: document.getElementById("readPage"),
   readPageIcon: document.getElementById("readPageIcon"),
   readPageLabel: document.getElementById("readPageLabel"),
   readPageNote: document.getElementById("readPageNote"),
   firstRun: document.getElementById("firstRun"),
   firstRunTitle: document.getElementById("firstRunTitle"),
+  firstRunNeverConnected: document.getElementById("firstRunNeverConnected"),
   firstRunSteps: document.getElementById("firstRunSteps"),
   firstRunLang: document.getElementById("firstRunLang"),
+  neverConnected: document.getElementById("neverConnected"),
+  neverConnectedAction: document.getElementById("neverConnectedAction"),
   siteCard: document.getElementById("siteCard"),
   siteCardSpinner: document.getElementById("siteCardSpinner"),
   siteCardFavicon: document.getElementById("siteCardFavicon"),
@@ -301,6 +314,8 @@ async function init() {
   els.connectCoati.addEventListener("click", () => api.runtime.openOptionsPage());
   els.installDocLink.addEventListener("click", () => api.tabs.create({ url: INSTALL_DOC_URL }));
   els.connectionBannerRetry.addEventListener("click", retryConnection);
+  els.neverConnectedAction.addEventListener("click", openModelTutorial);
+  wireHelpButton();
   els.readPage.addEventListener("click", onReadPageClick);
   // Same Brave favicon bug as the site card's own icon below: fall back to
   // Coati's icon rather than an empty ring.
@@ -491,6 +506,11 @@ function handleBrokerMessage(message) {
           modelAnswered = true;
           renderFirstRun();
         }
+        if (msg.role === "assistant" && msg.text && !modelEverAnswered) {
+          modelEverAnswered = true;
+          api.storage.local.set({ [MODEL_EVER_ANSWERED_KEY]: true }).catch(() => {});
+          renderNeverConnected();
+        }
       }
       if (activeRequestId === message.id) setStreamingUi(false);
       persistConversation();
@@ -516,6 +536,10 @@ function handleBrokerMessage(message) {
       // their own recovery block, same pattern as auth-required's.
       const quotaExceeded = message.code === "quota-exceeded";
       const rateLimited = message.code === "rate-limited";
+      // U2: "model unreachable" and "model missing" (broker fine, model the
+      // problem) also route to the tutorial, like the other three model
+      // banners — see buildModelUnavailableRecoveryBlock() below.
+      const modelUnavailable = message.code === "model-unavailable";
       const retryAfterSec =
         rateLimited && Number.isFinite(message.retryAfterSec) && message.retryAfterSec > 0
           ? message.retryAfterSec
@@ -537,9 +561,20 @@ function handleBrokerMessage(message) {
         msg.quotaExceeded = quotaExceeded;
         msg.rateLimited = rateLimited;
         msg.retryAfterSec = retryAfterSec;
+        msg.modelUnavailable = modelUnavailable;
         renderMessage(msg);
       } else {
-        addMessage({ id: message.id, role: "system", text, authRequired, authKind, quotaExceeded, rateLimited, retryAfterSec });
+        addMessage({
+          id: message.id,
+          role: "system",
+          text,
+          authRequired,
+          authKind,
+          quotaExceeded,
+          rateLimited,
+          retryAfterSec,
+          modelUnavailable,
+        });
       }
       persistConversation();
       break;
@@ -596,7 +631,10 @@ const AUTH_REQUIRED_TEXT = {
   copy: t("panel_copy"),
   copied: t("panel_copied"),
   copyFailed: t("panel_copy_failed"),
-  openSettings: t("panel_open_settings"),
+  // U2: this button opens the tutorial (openModelTutorial), not a bare
+  // settings page — same label as the never-connected notice's own action,
+  // so every "go fix the model" button reads the same across the panel.
+  openSettings: t("neverConnectedAction"),
   retrySession: t("panel_retry_session"),
   retryKey: t("panel_retry_key"),
 };
@@ -613,7 +651,9 @@ let currentProvider = null;
 // broker gave retryAfterSec, enabled immediately otherwise (no reduced-motion
 // concern either way: it's text, not an animation).
 const QUOTA_RATE_TEXT = {
-  openSettings: t("panel_open_settings"),
+  // U2: opens the tutorial (openModelTutorial), same label everywhere that
+  // button means "go connect/fix a model" — see AUTH_REQUIRED_TEXT above.
+  openSettings: t("neverConnectedAction"),
   retryNow: t("panel_retry_now"),
 };
 
@@ -625,8 +665,25 @@ function buildQuotaRecoveryBlock() {
   settingsBtn.type = "button";
   settingsBtn.className = "recovery-copy";
   settingsBtn.textContent = QUOTA_RATE_TEXT.openSettings;
-  settingsBtn.addEventListener("click", () => api.runtime.openOptionsPage());
+  // No credit left at the provider — the fix is choosing another model, the
+  // tutorial covers that (U2), not a bare "open settings" to the general page.
+  settingsBtn.addEventListener("click", openModelTutorial);
   block.appendChild(settingsBtn);
+  return block;
+}
+
+/** U2: "model-unavailable" (model unreachable, or the broker's own 120s
+ * timeout) names no provider-level fix — the tutorial is the one place that
+ * covers both "it's not running" (Ollama) and "pick another model" (online). */
+function buildModelUnavailableRecoveryBlock() {
+  const block = document.createElement("div");
+  block.className = "recovery-block";
+  const actionBtn = document.createElement("button");
+  actionBtn.type = "button";
+  actionBtn.className = "recovery-copy";
+  actionBtn.textContent = t("neverConnectedAction");
+  actionBtn.addEventListener("click", openModelTutorial);
+  block.appendChild(actionBtn);
   return block;
 }
 
@@ -1097,12 +1154,12 @@ function buildAuthRecoveryBlock(msg) {
     block.appendChild(commandRow);
   } else {
     // API key (or unknown provider): the key lives in the broker, set from
-    // the settings page — the one place to fix it.
+    // the tutorial's saisie-de-clé component (U2) — the one place to fix it.
     const settingsBtn = document.createElement("button");
     settingsBtn.type = "button";
     settingsBtn.className = "recovery-copy";
     settingsBtn.textContent = AUTH_REQUIRED_TEXT.openSettings;
-    settingsBtn.addEventListener("click", () => api.runtime.openOptionsPage());
+    settingsBtn.addEventListener("click", openModelTutorial);
     block.appendChild(settingsBtn);
   }
 
@@ -1390,14 +1447,72 @@ let readButtonRequest = null; // "all-sites" | "site" | null — what the next c
 let firstRunDone = false;
 let accessPrefsLoaded = false;
 let modelAnswered = false;
+// storage.local flag (MODEL_EVER_ANSWERED_KEY) — true once any assistant
+// answer has ever completed, in this panel session or a past one. Drives
+// the standalone "never connected" notice (U2); never resets.
+let modelEverAnswered = false;
 
 async function loadAccessPrefs() {
-  const keys = [ALL_SITES_DECLINED_KEY, READ_BUTTON_USED_KEY, FIRST_RUN_DONE_KEY];
+  const keys = [ALL_SITES_DECLINED_KEY, READ_BUTTON_USED_KEY, FIRST_RUN_DONE_KEY, MODEL_EVER_ANSWERED_KEY];
   const stored = await api.storage.local.get(keys).catch(() => ({}));
   allSitesDeclined = stored[ALL_SITES_DECLINED_KEY] === true;
   readButtonUsed = stored[READ_BUTTON_USED_KEY] === true;
   firstRunDone = stored[FIRST_RUN_DONE_KEY] === true;
+  // Migration for installs predating this flag (U2): FIRST_RUN_DONE_KEY
+  // already true with no MODEL_EVER_ANSWERED_KEY at all means the first-run
+  // card completed before this notice existed — its "model" check only
+  // passes on providerState "ok" or a real answer, strong enough evidence
+  // to infer one happened, rather than resurrecting the notice for every
+  // already-onboarded user. A fresh install has neither key true, so the
+  // notice still waits behind the first-run card as intended.
+  if (MODEL_EVER_ANSWERED_KEY in stored) {
+    modelEverAnswered = stored[MODEL_EVER_ANSWERED_KEY] === true;
+  } else {
+    modelEverAnswered = firstRunDone;
+    if (modelEverAnswered) api.storage.local.set({ [MODEL_EVER_ANSWERED_KEY]: true }).catch(() => {});
+  }
   accessPrefsLoaded = true;
+}
+
+// Opens the model tutorial (U2, Romain's decision 01/10): the options page,
+// jumped to #setup — same destination for the never-connected notice, the
+// "?" button, the first-run card's "model" step, the welcome page's model
+// step, and every model-related error banner (model unreachable/missing,
+// key refused, no credit). "Ouvrir les réglages" buttons about the broker
+// connection itself (not the model) keep using openOptionsPage() instead.
+function openModelTutorial() {
+  api.tabs.create({ url: api.runtime.getURL(MODEL_TUTORIAL_PATH) });
+}
+
+/** Standalone notice shown while Coati has never gotten a real answer from a
+ * model — hidden for good once MODEL_EVER_ANSWERED_KEY is set. While the
+ * first-run card is still visible, its own "model" step already carries the
+ * same action, so this notice stays hidden rather than stacking a second one
+ * (U2, Romain's decision: "a shown first-run card absorbs the action"). */
+function renderNeverConnected() {
+  if (!accessPrefsLoaded || modelEverAnswered || !firstRunDone) {
+    els.neverConnected.hidden = true;
+    return;
+  }
+  els.neverConnected.hidden = false;
+}
+
+/** Hover/focus → popover with the help text; Escape or losing focus closes
+ * it; a click anywhere on the button opens the tutorial directly (U2). */
+function wireHelpButton() {
+  const show = () => els.helpPopover.classList.add("is-visible");
+  const hide = () => els.helpPopover.classList.remove("is-visible");
+  els.helpButton.addEventListener("mouseenter", show);
+  els.helpButton.addEventListener("mouseleave", hide);
+  els.helpButton.addEventListener("focus", show);
+  els.helpButton.addEventListener("blur", hide);
+  els.helpButton.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      hide();
+      els.helpButton.blur();
+    }
+  });
+  els.helpButton.addEventListener("click", openModelTutorial);
 }
 
 async function refreshAllSitesGranted() {
@@ -1515,6 +1630,7 @@ async function finishReadPageClick(request, asked) {
 function renderFirstRun() {
   if (!accessPrefsLoaded || firstRunDone) {
     els.firstRun.hidden = true;
+    renderNeverConnected();
     return;
   }
   const checks = firstRunChecks({
@@ -1527,16 +1643,22 @@ function renderFirstRun() {
     firstRunDone = true;
     els.firstRun.hidden = true;
     api.storage.local.set({ [FIRST_RUN_DONE_KEY]: true }).catch(() => {});
+    renderNeverConnected();
     return;
   }
   els.firstRunTitle.textContent = FIRST_RUN_TEXT.title;
+  // U2: the "never spoken to a model" fact, folded into the card instead of
+  // stacking the standalone notice under it (renderNeverConnected() stays
+  // hidden while this card shows) — same text, one line under the title.
+  els.firstRunNeverConnected.hidden = modelEverAnswered;
   els.firstRunSteps.replaceChildren(
     firstRunStep("program", checks.program, () => api.tabs.create({ url: RELEASES_URL })),
-    firstRunStep("model", checks.model, () => api.runtime.openOptionsPage(), buildOllamaCommandRow()),
+    firstRunStep("model", checks.model, openModelTutorial, buildOllamaCommandRow()),
     firstRunStep("page", checks.page, pointAtReadButton),
   );
   renderFirstRunLang();
   els.firstRun.hidden = false;
+  renderNeverConnected(); // first-run card visible: stays hidden (no stacking)
 }
 
 // Discreet one-line language mention in the first-run card (U1, "Points
@@ -2225,6 +2347,7 @@ function renderMessage(msg, { append = false } = {}) {
     if (msg.role === "assistant" && msg.videoId) linkifyTimestamps(node, msg.videoId);
     if (msg.authRequired) node.appendChild(buildAuthRecoveryBlock(msg));
     if (msg.quotaExceeded) node.appendChild(buildQuotaRecoveryBlock());
+    if (msg.modelUnavailable) node.appendChild(buildModelUnavailableRecoveryBlock());
     // No retry payload survives a panel reload (pendingRetries is in-memory
     // only, same limitation as buildAuthRecoveryBlock() above) — in that case
     // the message text alone (already telling the user to try again) is the

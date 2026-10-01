@@ -17,12 +17,44 @@
       </span>
     </header>
 
+    <!-- 0. "Connecter un modèle d'IA" guide (goal U2) — options-setup.js.
+         Opened by options.html#setup (the panel links there). -->
+    <details id="setup" class="section advanced setup">
+      <summary><h2 id="h-setup" data-i18n="setup_title">Connecter un modèle d'IA</h2></summary>
+      <div class="setup-body">
+        <div class="setup-intro">
+          <img class="setup-illustration setup-illustration--resting" src="illustrations/coati-resting.png" alt="" width="128" height="56" />
+          <div class="setup-intro-text">
+            <p data-i18n="setup_intro_need">Pour vous répondre, Coati a besoin d'un modèle d'IA.</p>
+            <p class="help" data-i18n="setup_intro_local_program">Le programme local, installé avec Coati sur cet ordinateur, fait le lien entre votre navigateur et ce modèle.</p>
+          </div>
+        </div>
+        <p id="setupNotConnected" class="notice" hidden data-i18n="setup_not_connected">Le programme local ne répond pas : les vérifications reprendront dès qu'il sera lancé.</p>
+        <p id="setupChooseLabel" class="setup-choose" data-i18n="setup_choose">Où le modèle doit-il tourner ?</p>
+        <div class="setup-paths" role="group" aria-labelledby="setupChooseLabel">
+          <button type="button" id="setupPathLocal" class="setup-path" data-path="local" aria-pressed="false" aria-controls="setupLocal">
+            <span class="setup-path-title" data-i18n="setup_path_local_title">Sur mon ordinateur</span>
+            <span class="setup-path-text" data-i18n="setup_path_local_text">Gratuit et privé : vos textes ne quittent pas l'ordinateur. Il faut un ordinateur récent.</span>
+          </button>
+          <button type="button" id="setupPathOnline" class="setup-path" data-path="online" aria-pressed="false" aria-controls="setupOnline">
+            <span class="setup-path-title" data-i18n="setup_path_online_title">En ligne</span>
+            <span class="setup-path-text" data-i18n="setup_path_online_text">Plus simple : une clé à créer chez un service. Gratuit ou payant selon le service.</span>
+          </button>
+        </div>
+        <div id="setupLocal" class="setup-path-steps" hidden></div>
+        <div id="setupOnline" class="setup-path-steps" hidden></div>
+      </div>
+    </details>
+
     <!-- 1. Model: the only section whose content comes from the broker. -->
     <section class="section section--primary" aria-labelledby="h-model">
       <h2 id="h-model" data-i18n="options_model_title">Modèle</h2>
       <p class="help" data-i18n="options_model_help">
         Le modèle qui répond à vos demandes. Ce choix est enregistré par le
         broker, sur cette machine.
+      </p>
+      <p class="help setup-open-row">
+        <a id="openSetup" class="link" href="#setup" data-i18n="setup_open_link">Besoin d'aide ? Suivre le guide pas à pas</a>
       </p>
       <div id="modelSection">
         <p id="modelDisconnected" class="notice" hidden data-i18n="options_model_disconnected">

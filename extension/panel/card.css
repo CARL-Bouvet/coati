@@ -22,6 +22,11 @@
 
 .site-card-head {
   display: flex;
+  /* 320 px, "Lire cette page" invite button + "Lire la page" switch both
+   * shown at once: their combined natural width can leave the site label
+   * only a handful of px (admin review, lot 2) — wrapping the row, not
+   * squeezing the label to near-nothing, is the safe outcome at any width. */
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   min-height: 28px;
@@ -369,6 +374,15 @@
   line-height: 1.3;
 }
 
+/* U2 — "never spoken to a model" fact folded into the card (replaces a
+ * second standalone notice while this card is still showing). */
+.first-run-never-connected {
+  margin: calc(-1 * var(--space-1)) 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
 .first-run-steps {
   display: flex;
   flex-direction: column;
@@ -447,6 +461,85 @@
 .first-run-action:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* "Never connected" notice (U2) — same slot as .first-run (under the
+ * encart), mutually exclusive with it: panel.js's renderNeverConnected()
+ * only shows this once the first-run card is gone for good, so the two
+ * never stack. Calmer than the first-run card (no checklist), just the
+ * one fact and the one action. */
+.never-connected {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-2) var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+/* Same decoration rule as .help-popover::after (panel.css). */
+.never-connected {
+  position: relative;
+  overflow: hidden;
+}
+.never-connected::after {
+  content: "";
+  position: absolute;
+  right: -10px;
+  bottom: -14px;
+  width: 120px;
+  height: 140px;
+  background: url("../illustrations/coati-surprised-light.png") no-repeat right bottom / contain;
+  opacity: 0.14;
+  pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+  .never-connected::after { background-image: url("../illustrations/coati-surprised-dark.png"); }
+}
+.never-connected-body { position: relative; z-index: 1; }
+
+/* The "?" badge: same glyph as the header's help button, accent disc. */
+.help-badge {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1;
+}
+.help-badge::before { content: "?"; }
+
+.never-connected-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.never-connected-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.never-connected-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
 }
 
 @media (prefers-reduced-motion: reduce) {

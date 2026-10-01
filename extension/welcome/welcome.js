@@ -4,7 +4,7 @@
 // the installer link. Reads nothing, sends nothing to the broker.
 
 import { api, IS_GECKO } from "../lib/browser-compat.js";
-import { RELEASES_URL } from "../panel/first-run.js";
+import { RELEASES_URL, MODEL_TUTORIAL_PATH } from "../panel/first-run.js";
 import { t, setDocumentLanguage, reloadOnLanguageChange } from "../lib/i18n-page.js";
 import { mountLanguageSelector } from "../lib/language-selector.js";
 
@@ -45,7 +45,8 @@ function render() {
     programLink: t("welcome_program_link"),
     modelTitle: t("welcome_model_title"),
     modelText: t("welcome_model_text"),
-    modelAction: t("panel_open_settings"),
+    // U2: opens the tutorial, same label as the panel's model-related actions.
+    modelAction: t("neverConnectedAction"),
     pageTitleStep: t("welcome_page_title"),
     pageTextChromium: t("welcome_page_text_chromium"),
     pageTextGecko: t("welcome_page_text_gecko"),
@@ -79,7 +80,11 @@ function render() {
   setText("welcomeGesture", TEXT.gesture);
 }
 
-document.getElementById("stepModelAction").addEventListener("click", () => api.runtime.openOptionsPage());
+// U2 — same tutorial destination as the panel's "Connecter un modèle"
+// actions (first-run.js, panel.js): the options page, jumped to #setup.
+document.getElementById("stepModelAction").addEventListener("click", () => {
+  api.tabs.create({ url: api.runtime.getURL(MODEL_TUTORIAL_PATH) });
+});
 
 render();
 // U1 — live language switch: this page re-reads t() lazily inside render(),

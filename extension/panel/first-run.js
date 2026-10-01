@@ -49,6 +49,17 @@ export const FIRST_RUN_TEXT = {
 export const RELEASES_URL = "https://github.com/CARL-Bouvet/coati/releases/latest";
 // storage.local key — a preference, never a secret (CLAUDE.md rule #1).
 export const FIRST_RUN_DONE_KEY = "coati:firstRunDone";
+// storage.local key — set true the first time an assistant answer completes
+// (panel.js, handleBrokerMessage's "done" case). Unlike FIRST_RUN_DONE_KEY
+// (all three first-run checks met, which providerState "ok" alone can
+// satisfy without a real answer), this one only flips on an actual reply —
+// it drives the standalone "never connected" notice (U2) and never resets.
+export const MODEL_EVER_ANSWERED_KEY = "coati:modelEverAnswered";
+// Tutorial lives in the options page (U2, Romain's decision 01/10) — every
+// "connect a model" action across the panel/welcome pages opens this same
+// URL via api.tabs.create(), never api.runtime.openOptionsPage() (that
+// reuses/opens an already-open settings tab, not necessarily at #setup).
+export const MODEL_TUTORIAL_PATH = "options.html#setup";
 
 const PROGRAM_FOUND_STATES = new Set(["connected", "handshaking", "no-token", "broker-untrusted"]);
 

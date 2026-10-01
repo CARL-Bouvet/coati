@@ -214,6 +214,46 @@ describe("ollama checkStatus", () => {
   });
 });
 
+// Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): same
+// free /api/tags probe as checkStatus above, reshaped as TestConnectionResult
+// — the task brief's required distinction is model-missing (daemon up,
+// configured model absent) vs model-unavailable (daemon unreachable).
+describe("ollama testConnection (goal U2)", () => {
+  test("daemon unreachable -> model-unavailable", async () => {
+    __setFetchImplForTests((async () => {
+      throw new Error("connection refused");
+    }) as unknown as typeof fetch);
+    expect(await ollamaProvider.testConnection!({ model: "llama3.2", ollamaUrl: "http://127.0.0.1:11434" })).toEqual({
+      ok: false,
+      code: "model-unavailable",
+    });
+  });
+
+  test("configured model not installed -> model-missing, distinct from model-unavailable", async () => {
+    __setFetchImplForTests((async () =>
+      new Response(JSON.stringify({ models: [{ name: "mistral:latest" }] }), { status: 200 })) as unknown as typeof fetch);
+    expect(await ollamaProvider.testConnection!({ model: "llama3.2", ollamaUrl: "http://x" })).toEqual({
+      ok: false,
+      code: "model-missing",
+    });
+  });
+
+  test("no model configured -> model-unavailable, without pretending success", async () => {
+    __setFetchImplForTests((async () =>
+      new Response(JSON.stringify({ models: [{ name: "llama3.2:latest" }] }), { status: 200 })) as unknown as typeof fetch);
+    expect(await ollamaProvider.testConnection!({ ollamaUrl: "http://x" })).toEqual({
+      ok: false,
+      code: "model-unavailable",
+    });
+  });
+
+  test("configured model installed -> ok, no code", async () => {
+    __setFetchImplForTests((async () =>
+      new Response(JSON.stringify({ models: [{ name: "llama3.2:latest" }] }), { status: 200 })) as unknown as typeof fetch);
+    expect(await ollamaProvider.testConnection!({ model: "llama3.2", ollamaUrl: "http://x" })).toEqual({ ok: true });
+  });
+});
+
 // --- 3. server.ts wiring: provider.status -> provider.status-result --------
 
 describe("server.ts — provider.status wiring", () => {

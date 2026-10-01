@@ -48,6 +48,50 @@
   window.__COATI_LAB_STATE__ = stateId;
   window.__COATI_LAB_FIXTURE__ = fixture;
 
+  // U2: `labHash` opens the page at an anchor (e.g. "setup" for the options
+  // page's guide, options.html#setup) — set before the page script runs.
+  if (fixture.labHash && !location.hash) {
+    history.replaceState(null, "", location.pathname + location.search + "#" + fixture.labHash);
+  }
+
+  // U2: deterministic machine facts for the setup guide's OS detection and
+  // memory row, whatever machine renders the lab.
+  if (fixture.labPlatform) {
+    Object.defineProperty(navigator, "userAgentData", {
+      configurable: true,
+      get: function () {
+        return { platform: fixture.labPlatform };
+      },
+    });
+  }
+  if ("labDeviceMemory" in fixture) {
+    Object.defineProperty(navigator, "deviceMemory", {
+      configurable: true,
+      get: function () {
+        return fixture.labDeviceMemory;
+      },
+    });
+  }
+
+  // Broker settings stand-in. Only fixtures with `echoSettingsSet: true`
+  // apply settings.set (provider/model/baseUrl, apiKey -> `configured`) and
+  // answer with a fresh `settings` carrying the request id, as the real
+  // broker does — every older fixture keeps its silent settings.set.
+  var settingsStore = fixture.settings ? JSON.parse(JSON.stringify(fixture.settings)) : null;
+  function applySettingsSet(payload) {
+    if (!settingsStore) settingsStore = { available: [] };
+    if (payload.provider !== undefined) settingsStore.provider = payload.provider;
+    if (payload.model !== undefined) settingsStore.model = payload.model || null;
+    if (payload.baseUrl !== undefined) settingsStore.baseUrl = payload.baseUrl || undefined;
+    if (payload.apiKey !== undefined) {
+      var target = payload.provider || settingsStore.provider;
+      (settingsStore.available || []).forEach(function (entry) {
+        if (entry.id === target) entry.configured = payload.apiKey !== "";
+      });
+    }
+    return Object.assign({ type: "settings", id: payload.id }, settingsStore);
+  }
+
   // --- Prompts + prefs in-memory store (docs/PROTOCOL.md "Bibliothèque de
   // prompts et préférences par site") ---------------------------------------
   // Seeded from the fixture (fixture.prompts: PromptEntry[], fixture.prefs:
@@ -234,8 +278,12 @@
         setTimeout(function () {
           dispatchToListeners({
             type: "coati:broker-message",
-            message: Object.assign({ type: "settings" }, fixture.settings || {}),
+            message: Object.assign({ type: "settings", id: payload.id }, settingsStore || {}),
           });
+        }, 0);
+      } else if (payload.type === "settings.set" && fixture.echoSettingsSet) {
+        setTimeout(function () {
+          dispatchToListeners({ type: "coati:broker-message", message: applySettingsSet(payload) });
         }, 0);
       } else if (payload.type === "provider.status" && fixture.providerStatus) {
         // G5 first-launch card: only fixtures that declare `providerStatus`
@@ -257,7 +305,7 @@
           };
           dispatchToListeners({
             type: "coati:broker-message",
-            message: Object.assign({ type: "settings.test-result", provider: payload.provider }, result),
+            message: Object.assign({ type: "settings.test-result", id: payload.id, provider: payload.provider }, result),
           });
         }, 20);
       }

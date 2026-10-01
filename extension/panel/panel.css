@@ -110,6 +110,73 @@ textarea {
   color: var(--accent);
 }
 
+/* "?" help button (U2) — same popover-anchor pattern as .lang-selector
+ * above: hover/focus shows it (JS toggles .is-visible, panel.js
+ * wireHelpButton()), a click on the button itself opens the tutorial. */
+.help-popover-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.help-popover {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 20;
+  overflow: hidden;
+  width: 15.5em;
+  max-width: calc(100vw - 2 * var(--space-3));
+  /* Extra bottom padding reserves a strip the text box never grows into —
+   * the art sits there, never under the last lines (own padding box, not
+   * shared with the content box above it). */
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--overlay-shadow);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.help-popover.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* CSS slot for the future "coati surpris/indécis" illustration (U2, Kling
+ * prompt pending) — today's existing head asset stands in, confined to the
+ * reserved bottom-right strip above (never under the text: low opacity is a
+ * second line of defense, not the only one). */
+/* U2 illustrations (Kling, cut out and mirrored only) are decoration, never
+ * layout: a faint background anchored bottom-right, clipped by its box, so
+ * no width or zoom can make them push or cover anything. One file per theme. */
+.help-popover::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  bottom: -8px;
+  width: 84px;
+  height: 96px;
+  background: url("../illustrations/coati-pensive-light.png") no-repeat right bottom / contain;
+  opacity: 0.16;
+  pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+  .help-popover::after { background-image: url("../illustrations/coati-pensive-dark.png"); }
+}
+
+.help-popover-text {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
 .brand {
   display: flex;
   align-items: center;

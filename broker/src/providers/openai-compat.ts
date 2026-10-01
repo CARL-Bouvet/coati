@@ -20,7 +20,7 @@ import {
   type BuiltPrompt,
   type StreamAnswerOptions,
 } from "../model.ts";
-import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck } from "./types.ts";
+import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck, TestConnectionResult } from "./types.ts";
 import { t, DEFAULT_LANG } from "../messages.ts";
 
 // Testing seam: production code always drives the real global `fetch`. Tests
@@ -42,6 +42,15 @@ export function __resetFetchImplForTests(): void {
 // settings UI waiting out the full MODEL_TIMEOUT_MS for an unreachable or
 // slow server.
 const MODELS_TIMEOUT_MS = 1500;
+
+// Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): at
+// OpenRouter, GET /models is a PUBLIC catalogue — it answers 200 with no key
+// at all, so it validates nothing about the configured key. OpenRouter's own
+// GET /api/v1/key (Bearer) is the route that actually checks the key — used
+// instead of fetchModelIds() below ONLY when baseUrl's origin is this one.
+const OPENROUTER_ORIGIN = "https://openrouter.ai";
+const OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key";
+const TEST_CONNECTION_DEFAULT_TIMEOUT_MS = 20_000;
 
 // Same reasoning as claude-api.ts's CLAUDE_API_AUTH_MESSAGE: user-facing,
 // sent verbatim as ErrorMessage.message / settings.test-result's message —
@@ -184,6 +193,59 @@ async function checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck> {
     if (status === 401 || status === 403) return { state: "ko", reason: "key-rejected" };
     if (typeof status === "number") return { state: "unknown", reason: "probe-failed" };
     return { state: "unknown", reason: "base-url-unreachable" };
+  }
+}
+
+/**
+ * `settings.test` for openai-compat — goal U2 (docs/PROTOCOL.md, amendement
+ * 2026-10-01): FREE key/reachability check, never streamAnswer()'s billed
+ * `POST {baseUrl}/chat/completions`. `GET {baseUrl}/models` is the probe for
+ * every origin EXCEPT OpenRouter, whose `/models` is a public catalogue that
+ * validates nothing (see OPENROUTER_ORIGIN above) — there, `GET /api/v1/key`
+ * is used instead. Never throws — classifies via TestConnectionResult.code.
+ * Like claude-api's testConnection, this cannot see an empty credit balance;
+ * that surfaces as `quota-exceeded` on the first real request instead.
+ */
+async function testConnection(
+  opts: ProviderRuntimeOptions & { timeoutMs?: number },
+): Promise<TestConnectionResult> {
+  const baseUrl = resolveBaseUrl(opts.baseUrl);
+  if (!baseUrl || !isAllowedBaseUrl(baseUrl)) return { ok: false, code: "model-unavailable" };
+  const timeoutMs = opts.timeoutMs ?? TEST_CONNECTION_DEFAULT_TIMEOUT_MS;
+
+  let origin: string | undefined;
+  try {
+    origin = new URL(baseUrl).origin;
+  } catch {
+    origin = undefined;
+  }
+
+  if (origin === OPENROUTER_ORIGIN) {
+    try {
+      const response = await fetchImpl(OPENROUTER_KEY_URL, {
+        headers: authHeaders(opts.apiKey),
+        redirect: "error",
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (response.ok) return { ok: true };
+      if (response.status === 401 || response.status === 403) return { ok: false, code: "auth-required" };
+      if (response.status === 402) return { ok: false, code: "quota-exceeded" };
+      if (response.status === 429) return { ok: false, code: "rate-limited" };
+      return { ok: false, code: "model-unavailable" };
+    } catch {
+      return { ok: false, code: "model-unavailable" };
+    }
+  }
+
+  try {
+    await fetchModelIds(baseUrl, opts.apiKey);
+    return { ok: true };
+  } catch (err) {
+    const status = (err as Error & { status?: number })?.status;
+    if (status === 401 || status === 403) return { ok: false, code: "auth-required" };
+    if (status === 402) return { ok: false, code: "quota-exceeded" };
+    if (status === 429) return { ok: false, code: "rate-limited" };
+    return { ok: false, code: "model-unavailable" };
   }
 }
 
@@ -382,5 +444,6 @@ export const openaiCompatProvider: ModelProvider = {
   isAvailable,
   listModels,
   checkStatus,
+  testConnection,
   streamAnswer,
 };

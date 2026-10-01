@@ -563,3 +563,84 @@ describe("openai-compat listModels / GET /models", () => {
     });
   });
 });
+
+// Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): a FREE
+// probe — never the billed POST /chat/completions. Default origins reuse
+// GET /models (fakeServer, as above); the OpenRouter special case needs a
+// fake fetch since its origin is a real external host.
+describe("openai-compat testConnection (goal U2)", () => {
+  test("no baseUrl configured → model-unavailable, without any network call", async () => {
+    let fetchCalled = false;
+    __setFetchImplForTests((async () => {
+      fetchCalled = true;
+      throw new Error("should not be called");
+    }) as unknown as typeof fetch);
+    expect(await openaiCompatProvider.testConnection!({})).toEqual({ ok: false, code: "model-unavailable" });
+    expect(fetchCalled).toBe(false);
+  });
+
+  test("default origin: reachable /models → ok, no code", async () => {
+    const server = fakeServer({ "GET /v1/models": () => Response.json({ data: [] }) });
+    try {
+      expect(await openaiCompatProvider.testConnection!({ baseUrl: server.baseUrl })).toEqual({ ok: true });
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("default origin: /models 401 → auth-required", async () => {
+    const server = fakeServer({ "GET /v1/models": () => new Response("no", { status: 401 }) });
+    try {
+      expect(await openaiCompatProvider.testConnection!({ baseUrl: server.baseUrl })).toEqual({
+        ok: false,
+        code: "auth-required",
+      });
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("default origin: /models 429 → rate-limited", async () => {
+    const server = fakeServer({ "GET /v1/models": () => new Response("slow down", { status: 429 }) });
+    try {
+      expect(await openaiCompatProvider.testConnection!({ baseUrl: server.baseUrl })).toEqual({
+        ok: false,
+        code: "rate-limited",
+      });
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("default origin: unreachable server → model-unavailable", async () => {
+    const server = fakeServer({});
+    const baseUrl = server.baseUrl;
+    server.stop();
+    expect(await openaiCompatProvider.testConnection!({ baseUrl })).toEqual({ ok: false, code: "model-unavailable" });
+  });
+
+  test("OpenRouter origin: /models is NEVER called — /api/v1/key is used instead, and a 200 there is ok", async () => {
+    const calledUrls: string[] = [];
+    __setFetchImplForTests((async (url: string, init?: RequestInit) => {
+      calledUrls.push(String(url));
+      expect((init?.headers as Record<string, string>)?.authorization).toBe("Bearer sk-or-v1-works");
+      return new Response(JSON.stringify({ data: { limit: null } }), { status: 200 });
+    }) as unknown as typeof fetch);
+
+    const result = await openaiCompatProvider.testConnection!({
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "sk-or-v1-works",
+    });
+    expect(result).toEqual({ ok: true });
+    expect(calledUrls).toEqual(["https://openrouter.ai/api/v1/key"]);
+  });
+
+  test("OpenRouter origin: a rejected key (401 on /api/v1/key) reports auth-required", async () => {
+    __setFetchImplForTests((async () => new Response("nope", { status: 401 })) as unknown as typeof fetch);
+    const result = await openaiCompatProvider.testConnection!({
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "sk-or-v1-bad",
+    });
+    expect(result).toEqual({ ok: false, code: "auth-required" });
+  });
+});

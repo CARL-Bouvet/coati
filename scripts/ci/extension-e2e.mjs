@@ -166,6 +166,18 @@ try {
   // with "Lire la page" on (the default) the question would be held back
   // ("Coati n'a pas accès à cette page"). Turn it off: this test is about the
   // pairing and the round trip, not page reading.
+  // The switch settles asynchronously after "connected" (stored preference,
+  // first-run flags): wait for it to turn on before turning it off, otherwise
+  // a late render switches it back on after our check (flaky, seen in U2).
+  const attachOn = await waitFor(
+    async () => (await page.locator("#attachPage").getAttribute("aria-checked")) === "true",
+    5000,
+    "attachPage on",
+  ).then(() => true, () => false);
+  if (attachOn) {
+    await page.locator("#attachPage").click();
+  }
+  await page.waitForTimeout(300);
   if ((await page.locator("#attachPage").getAttribute("aria-checked")) === "true") {
     await page.locator("#attachPage").click();
   }

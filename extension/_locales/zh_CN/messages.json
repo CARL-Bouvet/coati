@@ -211,7 +211,7 @@
   "panel_first_run_model_missing": { "message": "没有模型响应" },
   "panel_first_run_model_pending": { "message": "正在检查模型…" },
   "panel_first_run_model_waiting": { "message": "模型：等待本地程序" },
-  "panel_first_run_model_action": { "message": "打开设置" },
+  "panel_first_run_model_action": { "message": "连接一个模型" },
   "panel_first_run_page_ok": { "message": "已获得页面访问权限" },
   "panel_first_run_page_missing": { "message": "授予页面访问权限" },
   "panel_first_run_page_hint": {
@@ -226,6 +226,16 @@
     "placeholders": { "lang": { "content": "$1", "example": "简体中文" } }
   },
   "panel_first_run_lang_change": { "message": "更改" },
+
+  "neverConnectedTitle": { "message": "尚未连接 AI 模型" },
+  "neverConnectedBody": {
+    "message": "Coati 通过 AI 模型来回答，模型可以装在您的电脑上，也可以在线使用。向导会帮您连接一个。"
+  },
+  "neverConnectedAction": { "message": "连接一个模型" },
+  "panelHelpButtonLabel": { "message": "帮助：连接模型" },
+  "panelHelpPopoverText": {
+    "message": "Coati 需要一个 AI 模型才能作答：本地运行（免费且私密）或在线使用（需创建密钥）。教程将逐步指导您。点击此按钮即可打开教程。"
+  },
 
   "panel_unreadable_hint": { "message": "取消勾选「读取页面」以提问一般问题。" },
   "panel_unreadable_pdf": { "message": "⚠ Coati 无法读取浏览器显示的 PDF。" },
@@ -312,6 +322,160 @@
   "options_model_placeholder_claude": { "message": "例如：claude-sonnet-4-5（可选）" },
   "options_model_placeholder_openai_compat": { "message": "服务器所需的精确名称" },
   "options_shortcut_not_set": { "message": "未设置" },
+
+  "keyInput_label": { "message": "API 密钥" },
+  "keyInput_placeholder": { "message": "在此粘贴密钥" },
+  "keyInput_placeholder_replace": { "message": "粘贴新密钥以替换当前密钥" },
+  "keyInput_show": { "message": "显示" },
+  "keyInput_hide": { "message": "隐藏" },
+  "keyInput_save": { "message": "保存密钥" },
+  "keyInput_saving": { "message": "正在发送到本地程序…" },
+  "keyInput_saved": { "message": "密钥已保存" },
+  "keyInput_verifying": { "message": "密钥已保存，正在向服务验证…" },
+  "keyInput_accepted": { "message": "密钥已被接受" },
+  "keyInput_refused": { "message": "服务拒绝了此密钥：请确认已完整复制，或在其网站上新建一个。" },
+  "keyInput_remedy_credit": { "message": "请在该服务网站上充值，然后点击“重新验证”。" },
+  "keyInput_remedy_wait": { "message": "密钥已保存：请等待一分钟，然后点击“重新验证”。" },
+  "keyInput_test_failed": { "message": "密钥验证失败。" },
+  "keyInput_save_failed": { "message": "密钥未保存。" },
+  "keyInput_retry": { "message": "重新验证" },
+  "keyInput_delete": { "message": "删除密钥" },
+  "keyInput_delete_confirm": { "message": "确认删除" },
+  "keyInput_deleted": { "message": "密钥已从本电脑删除。" },
+  "keyInput_not_connected": { "message": "本地程序无响应：暂时无法保存密钥。" },
+  "keyInput_note_storage": { "message": "密钥以明文形式保存在本电脑上，存放在只有您的账户能读取的文件中。" },
+  "keyInput_note_never_share": { "message": "切勿把它粘贴到其他地方（聊天、Discord、电子邮件）：Coati 永远不会向您索要。" },
+  "keyInput_note_spending_cap": { "message": "付费服务：请在其网站上设置每月消费上限。" },
+  "keyInput_spending_cap_link": { "message": "设置上限" },
+  "setup_title": { "message": "连接 AI 模型" },
+  "setup_open_link": { "message": "需要帮助？按分步指南操作" },
+  "setup_intro_need": { "message": "Coati 需要一个 AI 模型才能回答您。" },
+  "setup_intro_local_program": { "message": "本地程序随 Coati 安装在本电脑上，负责连接您的浏览器和该模型。" },
+  "setup_not_connected": { "message": "本地程序无响应：启动后即可继续验证。" },
+  "setup_choose": { "message": "模型在哪里运行？" },
+  "setup_path_local_title": { "message": "在我的电脑上" },
+  "setup_path_local_text": { "message": "免费且私密：您的文本不会离开电脑。需要一台较新的电脑。" },
+  "setup_path_online_title": { "message": "在线" },
+  "setup_path_online_text": { "message": "更简单：在某个服务上创建一个密钥。免费或付费取决于服务。" },
+  "setup_checking": { "message": "正在检查…" },
+  "setup_check_unknown": { "message": "检查未完成。请稍后重试。" },
+  "setup_copy": { "message": "复制" },
+  "setup_copied": { "message": "已复制" },
+  "setup_copy_manual": { "message": "已选中：按 Ctrl+C 复制" },
+  "setup_try_title": { "message": "在网页上试用" },
+  "setup_try_text": { "message": "打开任意网页，然后点击浏览器工具栏中的 Coati 图标。如果看不到它，请点击拼图形状的图标并固定 Coati。" },
+  "setup_local_install_title": { "message": "安装 Ollama" },
+  "setup_local_install_text": { "message": "Ollama 是一款免费软件，可在您的电脑上运行模型。" },
+  "setup_local_download_for": {
+    "message": "下载适用于 $OS$ 的 Ollama",
+    "placeholders": {
+      "os": { "content": "$1", "example": "Windows" }
+    }
+  },
+  "setup_local_other_os": { "message": "其他系统：" },
+  "setup_local_download": { "message": "下载 Ollama：" },
+  "setup_local_linux_install": { "message": "在 Linux 上，也可以通过终端安装：" },
+  "setup_local_start_intro": { "message": "然后启动它：" },
+  "setup_local_start_windows": { "message": "从“开始”菜单打开 Ollama；其图标会出现在时钟旁边。" },
+  "setup_local_start_mac": { "message": "从“应用程序”文件夹打开 Ollama；其图标会出现在菜单栏中。" },
+  "setup_local_start_linux": { "message": "安装程序会自动启动它。如果未运行，请在终端中运行以下命令：" },
+  "setup_local_running_title": { "message": "检查 Ollama 是否响应" },
+  "setup_local_running_text": { "message": "Coati 将切换到 Ollama，并检查它在本电脑上是否响应。" },
+  "setup_local_running_check": { "message": "使用 Ollama 并检查" },
+  "setup_local_running_ok": { "message": "Ollama 已响应。" },
+  "setup_local_unreachable": { "message": "Ollama 无响应。请确认它已启动（第 1 步），然后重试。" },
+  "setup_local_model_title": { "message": "下载模型" },
+  "setup_local_model_text": { "message": "请选择与您电脑内存（RAM）相符的一行。内存越大，可用的模型越强，但下载也越大。" },
+  "setup_local_memory_known": {
+    "message": "根据浏览器信息，本电脑至少有 $GB$ GB 内存（浏览器最多只报告 8 GB）。",
+    "placeholders": {
+      "gb": { "content": "$1", "example": "8" }
+    }
+  },
+  "setup_local_memory_unknown": { "message": "浏览器未提供本电脑的内存信息：请在系统信息中查看。" },
+  "setup_local_col_memory": { "message": "电脑内存" },
+  "setup_local_col_model": { "message": "模型" },
+  "setup_local_col_size": { "message": "下载大小" },
+  "setup_local_memory_row": {
+    "message": "$GB$ GB 或以上",
+    "placeholders": {
+      "gb": { "content": "$1", "example": "8" }
+    }
+  },
+  "setup_local_suggested": { "message": "推荐" },
+  "setup_size_gb": {
+    "message": "$GB$ GB",
+    "placeholders": {
+      "gb": { "content": "$1", "example": "3,3" }
+    }
+  },
+  "setup_local_pull_text": { "message": "打开终端（Windows：PowerShell；macOS：终端），粘贴以下命令，然后等待下载完成。" },
+  "setup_local_model_check": { "message": "检查模型" },
+  "setup_local_model_ok": { "message": "模型已就绪。" },
+  "setup_local_model_missing": {
+    "message": "模型 $MODEL$ 尚未在 Ollama 中：请运行上面的命令并等待下载完成。",
+    "placeholders": {
+      "model": { "content": "$1", "example": "gemma3:4b" }
+    }
+  },
+  "setup_local_no_model": { "message": "Ollama 中尚未安装任何模型：请运行上面的命令。" },
+  "setup_lmstudio_title": { "message": "高级：LM Studio" },
+  "setup_lmstudio_text": { "message": "LM Studio 是另一款在您电脑上运行模型的应用。安装后，在应用内下载一个模型，然后启动其本地服务器（“Developer”标签页，“Start Server”按钮）。" },
+  "setup_lmstudio_download": { "message": "下载 LM Studio" },
+  "setup_lmstudio_use": { "message": "使用 LM Studio 并检查" },
+  "setup_lmstudio_ok": { "message": "LM Studio 已响应。请在下方“模型”部分选择其模型。" },
+  "setup_online_service_title": { "message": "选择服务" },
+  "setup_online_free_warning": { "message": "选择之前请注意：OpenRouter 的免费模型可能会保留并使用您发送的文本。请勿发送任何机密内容。" },
+  "setup_online_free_detail": {
+    "message": "免费模型：每天最多 $PERDAY$ 次提问（每天 $WITHCREDIT$ 次，需购买至少 $CREDIT$ 额度）。",
+    "placeholders": {
+      "perday": { "content": "$1", "example": "50" },
+      "withcredit": { "content": "$2", "example": "1000" },
+      "credit": { "content": "$3", "example": "10 $US" }
+    }
+  },
+  "setup_online_paid_detail": {
+    "message": "付费：每次提问约 $COST$（按约 $WORDS$ 字的网页计算）。",
+    "placeholders": {
+      "cost": { "content": "$1", "example": "0,006 $US" },
+      "words": { "content": "$2", "example": "2000" }
+    }
+  },
+  "setup_online_others": { "message": "其他服务" },
+  "setup_online_service_ok": {
+    "message": "已选择 $NAME$。",
+    "placeholders": {
+      "name": { "content": "$1", "example": "OpenRouter" }
+    }
+  },
+  "setup_online_pick_first": { "message": "请先选择服务（第 1 步）。" },
+  "setup_online_account_title": { "message": "创建账户和密钥" },
+  "setup_online_account_text": { "message": "创建账户（或登录），打开 API 密钥页面，创建一个密钥，然后复制它。" },
+  "setup_online_signup": {
+    "message": "打开 $NAME$",
+    "placeholders": {
+      "name": { "content": "$1", "example": "OpenRouter" }
+    }
+  },
+  "setup_online_keys_page": { "message": "API 密钥页面" },
+  "setup_online_openrouter_privacy": { "message": "如果免费模型拒绝回答，请在 OpenRouter 的隐私设置中允许使用免费模型。" },
+  "setup_online_privacy_link": { "message": "隐私设置" },
+  "setup_online_openrouter_quota": {
+    "message": "免费模型限制：每分钟 $PERMIN$ 次提问。",
+    "placeholders": {
+      "permin": { "content": "$1", "example": "20" }
+    }
+  },
+  "setup_online_paid_billing": { "message": "付费服务：添加付款方式或充值，然后设置每月消费上限（下一步会再次提醒）。" },
+  "setup_online_prepaid": { "message": "预付费服务：您预先购买额度，花费永远不会超过该额度。" },
+  "setup_online_key_title": { "message": "粘贴密钥" },
+  "setup_online_key_text": {
+    "message": "该服务的密钥通常以“$PREFIX$”开头。",
+    "placeholders": {
+      "prefix": { "content": "$1", "example": "sk-or-" }
+    }
+  },
+
 
   "welcome_title": { "message": "欢迎使用 Coati" },
   "welcome_lead": {

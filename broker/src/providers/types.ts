@@ -54,6 +54,26 @@ export interface StatusCheck {
   reason: string;
 }
 
+/** Closed set of `settings.test-result.code` values a provider's
+ * `testConnection` can report on failure (docs/PROTOCOL.md "settings.test",
+ * amendement 2026-10-01, goal U2) — a subset of `ErrorCode` (protocol.ts)
+ * plus `model-missing`, which is NOT a general ErrorCode (it never appears on
+ * a chat/summarize/act `error` message — those report the same underlying
+ * condition as `model-unavailable`, see ollama.ts's streamAnswer) but IS
+ * useful here to tell "Ollama unreachable" apart from "Ollama is up but this
+ * model isn't pulled", mirroring provider.status's own `model-missing`
+ * reason for ollama. */
+export type TestConnectionCode = "auth-required" | "quota-exceeded" | "rate-limited" | "model-unavailable" | "model-missing";
+
+/** Result of a provider's FREE connection probe (docs/PROTOCOL.md
+ * "settings.test", amendement 2026-10-01, goal U2) — unlike the old
+ * streamAnswer-based probe it replaces for built-in providers, this must
+ * never spend a token. `code` is only ever present when `ok` is false. */
+export interface TestConnectionResult {
+  ok: boolean;
+  code?: TestConnectionCode;
+}
+
 export interface ModelProvider {
   readonly id: string;
   readonly label: string;
@@ -68,6 +88,13 @@ export interface ModelProvider {
   /** Backs `provider.status` (see StatusCheck above). Every provider
    * implements this — unlike isAvailable(), it never makes a billed call. */
   checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck>;
+  /** Backs `settings.test` with a FREE probe (docs/PROTOCOL.md, amendement
+   * 2026-10-01, goal U2) — optional: a provider (built-in or external module)
+   * that cannot offer one simply omits it, and server.ts's
+   * testProviderConnection() falls back to the old streamAnswer-based probe
+   * (a real minimal model call) for that provider only. Never throws —
+   * reports failure via TestConnectionResult.code instead. */
+  testConnection?(opts: ProviderRuntimeOptions & { timeoutMs?: number }): Promise<TestConnectionResult>;
   /** Streams the model's answer to `built.prompt`. Throws ModelTimeoutError
    * or ModelUnavailableError (../model.ts) for conditions server.ts should
    * report as `model-unavailable` rather than `internal`. */

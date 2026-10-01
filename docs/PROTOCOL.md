@@ -1334,18 +1334,57 @@ dimension-là). L'extension affiche un état, jamais une valeur :
 
 ### `settings.test` — tester une connexion réelle
 
-Backend du bouton « Tester la connexion » des réglages. Effectue un vrai appel minimal (quelques
-tokens, pas un résumé) contre le fournisseur nommé — pas forcément celui actuellement sélectionné,
-l'utilisateur peut tester avant de basculer — borné à 20 s pour ne jamais bloquer le panneau :
+Backend du bouton « Tester la connexion » des réglages, borné à 20 s pour ne jamais bloquer le
+panneau — teste le fournisseur nommé, pas forcément celui actuellement sélectionné, l'utilisateur
+peut tester avant de basculer :
 ```jsonc
 { "type": "settings.test", "id": "c10", "provider": "claude-api" }
 { "type": "settings.test-result", "id": "c10", "provider": "claude-api", "ok": true,
   "message": "Connexion à l'API Anthropic réussie." }
 ```
-`message` est en français, une phrase, affichée telle quelle à un humain ; en cas d'échec elle nomme
-le remède : clé refusée (« Clé API refusée — vérifiez-la dans les réglages. »), Ollama non lancé
-(« Ollama ne répond pas — vérifiez qu'il est bien lancé sur cette machine. »), ou tout autre texte
-qu'un module externe choisit de renvoyer pour le sien.
+`message` est en français (ou dans la langue de la connexion, voir « Langue de la connexion »),
+une phrase, affichée telle quelle à un humain ; en cas d'échec elle nomme le remède : clé refusée
+(« Clé API refusée — vérifiez-la dans les réglages. »), Ollama non lancé (« Ollama ne répond pas —
+vérifiez qu'il est bien lancé sur cette machine. »), ou tout autre texte qu'un module externe
+choisit de renvoyer pour le sien. Sur échec, un champ optionnel `code` reprend un code stable
+déjà connu du protocole — voir ci-dessous.
+
+**Amendement 2026-10-01, goal U2 — une vérification GRATUITE, pas un vrai appel.** Avant cet
+amendement, `settings.test` faisait un vrai appel minimal (quelques tokens, pas un résumé) contre
+le fournisseur — donc facturé pour les fournisseurs à clé. Le tutoriel débutant (goal U2) a besoin
+d'un bouton « Tester la connexion » utilisable à volonté, y compris avant que l'utilisateur ait
+chargé le moindre crédit. Le coût **zéro** devient l'invariant pour les trois fournisseurs intégrés :
+
+- **`claude-api`** : `GET https://api.anthropic.com/v1/models` (en-têtes `x-api-key`,
+  `anthropic-version`) — gratuit (confirmé par une source citée au moment de cet amendement,
+  2026-10-01). HTTP 200 → `ok: true`. HTTP 401/403 → `ok: false`, `code: "auth-required"`. HTTP 402
+  → `code: "quota-exceeded"` (rare sur cette route, mais traité s'il apparaît). HTTP 429 →
+  `code: "rate-limited"`. Toute autre réponse, timeout ou erreur réseau → `code: "model-unavailable"`.
+- **`openai-compat`** : `GET {baseUrl}/models` avec `Authorization: Bearer <clé>` — **sauf** quand
+  l'origine de `baseUrl` est `https://openrouter.ai` : chez OpenRouter, `/models` est une liste
+  publique qui ne valide ni la clé ni le compte (répond 200 même sans clé ou avec une clé invalide).
+  Dans ce cas précis, la sonde utilise `GET https://openrouter.ai/api/v1/key` (même en-tête
+  `Authorization`) : 200 → clé valide, 401 → clé refusée. Pour toute autre origine (locale —
+  Ollama `/v1`, LM Studio — ou hébergée), `GET {baseUrl}/models` reste la sonde, déjà gratuite
+  (voir « Disponibilité du fournisseur » ci-dessous pour le même constat côté `provider.status`).
+  Mêmes codes que `claude-api` ci-dessus selon le statut HTTP reçu.
+- **`ollama`** : inchangé — `GET <ollamaUrl>/api/tags` était déjà gratuit (local). Si le modèle
+  configuré n'apparaît pas dans la liste, `code: "model-missing"` (distinct de
+  `model-unavailable`, qui couvre le démon injoignable) — même code que la colonne `reason` de
+  `provider.status` pour ce même cas.
+
+**Limite connue, documentée pour ne jamais être redécouverte en incident : une vérification de clé
+ne voit pas un solde de crédit épuisé.** `GET /v1/models` (Anthropic) et `GET /models` ou
+`GET /api/v1/key` (OpenAI-compatible / OpenRouter) confirment que la clé est *acceptée*, pas que le
+compte a du crédit — un compte à zéro crédit peut très bien répondre 200 à ces routes-là. Un
+problème de crédit ne se révèle donc qu'à la première requête réelle (`chat`/`summarize`/`act`),
+sous la forme `error.code: "quota-exceeded"` (voir « Fournisseur de modèle », amendement
+2026-10-01, goal U1) — jamais pendant `settings.test`, qui reste par construction incapable de le
+détecter pour ces deux fournisseurs.
+
+Un fournisseur externe qui ne peut pas offrir de sonde gratuite garde l'ancien comportement (vrai
+appel minimal) — voir `docs/MODULES.md` : `testConnection` reste optionnel dans le contrat
+`ModelProvider`.
 
 **`settings.get`** ne prend rien d'autre qu'un `id`. Réponse :
 

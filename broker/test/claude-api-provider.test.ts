@@ -404,3 +404,74 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(isModelUnavailableError(err)).toBe(true);
   });
 });
+
+// Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): a FREE
+// `GET /v1/models` probe — never the billed `POST /v1/messages` streamAnswer
+// uses.
+describe("claude-api testConnection (goal U2)", () => {
+  test("no key configured → auth-required, without any network call", async () => {
+    let fetchCalled = false;
+    __setFetchImplForTests((async () => {
+      fetchCalled = true;
+      throw new Error("should not be called");
+    }) as unknown as typeof fetch);
+    expect(await claudeApiProvider.testConnection!({})).toEqual({ ok: false, code: "auth-required" });
+    expect(fetchCalled).toBe(false);
+  });
+
+  test("200 on GET /v1/models → ok, no code, and never calls POST /v1/messages", async () => {
+    let calledUrl = "";
+    let calledMethod = "";
+    __setFetchImplForTests((async (url: string, init?: RequestInit) => {
+      calledUrl = String(url);
+      calledMethod = init?.method ?? "GET";
+      return new Response(JSON.stringify({ data: [] }), { status: 200 });
+    }) as unknown as typeof fetch);
+    const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-works" });
+    expect(result).toEqual({ ok: true });
+    expect(calledUrl).toBe("https://api.anthropic.com/v1/models");
+    expect(calledMethod).toBe("GET");
+  });
+
+  test("401 → auth-required, key never sent back in the result", async () => {
+    __setFetchImplForTests((async () => new Response("nope", { status: 401 })) as unknown as typeof fetch);
+    const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-bad" });
+    expect(result).toEqual({ ok: false, code: "auth-required" });
+  });
+
+  test("402 → quota-exceeded", async () => {
+    __setFetchImplForTests((async () => new Response("no credit", { status: 402 })) as unknown as typeof fetch);
+    const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-works" });
+    expect(result).toEqual({ ok: false, code: "quota-exceeded" });
+  });
+
+  test("429 → rate-limited", async () => {
+    __setFetchImplForTests((async () => new Response("slow down", { status: 429 })) as unknown as typeof fetch);
+    const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-works" });
+    expect(result).toEqual({ ok: false, code: "rate-limited" });
+  });
+
+  test("network failure → model-unavailable", async () => {
+    __setFetchImplForTests((async () => {
+      throw new Error("fetch failed");
+    }) as unknown as typeof fetch);
+    const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-works" });
+    expect(result).toEqual({ ok: false, code: "model-unavailable" });
+  });
+
+  test("a redirect is never followed", async () => {
+    let redirectTargetHit = false;
+    __setFetchImplForTests((async (url: string) => {
+      if (String(url).includes("elsewhere")) {
+        redirectTargetHit = true;
+        return new Response("{}", { status: 200 });
+      }
+      // Bun's fetch with redirect: "error" rejects rather than returning a
+      // redirect Response — simulate that contract here.
+      throw new TypeError("unexpected redirect");
+    }) as unknown as typeof fetch);
+    const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-works" });
+    expect(result).toEqual({ ok: false, code: "model-unavailable" });
+    expect(redirectTargetHit).toBe(false);
+  });
+});

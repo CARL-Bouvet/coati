@@ -39,8 +39,10 @@ function stateIdsFromFixtureFile(path: string): string[] {
   const src = readFileSync(path, "utf8");
   const ids: string[] = [];
   // Matches `  idle: {` / `  "not-activated": {` — top-level fixture keys,
-  // 4-space indented directly under the assigned object literal.
-  const re = /^\s{4}(?:"([^"]+)"|([a-zA-Z][\w-]*)):\s*\{/gm;
+  // 4-space indented directly under the assigned object literal. Also
+  // `"id": helper({` (options-fixtures.js builds the U2 guide states with a
+  // small factory).
+  const re = /^\s{4}(?:"([^"]+)"|([a-zA-Z][\w-]*)):\s*(?:[a-zA-Z]\w*\()?\{/gm;
   let m: RegExpExecArray | null;
   while ((m = re.exec(src))) ids.push(m[1] || m[2]);
   return ids;
@@ -270,6 +272,7 @@ async function main() {
     // button's fallback icon; welcome page: fixed logo) — ../icons/ from
     // panel/ and welcome/, same layout as extension/.
     cpSync(join(EXT, "icons"), join(OUT, tree, "icons"), { recursive: true });
+    cpSync(join(EXT, "illustrations"), join(OUT, tree, "illustrations"), { recursive: true });
 
     // Bundles + lab support files, at fixed relative locations reused by
     // both panel.html (in <tree>/panel/) and options.html (in <tree>/).

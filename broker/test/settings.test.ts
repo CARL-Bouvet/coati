@@ -311,16 +311,13 @@ describe("settings — the `configured` flag", () => {
 
 // --- settings.test / settings.test-result (task 3) --------------------------
 describe("settings.test", () => {
-  test("claude-api: a successful minimal call reports ok with a French success message", async () => {
-    __setClaudeApiFetch((async () => {
-      const encoder = new TextEncoder();
-      const body = new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "message_stop" })}\n`));
-          controller.close();
-        },
-      });
-      return new Response(body, { status: 200 });
+  test("claude-api: a successful FREE key check (GET /v1/models) reports ok, no code", async () => {
+    let calledUrl = "";
+    let calledMethod = "";
+    __setClaudeApiFetch((async (url: string, init?: RequestInit) => {
+      calledUrl = String(url);
+      calledMethod = init?.method ?? "GET";
+      return new Response(JSON.stringify({ data: [] }), { status: 200 });
     }) as unknown as typeof fetch);
 
     const server = boot();
@@ -332,7 +329,12 @@ describe("settings.test", () => {
     expect(msg.type).toBe("settings.test-result");
     expect(msg.provider).toBe("claude-api");
     expect(msg.ok).toBe(true);
+    expect(msg.code).toBeUndefined();
     expect(msg.message).toMatch(/[Aa]nthropic/);
+    // Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): the
+    // FREE GET /v1/models probe, never the billed POST /v1/messages.
+    expect(calledUrl).toBe("https://api.anthropic.com/v1/models");
+    expect(calledMethod).toBe("GET");
     ws.close();
   });
 
@@ -348,6 +350,7 @@ describe("settings.test", () => {
     ws.send(JSON.stringify({ type: "settings.test", id: "t2", provider: "claude-api" }));
     const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
     expect(msg.ok).toBe(false);
+    expect(msg.code).toBe("auth-required");
     // Goal G6: default lang (no `hello.lang` sent by this test's helper) is
     // now English — see messages.ts's DEFAULT_LANG.
     expect(msg.message).toMatch(/api key/i);
@@ -355,7 +358,7 @@ describe("settings.test", () => {
     ws.close();
   });
 
-  test("claude-api: a refused key (401) fails with the auth remedy, key never in the message", async () => {
+  test("claude-api: a refused key (401) fails with the auth remedy and code, key never in the message", async () => {
     __setClaudeApiFetch((async () => new Response("nope", { status: 401 })) as unknown as typeof fetch);
 
     const server = boot();
@@ -365,6 +368,7 @@ describe("settings.test", () => {
     ws.send(JSON.stringify({ type: "settings.test", id: "t4", provider: "claude-api" }));
     const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
     expect(msg.ok).toBe(false);
+    expect(msg.code).toBe("auth-required");
     expect(msg.message).toMatch(/api key/i);
     expect(msg.message).not.toContain("sk-ant-bad-key-value");
     ws.close();
@@ -392,17 +396,20 @@ describe("settings.test", () => {
     ws.send(JSON.stringify({ type: "settings.test", id: "t7", provider: "ollama" }));
     const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
     expect(msg.ok).toBe(false);
+    expect(msg.code).toBe("model-unavailable");
     expect(msg.message).toMatch(/Ollama/);
     ws.close();
   });
 
-  test("ollama: a successful minimal call reports ok", async () => {
+  // Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): a
+  // free GET /api/tags check — never calls /api/chat (not stubbed here on
+  // purpose: a call to it would throw and fail this test).
+  test("ollama: a successful FREE check (GET /api/tags only) reports ok, no code", async () => {
     __setOllamaFetch((async (url: string) => {
       if (String(url).endsWith("/api/tags")) {
         return new Response(JSON.stringify({ models: [{ name: "llama3.2:latest" }] }), { status: 200 });
       }
-      const line = JSON.stringify({ message: { content: "ok" }, done: true, prompt_eval_count: 1, eval_count: 1 });
-      return new Response(`${line}\n`, { status: 200 });
+      throw new Error("should not call anything other than /api/tags");
     }) as unknown as typeof fetch);
 
     const server = boot();
@@ -412,6 +419,22 @@ describe("settings.test", () => {
     ws.send(JSON.stringify({ type: "settings.test", id: "t8", provider: "ollama" }));
     const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
     expect(msg.ok).toBe(true);
+    expect(msg.code).toBeUndefined();
+    ws.close();
+  });
+
+  test("ollama: configured model not pulled reports model-missing, distinct from an unreachable daemon", async () => {
+    __setOllamaFetch((async () =>
+      new Response(JSON.stringify({ models: [{ name: "mistral:latest" }] }), { status: 200 })) as unknown as typeof fetch);
+
+    const server = boot();
+    const ws = await connectAndAuth(server);
+    ws.send(JSON.stringify({ type: "settings.set", id: "t8b", provider: "ollama", model: "llama3.2" }));
+    await nextMessage(ws);
+    ws.send(JSON.stringify({ type: "settings.test", id: "t8c", provider: "ollama" }));
+    const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
+    expect(msg.ok).toBe(false);
+    expect(msg.code).toBe("model-missing");
     ws.close();
   });
 

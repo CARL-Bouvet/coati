@@ -19,7 +19,7 @@ import {
   type BuiltPrompt,
   type StreamAnswerOptions,
 } from "../model.ts";
-import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck } from "./types.ts";
+import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck, TestConnectionResult } from "./types.ts";
 import { t, DEFAULT_LANG } from "../messages.ts";
 
 // Testing seam: production code always drives the real global `fetch`. Tests
@@ -37,6 +37,13 @@ export function __resetFetchImplForTests(): void {
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
+
+// Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): a FREE
+// key check — confirmed by a cited source at implementation time (2026-10-01)
+// that this route is never billed, unlike POST /v1/messages above. Used only
+// by testConnection() below, never by streamAnswer().
+const ANTHROPIC_MODELS_URL = "https://api.anthropic.com/v1/models";
+const TEST_CONNECTION_DEFAULT_TIMEOUT_MS = 20_000;
 
 // Per the claude-api skill's "Current Models" table (checked at implementation
 // time, 2026-09-21): always claude-opus-5 unless the user names a different
@@ -107,6 +114,41 @@ async function checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck> {
   const key = opts.apiKey?.trim();
   if (!key) return { state: "ko", reason: "no-key" };
   return { state: "unknown", reason: "key-unverified" };
+}
+
+/**
+ * `settings.test` for claude-api — goal U2 (docs/PROTOCOL.md, amendement
+ * 2026-10-01): FREE key check via `GET /v1/models`, never the billed
+ * `POST /v1/messages` streamAnswer() uses. `redirect: "error"` — same
+ * redirect-refusal invariant as openai-compat.ts's fetchModelIds, never
+ * follow a redirect that could carry the key to a different origin. Never
+ * throws — classifies via TestConnectionResult.code instead. This is
+ * intentionally presence/acceptance-only: it cannot see an empty credit
+ * balance (docs/PROTOCOL.md's own caveat) — that surfaces as
+ * `quota-exceeded` on the first real request instead.
+ */
+async function testConnection(
+  opts: ProviderRuntimeOptions & { timeoutMs?: number },
+): Promise<TestConnectionResult> {
+  const key = opts.apiKey?.trim();
+  if (!key) return { ok: false, code: "auth-required" };
+  try {
+    const response = await fetchImpl(ANTHROPIC_MODELS_URL, {
+      headers: {
+        "x-api-key": key,
+        "anthropic-version": ANTHROPIC_VERSION,
+      },
+      redirect: "error",
+      signal: AbortSignal.timeout(opts.timeoutMs ?? TEST_CONNECTION_DEFAULT_TIMEOUT_MS),
+    });
+    if (response.ok) return { ok: true };
+    if (response.status === 401 || response.status === 403) return { ok: false, code: "auth-required" };
+    if (response.status === 402) return { ok: false, code: "quota-exceeded" };
+    if (response.status === 429) return { ok: false, code: "rate-limited" };
+    return { ok: false, code: "model-unavailable" };
+  } catch {
+    return { ok: false, code: "model-unavailable" };
+  }
 }
 
 /**
@@ -317,5 +359,6 @@ export const claudeApiProvider: ModelProvider = {
   label: "Claude (clé API)",
   isAvailable,
   checkStatus,
+  testConnection,
   streamAnswer,
 };

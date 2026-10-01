@@ -44,12 +44,38 @@ body {
 
 .board {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  /* min(280px, 100%): the fixed 280px floor alone can force a horizontal
+   * scrollbar once the viewport minus padding drops under it (320 px, admin
+   * review lot 2) — this is the standard guard, same single column result
+   * everywhere it already applied, never cut off below it. */
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: var(--space-4);
   max-width: 1200px;
   margin: 0 auto;
   padding: var(--space-4);
   align-items: start;
+}
+
+/* This page was built for ≥800 px boards (plan-mes-prompts-28-09.md) — the
+ * grid itself already collapses to one column below 700 px, but at 320 px
+ * the full --space-4 gutter on both the header and the board eats a visible
+ * slice of a very narrow screen for no reason once there is only one
+ * column left to breathe around (admin review lot 2). */
+@media (max-width: 420px) {
+  .prompts-header {
+    padding: var(--space-2) var(--space-2) 0;
+  }
+
+  .board {
+    padding: var(--space-2);
+    gap: var(--space-2);
+  }
+
+  .all-sites-notice {
+    width: calc(100% - 2 * var(--space-2));
+    max-width: calc(1200px - 2 * var(--space-2));
+    margin: var(--space-2) auto 0;
+  }
 }
 
 .prompt-case {
@@ -115,9 +141,13 @@ body {
 }
 
 /* Site-case header row (every SITE case, never the head case): title on the
- * left, the "Actif" switch on the right. */
+ * left, the "Actif" switch on the right. flex-wrap: a long real site name at
+ * 320 px can otherwise squeeze the switch into itself (same bug class as
+ * panel/card.css's .site-card-head, admin review lot 2) — wrapping to its
+ * own line is the safe outcome instead. */
 .prompt-case-head-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);

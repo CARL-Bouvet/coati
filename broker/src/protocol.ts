@@ -3,6 +3,7 @@
 
 import { isProviderId, type ProviderId } from "./config.ts";
 import type { Lang } from "./messages.ts";
+import type { TestConnectionCode } from "./providers/types.ts";
 
 export const MAX_MESSAGE_BYTES = 256 * 1024;
 
@@ -381,16 +382,22 @@ export interface SettingsMessage {
   baseUrl?: string;
 }
 
-// Reply to a settings.test request — a real minimal model call, bounded by a
-// short timeout (see server.ts's SETTINGS_TEST_TIMEOUT_MS), never a
-// chat/summarize the extension would otherwise trigger via the wire. `message`
-// is French, one sentence, shown verbatim to a human — see docs/PROTOCOL.md.
+// Reply to a settings.test request — a FREE connection probe as of amendement
+// 2026-10-01 (goal U2) for the three built-in providers (an external module
+// without its own free probe still falls back to a real minimal model call),
+// bounded by a short timeout (see server.ts's SETTINGS_TEST_TIMEOUT_MS),
+// never a chat/summarize the extension would otherwise trigger via the wire.
+// `message` is localised to the connection's language, one sentence, shown
+// verbatim to a human — see docs/PROTOCOL.md.
 export interface SettingsTestResultMessage {
   type: "settings.test-result";
   id: string;
   provider: ProviderId;
   ok: boolean;
   message: string;
+  /** Only ever present when ok is false — see providers/types.ts's
+   * TestConnectionCode and docs/PROTOCOL.md "settings.test". */
+  code?: TestConnectionCode;
 }
 
 // Amendement 2026-09-25 — "Disponibilité du fournisseur". `state` is the

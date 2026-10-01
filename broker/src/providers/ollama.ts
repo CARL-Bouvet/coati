@@ -15,7 +15,7 @@ import {
   type BuiltPrompt,
   type StreamAnswerOptions,
 } from "../model.ts";
-import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck } from "./types.ts";
+import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck, TestConnectionResult } from "./types.ts";
 import { t, DEFAULT_LANG } from "../messages.ts";
 
 // Testing seam: production code always drives the real global `fetch`. Tests
@@ -112,6 +112,33 @@ async function checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck> {
     return { state: "ko", reason: "no-model-installed" };
   }
   return { state: "ok", reason: "ready" };
+}
+
+/**
+ * `settings.test` for ollama — goal U2 (docs/PROTOCOL.md, amendement
+ * 2026-10-01): unchanged in substance, since `/api/tags` was already free
+ * (local daemon) — this is the same probe as checkStatus() above, just
+ * reshaped into TestConnectionResult and distinguishing `model-missing`
+ * (daemon reachable, configured model not pulled) from `model-unavailable`
+ * (daemon unreachable) per the task brief, same distinction provider.status
+ * already makes via its `model-missing`/`ollama-unreachable` reasons.
+ */
+async function testConnection(
+  opts: ProviderRuntimeOptions & { timeoutMs?: number },
+): Promise<TestConnectionResult> {
+  const baseUrl = resolveBaseUrl(opts.ollamaUrl);
+  let names: string[];
+  try {
+    names = await fetchModelNames(baseUrl);
+  } catch {
+    return { ok: false, code: "model-unavailable" };
+  }
+  const model = opts.model?.trim();
+  if (!model) return { ok: false, code: "model-unavailable" };
+  if (!names.some((name) => matchesModel(name, model))) {
+    return { ok: false, code: "model-missing" };
+  }
+  return { ok: true };
 }
 
 /** Parses one line of an Ollama /api/chat NDJSON stream into zero or more
@@ -261,5 +288,6 @@ export const ollamaProvider: ModelProvider = {
   isAvailable,
   listModels,
   checkStatus,
+  testConnection,
   streamAnswer,
 };

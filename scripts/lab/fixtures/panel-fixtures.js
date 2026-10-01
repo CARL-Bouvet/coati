@@ -18,7 +18,7 @@
   }
 
   var EXTREME_PARAGRAPH =
-    "Le broker reste local et n'expose jamais votre historique à un tiers, ce qui signifie que " +
+    "Le programme local reste local et n'expose jamais votre historique à un tiers, ce qui signifie que " +
     "chaque échange demeure sur cette machine, chiffré nulle part sur le disque mais jamais " +
     "transmis ailleurs que vers le fournisseur de modèle choisi dans les réglages, et cette " +
     "distinction compte parce qu'elle change ce que vous devez surveiller vous-même.";
@@ -503,7 +503,12 @@
           {
             id: "e2",
             role: "assistant",
-            text: "⚠ Le modèle ne répond pas (indisponible). Le broker fonctionne normalement ; c'est le modèle qui pose problème. Réessayez dans un instant.",
+            // Exact copy of panel_error_model_unavailable (_locales/fr) — the
+            // UI never says "broker" (CLAUDE.md rule #3's "programme local").
+            text: "⚠ Le modèle ne répond pas (indisponible). Le programme local fonctionne normalement ; c'est le modèle qui pose problème. Réessayez dans un instant.",
+            // Goal U2: now carries a "Connecter un modèle" action (tutorial) —
+            // this banner had none before.
+            modelUnavailable: true,
             streaming: false,
           },
         ],
@@ -552,7 +557,8 @@
           {
             id: "er",
             role: "assistant",
-            text: "⚠ Le fournisseur reçoit trop de requêtes en ce moment. Réessayez dans quelques instants.",
+            // Exact copy of broker/src/messages.ts's rate-limited "fr" text.
+            text: "⚠ Le fournisseur reçoit trop de requêtes en ce moment. Patientez un instant puis réessayez.",
             rateLimited: true,
             retryAfterSec: 20,
             streaming: false,
@@ -1033,6 +1039,79 @@
       tab: ARTICLE_TAB,
       extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
       permissions: ALL_SITES,
+    },
+
+    // Goal U2 — la carte des premiers pas est déjà passée (firstRunDone),
+    // mais aucune réponse réelle n'a jamais été reçue (coati:modelEverAnswered
+    // absent avant ce goal, ici explicitement false) : l'avis autonome
+    // s'affiche seul, avec son bouton « Connecter un modèle ».
+    "never-connected-notice": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      storageLocal: {
+        "coati:conversation": [],
+        "coati:attachPage": true,
+        "coati:modelEverAnswered": false,
+      },
+      prompts: [],
+    },
+
+    // Goal U2 — la carte des premiers pas est encore visible (étape modèle
+    // manquante) : l'avis autonome reste masqué, l'action « Connecter un
+    // modèle » vit dans l'étape « model » de la carte elle-même (pas
+    // d'empilement de deux avis).
+    "never-connected-inside-first-run": {
+      firstRun: true,
+      faviconUrl: FAVICON,
+      prompts: [],
+      storageLocal: {
+        "coati:conversation": [],
+        "coati:attachPage": null,
+        "coati:modelEverAnswered": false,
+      },
+      status: "connected",
+      providerStatus: { provider: "ollama", state: "ko", reason: "ollama-unreachable" },
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      permissions: ALL_SITES,
+    },
+
+    // Goal U2 — le drapeau est déjà posé (une vraie réponse a déjà été
+    // reçue) : ni carte des premiers pas, ni avis autonome.
+    "model-ever-answered": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      providerStatus: PROVIDER_OK,
+      storageLocal: {
+        "coati:conversation": [
+          { id: "ma-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          { id: "ma", role: "assistant", text: CONVERSATION_ANSWER, streaming: false },
+        ],
+        "coati:attachPage": true,
+        "coati:modelEverAnswered": true,
+      },
+      prompts: [],
+    },
+
+    // Goal U2 — bouton « ? » du bandeau, popover ouvert (hover/focus) : texte
+    // d'aide, image de fond discrète (tête existante, place de la future
+    // illustration coati surpris/indécis).
+    "help-popover-open": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      storageLocal: {
+        "coati:conversation": [],
+        "coati:attachPage": true,
+        "coati:modelEverAnswered": true,
+      },
+      prompts: [],
+      autoAction: { steps: [{ type: "focus", selector: "#helpButton", delayMs: 50 }] },
     },
   };
 })();
