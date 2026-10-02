@@ -57,6 +57,8 @@ import {
   isAuthRequiredError,
   isQuotaExceededError,
   isRateLimitedError,
+  isModelMissingError,
+  isProviderOverloadedError,
   isModelUnavailableError,
   ModelTimeoutError,
   RateLimitedError,
@@ -376,9 +378,13 @@ async function runStream(
           ? "quota-exceeded"
           : isRateLimitedError(err)
             ? "rate-limited"
-            : isModelUnavailableError(err)
-              ? "model-unavailable"
-              : "internal";
+            : isModelMissingError(err)
+              ? "model-missing"
+              : isProviderOverloadedError(err)
+                ? "provider-overloaded"
+                : isModelUnavailableError(err)
+                  ? "model-unavailable"
+                  : "internal";
       const retryAfterSec = err instanceof RateLimitedError ? err.retryAfterSec : undefined;
       send(ws, { type: "error", id, code, message, ...(retryAfterSec !== undefined ? { retryAfterSec } : {}) });
       const outcome = err instanceof ModelTimeoutError ? "timeout" : `error:${code}`;
@@ -487,11 +493,18 @@ function settingsTestSuccessMessage(providerId: ProviderId, lang: Lang): string 
  * (which is English and provider-internal), per task brief: wrong key, Ollama
  * not running, expired session. */
 function settingsTestFailureMessage(providerId: ProviderId, err: unknown, lang: Lang): string {
-  if (isAuthRequiredError(err) || isQuotaExceededError(err) || isRateLimitedError(err)) {
+  if (
+    isAuthRequiredError(err) ||
+    isQuotaExceededError(err) ||
+    isRateLimitedError(err) ||
+    isModelMissingError(err) ||
+    isProviderOverloadedError(err)
+  ) {
     // Already localised and already names the remedy (e.g. the
-    // "auth.apiKeyRejected"/"provider.quotaExceeded"/"provider.rateLimited"
-    // message thrown by claude-api/openai-compat with this same lang, or an
-    // external module's own text).
+    // "auth.apiKeyRejected"/"provider.quotaExceeded"/"provider.rateLimited"/
+    // "provider.modelMissing"/"provider.overloaded" message thrown by
+    // claude-api/openai-compat with this same lang, or an external module's
+    // own text).
     return (err as Error).message;
   }
   if (err instanceof ModelTimeoutError) {
@@ -514,9 +527,13 @@ function settingsTestFailureMessage(providerId: ProviderId, err: unknown, lang: 
  * reusing the SAME codes/wording as chat/summarize/act's own error messages
  * (auth.apiKeyRejected, provider.quotaExceeded, provider.rateLimited) so the
  * panel names the same remedy everywhere, per docs/PROTOCOL.md "settings.test"
- * (amendement 2026-10-01, goal U2). `model-unavailable` and `model-missing`
- * fall back to each provider's own existing settingsTest.failure.* text
- * (model-missing only ever comes from ollama in practice). */
+ * (amendement 2026-10-01, goal U2). `model-unavailable` falls back to each
+ * provider's own existing settingsTest.failure.* text. `model-missing`
+ * (amendement 2026-10-02, goal-j2FJ-kI7: now also raised by claude-api and
+ * openai-compat, not just ollama) keeps ollama's own "pull it" wording for
+ * ollama and uses the generic "pick another model" text for every other
+ * provider. `provider-overloaded` is the same sentence for every provider —
+ * no settings action applies. */
 function settingsTestFailureMessageForCode(providerId: ProviderId, code: TestConnectionCode | undefined, lang: Lang): string {
   switch (code) {
     case "auth-required":
@@ -525,8 +542,12 @@ function settingsTestFailureMessageForCode(providerId: ProviderId, code: TestCon
       return t("provider.quotaExceeded", lang);
     case "rate-limited":
       return t("provider.rateLimited", lang);
+    case "provider-overloaded":
+      return t("provider.overloaded", lang);
     case "model-missing":
-      return t("settingsTest.failure.ollama.modelMissing", lang);
+      return providerId === "ollama"
+        ? t("settingsTest.failure.ollama.modelMissing", lang)
+        : t("provider.modelMissing", lang);
     case "model-unavailable":
     default: {
       switch (providerId) {
@@ -547,7 +568,7 @@ export async function testProviderConnection(
   providerId: ProviderId,
   config: CoatiConfig,
   lang: Lang = DEFAULT_LANG,
-): Promise<{ ok: boolean; message: string; code?: TestConnectionCode }> {
+): Promise<{ ok: boolean; message: string; code?: TestConnectionCode; creditUnchecked?: boolean }> {
   const provider = getProvider(providerId);
   if (!provider) return { ok: false, message: t("testConnection.unknownProvider", lang) };
 
@@ -579,7 +600,13 @@ export async function testProviderConnection(
   // been updated to offer a free check of its own.
   if (provider.testConnection) {
     const result = await provider.testConnection({ ...opts, timeoutMs: SETTINGS_TEST_TIMEOUT_MS });
-    if (result.ok) return { ok: true, message: settingsTestSuccessMessage(providerId, lang) };
+    if (result.ok) {
+      return {
+        ok: true,
+        message: settingsTestSuccessMessage(providerId, lang),
+        ...(result.creditUnchecked ? { creditUnchecked: true } : {}),
+      };
+    }
     return {
       ok: false,
       code: result.code,
@@ -832,13 +859,29 @@ function handleMessage(
       return;
     }
     case "settings.test": {
-      void testProviderConnection(message.provider, settingsCtx.getConfig(), lang).then(({ ok, message: resultMessage, code }) => {
-        send(ws, { type: "settings.test-result", id: message.id, provider: message.provider, ok, message: resultMessage, code });
-      });
+      void testProviderConnection(message.provider, settingsCtx.getConfig(), lang).then(
+        ({ ok, message: resultMessage, code, creditUnchecked }) => {
+          send(ws, {
+            type: "settings.test-result",
+            id: message.id,
+            provider: message.provider,
+            ok,
+            message: resultMessage,
+            code,
+            ...(creditUnchecked ? { creditUnchecked: true } : {}),
+          });
+        },
+      );
       return;
     }
     case "provider.status": {
       void settingsCtx.getProviderStatus().then((result) => {
+        // baseUrl is NOT a secret (amendement 2026-09-30 bis). Sent for
+        // openai-compat so the panel can name the real provider (OpenAI,
+        // Mistral, OpenRouter, DeepSeek…) and link to its key/billing pages
+        // without asking for `settings` — a `settings` broadcast would
+        // re-render an open options page (amendement 2026-10-02 ter).
+        const baseUrl = result.provider === "openai-compat" ? settingsCtx.getConfig().baseUrl : undefined;
         send(ws, {
           type: "provider.status-result",
           id: message.id,
@@ -846,6 +889,7 @@ function handleMessage(
           state: result.state,
           reason: result.reason,
           checkedAt: result.checkedAt,
+          ...(baseUrl ? { baseUrl } : {}),
         });
       });
       return;

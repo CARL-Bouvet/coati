@@ -14,6 +14,8 @@ import {
   AuthRequiredError,
   QuotaExceededError,
   RateLimitedError,
+  ModelMissingError,
+  ProviderOverloadedError,
   parseRetryAfterSec,
   type AnswerEvent,
   type BuiltPrompt,
@@ -82,6 +84,11 @@ export const CLAUDE_API_RATE_LIMITED_MESSAGE = t("provider.rateLimited", DEFAULT
 function isAnthropicQuotaBody(bodyText: string): boolean {
   const lower = bodyText.toLowerCase();
   if (lower.includes("credit balance is too low")) return true;
+  // Amendement 2026-10-02 (goal-j2FJ-kI7, "parcours panne modèle"): a 400
+  // invalid_request_error can also name a spend/usage limit the account's
+  // owner configured (distinct from an empty credit balance, same remedy:
+  // quota-exceeded, never a generic internal error).
+  if (lower.includes("spend limit") || lower.includes("usage limit")) return true;
   let parsed: unknown;
   try {
     parsed = JSON.parse(bodyText);
@@ -141,10 +148,34 @@ async function testConnection(
       redirect: "error",
       signal: AbortSignal.timeout(opts.timeoutMs ?? TEST_CONNECTION_DEFAULT_TIMEOUT_MS),
     });
-    if (response.ok) return { ok: true };
-    if (response.status === 401 || response.status === 403) return { ok: false, code: "auth-required" };
+    if (response.ok) {
+      // Amendement 2026-10-02 (goal-j2FJ-kI7): the key is accepted — now
+      // check the CONFIGURED model is actually in the list this key can see,
+      // so a wrong/retired model name surfaces here rather than on the first
+      // real chat request. Never throws on an unexpected body shape — no
+      // model configured, or a body this probe can't parse, just skips the
+      // check (ok: true). This probe is presence/acceptance-only: it cannot
+      // see the account's credit balance (docs/PROTOCOL.md's own caveat).
+      if (opts.model) {
+        const body = await response.json().catch(() => undefined);
+        const ids = Array.isArray((body as { data?: unknown })?.data)
+          ? ((body as { data: unknown[] }).data
+              .map((m) => (m && typeof m === "object" ? (m as Record<string, unknown>).id : undefined))
+              .filter((id): id is string => typeof id === "string"))
+          : undefined;
+        if (ids && !ids.includes(opts.model)) {
+          return { ok: false, code: "model-missing" };
+        }
+      }
+      return { ok: true, creditUnchecked: true };
+    }
+    if (response.status === 401) return { ok: false, code: "auth-required" };
+    if (response.status === 403) return { ok: false, code: "model-missing" };
     if (response.status === 402) return { ok: false, code: "quota-exceeded" };
     if (response.status === 429) return { ok: false, code: "rate-limited" };
+    if (response.status === 529 || response.status === 502 || response.status === 503) {
+      return { ok: false, code: "provider-overloaded" };
+    }
     return { ok: false, code: "model-unavailable" };
   } catch {
     return { ok: false, code: "model-unavailable" };
@@ -313,8 +344,15 @@ export async function* streamAnswer(
       // `code`/`message` — never anything client-supplied) is used to
       // classify the failure.
       const lang = opts.lang ?? DEFAULT_LANG;
-      if (response.status === 401 || response.status === 403) {
+      // 403 permission_error (amendement 2026-10-02, goal-j2FJ-kI7): the key
+      // IS accepted, it's this model the account isn't authorized for — not
+      // auth-required (that would send the user re-entering a key that's
+      // fine). 401 stays auth-required: that's a rejected key.
+      if (response.status === 401) {
         throw new AuthRequiredError(t("auth.apiKeyRejected", lang));
+      }
+      if (response.status === 403) {
+        throw new ModelMissingError(t("provider.modelMissing", lang));
       }
       if (response.status === 402) {
         throw new QuotaExceededError(t("provider.quotaExceeded", lang));
@@ -324,7 +362,10 @@ export async function* streamAnswer(
         if (isAnthropicQuotaBody(bodyText)) {
           throw new QuotaExceededError(t("provider.quotaExceeded", lang));
         }
-        throw new Error(`Anthropic API returned HTTP 400`);
+        // Amendement 2026-10-02: any other 400 is a malformed/unsupported
+        // request, not an internal Coati bug — model-unavailable names the
+        // actual failure instead of the generic "internal" code.
+        throw new ModelUnavailableError(`Anthropic API returned HTTP 400`);
       }
       if (response.status === 429) {
         const bodyText = await response.text().catch(() => "");
@@ -334,10 +375,17 @@ export async function* streamAnswer(
         const retryAfterSec = parseRetryAfterSec(response.headers.get("retry-after"));
         throw new RateLimitedError(t("provider.rateLimited", lang), retryAfterSec);
       }
+      // 529 overloaded_error, and a bare 502/503 — transient upstream
+      // overload (amendement 2026-10-02, goal-j2FJ-kI7): "try again", not
+      // "fix your settings" (model-unavailable's remedy). Any other 5xx
+      // still falls back to model-unavailable below.
+      if (response.status === 529 || response.status === 502 || response.status === 503) {
+        throw new ProviderOverloadedError(t("provider.overloaded", lang));
+      }
       if (response.status >= 500) {
         throw new ModelUnavailableError(`Anthropic API returned HTTP ${response.status}`);
       }
-      throw new Error(`Anthropic API returned HTTP ${response.status}`);
+      throw new ModelUnavailableError(`Anthropic API returned HTTP ${response.status}`);
     }
     if (!response.body) {
       throw new Error("Anthropic API response has no body");

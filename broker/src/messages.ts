@@ -82,6 +82,20 @@ const MESSAGES: Catalog = {
     zh_CN: "该提供商当前请求过多。请稍等片刻后重试。",
   },
 
+  // --- model-missing / provider-overloaded (amendement 2026-10-02,
+  // goal-j2FJ-kI7, "parcours panne modèle") — same contract as
+  // provider.quotaExceeded above: shown verbatim to a human. -------------
+  "provider.modelMissing": {
+    en: "This model isn't available on your account — pick another one in settings.",
+    fr: "Ce modèle n'est pas disponible sur votre compte — choisissez-en un autre dans les réglages.",
+    zh_CN: "该模型在您的账户上不可用 — 请在设置中选择另一个模型。",
+  },
+  "provider.overloaded": {
+    en: "The provider is overloaded right now. Try again shortly.",
+    fr: "Le fournisseur est surchargé en ce moment. Réessayez dans un instant.",
+    zh_CN: "该提供商当前负载过高。请稍后重试。",
+  },
+
   // --- settings.test-result (docs/PROTOCOL.md "settings.test") -----------
   "settingsTest.success.claude-api": {
     en: "Connection to the Anthropic API succeeded.",
@@ -164,6 +178,15 @@ const MESSAGES: Catalog = {
     en: "No model configured — pick one in settings.",
     fr: "Aucun modèle configuré — choisissez-en un dans les réglages.",
     zh_CN: "未配置模型 — 请在设置中选择。",
+  },
+  // Appended to a successful testConnection's message (amendement 2026-10-02,
+  // goal-j2FJ-kI7) when the free probe cannot see the account's credit
+  // balance — every built-in provider's check. Rendered by the options page
+  // as its own line, never folded into the success sentence above.
+  "testConnection.creditUnchecked": {
+    en: "This check cannot see your remaining credit.",
+    fr: "Cette vérification ne permet pas de voir votre crédit restant.",
+    zh_CN: "此检查无法查看您剩余的额度。",
   },
 
   // --- Availability.reason (settings's available[].reason — shown verbatim

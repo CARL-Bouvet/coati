@@ -15,6 +15,8 @@ import {
   AuthRequiredError,
   QuotaExceededError,
   RateLimitedError,
+  ModelMissingError,
+  ProviderOverloadedError,
   parseRetryAfterSec,
   type AnswerEvent,
   type BuiltPrompt,
@@ -65,6 +67,9 @@ export const OPENAI_COMPAT_AUTH_MESSAGE = t("auth.apiKeyRejected", DEFAULT_LANG)
 // same contract as OPENAI_COMPAT_AUTH_MESSAGE above.
 export const OPENAI_COMPAT_QUOTA_EXCEEDED_MESSAGE = t("provider.quotaExceeded", DEFAULT_LANG);
 export const OPENAI_COMPAT_RATE_LIMITED_MESSAGE = t("provider.rateLimited", DEFAULT_LANG);
+// Amendement 2026-10-02 (goal-j2FJ-kI7): same contract, for the two new codes.
+export const OPENAI_COMPAT_MODEL_MISSING_MESSAGE = t("provider.modelMissing", DEFAULT_LANG);
+export const OPENAI_COMPAT_PROVIDER_OVERLOADED_MESSAGE = t("provider.overloaded", DEFAULT_LANG);
 
 /**
  * True when an OpenAI-compatible error response body names the
@@ -86,6 +91,27 @@ function isInsufficientQuotaBody(bodyText: string): boolean {
   if (!error || typeof error !== "object") return false;
   const { type, code } = error as Record<string, unknown>;
   return type === "insufficient_quota" || code === "insufficient_quota";
+}
+
+/**
+ * True when an OpenAI-compatible error response body names Mistral's
+ * `unknown_model` condition (amendement 2026-10-02, goal-j2FJ-kI7) — checked
+ * on either `error.code` or `error.type`/`type`, same tolerance as
+ * isInsufficientQuotaBody above. Never throws on a malformed/non-JSON body.
+ */
+function isUnknownModelBody(bodyText: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch {
+    return false;
+  }
+  if (!parsed || typeof parsed !== "object") return false;
+  const root = parsed as Record<string, unknown>;
+  const error = (root.error as Record<string, unknown> | undefined) ?? root;
+  if (!error || typeof error !== "object") return false;
+  const { type, code } = error as Record<string, unknown>;
+  return type === "unknown_model" || code === "unknown_model";
 }
 
 /**
@@ -227,10 +253,28 @@ async function testConnection(
         redirect: "error",
         signal: AbortSignal.timeout(timeoutMs),
       });
-      if (response.ok) return { ok: true };
+      if (response.ok) {
+        // GET /api/v1/key doesn't validate the configured model, and
+        // /models here is OpenRouter's public catalogue — checked anyway
+        // (amendement 2026-10-02) since it is a real list, even though an
+        // unlisted id isn't necessarily unusable on OpenRouter.
+        if (opts.model) {
+          try {
+            const ids = await fetchModelIds(baseUrl, opts.apiKey);
+            if (!ids.includes(opts.model)) return { ok: false, code: "model-missing" };
+          } catch {
+            // Catalogue probe failed — don't fail the whole test over it.
+          }
+        }
+        return { ok: true, creditUnchecked: true };
+      }
       if (response.status === 401 || response.status === 403) return { ok: false, code: "auth-required" };
-      if (response.status === 402) return { ok: false, code: "quota-exceeded" };
+      if (response.status === 402) {
+        const retryAfter = response.headers.get("retry-after");
+        return { ok: false, code: retryAfter ? "rate-limited" : "quota-exceeded" };
+      }
       if (response.status === 429) return { ok: false, code: "rate-limited" };
+      if (response.status === 502 || response.status === 503) return { ok: false, code: "provider-overloaded" };
       return { ok: false, code: "model-unavailable" };
     } catch {
       return { ok: false, code: "model-unavailable" };
@@ -238,13 +282,16 @@ async function testConnection(
   }
 
   try {
-    await fetchModelIds(baseUrl, opts.apiKey);
-    return { ok: true };
+    const ids = await fetchModelIds(baseUrl, opts.apiKey);
+    if (opts.model && !ids.includes(opts.model)) return { ok: false, code: "model-missing" };
+    return { ok: true, creditUnchecked: true };
   } catch (err) {
     const status = (err as Error & { status?: number })?.status;
     if (status === 401 || status === 403) return { ok: false, code: "auth-required" };
+    if (status === 404) return { ok: false, code: "model-missing" };
     if (status === 402) return { ok: false, code: "quota-exceeded" };
     if (status === 429) return { ok: false, code: "rate-limited" };
+    if (status === 502 || status === 503) return { ok: false, code: "provider-overloaded" };
     return { ok: false, code: "model-unavailable" };
   }
 }
@@ -270,22 +317,39 @@ export function* parseSseLine(line: string): Generator<AnswerEvent> {
   if (!parsed || typeof parsed !== "object") return;
   const obj = parsed as Record<string, unknown>;
 
+  const choices = obj.choices as Array<Record<string, unknown>> | undefined;
+  const choice = Array.isArray(choices) ? choices[0] : undefined;
+
   // A mid-stream error object some providers emit as a normal `data:` line
-  // (rather than an HTTP error status) instead of closing the connection.
-  if (obj.error) {
-    const error = obj.error as Record<string, unknown> | string;
+  // (rather than an HTTP error status) instead of closing the connection —
+  // OpenRouter's own convention (amendement 2026-10-02, goal-j2FJ-kI7) is
+  // HTTP 200 with `choices[0].finish_reason: "error"`, sometimes alongside
+  // this same top-level `error` object, sometimes with the detail nested
+  // under `choice.error` instead — both are checked so the failure is
+  // surfaced rather than silently treated as an empty reply.
+  const streamError = (obj.error ?? choice?.error) as Record<string, unknown> | string | undefined;
+  if (streamError || choice?.finish_reason === "error") {
     const message =
-      typeof error === "string" ? error : typeof error?.message === "string" ? (error.message as string) : "stream error";
-    // Classified model-unavailable, not a bare Error (task brief: "unknown
-    // model (404 or provider error body)" is one of the closed failure
-    // modes) — a server that answers 200 then sends an in-band error object
-    // (LM Studio does this for a model it can't load) must not surface as
-    // `internal`.
+      typeof streamError === "string"
+        ? streamError
+        : typeof streamError?.message === "string"
+          ? (streamError.message as string)
+          : "stream error";
+    // An overload/upstream hint in the message (Anthropic 529 wording
+    // relayed through OpenRouter, or the generic "overloaded"/"upstream")
+    // gets the "try again" remedy; anything else stays model-unavailable —
+    // not a bare Error (task brief: "unknown model (404 or provider error
+    // body)" is one of the closed failure modes) — a server that answers 200
+    // then sends an in-band error object (LM Studio does this for a model it
+    // can't load) must not surface as `internal`.
+    if (/overload|upstream/i.test(message)) {
+      // Canned, localised text (same contract as auth-required/quota-exceeded
+      // above) — never the raw provider detail used only for the match above.
+      throw new ProviderOverloadedError(OPENAI_COMPAT_PROVIDER_OVERLOADED_MESSAGE);
+    }
     throw new ModelUnavailableError(message);
   }
 
-  const choices = obj.choices as Array<Record<string, unknown>> | undefined;
-  const choice = Array.isArray(choices) ? choices[0] : undefined;
   const delta = choice?.delta as Record<string, unknown> | undefined;
   if (delta && typeof delta.content === "string" && delta.content.length > 0) {
     yield { kind: "delta", text: delta.content };
@@ -401,27 +465,53 @@ export async function* streamAnswer(
 
     if (!response.ok) {
       const lang = opts.lang ?? DEFAULT_LANG;
+      const isOpenRouter = (() => {
+        try {
+          return new URL(baseUrl).origin === OPENROUTER_ORIGIN;
+        } catch {
+          return false;
+        }
+      })();
       if (response.status === 401 || response.status === 403) {
         throw new AuthRequiredError(t("auth.apiKeyRejected", lang));
       }
+      // 404, or Mistral's `unknown_model` body on another status — the model
+      // itself is wrong, not auth, not a generic unreachable server
+      // (amendement 2026-10-02, goal-j2FJ-kI7).
       if (response.status === 404) {
-        throw new ModelUnavailableError(`model "${model}" not found at ${baseUrl}`);
+        throw new ModelMissingError(t("provider.modelMissing", lang));
       }
-      if (response.status === 402) {
-        throw new QuotaExceededError(t("provider.quotaExceeded", lang));
-      }
-      if (response.status === 429) {
+      {
         const bodyText = await response.text().catch(() => "");
-        if (isInsufficientQuotaBody(bodyText)) {
+        if (isUnknownModelBody(bodyText)) {
+          throw new ModelMissingError(t("provider.modelMissing", lang));
+        }
+        if (response.status === 402) {
+          // OpenRouter's "in-flight budget" 402 carries a Retry-After header
+          // and is transient (rate-limited); without it, it's a plain empty
+          // balance (quota-exceeded). Every other provider's 402 stays
+          // quota-exceeded unconditionally (amendement 2026-10-02).
+          const retryAfter = response.headers.get("retry-after");
+          if (isOpenRouter && retryAfter) {
+            throw new RateLimitedError(t("provider.rateLimited", lang), parseRetryAfterSec(retryAfter));
+          }
           throw new QuotaExceededError(t("provider.quotaExceeded", lang));
         }
-        const retryAfterSec = parseRetryAfterSec(response.headers.get("retry-after"));
-        throw new RateLimitedError(t("provider.rateLimited", lang), retryAfterSec);
+        if (response.status === 429) {
+          if (isInsufficientQuotaBody(bodyText)) {
+            throw new QuotaExceededError(t("provider.quotaExceeded", lang));
+          }
+          const retryAfterSec = parseRetryAfterSec(response.headers.get("retry-after"));
+          throw new RateLimitedError(t("provider.rateLimited", lang), retryAfterSec);
+        }
+      }
+      if (response.status === 502 || response.status === 503) {
+        throw new ProviderOverloadedError(t("provider.overloaded", lang));
       }
       if (response.status >= 500) {
         throw new ModelUnavailableError(`server returned HTTP ${response.status}`);
       }
-      throw new Error(`server returned HTTP ${response.status}`);
+      throw new ModelUnavailableError(`server returned HTTP ${response.status}`);
     }
     if (!response.body) {
       throw new Error("server response has no body");

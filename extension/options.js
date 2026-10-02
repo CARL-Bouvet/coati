@@ -188,6 +188,7 @@ function newId() {
 function setupOpenOnHash() {
   const openIfAsked = () => {
     if (location.hash === "#setup") setupGuide.open();
+    else applyProviderHash();
   };
   openIfAsked();
   window.addEventListener("hashchange", openIfAsked);
@@ -199,11 +200,48 @@ function setupOpenOnHash() {
   });
 }
 
+// Deep link from the panel's error banner (amendement 2026-10-02,
+// goal-j2FJ-kI7, "parcours panne modèle"): options.html#provider-<id> scrolls
+// to that card, focuses its most relevant control, and auto-runs the FREE
+// settings.test once — never replayed on a later re-render of the same
+// target, and never on a provider the broker hasn't reported yet (the card
+// doesn't exist until a `settings` message has rendered it, see
+// renderModelSection()'s own call to this function).
+let lastAutoTestedHash = null;
+
+function applyProviderHash() {
+  const match = /^#provider-(.+)$/.exec(location.hash);
+  if (!match) {
+    lastAutoTestedHash = null;
+    return;
+  }
+  const providerId = match[1];
+  const card = document.getElementById(`provider-${providerId}`);
+  if (!card) return; // not rendered yet (broker not connected, or unknown id)
+
+  if (lastAutoTestedHash !== location.hash) {
+    lastAutoTestedHash = location.hash;
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+    const focusTarget = card.querySelector("input:not([type=radio]):not([hidden]), select:not([hidden])") ?? testButtonsByProvider.get(providerId);
+    focusTarget?.focus();
+    // Free (settings.test never bills the model) — safe to run without
+    // asking, and does not replay whatever the panel request that surfaced
+    // the error actually was.
+    testProvider(providerId);
+  }
+}
+
 // 64 lowercase hex chars — same shape as the broker's own key (docs/PROTOCOL.md
 // "Poignée de main v: 2"). Checked here too (defense in depth; the service
 // worker validates again) so a mistyped paste gets an immediate, specific
 // French message instead of silently doing nothing.
 const PASTED_KEY_RE = /^[0-9a-f]{64}$/i;
+
+// claude-cli's own reconnect command (modules/claude-cli/index.ts,
+// AUTH_REQUIRED_MESSAGE — amendement 2026-10-02, goal-j2FJ-kI7): kept as one
+// constant here so the copy button and the displayed text can never drift
+// apart from each other.
+const CLAUDE_CLI_LOGIN_COMMAND = "claude auth login --claudeai";
 
 // docs/PROTOCOL.md "Mode hérité: legacyPairing": a valid 64-hex value is
 // stored and reconnects immediately (cancelling any backoff in progress); an
@@ -237,10 +275,12 @@ function applyStatus(state) {
   setupGuide.onStatus(state);
   for (const keyInput of keyInputs.values()) keyInput.setConnected(state === "connected");
 
-  // "no-host" (native messaging unreachable) and "no-token" (Chromium id
-  // unknown, or a legacy secret refused) are the two states where the
+  // "no-host" (native messaging unreachable) is the state where the
   // Flatpak/Snap paste field is the actual fix — don't leave it folded away.
-  if (state === "no-host" || state === "no-token") els.legacyPairing.open = true;
+  // Amendement 2026-10-02 (goal-j2FJ-kI7): "no-token" (Chromium id unknown,
+  // or a legacy secret refused) no longer force-expands it — pasting another
+  // secret isn't the remedy for that state, it was a leftover over-trigger.
+  if (state === "no-host") els.legacyPairing.open = true;
 
   if (state !== "connected") {
     // Never show a stale provider/model choice while we can't confirm it
@@ -309,12 +349,69 @@ function applyTestResult(message) {
     button.textContent = t("options_test_connection");
   }
   const result = testResultsByProvider.get(message.provider);
-  if (result) {
-    // `message` is the broker's own sentence (docs/PROTOCOL.md,
-    // settings.test-result, still French/English from the broker — see G6
-    // follow-up on broker `lang`), a plain fallback if it is ever missing.
-    result.textContent = message.message || (message.ok ? t("options_test_ok") : t("options_test_failed"));
-    result.className = `test-result ${message.ok ? "test-result--ok" : "test-result--error"}`;
+  if (result) renderTestResult(result, message);
+}
+
+/**
+ * Fills `result` (the per-card "test-result" <span>, see buildTestRow())
+ * with the outcome of a settings.test — amendement 2026-10-02 (goal-j2FJ-kI7,
+ * "parcours panne modèle"): a successful check now says « connecté » up
+ * front (not just the broker's own full sentence) and, when the broker
+ * couldn't see the account's remaining credit (`creditUnchecked`), adds a
+ * dedicated second line rather than leaving that limit implicit. A
+ * claude-cli session failure additionally gets a copyable
+ * `claude auth login --claudeai` line — the actual remedy, which no ordinary
+ * "check your settings" link can offer for a CLI subscription. No innerHTML:
+ * every node built with createElement/textContent, per the extension's CSP.
+ */
+function renderTestResult(result, message) {
+  clearChildren(result);
+  result.className = `test-result ${message.ok ? "test-result--ok" : "test-result--error"}`;
+
+  const headline = document.createElement("span");
+  headline.className = "test-result-headline";
+  // `message.message` is the broker's own sentence (docs/PROTOCOL.md,
+  // settings.test-result, still French/English from the broker — see G6
+  // follow-up on broker `lang`), a plain fallback if it is ever missing.
+  const sentence = message.message || (message.ok ? t("options_test_ok") : t("options_test_failed"));
+  headline.textContent = message.ok ? `${t("options_test_connected")} — ${sentence}` : sentence;
+  result.appendChild(headline);
+
+  if (message.ok && message.creditUnchecked) {
+    const note = document.createElement("span");
+    note.className = "test-result-detail";
+    note.textContent = t("options_credit_unchecked");
+    result.appendChild(note);
+  }
+
+  // claude-cli (external module, docs/MODULES.md) reports a session failure
+  // the same way claude-api reports a key failure (code "auth-required") —
+  // but (a) the broker's generic sentence for auth-required says "Clé API
+  // refusée" which is wrong for a CLI subscription, and (b) the remedy is a
+  // terminal command, not a settings field.  Both are special-cased here.
+  if (!message.ok && message.provider === "claude-cli" && message.code === "auth-required") {
+    // Override the broker-sent headline with one that speaks of the session,
+    // not an API key (amendement 2026-10-02, goal-j2FJ-kI7, leftover a).
+    headline.textContent = t("options_claude_cli_auth_required");
+    const hint = document.createElement("span");
+    hint.className = "test-result-detail";
+    hint.textContent = t("options_claude_cli_paste_hint");
+    result.appendChild(hint);
+
+    const command = document.createElement("code");
+    command.className = "test-result-command";
+    command.textContent = CLAUDE_CLI_LOGIN_COMMAND;
+    command.tabIndex = 0;
+    result.appendChild(command);
+
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "button-secondary test-result-copy";
+    copyBtn.textContent = t("options_copy_command");
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard?.writeText(CLAUDE_CLI_LOGIN_COMMAND).catch(() => {});
+    });
+    result.appendChild(copyBtn);
   }
 }
 
@@ -340,6 +437,10 @@ function renderModelSection(settings) {
   for (const provider of settings.available) {
     const item = document.createElement("li");
     item.className = provider.id === settings.provider ? "provider-item provider-item--selected" : "provider-item";
+    // Amendement 2026-10-02 (goal-j2FJ-kI7, "parcours panne modèle"): a
+    // deep link from the panel's error banner (options.html#provider-<id>)
+    // needs a stable anchor per card — see applyProviderHash() below.
+    item.id = `provider-${provider.id}`;
 
     const label = document.createElement("label");
     const radio = document.createElement("input");
@@ -420,6 +521,7 @@ function renderModelSection(settings) {
   }
 
   renderModelField(settings);
+  applyProviderHash();
 }
 
 /** The shared key component (lib/key-input.js) for `providerId`. A paid

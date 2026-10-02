@@ -61,7 +61,7 @@ export const MODEL_EVER_ANSWERED_KEY = "coati:modelEverAnswered";
 // reuses/opens an already-open settings tab, not necessarily at #setup).
 export const MODEL_TUTORIAL_PATH = "options.html#setup";
 
-const PROGRAM_FOUND_STATES = new Set(["connected", "handshaking", "no-token", "broker-untrusted"]);
+const PROGRAM_FOUND_STATES = new Set(["connected", "handshaking", "no-token", "broker-untrusted", "pairing-retry"]);
 
 /**
  * @param {{

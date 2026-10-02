@@ -20,6 +20,7 @@
   "common_status_no_token": { "message": "No token" },
   "common_status_no_host": { "message": "Local program not found" },
   "common_status_broker_untrusted": { "message": "Local program not verified" },
+  "common_status_pairing_retry": { "message": "Retrying…" },
   "common_status_unknown": { "message": "…" },
   "common_error_bad_request": { "message": "Invalid request." },
   "common_error_unauthorized": { "message": "Unauthorized." },
@@ -31,6 +32,8 @@
   "common_error_generic": { "message": "An error occurred." },
   "common_error_quota_exceeded": { "message": "Your account with the provider has no credit left." },
   "common_error_rate_limited": { "message": "The provider is getting too many requests right now." },
+  "common_error_provider_overloaded": { "message": "The provider is overloaded, try again in a moment." },
+  "common_error_model_missing": { "message": "This model is not available on your account." },
   "common_error_detail": {
     "message": "Detail: $MESSAGE$",
     "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
@@ -67,6 +70,18 @@
 
   "panel_auth_session_expired": { "message": "⚠ The Claude session has expired." },
   "panel_auth_key_refused": { "message": "⚠ Key refused by the provider: check it in settings." },
+  "panel_auth_key_refused_named": {
+    "message": "⚠ $NAME$ refused the key.",
+    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+  },
+  "panel_recharge_at": {
+    "message": "Add credit at $NAME$",
+    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+  },
+  "panel_create_key_at": {
+    "message": "Create a key at $NAME$",
+    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+  },
   "panel_auth_unknown": {
     "message": "⚠ The provider refused access (expired session or refused key): check settings."
   },
@@ -93,15 +108,18 @@
   "panel_error_context_too_large_warn": { "message": "⚠ The content sent is too large for the model." },
 
   "panel_status_no_token": { "message": "No token — see settings" },
+  "panel_status_pairing_retry": { "message": "Retrying…" },
   "panel_banner_no_host": {
     "message": "Coati can't find its local program on this computer. Install it, or use manual pairing if your browser is a Flatpak or a Snap."
   },
+  "panel_banner_pairing_retry": {
+    "message": "The local program refused the connection. Retrying…"
+  },
+  "panel_banner_pairing_refused": {
+    "message": "The local program refused the connection."
+  },
   "panel_banner_broker_untrusted": {
     "message": "Another program is answering in place of Coati's own, and couldn't prove it's trustworthy. Nothing was sent to it. Close that program, or restart Coati's local program, then try again."
-  },
-  "panel_banner_no_token": {
-    "message": "The local program doesn't recognize this extension yet (id $EXT_ID$). Open its settings to allow it, then restart it.",
-    "placeholders": { "ext_id": { "content": "$1", "example": "abcdefghijklmnop" } }
   },
   "panel_banner_disconnected": {
     "message": "Coati's local program isn't responding. Open it on your computer, then click Retry."
@@ -117,6 +135,7 @@
   "panel_provider_ollama_unreachable": { "message": "Ollama isn't responding" },
   "panel_provider_model_missing": { "message": "configured model missing from Ollama" },
   "panel_provider_no_model_installed": { "message": "no model installed in Ollama" },
+  "panel_provider_key_rejected": { "message": "API key rejected" },
   "panel_provider_unknown_state": { "message": "unknown state" },
   "panel_provider_default_label": { "message": "Model" },
   "panel_provider_status_line": {
@@ -306,6 +325,11 @@
   "options_invalid_secret": { "message": "Invalid secret (64 hexadecimal characters expected)." },
   "options_test_in_progress": { "message": "Testing…" },
   "options_test_connection": { "message": "Test the connection" },
+  "options_test_connected": { "message": "Connected" },
+  "options_credit_unchecked": { "message": "This check cannot see your remaining credit." },
+  "options_claude_cli_auth_required": { "message": "Claude session expired or disconnected." },
+  "options_claude_cli_paste_hint": { "message": "Paste into a terminal:" },
+  "options_copy_command": { "message": "Copy" },
   "options_test_ok": { "message": "Connection successful." },
   "options_test_failed": { "message": "The connection failed." },
   "options_key_saved": { "message": "key saved" },

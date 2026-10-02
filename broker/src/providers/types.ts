@@ -63,15 +63,27 @@ export interface StatusCheck {
  * useful here to tell "Ollama unreachable" apart from "Ollama is up but this
  * model isn't pulled", mirroring provider.status's own `model-missing`
  * reason for ollama. */
-export type TestConnectionCode = "auth-required" | "quota-exceeded" | "rate-limited" | "model-unavailable" | "model-missing";
+export type TestConnectionCode =
+  | "auth-required"
+  | "quota-exceeded"
+  | "rate-limited"
+  | "model-unavailable"
+  | "model-missing"
+  | "provider-overloaded";
 
 /** Result of a provider's FREE connection probe (docs/PROTOCOL.md
  * "settings.test", amendement 2026-10-01, goal U2) — unlike the old
  * streamAnswer-based probe it replaces for built-in providers, this must
- * never spend a token. `code` is only ever present when `ok` is false. */
+ * never spend a token. `code` is only ever present when `ok` is false.
+ * `creditUnchecked` (amendement 2026-10-02, goal-j2FJ-kI7): true on a
+ * successful probe that cannot see the account's credit balance (every
+ * built-in provider's free check — see each provider's own testConnection
+ * comment) — the options page renders this as one line, never implies the
+ * account has credit. */
 export interface TestConnectionResult {
   ok: boolean;
   code?: TestConnectionCode;
+  creditUnchecked?: boolean;
 }
 
 export interface ModelProvider {

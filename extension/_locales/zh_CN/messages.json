@@ -20,6 +20,7 @@
   "common_status_no_token": { "message": "无令牌" },
   "common_status_no_host": { "message": "未找到本地程序" },
   "common_status_broker_untrusted": { "message": "本地程序未验证" },
+  "common_status_pairing_retry": { "message": "重试中…" },
   "common_status_unknown": { "message": "…" },
   "common_error_bad_request": { "message": "请求无效。" },
   "common_error_unauthorized": { "message": "未授权。" },
@@ -31,6 +32,8 @@
   "common_error_generic": { "message": "发生错误。" },
   "common_error_quota_exceeded": { "message": "您在该提供商的账户已没有余额。" },
   "common_error_rate_limited": { "message": "该提供商目前收到的请求过多。" },
+  "common_error_provider_overloaded": { "message": "提供商过载，请稍后重试。" },
+  "common_error_model_missing": { "message": "此模型在您的账户中不可用。" },
   "common_error_detail": {
     "message": "详情：$MESSAGE$",
     "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
@@ -67,6 +70,18 @@
 
   "panel_auth_session_expired": { "message": "⚠ Claude 会话已过期。" },
   "panel_auth_key_refused": { "message": "⚠ 提供商拒绝了该密钥：请在设置中检查。" },
+  "panel_auth_key_refused_named": {
+    "message": "⚠ $NAME$ 拒绝了密钥。",
+    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+  },
+  "panel_recharge_at": {
+    "message": "在 $NAME$ 充值",
+    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+  },
+  "panel_create_key_at": {
+    "message": "在 $NAME$ 创建密钥",
+    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+  },
   "panel_auth_unknown": {
     "message": "⚠ 提供商拒绝了访问（会话已过期或密钥被拒）：请检查设置。"
   },
@@ -93,15 +108,18 @@
   "panel_error_context_too_large_warn": { "message": "⚠ 发送的内容对该模型而言过大。" },
 
   "panel_status_no_token": { "message": "无令牌 — 请查看设置" },
+  "panel_status_pairing_retry": { "message": "重试中…" },
   "panel_banner_no_host": {
     "message": "Coati 在这台电脑上找不到本地程序。请安装它，或在使用 Flatpak/Snap 浏览器时改用手动配对。"
   },
+  "panel_banner_pairing_retry": {
+    "message": "本地程序拒绝了连接。正在重试…"
+  },
+  "panel_banner_pairing_refused": {
+    "message": "本地程序拒绝了连接。"
+  },
   "panel_banner_broker_untrusted": {
     "message": "有另一个程序代替 Coati 的本地程序做出了响应，但无法证明它是可信的，因此未向它发送任何内容。请关闭该程序，或重启 Coati 的本地程序，然后重试。"
-  },
-  "panel_banner_no_token": {
-    "message": "本地程序尚未识别此扩展程序（ID：$EXT_ID$）。请打开本地程序的设置将其加入允许列表，然后重启本地程序。",
-    "placeholders": { "ext_id": { "content": "$1", "example": "abcdefghijklmnop" } }
   },
   "panel_banner_disconnected": {
     "message": "Coati 本地程序无响应。请在电脑上打开它，然后点击「重试」。"
@@ -117,6 +135,7 @@
   "panel_provider_ollama_unreachable": { "message": "Ollama 无响应" },
   "panel_provider_model_missing": { "message": "已配置的模型在 Ollama 中不存在" },
   "panel_provider_no_model_installed": { "message": "Ollama 中未安装任何模型" },
+  "panel_provider_key_rejected": { "message": "API 密钥被拒" },
   "panel_provider_unknown_state": { "message": "未知状态" },
   "panel_provider_default_label": { "message": "模型" },
   "panel_provider_status_line": {
@@ -306,6 +325,11 @@
   "options_invalid_secret": { "message": "密钥无效（需要 64 个十六进制字符）。" },
   "options_test_in_progress": { "message": "测试中…" },
   "options_test_connection": { "message": "测试连接" },
+  "options_test_connected": { "message": "已连接" },
+  "options_credit_unchecked": { "message": "此检查无法查看您剩余的额度。" },
+  "options_claude_cli_auth_required": { "message": "Claude 会话已过期或已断开。" },
+  "options_claude_cli_paste_hint": { "message": "粘贴到终端：" },
+  "options_copy_command": { "message": "复制" },
   "options_test_ok": { "message": "连接成功。" },
   "options_test_failed": { "message": "连接失败。" },
   "options_key_saved": { "message": "密钥已保存" },

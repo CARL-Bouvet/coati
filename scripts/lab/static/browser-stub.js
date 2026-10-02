@@ -309,10 +309,22 @@
           });
         }, 20);
       }
-      // Chat/summarize/act/cancel: no scripted reply needed by any fixture
-      // today — the streaming state is reached by staying in-flight (no
-      // "done"/"error" ever arrives), which is the point of that fixture.
-      // Ack only.
+      // Chat/summarize/act/cancel: the streaming state is reached by staying
+      // in-flight (no "done"/"error" ever arrives) — the default. Fixtures
+      // that need to show a recovery block (retry button etc.) set
+      // `chatErrorReply`: any `chat` (or summarize/act) then triggers an
+      // immediate scripted error reply so pendingRetries stays populated and
+      // the retry button renders (amendement 2026-10-02, goal-j2FJ-kI7).
+      if (fixture.chatErrorReply && (payload.type === "chat" || payload.type === "summarize" || payload.type === "act")) {
+        var chatId = payload.id;
+        var errorReply = fixture.chatErrorReply;
+        setTimeout(function () {
+          dispatchToListeners({
+            type: "coati:broker-message",
+            message: Object.assign({ type: "error", id: chatId }, errorReply),
+          });
+        }, 80);
+      }
       return Promise.resolve({ workerInstanceId: "lab" });
     }
 

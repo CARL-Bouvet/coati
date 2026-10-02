@@ -49,6 +49,7 @@ const CONNECTION_STATUS_KEYS = {
   // = a program is listening on the port but didn't prove it's the broker.
   "no-host": "common_status_no_host",
   "broker-untrusted": "common_status_broker_untrusted",
+  "pairing-retry": "common_status_pairing_retry",
   unknown: "common_status_unknown",
 };
 

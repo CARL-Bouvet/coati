@@ -14,6 +14,8 @@ export type ErrorCode =
   | "auth-required"
   | "quota-exceeded"
   | "rate-limited"
+  | "model-missing"
+  | "provider-overloaded"
   | "context-too-large"
   | "cancelled"
   | "internal";
@@ -398,6 +400,10 @@ export interface SettingsTestResultMessage {
   /** Only ever present when ok is false — see providers/types.ts's
    * TestConnectionCode and docs/PROTOCOL.md "settings.test". */
   code?: TestConnectionCode;
+  /** Only ever present (and true) when ok is true and the free probe cannot
+   * see the account's credit balance — amendement 2026-10-02, goal-j2FJ-kI7.
+   * The options page renders this as its own line. */
+  creditUnchecked?: boolean;
 }
 
 // Amendement 2026-09-25 — "Disponibilité du fournisseur". `state` is the
@@ -417,6 +423,9 @@ export interface ProviderStatusResultMessage {
   /** ISO 8601 UTC — the time of the *effective* check (for a cached answer,
    * that's the original check's time, not now). */
   checkedAt: string;
+  /** openai-compat only, when configured — not a secret (amendement
+   * 2026-10-02 ter): lets the panel tell OpenAI/Mistral/OpenRouter/DeepSeek apart. */
+  baseUrl?: string;
 }
 
 // Broker's step-3 challenge in the v: 2 handshake — docs/PROTOCOL.md. Never

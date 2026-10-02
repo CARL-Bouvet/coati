@@ -104,6 +104,14 @@ import {
 } from "./first-run.js";
 import { t, applyI18n, getUiLangState, reloadOnLanguageChange } from "../lib/i18n-page.js";
 import { mountLanguageSelector, currentLanguageName } from "../lib/language-selector.js";
+// goal-j2FJ-kI7 ("parcours panne modèle", amendement 2026-10-02): resolves a
+// broker provider id (+ its openai-compat baseUrl, when known) to the
+// ONLINE_PROVIDERS entry's {keysUrl, billingUrl, name} — used to name the
+// provider and deep-link to its own settings card/external pages in the
+// recovery blocks below. Returns undefined for ollama/claude-cli or an
+// unrecognised openai-compat address — every call site falls back to
+// generic wording in that case, never a broken link.
+import { getProviderLinks } from "../lib/setup-data.js";
 
 applyI18n(document);
 const langSelector = mountLanguageSelector(document.getElementById("langSelectorMount"));
@@ -536,18 +544,28 @@ function handleBrokerMessage(message) {
       // their own recovery block, same pattern as auth-required's.
       const quotaExceeded = message.code === "quota-exceeded";
       const rateLimited = message.code === "rate-limited";
-      // U2: "model unreachable" and "model missing" (broker fine, model the
-      // problem) also route to the tutorial, like the other three model
-      // banners — see buildModelUnavailableRecoveryBlock() below.
+      // U2: "model unreachable" (uncertain diagnosis) also offers a retry —
+      // see buildModelUnavailableRecoveryBlock() below.
       const modelUnavailable = message.code === "model-unavailable";
+      // Amendement 2026-10-02 (goal-j2FJ-kI7, "parcours panne modèle"):
+      // `provider-overloaded` (transient, the fix is to wait and retry — same
+      // shape as rate-limited, minus the countdown) and `model-missing` (the
+      // provider is fine, it's specifically this model that's refused — the
+      // fix is a settings change, no point offering a bare retry).
+      const providerOverloaded = message.code === "provider-overloaded";
+      const modelMissing = message.code === "model-missing";
       const retryAfterSec =
         rateLimited && Number.isFinite(message.retryAfterSec) && message.retryAfterSec > 0
           ? message.retryAfterSec
           : undefined;
-      // A rate-limited request is worth replaying once the wait is over —
-      // keep its payload like auth-required does. quota-exceeded needs a
-      // settings change first, not a bare retry, so its payload isn't kept.
-      if (!authRequired && !rateLimited) pendingRetries.delete(message.id);
+      // Kept for replay once the terminal error's own fix is done: a
+      // transient one (rate-limited/provider-overloaded, wait it out),
+      // auth-required (session/key fixed), quota-exceeded (credit added or
+      // model switched) and model-unavailable (uncertain — just try again).
+      // model-missing needs a model change first, not a bare retry of the
+      // same call, so its payload isn't kept — same as any other/unknown code.
+      const keepsRetryPayload = authRequired || rateLimited || quotaExceeded || providerOverloaded || modelUnavailable;
+      if (!keepsRetryPayload) pendingRetries.delete(message.id);
       // Clear activeRequestId BEFORE rendering: buildAuthRecoveryBlock()
       // reads it to decide whether the retry button starts enabled, and
       // this terminal error is exactly what should free it up again.
@@ -562,6 +580,8 @@ function handleBrokerMessage(message) {
         msg.rateLimited = rateLimited;
         msg.retryAfterSec = retryAfterSec;
         msg.modelUnavailable = modelUnavailable;
+        msg.providerOverloaded = providerOverloaded;
+        msg.modelMissing = modelMissing;
         renderMessage(msg);
       } else {
         addMessage({
@@ -574,6 +594,8 @@ function handleBrokerMessage(message) {
           rateLimited,
           retryAfterSec,
           modelUnavailable,
+          providerOverloaded,
+          modelMissing,
         });
       }
       persistConversation();
@@ -599,12 +621,27 @@ function handleBrokerMessage(message) {
       updateSiteCard();
       break;
     }
+    // docs/PROTOCOL.md "settings" — a response to the options page's own
+    // request, broadcast here like every other broker message (U2); this
+    // panel never asks for it itself, but opportunistically keeps the
+    // openai-compat baseUrl when it overhears one, for currentProviderLinks()
+    // above (amendement 2026-10-02, goal-j2FJ-kI7). No secret in this
+    // message (docs/PROTOCOL.md: "jamais un secret").
+    case "settings": {
+      currentProviderBaseUrl = typeof message.baseUrl === "string" ? message.baseUrl : undefined;
+      break;
+    }
     case "provider.status-result": {
       if (message.id !== providerStatusRequestId) break; // stale/unrelated — ignore
       providerStatusRequestId = null;
       providerStatusSuffix = formatProviderStatus(message);
       providerState = ["ok", "ko", "unknown"].includes(message.state) ? message.state : "unknown";
       currentProvider = typeof message.provider === "string" ? message.provider : null;
+      // openai-compat's address (docs/PROTOCOL.md "provider.status", amendement
+      // 2026-10-02 ter) — the reliable source for currentProviderLinks(); the
+      // overheard `settings` case below only refreshes it.
+      if (typeof message.baseUrl === "string") currentProviderBaseUrl = message.baseUrl;
+      else if (currentProvider !== "openai-compat") currentProviderBaseUrl = undefined;
       // Kept so the first-run card's "model" step can offer the exact copy
       // command for the two Ollama cases (not running / no usable model) —
       // see ollamaActionFor() below.
@@ -631,72 +668,177 @@ const AUTH_REQUIRED_TEXT = {
   copy: t("panel_copy"),
   copied: t("panel_copied"),
   copyFailed: t("panel_copy_failed"),
-  // U2: this button opens the tutorial (openModelTutorial), not a bare
-  // settings page — same label as the never-connected notice's own action,
-  // so every "go fix the model" button reads the same across the panel.
-  openSettings: t("neverConnectedAction"),
+  // Since 2026-10-02 (goal-j2FJ-kI7) this button opens the provider's own
+  // settings card (openProviderSettings), no longer the tutorial — labelled
+  // as what it does. "Connecter un modèle" stays for the never-connected notice.
+  openSettings: t("panel_open_settings"),
   retrySession: t("panel_retry_session"),
   retryKey: t("panel_retry_key"),
 };
 const SESSION_AUTH_PROVIDERS = new Set(["claude-cli"]);
 // Provider id from the last provider.status-result, null until one arrives.
 let currentProvider = null;
+// openai-compat's configured address, from the broker's own `settings`
+// message (docs/PROTOCOL.md) — broadcast to every extension page whenever
+// the options page requests it, see handleBrokerMessage()'s "settings" case
+// below. undefined until one arrives, or for any other provider (the field
+// is only ever sent "si le fournisseur actif est openai-compat"). Needed
+// because getProviderLinks() can't tell OpenRouter/Mistral/DeepSeek apart
+// from the broker id alone — they all answer as "openai-compat".
+let currentProviderBaseUrl;
 
-// --- Quota / rate-limit recovery (goal U1, EXTENSION lot 2) ----------------
+/** {keysUrl, billingUrl, name} for the current provider, or undefined when
+ * unknown/unrecognised — every caller below falls back to generic wording. */
+function currentProviderLinks() {
+  return currentProvider ? getProviderLinks(currentProvider, currentProviderBaseUrl) : undefined;
+}
+
+/** Opens the options page scrolled to `providerId`'s own card, which also
+ * auto-runs its FREE settings.test (options.js's applyProviderHash()) — the
+ * provider-aware equivalent of openModelTutorial() for every error that
+ * names a specific provider (amendement 2026-10-02, goal-j2FJ-kI7). Falls
+ * back to the generic tutorial when the provider isn't known yet (no
+ * provider.status-result received this session). */
+function openProviderSettings(providerId) {
+  if (!providerId) return openModelTutorial();
+  api.tabs.create({ url: api.runtime.getURL(`options.html#provider-${providerId}`) });
+}
+
+// --- Quota / rate-limit / overloaded / model-missing recovery -------------
+// (goal U1, EXTENSION lot 2; extended by goal-j2FJ-kI7, "parcours panne
+// modèle", amendement 2026-10-02)
 //
-// quota-exceeded: no credit left at the provider — the only fix is choosing
-// another model/provider in settings, no point offering a retry button.
-// rate-limited: too many requests right now — the fix is waiting, so the
-// block is a disabled "retry" button with a plain-text countdown when the
-// broker gave retryAfterSec, enabled immediately otherwise (no reduced-motion
-// concern either way: it's text, not an animation).
+// quota-exceeded: no credit left at the provider — a billing link plus a
+// retry (the user may have just topped up).
+// rate-limited / provider-overloaded: too many requests, or the provider
+// itself overloaded — the fix is waiting, so the block is a disabled "retry"
+// button with a plain-text countdown when the broker gave retryAfterSec,
+// enabled immediately otherwise (no reduced-motion concern either way: it's
+// text, not an animation).
+// model-missing: the provider is fine, this one model isn't available on the
+// account — the fix is a settings change, no retry offered.
 const QUOTA_RATE_TEXT = {
-  // U2: opens the tutorial (openModelTutorial), same label everywhere that
-  // button means "go connect/fix a model" — see AUTH_REQUIRED_TEXT above.
-  openSettings: t("neverConnectedAction"),
+  // Opens the provider's settings card — see AUTH_REQUIRED_TEXT above.
+  openSettings: t("panel_open_settings"),
   retryNow: t("panel_retry_now"),
 };
 
-/** No innerHTML — real DOM nodes, same discipline as buildAuthRecoveryBlock(). */
-function buildQuotaRecoveryBlock() {
+/** A new-tab external link (keysUrl/billingUrl) — target=_blank + rel
+ * noopener, never innerHTML, same discipline as every other recovery block. */
+function buildExternalLink(label, href) {
+  const link = document.createElement("a");
+  link.className = "recovery-copy";
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.textContent = label;
+  return link;
+}
+
+/** Spec (parcours-panne-modele-02-10.md): "Recharger chez [Fournisseur]"
+ * (billingUrl, external) + "Réessayer". Falls back to "Ouvrir les réglages"
+ * when the provider/billing page isn't known (ollama has no billing page at
+ * all, and reaches this with currentProviderLinks() undefined). */
+function buildQuotaRecoveryBlock(msg) {
   const block = document.createElement("div");
   block.className = "recovery-block";
+  const links = currentProviderLinks();
+  if (links?.billingUrl) {
+    block.appendChild(buildExternalLink(t("panel_recharge_at", [links.name]), links.billingUrl));
+  } else {
+    const settingsBtn = document.createElement("button");
+    settingsBtn.type = "button";
+    settingsBtn.className = "recovery-copy";
+    settingsBtn.textContent = QUOTA_RATE_TEXT.openSettings;
+    settingsBtn.addEventListener("click", () => openProviderSettings(currentProvider));
+    block.appendChild(settingsBtn);
+  }
+  if (pendingRetries.has(msg.id)) appendRetryButton(block, msg);
+  return block;
+}
+
+/** "model-unavailable" (uncertain diagnosis — model unreachable, or the
+ * broker's own 120s timeout): Réessayer (when the payload survived a reload)
+ * + a provider-aware "Ouvrir les réglages" (falls back to the tutorial when
+ * no provider is known yet). */
+function buildModelUnavailableRecoveryBlock(msg) {
+  const block = document.createElement("div");
+  block.className = "recovery-block";
+  if (pendingRetries.has(msg.id)) appendRetryButton(block, msg);
   const settingsBtn = document.createElement("button");
   settingsBtn.type = "button";
   settingsBtn.className = "recovery-copy";
-  settingsBtn.textContent = QUOTA_RATE_TEXT.openSettings;
-  // No credit left at the provider — the fix is choosing another model, the
-  // tutorial covers that (U2), not a bare "open settings" to the general page.
-  settingsBtn.addEventListener("click", openModelTutorial);
+  settingsBtn.textContent = t("neverConnectedAction");
+  settingsBtn.addEventListener("click", () => openProviderSettings(currentProvider));
   block.appendChild(settingsBtn);
   return block;
 }
 
-/** U2: "model-unavailable" (model unreachable, or the broker's own 120s
- * timeout) names no provider-level fix — the tutorial is the one place that
- * covers both "it's not running" (Ollama) and "pick another model" (online). */
-function buildModelUnavailableRecoveryBlock() {
+/** provider-overloaded: Réessayer only (spec: never "ouvrez les réglages" —
+ * the provider itself is the one that's busy, nothing to fix here). */
+function buildProviderOverloadRecoveryBlock(msg) {
   const block = document.createElement("div");
   block.className = "recovery-block";
-  const actionBtn = document.createElement("button");
-  actionBtn.type = "button";
-  actionBtn.className = "recovery-copy";
-  actionBtn.textContent = t("neverConnectedAction");
-  actionBtn.addEventListener("click", openModelTutorial);
-  block.appendChild(actionBtn);
+  appendRetryButton(block, msg);
+  return block;
+}
+
+/** model-missing: the provider is reachable, it's specifically this model
+ * that's refused — the fix is always a settings change, no retry. Ollama is
+ * special-cased (spec): a copyable `ollama pull …` row, reusing
+ * buildOllamaCommandRow()'s own command/copy pattern, rather than a settings
+ * button (Ollama's "settings" is just picking a model that IS installed —
+ * pulling the missing one is the more direct fix). */
+function buildModelMissingRecoveryBlock() {
+  const block = document.createElement("div");
+  block.className = "recovery-block";
+  if (currentProvider === "ollama") {
+    // No configured-model name reaches the panel on a chat error either
+    // (same limit as buildOllamaCommandRow(), docs/PROTOCOL.md "Fournisseur
+    // de modèle": provider.modelMissing's message is a fixed sentence, not
+    // templated with the model) — falls back to Ollama's own default.
+    const command = `ollama pull ${OLLAMA_DEFAULT_MODEL}`;
+    const row = document.createElement("div");
+    row.className = "recovery-command";
+    const code = document.createElement("code");
+    code.textContent = command;
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "recovery-copy";
+    copyBtn.textContent = AUTH_REQUIRED_TEXT.copy;
+    copyBtn.addEventListener("click", () => copyCommand(copyBtn, command));
+    row.append(code, copyBtn);
+    block.appendChild(row);
+    return block;
+  }
+  const settingsBtn = document.createElement("button");
+  settingsBtn.type = "button";
+  settingsBtn.className = "recovery-copy";
+  settingsBtn.textContent = t("neverConnectedAction");
+  settingsBtn.addEventListener("click", () => openProviderSettings(currentProvider));
+  block.appendChild(settingsBtn);
   return block;
 }
 
 function buildRateLimitRecoveryBlock(msg) {
   const block = document.createElement("div");
   block.className = "recovery-block";
+  appendRetryButton(block, msg);
+  return block;
+}
+
+/** Builds and appends the shared retry button (rate-limited/provider-
+ * overloaded/quota-exceeded/model-unavailable all use the exact same
+ * mechanics: a countdown when the broker gave retryAfterSec, an immediately
+ * enabled button otherwise). */
+function appendRetryButton(block, msg) {
   const retryBtn = document.createElement("button");
   retryBtn.type = "button";
   retryBtn.className = "recovery-retry";
   retryBtn.textContent = QUOTA_RATE_TEXT.retryNow;
   block.appendChild(retryBtn);
   armRateLimitRetry(retryBtn, msg);
-  return block;
+  return retryBtn;
 }
 
 /** Disables `button` until `msg.retryAfterSec` elapses, updating its label
@@ -749,12 +891,19 @@ function describeBrokerError(message) {
       // that can't be reached at all (broker/src/model.ts, MODEL_TIMEOUT_MS)
       // — the broker itself is fine, the model is the problem.
       return t("panel_error_model_unavailable", [message.message || t("panel_unavailable")]);
-    case "auth-required":
+    case "auth-required": {
       // Provider-aware (see AUTH_REQUIRED_TEXT): the actionable part (copy
-      // `claude /login`, or open the settings; then retry) is rendered
-      // separately by renderMessage() via msg.authRequired/msg.authKind —
-      // see buildAuthRecoveryBlock() below.
-      return AUTH_REQUIRED_TEXT[authKindFor(currentProvider)];
+      // `claude auth login --claudeai`, or open the settings; then retry) is
+      // rendered separately by renderMessage() via msg.authRequired/msg.authKind
+      // — see buildAuthRecoveryBlock() below.
+      const kind = authKindFor(currentProvider);
+      if (kind !== "key") return AUTH_REQUIRED_TEXT[kind];
+      // Spec (parcours-panne-modele-02-10.md): "[Fournisseur] refuse la
+      // clé." — named when the provider is known, generic fallback otherwise
+      // (ollama has no key at all so never reaches this branch anyway).
+      const name = currentProviderLinks()?.name;
+      return name ? t("panel_auth_key_refused_named", [name]) : AUTH_REQUIRED_TEXT.key;
+    }
     case "cancelled":
       return t("panel_request_cancelled");
     case "context-too-large":
@@ -767,6 +916,12 @@ function describeBrokerError(message) {
       return `⚠ ${message.message || t("common_error_quota_exceeded")}`;
     case "rate-limited":
       return `⚠ ${message.message || t("common_error_rate_limited")}`;
+    case "provider-overloaded":
+      // Amendement 2026-10-02 (goal-j2FJ-kI7): same fixed-message contract as
+      // quota-exceeded/rate-limited above — never "corrigez les réglages".
+      return `⚠ ${message.message || t("common_error_provider_overloaded")}`;
+    case "model-missing":
+      return `⚠ ${message.message || t("common_error_model_missing")}`;
     default:
       // Covers "bad-request" and any other/unknown code: a French label
       // keyed on `code` (extension/lib/labels.js, shared with options.js),
@@ -797,7 +952,7 @@ async function retryConnection() {
 function applyStatus(state) {
   // A dropped connection must not leave the panel permanently locked: any
   // in-flight request will never get its "done"/"error" reply now.
-  if ((state === "disconnected" || state === "no-token") && activeRequestId) {
+  if ((state === "disconnected" || state === "no-token" || state === "pairing-retry") && activeRequestId) {
     setStreamingUi(false);
   }
 
@@ -811,24 +966,23 @@ function applyStatus(state) {
 }
 
 function renderStatusLabel() {
-  const labels = { ...CONNECTION_STATUS_LABELS, "no-token": t("panel_status_no_token") };
+  const labels = {
+    ...CONNECTION_STATUS_LABELS,
+    "no-token": t("panel_status_no_token"),
+    "pairing-retry": t("panel_status_pairing_retry"),
+  };
   let text = labels[currentConnState] ?? currentConnState;
   if (currentConnState === "connected" && providerStatusSuffix) text += ` · ${providerStatusSuffix}`;
   els.statusLabel.textContent = text;
 }
 
-// Four connection-level states share this one banner (deliverable G4,
-// docs/PROTOCOL.md amendement 2026-09-30, "États et bandeaux") — never
-// confused with each other, each with its own fix:
-// - "no-host": Coati can't reach its local pairing program at all (not
-//   installed, wrong id, browser sandboxed with no native messaging) — fix:
-//   install it, or the Flatpak/Snap manual-pairing section in the options.
-// - "broker-untrusted": something answers on the port but didn't prove it's
-//   the Coati broker — nothing was sent to it, no further action from here.
-// - "no-token": the broker is reachable and proved itself, but refused this
-//   extension's id — fix: allowedExtensionIds, broker-side.
-// - "disconnected": we hold a key the broker already trusts, it just isn't
-//   answering right now — fix: start the broker.
+// Five connection-level states share this one banner (deliverable G4,
+// docs/PROTOCOL.md amendement 2026-09-30, "États et bandeaux" and
+// amendement 2026-10-02, "pairing-retry"):
+// - "no-host": can't reach the local program — fix: install, or manual pair.
+// - "pairing-retry": the program refused; automatic spaced retries in progress.
+// - "broker-untrusted" / "no-token": terminal refusal — Réessayer button.
+// - "disconnected": program presumably installed but not running — Réessayer.
 function applyConnectionBanner(state) {
   els.installDocLink.hidden = true;
   els.connectCoati.hidden = true;
@@ -844,14 +998,26 @@ function applyConnectionBanner(state) {
     els.connectionBanner.hidden = false;
     return;
   }
-  if (state === "broker-untrusted") {
-    els.connectionBannerText.textContent = t("panel_banner_broker_untrusted");
+  if (state === "pairing-retry") {
+    // Automatic spaced retry in progress — inform but don't offer a manual
+    // retry button (it would duplicate or race the scheduled attempt).
+    els.connectionBannerText.textContent = t("panel_banner_pairing_retry");
     els.connectionBanner.hidden = false;
     return;
   }
-  if (state === "no-token") {
-    els.connectionBannerText.textContent = t("panel_banner_no_token", [api.runtime.id]);
-    els.connectCoati.hidden = false;
+  if (state === "broker-untrusted" || state === "no-token") {
+    // Terminal refusal after all retries, each with a key freshly read from
+    // the native host. "no-token" (4401): do NOT claim a specific cause
+    // (anti-oracle: the broker sends the same 4401 for every rejection
+    // reason — docs/PROTOCOL.md "Échec de poignée de main : un seul message
+    // générique"). "broker-untrusted" (4000): the EXTENSION itself rejected
+    // the broker's proof even with a fresh key — that is a real signal
+    // (something else answers on the port), so it keeps its own warning.
+    // Both offer a manual Réessayer.
+    els.connectionBannerText.textContent = t(
+      state === "broker-untrusted" ? "panel_banner_broker_untrusted" : "panel_banner_pairing_refused",
+    );
+    els.connectionBannerRetry.hidden = false;
     els.connectionBanner.hidden = false;
     return;
   }
@@ -924,6 +1090,7 @@ const PROVIDER_STATUS_REASON_TEXT = {
   "ollama-unreachable": t("panel_provider_ollama_unreachable"),
   "model-missing": t("panel_provider_model_missing"),
   "no-model-installed": t("panel_provider_no_model_installed"),
+  "key-rejected": t("panel_provider_key_rejected"),
 };
 
 function formatProviderStatus(message) {
@@ -1140,10 +1307,14 @@ function buildAuthRecoveryBlock(msg) {
   const kind = msg.authKind ?? "session";
 
   if (kind === "session") {
+    // Amendement 2026-10-02 (goal-j2FJ-kI7): "claude auth login --claudeai"
+    // — see modules/claude-cli/index.ts's AUTH_REQUIRED_MESSAGE, same command
+    // (never the old REPL-only "/login" slash command, nor "--console",
+    // which is for an API-key/console account, not this subscription module).
     const commandRow = document.createElement("div");
     commandRow.className = "recovery-command";
     const code = document.createElement("code");
-    code.textContent = "claude /login";
+    code.textContent = CLAUDE_CLI_LOGIN_COMMAND;
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "recovery-copy";
@@ -1152,15 +1323,28 @@ function buildAuthRecoveryBlock(msg) {
     commandRow.appendChild(code);
     commandRow.appendChild(copyBtn);
     block.appendChild(commandRow);
-  } else {
-    // API key (or unknown provider): the key lives in the broker, set from
-    // the tutorial's saisie-de-clé component (U2) — the one place to fix it.
+    // Spec: also offer "Ouvrir les réglages", deep-linked to claude-cli's own
+    // card (#provider-claude-cli) — the copy block alone used to be the only
+    // way back in.
     const settingsBtn = document.createElement("button");
     settingsBtn.type = "button";
     settingsBtn.className = "recovery-copy";
     settingsBtn.textContent = AUTH_REQUIRED_TEXT.openSettings;
-    settingsBtn.addEventListener("click", openModelTutorial);
+    settingsBtn.addEventListener("click", () => openProviderSettings("claude-cli"));
     block.appendChild(settingsBtn);
+  } else {
+    // API key (or unknown provider): the key lives in the broker, set from
+    // the options page's own provider card — deep-linked directly (amendement
+    // 2026-10-02) rather than the generic tutorial.
+    const settingsBtn = document.createElement("button");
+    settingsBtn.type = "button";
+    settingsBtn.className = "recovery-copy";
+    settingsBtn.textContent = AUTH_REQUIRED_TEXT.openSettings;
+    settingsBtn.addEventListener("click", () => openProviderSettings(currentProvider));
+    block.appendChild(settingsBtn);
+    // Spec: "Créer une clé chez [Fournisseur]" external link, when known.
+    const links = currentProviderLinks();
+    if (links?.keysUrl) block.appendChild(buildExternalLink(t("panel_create_key_at", [links.name]), links.keysUrl));
   }
 
   // Only offered when we still hold the payload to replay — lost across a
@@ -1180,7 +1364,7 @@ function buildAuthRecoveryBlock(msg) {
 }
 
 async function copyLoginCommand(button) {
-  return copyCommand(button, "claude /login");
+  return copyCommand(button, CLAUDE_CLI_LOGIN_COMMAND);
 }
 
 /** Replays the request that ended in `auth-required`, reusing its own id —
@@ -1682,6 +1866,10 @@ async function renderFirstRunLang() {
 // configured-model name reaches the panel (provider.status-result carries
 // none), so "ollama pull" falls back to llama3.2, Ollama's own default.
 const OLLAMA_DEFAULT_MODEL = "llama3.2";
+// The correct claude-cli login command (modules/claude-cli/index.ts,
+// AUTH_REQUIRED_MESSAGE) — not the REPL slash "/login" nor "--console"
+// (that's for API-key accounts, not the subscription module).
+const CLAUDE_CLI_LOGIN_COMMAND = "claude auth login --claudeai";
 
 /** @returns {HTMLElement|null} a copyable-command row for the first-run
  * "model" step, only when the last provider.status-result points at one of
@@ -2346,8 +2534,10 @@ function renderMessage(msg, { append = false } = {}) {
     // "[1:23]" has none, so its timestamps stay plain text (deliverable 4).
     if (msg.role === "assistant" && msg.videoId) linkifyTimestamps(node, msg.videoId);
     if (msg.authRequired) node.appendChild(buildAuthRecoveryBlock(msg));
-    if (msg.quotaExceeded) node.appendChild(buildQuotaRecoveryBlock());
-    if (msg.modelUnavailable) node.appendChild(buildModelUnavailableRecoveryBlock());
+    if (msg.quotaExceeded) node.appendChild(buildQuotaRecoveryBlock(msg));
+    if (msg.modelUnavailable) node.appendChild(buildModelUnavailableRecoveryBlock(msg));
+    if (msg.providerOverloaded) node.appendChild(buildProviderOverloadRecoveryBlock(msg));
+    if (msg.modelMissing) node.appendChild(buildModelMissingRecoveryBlock());
     // No retry payload survives a panel reload (pendingRetries is in-memory
     // only, same limitation as buildAuthRecoveryBlock() above) — in that case
     // the message text alone (already telling the user to try again) is the

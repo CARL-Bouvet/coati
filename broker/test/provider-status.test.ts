@@ -310,6 +310,22 @@ describe("server.ts — provider.status wiring", () => {
     ws.close();
   });
 
+  test("openai-compat: provider.status-result carries the configured baseUrl (not a secret); ollama never does", async () => {
+    __setFetchImplForTests((async () =>
+      new Response(JSON.stringify({ data: [] }), { status: 200 })) as unknown as typeof fetch);
+    const compat = boot({ provider: "openai-compat", baseUrl: "https://api.mistral.ai/v1" });
+    const ws1 = await connectAndAuth(compat);
+    const r1 = await request(ws1, { type: "provider.status", id: "b1" });
+    expect(r1.provider).toBe("openai-compat");
+    expect(r1.baseUrl).toBe("https://api.mistral.ai/v1");
+    ws1.close();
+    const ollama = boot();
+    const ws2 = await connectAndAuth(ollama);
+    const r2 = await request(ws2, { type: "provider.status", id: "b2" });
+    expect("baseUrl" in r2).toBe(false);
+    ws2.close();
+  });
+
   test("a second provider.status shortly after is served from cache — only one probe", async () => {
     const calls = { n: 0 };
     __setFetchImplForTests((async () => {

@@ -20,6 +20,7 @@
   "common_status_no_token": { "message": "Pas de jeton" },
   "common_status_no_host": { "message": "Programme local introuvable" },
   "common_status_broker_untrusted": { "message": "Programme local non vérifié" },
+  "common_status_pairing_retry": { "message": "Nouvelle tentative…" },
   "common_status_unknown": { "message": "…" },
   "common_error_bad_request": { "message": "Requête invalide." },
   "common_error_unauthorized": { "message": "Non autorisé." },
@@ -31,6 +32,8 @@
   "common_error_generic": { "message": "Une erreur est survenue." },
   "common_error_quota_exceeded": { "message": "Votre compte chez le fournisseur n'a plus de crédit." },
   "common_error_rate_limited": { "message": "Le fournisseur reçoit trop de requêtes en ce moment." },
+  "common_error_provider_overloaded": { "message": "Le fournisseur est surchargé, réessayez dans un instant." },
+  "common_error_model_missing": { "message": "Ce modèle n'est pas disponible sur votre compte." },
   "common_error_detail": {
     "message": "Détail : $MESSAGE$",
     "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
@@ -67,6 +70,18 @@
 
   "panel_auth_session_expired": { "message": "⚠ La session Claude a expiré." },
   "panel_auth_key_refused": { "message": "⚠ Clé refusée par le fournisseur : vérifiez-la dans les réglages." },
+  "panel_auth_key_refused_named": {
+    "message": "⚠ $NAME$ refuse la clé.",
+    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+  },
+  "panel_recharge_at": {
+    "message": "Recharger chez $NAME$",
+    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+  },
+  "panel_create_key_at": {
+    "message": "Créer une clé chez $NAME$",
+    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+  },
   "panel_auth_unknown": {
     "message": "⚠ Le fournisseur a refusé l'accès (session expirée ou clé refusée) : vérifiez les réglages."
   },
@@ -93,15 +108,18 @@
   "panel_error_context_too_large_warn": { "message": "⚠ Le contenu envoyé est trop volumineux pour le modèle." },
 
   "panel_status_no_token": { "message": "Pas de jeton — voir réglages" },
+  "panel_status_pairing_retry": { "message": "Nouvelle tentative en cours…" },
   "panel_banner_no_host": {
     "message": "Coati ne trouve pas son programme local sur cet ordinateur. Installez-le, ou utilisez l'appairage manuel si votre navigateur est un Flatpak ou un Snap."
   },
+  "panel_banner_pairing_retry": {
+    "message": "Le programme local a refusé la connexion. Nouvelle tentative en cours…"
+  },
+  "panel_banner_pairing_refused": {
+    "message": "Le programme local a refusé la connexion."
+  },
   "panel_banner_broker_untrusted": {
     "message": "Un autre programme répond à la place de celui de Coati, sans prouver qu'il est fiable. Rien ne lui a été envoyé. Fermez ce programme, ou redémarrez celui de Coati, puis réessayez."
-  },
-  "panel_banner_no_token": {
-    "message": "Le programme local ne reconnaît pas encore cette extension (identifiant $EXT_ID$). Ouvrez ses réglages pour l'autoriser, puis redémarrez-le.",
-    "placeholders": { "ext_id": { "content": "$1", "example": "abcdefghijklmnop" } }
   },
   "panel_banner_disconnected": {
     "message": "Le programme local de Coati ne répond pas. Ouvrez-le sur votre ordinateur, puis cliquez sur Réessayer."
@@ -117,6 +135,7 @@
   "panel_provider_ollama_unreachable": { "message": "Ollama ne répond pas" },
   "panel_provider_model_missing": { "message": "modèle configuré absent d'Ollama" },
   "panel_provider_no_model_installed": { "message": "aucun modèle installé dans Ollama" },
+  "panel_provider_key_rejected": { "message": "clé API refusée" },
   "panel_provider_unknown_state": { "message": "état inconnu" },
   "panel_provider_default_label": { "message": "Modèle" },
   "panel_provider_status_line": {
@@ -306,6 +325,11 @@
   "options_invalid_secret": { "message": "Secret invalide (64 caractères hexadécimaux attendus)." },
   "options_test_in_progress": { "message": "Test en cours…" },
   "options_test_connection": { "message": "Tester la connexion" },
+  "options_test_connected": { "message": "Connecté" },
+  "options_credit_unchecked": { "message": "Cette vérification ne permet pas de voir votre crédit restant." },
+  "options_claude_cli_auth_required": { "message": "Session Claude expirée ou déconnectée." },
+  "options_claude_cli_paste_hint": { "message": "À coller dans un terminal :" },
+  "options_copy_command": { "message": "Copier" },
   "options_test_ok": { "message": "Connexion réussie." },
   "options_test_failed": { "message": "La connexion a échoué." },
   "options_key_saved": { "message": "clé enregistrée" },

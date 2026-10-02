@@ -63,6 +63,7 @@ export const ONLINE_PROVIDERS = [
     costUsdPerRequest: 0,
     signupUrl: "https://openrouter.ai/sign-up",
     keysUrl: "https://openrouter.ai/settings/keys",
+    billingUrl: "https://openrouter.ai/settings/credits",
     privacyUrl: "https://openrouter.ai/settings/privacy",
     freeModelsUrl: "https://openrouter.ai/models?max_price=0",
     // Free-model quotas: requests per day without / with at least
@@ -81,8 +82,12 @@ export const ONLINE_PROVIDERS = [
     model: "claude-haiku-4-5",
     costUsdPerRequest: 0.006,
     signupUrl: "https://console.anthropic.com/",
-    keysUrl: "https://console.anthropic.com/settings/keys",
-    limitsUrl: "https://console.anthropic.com/settings/limits",
+    // Amendement 2026-10-02 (goal-j2FJ-kI7): console.anthropic.com's
+    // settings pages redirect to platform.claude.com now — linking the
+    // destination directly rather than through a redirect hop.
+    keysUrl: "https://platform.claude.com/settings/keys",
+    limitsUrl: "https://platform.claude.com/settings/limits",
+    billingUrl: "https://platform.claude.com/settings/billing",
     keyPrefix: "sk-ant-",
   },
   {
@@ -96,6 +101,7 @@ export const ONLINE_PROVIDERS = [
     signupUrl: "https://platform.openai.com/signup",
     keysUrl: "https://platform.openai.com/api-keys",
     limitsUrl: "https://platform.openai.com/settings/organization/limits",
+    billingUrl: "https://platform.openai.com/settings/organization/billing",
     keyPrefix: "sk-",
   },
   {
@@ -109,6 +115,9 @@ export const ONLINE_PROVIDERS = [
     signupUrl: "https://console.mistral.ai/",
     keysUrl: "https://console.mistral.ai/api-keys",
     limitsUrl: "https://admin.mistral.ai/plateforme/limits",
+    // No distinct billing page — the limits page is where Mistral's spend
+    // cap/usage lives (amendement 2026-10-02, goal-j2FJ-kI7).
+    billingUrl: "https://admin.mistral.ai/plateforme/limits",
     keyPrefix: "",
   },
   {
@@ -121,8 +130,10 @@ export const ONLINE_PROVIDERS = [
     costUsdPerRequest: 0.001,
     signupUrl: "https://platform.deepseek.com/sign_up",
     keysUrl: "https://platform.deepseek.com/api_keys",
-    // Prepaid only: no monthly cap page, the balance is the cap.
+    // Prepaid only: no monthly cap page, the balance is the cap — the
+    // top-up page doubles as both limitsUrl and billingUrl.
     limitsUrl: "https://platform.deepseek.com/top_up",
+    billingUrl: "https://platform.deepseek.com/top_up",
     prepaid: true,
     keyPrefix: "sk-",
   },
@@ -130,3 +141,26 @@ export const ONLINE_PROVIDERS = [
 
 /** Typical request size behind `costUsdPerRequest`, shown to the user. */
 export const COST_BASIS_WORDS = 2000;
+
+/**
+ * Maps a broker provider id (docs/PROTOCOL.md, e.g. "claude-api",
+ * "openai-compat") + its currently configured `baseUrl` (undefined for
+ * claude-api, which has none) to the matching ONLINE_PROVIDERS entry's
+ * {keysUrl, billingUrl, name} — amendement 2026-10-02, goal-j2FJ-kI7, built
+ * for the panel's "panne modèle" recovery links (options.js's own
+ * `keyInputFor` uses the same match: claude-api by `provider`, everything
+ * else by `baseUrl`). Returns undefined when no ONLINE_PROVIDERS entry
+ * matches (e.g. ollama, or an openai-compat address the guide doesn't know,
+ * such as a local LM Studio/Ollama server — neither has a billing page).
+ *
+ * @param {string} providerId
+ * @param {string | undefined} baseUrl
+ * @returns {{ keysUrl: string, billingUrl?: string, name: string } | undefined}
+ */
+export function getProviderLinks(providerId, baseUrl) {
+  const service = ONLINE_PROVIDERS.find((p) =>
+    providerId === "claude-api" ? p.provider === "claude-api" : p.baseUrl && p.baseUrl === baseUrl,
+  );
+  if (!service) return undefined;
+  return { keysUrl: service.keysUrl, billingUrl: service.billingUrl, name: service.name };
+}

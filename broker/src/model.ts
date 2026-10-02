@@ -522,6 +522,51 @@ export function isRateLimitedError(err: unknown): boolean {
 }
 
 /**
+ * Thrown by a provider when it can positively determine the configured
+ * model does not exist / is not authorized for this account — distinct from
+ * AuthRequiredError (the key itself is fine) and from ModelUnavailableError
+ * (the backend is reachable, it is this specific model that is wrong).
+ * Amendement 2026-10-02 (goal-j2FJ-kI7, "parcours panne modèle"): Anthropic's
+ * 403 permission_error, a 404 model lookup, or Mistral's `unknown_model` all
+ * land here rather than auth-required/model-unavailable, so the panel sends
+ * the user to pick another model instead of re-entering a key that is fine.
+ */
+export class ModelMissingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ModelMissingError";
+  }
+}
+
+/** True when `err` is (or wraps) a ModelMissingError. Checked by server.ts
+ * ahead of isModelUnavailableError — see PROTOCOL.md. */
+export function isModelMissingError(err: unknown): boolean {
+  return err instanceof ModelMissingError;
+}
+
+/**
+ * Thrown by a provider when the upstream API itself reports a transient
+ * overload — Anthropic 529 overloaded_error, a bare 502/503, OpenAI's
+ * `server_is_overloaded`, or an OpenRouter in-stream error whose text names
+ * an upstream/overload condition. Amendement 2026-10-02 (goal-j2FJ-kI7): the
+ * remedy is "try again shortly", never "open settings" — distinct from
+ * ModelUnavailableError so the panel doesn't send the user chasing a
+ * misconfiguration that isn't there.
+ */
+export class ProviderOverloadedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProviderOverloadedError";
+  }
+}
+
+/** True when `err` is (or wraps) a ProviderOverloadedError. Checked by
+ * server.ts ahead of isModelUnavailableError — see PROTOCOL.md. */
+export function isProviderOverloadedError(err: unknown): boolean {
+  return err instanceof ProviderOverloadedError;
+}
+
+/**
  * True when `err` indicates the model itself is unreachable — the `claude`
  * binary missing or not executable (spawn ENOENT/EACCES), a quota/rate-limit
  * rejection surfaced by the SDK, a hung call that hit the provider's timeout,

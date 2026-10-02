@@ -233,9 +233,16 @@ beforeEach(() => {
   delete (globalThis as any).browser; // isGecko stays false — see browser-compat.js
   (globalThis as any).WebSocket = FakeWebSocket;
   FakeWebSocket.instances = [];
+  // Collapse the pairing retry delays to 0 ms so the 3-retry sequence
+  // completes within waitFor's 1 s window (amendement 2026-10-02).
+  (globalThis as any).__coatiTestRetryDelays__ = [0, 0, 0];
 });
 
 afterEach(() => {
+  // Cancel any pending pairing-retry setTimeout so it doesn't fire in the
+  // next test's context and corrupt nativeMessageCalls / FakeWebSocket state
+  // (amendement 2026-10-02 — spaced retries are macrotasks).
+  (globalThis as any).__coatiCancelPairingRetry__?.();
   (globalThis as any).WebSocket = REAL_WEB_SOCKET;
 });
 
@@ -298,38 +305,35 @@ describe("service-worker: key storage and reuse", () => {
 });
 
 describe("service-worker: wrong broker proof (close 4000)", () => {
-  test("retries once via the host, then broker-untrusted — nothing sent on the second failure", async () => {
+  // amendement 2026-10-02: up to 3 retries (delays collapsed to 0 ms via
+  // __coatiTestRetryDelays__ — see beforeEach).
+  test("retries 3 times via the host, then broker-untrusted — nothing sent after any failure", async () => {
     let hostCall = 0;
     nativeMessageImpl = async () => {
       hostCall++;
-      return { type: "key", v: 1, key: hostCall === 1 ? KEY_A : KEY_B };
+      return { type: "key", v: 1, key: (hostCall % 2 === 1 ? KEY_A : KEY_B) };
     };
     await importServiceWorker();
     triggerConnect();
 
-    await waitFor(() => FakeWebSocket.instances.length === 1);
-    const first = FakeWebSocket.instances[0];
-    first.triggerOpen();
-    // Broker's proof does NOT verify against KEY_A (wrong on purpose).
-    first.triggerMessage({ type: "challenge", v: 2, nonce: "b".repeat(64), proof: WRONG_PROOF });
-
-    await waitFor(() => first.readyState === FakeWebSocket.CLOSED);
-    expect(first.sentMessages().length).toBe(1); // hello only — no auth sent
-    expect(first.closeCode).toBe(4000); // docs/PROTOCOL.md step 4
-
-    // Automatic retry: a second WebSocket, via a second host call, using a
-    // DIFFERENT key (KEY_B) — brokerKey was cleared and re-resolved.
-    await waitFor(() => FakeWebSocket.instances.length === 2);
-    expect(nativeMessageCalls).toBe(2);
-    const second = FakeWebSocket.instances[1];
-    second.triggerOpen();
-    expect(second.sentMessages()[0].key).toBe("native");
-    second.triggerMessage({ type: "challenge", v: 2, nonce: "b".repeat(64), proof: WRONG_PROOF });
+    // Drive 4 WS connections: initial + 3 retries.  Each gets a wrong proof.
+    for (let i = 1; i <= 4; i++) {
+      await waitFor(() => FakeWebSocket.instances.length === i);
+      const ws = FakeWebSocket.instances[i - 1];
+      ws.triggerOpen();
+      ws.triggerMessage({ type: "challenge", v: 2, nonce: "b".repeat(64), proof: WRONG_PROOF });
+      await waitFor(() => ws.readyState === FakeWebSocket.CLOSED);
+      expect(ws.sentMessages().length).toBe(1); // hello only — no auth sent
+      expect(ws.closeCode).toBe(4000);
+      if (i < 4) {
+        // Between retries the state must pass through "pairing-retry".
+        await waitFor(() => statusStates().includes("pairing-retry"));
+      }
+    }
 
     await waitFor(() => statusStates().includes("broker-untrusted"));
-    expect(FakeWebSocket.instances.length).toBe(2); // no third attempt
-    expect(second.sentMessages().length).toBe(1); // still no auth sent
-    expect(second.closeCode).toBe(4000);
+    expect(FakeWebSocket.instances.length).toBe(4); // exactly initial + 3 retries
+    expect(nativeMessageCalls).toBe(4); // each retry re-calls the host
     expect(sessionStore.dump().brokerKey).toBeUndefined(); // cleared
   });
 
@@ -359,28 +363,68 @@ describe("service-worker: wrong broker proof (close 4000)", () => {
 });
 
 describe("service-worker: 4401 (auth/origin refused)", () => {
-  test("retries once via the host, then no-token", async () => {
+  // amendement 2026-10-02: 3 retries, "pairing-retry" state between each.
+  test("retries 3 times via the host, then no-token; pairing-retry shown between each attempt", async () => {
     let hostCall = 0;
     nativeMessageImpl = async () => {
       hostCall++;
-      return { type: "key", v: 1, key: hostCall === 1 ? KEY_A : KEY_B };
+      return { type: "key", v: 1, key: hostCall % 2 === 1 ? KEY_A : KEY_B };
     };
+    await importServiceWorker();
+    triggerConnect();
+
+    for (let i = 1; i <= 4; i++) {
+      await waitFor(() => FakeWebSocket.instances.length === i);
+      const ws = FakeWebSocket.instances[i - 1];
+      ws.triggerOpen();
+      ws.close(4401);
+      await waitFor(() => ws.readyState === FakeWebSocket.CLOSED);
+      if (i < 4) {
+        await waitFor(() => statusStates().includes("pairing-retry"));
+      }
+    }
+
+    await waitFor(() => statusStates().includes("no-token"));
+    expect(FakeWebSocket.instances.length).toBe(4);
+    expect(nativeMessageCalls).toBe(4);
+    expect(sessionStore.dump().brokerKey).toBeUndefined();
+  });
+});
+
+describe("service-worker: pairing-retry — counter reset on hello-ok", () => {
+  // amendement 2026-10-02: after a hello-ok, the retry budget resets so the
+  // very next 4401 gets 3 fresh retries (not zero because they were "used up").
+  test("a 4401 after hello-ok gets a fresh 3-retry budget (4 WS total, ends no-token)", async () => {
+    nativeMessageImpl = async () => ({ type: "key", v: 1, key: KEY_A });
     await importServiceWorker();
     triggerConnect();
     await waitFor(() => FakeWebSocket.instances.length === 1);
 
-    const first = FakeWebSocket.instances[0];
-    first.triggerOpen();
-    first.close(4401);
+    // First cycle: complete a valid handshake so hello-ok fires and the budget
+    // resets to 0.
+    const ws1 = FakeWebSocket.instances[0];
+    ws1.triggerOpen();
+    const cN = ws1.sentMessages()[0].nonce;
+    const bN = "b".repeat(64);
+    ws1.triggerMessage({ type: "challenge", v: 2, nonce: bN, proof: brokerProof(KEY_A, cN, bN) });
+    await waitFor(() => ws1.sentMessages().length === 2);
+    ws1.triggerMessage({ type: "hello-ok", v: 2 });
+    await waitFor(() => statusStates().includes("connected"));
 
-    await waitFor(() => FakeWebSocket.instances.length === 2);
-    expect(nativeMessageCalls).toBe(2);
-    const second = FakeWebSocket.instances[1];
-    second.triggerOpen();
-    second.close(4401);
-
+    // Second cycle: close with 4401 — should get 3 more retries (not 0)
+    // because hello-ok reset the counter, proving the "fresh budget" invariant.
+    ws1.close(4401);
+    // Drive 3 retries: each retry creates a new WS, we close it with 4401.
+    for (let i = 2; i <= 4; i++) {
+      await waitFor(() => FakeWebSocket.instances.length === i);
+      const ws = FakeWebSocket.instances[i - 1];
+      ws.triggerOpen();
+      ws.close(4401);
+    }
+    // 4th attempt (initial + 3 retries) exhausted → no-token.
     await waitFor(() => statusStates().includes("no-token"));
-    expect(FakeWebSocket.instances.length).toBe(2);
+    expect(FakeWebSocket.instances.length).toBe(4); // 1 connected + 3 retries
+    expect(nativeMessageCalls).toBe(4); // each retry re-calls the host
     expect(sessionStore.dump().brokerKey).toBeUndefined();
   });
 });

@@ -120,6 +120,11 @@ n'est pas cassée : son texte de repli générique pour un code inconnu (étique
 `message` du broker en détail secondaire) s'applique, comme pour tout code qu'elle ne reconnaît
 pas déjà.
 
+Amendement 2026-10-02 (goal-j2FJ-kI7, « parcours panne modèle ») : deux codes d'erreur
+supplémentaires, `model-missing` et `provider-overloaded`, même traitement de compatibilité
+arrière qu'au paragraphe précédent pour une extension qui ne les connaît pas encore — voir
+« Fournisseur de modèle » et « Codes d'erreur » plus bas.
+
 ## Transport
 
 WebSocket, `ws://127.0.0.1:8787/ws`.
@@ -1189,12 +1194,28 @@ Fournisseurs intégrés :
   SSE via `fetch`/`ReadableStream` de Bun, aucune dépendance ajoutée
   (`broker/src/providers/claude-api.ts`). Modèle par défaut `claude-opus-5`, surchargeable par le
   même champ `model` que les autres fournisseurs. La clé n'est jamais transmise à l'extension —
-  voir juste en dessous. Un 401/403 de l'API échoue en `auth-required` avec :
+  voir juste en dessous. Un 401 de l'API échoue en `auth-required` avec :
   ```jsonc
   { "type": "error", "id": "c1", "code": "auth-required",
     "message": "Clé API refusée — vérifiez-la dans les réglages." }
   ```
-  Une 5xx échoue en `model-unavailable`. Amendement 2026-10-01 (goal U1) — le compte Anthropic de
+  Amendement 2026-10-02 (goal-j2FJ-kI7, « parcours panne modèle ») — un 403
+  `permission_error` n'est **pas** `auth-required` : la clé est acceptée,
+  c'est ce modèle précis que le compte n'est pas autorisé à utiliser. Il
+  échoue en `model-missing` (même code que la colonne « Modèle introuvable »
+  plus bas), message figé `provider.modelMissing` :
+  ```jsonc
+  { "type": "error", "id": "c1", "code": "model-missing",
+    "message": "Ce modèle n'est pas disponible sur votre compte — choisissez-en un autre dans les réglages." }
+  ```
+  Une 5xx générique échoue en `model-unavailable`. 529 `overloaded_error`, et un
+  simple 502/503, échouent en `provider-overloaded` (amendement 2026-10-02) —
+  remède « réessayez », jamais « corrigez les réglages » :
+  ```jsonc
+  { "type": "error", "id": "c1", "code": "provider-overloaded",
+    "message": "Le fournisseur est surchargé en ce moment. Réessayez dans un instant." }
+  ```
+  Amendement 2026-10-01 (goal U1) — le compte Anthropic de
   l'utilisateur peut être à court de crédit, ce qui n'est ni un identifiant refusé ni un modèle
   indisponible : un 402, ou un 400 dont le corps contient un message de facturation (texte
   "credit balance is too low", ou un objet d'erreur dont le `type` est `billing_error`), échoue en
@@ -1214,7 +1235,10 @@ Fournisseurs intégrés :
     "retryAfterSec": 20 }
   ```
   Comme pour `auth-required`, `message` est ici un texte français figé, affichable tel quel à
-  l'utilisateur — pas le détail technique anglais du contrat `model-unavailable`/`internal`.
+  l'utilisateur — pas le détail technique anglais du contrat `model-unavailable`/`internal`. Un
+  400 `invalid_request_error` dont le message nomme un plafond de dépense/d'usage (« spend limit »,
+  « usage limit ») échoue aussi en `quota-exceeded` (amendement 2026-10-02) ; tout autre 400 échoue
+  en `model-unavailable` (jamais `internal` — ce n'est pas un bug de Coati).
 - **`openai-compat`** (amendement 2026-09-30 bis, goal G5) — un seul adaptateur pour tout serveur
   qui parle le format `/v1/chat/completions` d'OpenAI (`broker/src/providers/openai-compat.ts`).
   Couvre en pratique LM Studio, Ollama (via son propre `/v1`, alternative à l'API native `ollama`
@@ -1247,20 +1271,31 @@ Fournisseurs intégrés :
     son propre texte d'après le fournisseur connu par la dernière réponse `provider.status`
     (session à renouveler pour `claude-cli`, clé à vérifier dans les réglages pour un fournisseur à
     clé API, texte neutre tant que le fournisseur est inconnu) ;
-  - modèle inconnu (HTTP 404, ou message d'erreur du corps de réponse quand le serveur répond 200
-    avec un objet d'erreur) → `model-unavailable`, nomme le modèle demandé ;
+  - modèle inconnu (HTTP 404, ou — amendement 2026-10-02, goal-j2FJ-kI7 — un corps d'erreur dont
+    `error.code`/`error.type` vaut `unknown_model` quel que soit le statut, comme Mistral) →
+    `model-missing` (pas `model-unavailable` : le serveur répond, c'est ce modèle précis qui est
+    refusé), message figé `provider.modelMissing` ;
   - serveur injoignable (connexion refusée, DNS, etc.) → `model-unavailable`, ne répète jamais
     l'adresse configurée verbatim au-delà de ce que l'utilisateur a lui-même saisi ;
   - délai dépassé → `model-unavailable` (même timeout de 120 s que les autres fournisseurs) ;
   - flux interrompu en cours de réponse → l'erreur remonte telle quelle, la partie de réponse déjà
-    reçue reste affichée (comportement du panel, inchangé) ;
-  - HTTP 402 → `quota-exceeded` (amendement 2026-10-01, goal U1) : le compte du fournisseur n'a
-    plus de crédit (OpenRouter, DeepSeek, Mistral… renvoient ce statut pour ce cas) — même message
-    figé et même contrat `message` que pour `claude-api`, voir plus haut ;
+    reçue reste affichée (comportement du panel, inchangé) ; amendement 2026-10-02 : un flux HTTP
+    200 dont le serveur clôt avec `choices[0].finish_reason: "error"` (convention OpenRouter) est
+    traité comme l'objet d'erreur en ligne ci-dessous, jamais comme une réponse vide silencieuse ;
+  - HTTP 402 → `quota-exceeded` pour tout fournisseur SAUF OpenRouter (amendement 2026-10-01, goal
+    U1 ; précisé 2026-10-02) : le compte n'a plus de crédit (DeepSeek, Mistral… renvoient ce statut
+    pour ce cas) — même message figé et même contrat `message` que pour `claude-api`, voir plus
+    haut. Pour OpenRouter spécifiquement, un 402 accompagné d'un en-tête `Retry-After` est le
+    budget « in-flight » documenté par OpenRouter (transitoire) → `rate-limited` avec
+    `retryAfterSec` ; sans cet en-tête, c'est un solde vide classique → `quota-exceeded` ;
   - HTTP 429 → examiné comme pour `claude-api` : un corps d'erreur dont `error.code`/`error.type`
     vaut `insufficient_quota` échoue en `quota-exceeded` ; sinon c'est `rate-limited` (trop-plein de
     requêtes, cas typique des modèles gratuits d'OpenRouter), avec le même `retryAfterSec`
-    optionnel tiré de l'en-tête `Retry-After` quand présent.
+    optionnel tiré de l'en-tête `Retry-After` quand présent ;
+  - HTTP 502/503 → `provider-overloaded` (amendement 2026-10-02) : surcharge transitoire, remède
+    « réessayez », jamais « corrigez les réglages » ; un objet d'erreur en ligne (corps 200, voir
+    ci-dessus) dont le texte nomme explicitement une surcharge/un problème amont (mots « overload »
+    ou « upstream ») échoue aussi en `provider-overloaded`, sinon en `model-unavailable`.
   Adresses proposées par la page d'options (préremplissage seulement — l'utilisateur peut toujours
   taper une autre adresse) : LM Studio `http://localhost:1234/v1`, Ollama `http://localhost:11434/v1`,
   OpenAI `https://api.openai.com/v1`, Mistral `https://api.mistral.ai/v1`, OpenRouter
@@ -1357,21 +1392,38 @@ chargé le moindre crédit. Le coût **zéro** devient l'invariant pour les troi
 
 - **`claude-api`** : `GET https://api.anthropic.com/v1/models` (en-têtes `x-api-key`,
   `anthropic-version`) — gratuit (confirmé par une source citée au moment de cet amendement,
-  2026-10-01). HTTP 200 → `ok: true`. HTTP 401/403 → `ok: false`, `code: "auth-required"`. HTTP 402
-  → `code: "quota-exceeded"` (rare sur cette route, mais traité s'il apparaît). HTTP 429 →
-  `code: "rate-limited"`. Toute autre réponse, timeout ou erreur réseau → `code: "model-unavailable"`.
+  2026-10-01). HTTP 200 → `ok: true`, `creditUnchecked: true` (amendement 2026-10-02 — voir la
+  limite connue ci-dessous) ; si un `model` est configuré et n'apparaît pas dans la liste renvoyée
+  → `ok: false`, `code: "model-missing"` à la place. HTTP 401 → `code: "auth-required"`. HTTP 403 →
+  `code: "model-missing"` (amendement 2026-10-02 : la clé est acceptée, c'est ce modèle qui est
+  refusé — cohérent avec la classification `streamAnswer`, voir plus haut). HTTP 402 →
+  `code: "quota-exceeded"` (rare sur cette route, mais traité s'il apparaît). HTTP 429 →
+  `code: "rate-limited"`. HTTP 529/502/503 → `code: "provider-overloaded"` (amendement 2026-10-02).
+  Toute autre réponse, timeout ou erreur réseau → `code: "model-unavailable"`.
 - **`openai-compat`** : `GET {baseUrl}/models` avec `Authorization: Bearer <clé>` — **sauf** quand
   l'origine de `baseUrl` est `https://openrouter.ai` : chez OpenRouter, `/models` est une liste
   publique qui ne valide ni la clé ni le compte (répond 200 même sans clé ou avec une clé invalide).
   Dans ce cas précis, la sonde utilise `GET https://openrouter.ai/api/v1/key` (même en-tête
-  `Authorization`) : 200 → clé valide, 401 → clé refusée. Pour toute autre origine (locale —
-  Ollama `/v1`, LM Studio — ou hébergée), `GET {baseUrl}/models` reste la sonde, déjà gratuite
-  (voir « Disponibilité du fournisseur » ci-dessous pour le même constat côté `provider.status`).
-  Mêmes codes que `claude-api` ci-dessus selon le statut HTTP reçu.
+  `Authorization`) : 200 → clé valide (`creditUnchecked: true`), 401 → clé refusée, 402 →
+  `code: "rate-limited"` si l'en-tête `Retry-After` est présent (budget in-flight), sinon
+  `code: "quota-exceeded"` (amendement 2026-10-02) ; un `GET {baseUrl}/models` est alors tenté en
+  plus (best-effort, jamais bloquant) pour vérifier le `model` configuré, comme pour les autres
+  origines ci-dessous. Pour toute autre origine (locale — Ollama `/v1`, LM Studio — ou hébergée),
+  `GET {baseUrl}/models` reste la sonde, déjà gratuite (voir « Disponibilité du fournisseur »
+  ci-dessous pour le même constat côté `provider.status`) ; si un `model` est configuré et absent
+  de la liste → `code: "model-missing"`. HTTP 404 sur cette sonde → `code: "model-missing"` aussi.
+  HTTP 502/503 → `code: "provider-overloaded"`. Mêmes codes que `claude-api` ci-dessus pour le
+  reste selon le statut HTTP reçu.
 - **`ollama`** : inchangé — `GET <ollamaUrl>/api/tags` était déjà gratuit (local). Si le modèle
   configuré n'apparaît pas dans la liste, `code: "model-missing"` (distinct de
   `model-unavailable`, qui couvre le démon injoignable) — même code que la colonne `reason` de
   `provider.status` pour ce même cas.
+
+**`creditUnchecked` (amendement 2026-10-02, goal-j2FJ-kI7).** Un `settings.test-result` avec
+`ok: true` porte ce champ (`true`) pour `claude-api` et `openai-compat` — jamais pour `ollama`, qui
+n'a pas de notion de crédit. La page des réglages affiche alors une ligne dédiée (voir la limite
+connue ci-dessous, qu'il rend visible plutôt qu'implicite) plutôt que de laisser croire que « connecté »
+veut dire « du crédit disponible ».
 
 **Limite connue, documentée pour ne jamais être redécouverte en incident : une vérification de clé
 ne voit pas un solde de crédit épuisé.** `GET /v1/models` (Anthropic) et `GET /models` ou
@@ -1466,6 +1518,11 @@ fournisseur **actif** à son ouverture et l'affiche en texte dans les bandeaux e
   toujours présent. Liste fermée ci-dessous.
 - `checkedAt` : date ISO 8601 UTC de la vérification **effective** (pour une réponse servie depuis
   le cache, la date de la vérification d'origine).
+- `baseUrl` (amendement 2026-10-02 ter) : présent seulement si `provider` vaut `openai-compat` et
+  qu'une adresse est configurée. Ce n'est pas un secret. Le panneau s'en sert pour nommer le vrai
+  fournisseur (OpenAI, Mistral, OpenRouter, DeepSeek…) et proposer ses liens « créer une clé » et
+  « recharger » dans les messages de panne, sans demander `settings` (dont la diffusion
+  redessinerait une page de réglages ouverte).
 
 `provider.status-result` est le terminal de son `id` ; `provider.status` ne répond jamais
 `error`, sauf `bad-request` pour un message malformé. Une panne interne de la vérification donne
@@ -1566,7 +1623,15 @@ fournisseur. `provider.status` ne modifie aucun état du broker (hormis son cach
 ```
 
 Codes d'erreur : `bad-request`, `unauthorized`, `model-unavailable`, `auth-required`,
-`quota-exceeded`, `rate-limited`, `context-too-large`, `cancelled`, `internal`.
+`quota-exceeded`, `rate-limited`, `model-missing`, `provider-overloaded`, `context-too-large`,
+`cancelled`, `internal`. Les deux derniers ajoutés par l'amendement 2026-10-02 (goal-j2FJ-kI7,
+« parcours panne modèle ») : `model-missing` quand le fournisseur est joignable mais refuse
+spécifiquement le modèle configuré (403 `permission_error` Anthropic, 404 ou `unknown_model`
+OpenAI-compatible — distinct de `model-unavailable`, qui reste « on ne sait pas ce qui ne va pas »
+ou « le fournisseur est injoignable ») ; `provider-overloaded` quand le fournisseur lui-même
+signale une surcharge transitoire (529 `overloaded_error` Anthropic, 502/503 générique, `
+server_is_overloaded` OpenAI, ou un flux OpenRouter dont `finish_reason: "error"` nomme une
+surcharge/un problème amont) — remède « réessayez », jamais « ouvrez les réglages ».
 
 ## Journalisation
 
@@ -1611,10 +1676,11 @@ caractères) et :
 `fetch failed`) le détail technique, **en anglais**, destiné au journal et à une ligne secondaire
 dans le panneau — jamais le texte principal affiché à l'utilisateur. Le panneau choisit son libellé
 français d'après `code` seul, pas d'après `message`. **Ne s'applique pas à `auth-required`,
-`quota-exceeded` ni `rate-limited`** (ce dernier couple ajouté par l'amendement 2026-10-01, goal
-U1) : leur `message` reste un texte figé dans la langue de la connexion, affichable tel quel —
-mêmes tables `broker/src/messages.ts` (`auth.apiKeyRejected`, `provider.quotaExceeded`,
-`provider.rateLimited`) que pour `auth-required`.
+`quota-exceeded`, `rate-limited`, `model-missing` ni `provider-overloaded`** (les deux derniers
+couples ajoutés respectivement par les amendements 2026-10-01, goal U1, et 2026-10-02,
+goal-j2FJ-kI7) : leur `message` reste un texte figé dans la langue de la connexion, affichable tel
+quel — mêmes tables `broker/src/messages.ts` (`auth.apiKeyRejected`, `provider.quotaExceeded`,
+`provider.rateLimited`, `provider.modelMissing`, `provider.overloaded`) que pour `auth-required`.
 
 ## Règles invariantes
 
@@ -1983,9 +2049,12 @@ Après l'admission HTTP (liste `Host`, UID du pair sous Linux — inchangées) :
    générateur cryptographique ; `bP = HMAC-SHA256(K, "coati-v2-broker:" + cN + ":" + bN)`, en hex
    minuscules, `K` étant les 32 octets de la clé désignée par `key` à l'étape 2.
 4. L'extension vérifie `bP`. **Différent** : elle ferme (code 4000) sans rien envoyer d'autre,
-   efface `brokerKey`, rappelle l'hôte et retente **une fois par cycle de connexion** (un broker
-   redémarré entre la lecture de la clé et la connexion en a changé). Nouvel échec : état
+   efface `brokerKey`, rappelle l'hôte et retente jusqu'à **3 fois par cycle de connexion** avec
+   des délais espacés (2 s, 5 s, 10 s) — un broker redémarré entre la lecture de la clé et la
+   connexion en a changé. Pendant ces tentatives, l'état transite vers `"pairing-retry"` (bandeau
+   « Nouvelle tentative en cours… »). Nouvel échec après les 3 tentatives : état
    `"broker-untrusted"` ; ni texte de page ni prompt ne part jusqu'au cycle suivant.
+   *(Amendement 2026-10-02, goal-j2FJ-kI7 : remplace l'essai unique immédiat.)*
 5. Client → `{"type":"auth","v":2,"proof":"<eP>"}`,
    `eP = HMAC-SHA256(K, "coati-v2-extension:" + cN + ":" + bN)`.
 6. Le broker compare `eP` en temps constant (`timingSafeEqual` sur 32 octets). Égal :
@@ -2007,11 +2076,14 @@ capturé. Le broker prouve le premier : un programme qui occupe le port pendant 
 arrêté ne reçoit qu'un nonce aléatoire, puis plus rien. Un HMAC ne révèle pas la clé.
 
 **4401 avant le défi** (origine refusée, typiquement un ID absent d'`allowedExtensionIds`) ou après
-`auth` : l'extension efface `brokerKey`, rappelle l'hôte une fois et retente une fois par cycle ;
-nouvel échec : état `"no-token"`. L'hôte natif ne sert jamais que l'ID épinglé (`allowed_origins` du
-manifeste Chromium) : un `"no-token"` persistant signale presque toujours un `allowedExtensionIds`
-modifié à la main dans `config.json` pour un ID différent de celui que l'hôte sert — le corriger là,
-pas côté extension.
+`auth` : l'extension efface `brokerKey`, rappelle l'hôte et retente jusqu'à 3 fois par cycle (délais
+2 s, 5 s, 10 s) avec l'état transitoire `"pairing-retry"` ; après les 3 tentatives : état
+`"no-token"`. *(Amendement 2026-10-02 : remplace l'essai unique immédiat.)* Le bandeau terminal
+`"no-token"` comme `"broker-untrusted"` dit « Le programme local a refusé la connexion. » sans
+qualifier la cause (anti-oracle), et propose un bouton Réessayer. L'hôte natif ne sert jamais que
+l'ID épinglé (`allowed_origins` du manifeste Chromium) : un `"no-token"` persistant signale presque
+toujours un `allowedExtensionIds` modifié à la main dans `config.json` pour un ID différent de celui
+que l'hôte sert — le corriger là, pas côté extension.
 
 **Plafond de connexions non authentifiées.** Le broker n'accepte pas plus de **16** connexions
 WebSocket simultanées n'ayant pas encore atteint `hello-ok` (comptées dès l'ouverture, décomptées à

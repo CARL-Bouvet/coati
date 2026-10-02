@@ -282,9 +282,11 @@
       },
     },
 
-    // Bandeau de connexion — "no-token" : id d'extension refusé par le
-    // broker (allowedExtensionIds), même texte sur tous les navigateurs
-    // depuis le G4 (Native Messaging) — plus de variante Firefox/Chromium.
+    // Bandeau de connexion — "no-token" (4401) : id d'extension refusé après
+    // toutes les tentatives automatiques (amendement 2026-10-02, goal-j2FJ-kI7
+    // : anti-oracle, texte neutre panel_banner_pairing_refused + « Réessayer »
+    // ; la cause exacte n'est pas divulguée). Plus de variante Firefox/Chromium
+    // depuis G4 (Native Messaging).
     disconnected: {
       status: "no-token",
       tab: null,
@@ -304,11 +306,24 @@
       prompts: [],
     },
 
-    // Bandeau de connexion — "broker-untrusted" : un programme répond sur le
-    // port 8787 mais n'a pas prouvé être le broker Coati (preuve HMAC
-    // fausse). Aucun lien : rien à faire depuis l'extension.
+    // Bandeau de connexion — "broker-untrusted" (4000) : un programme répond
+    // sur le port 8787 mais n'a pas prouvé être le broker Coati (preuve HMAC
+    // fausse). Amendement 2026-10-02 (goal-j2FJ-kI7) : texte propre au cas
+    // (panel_banner_broker_untrusted) + « Réessayer ».
     "broker-untrusted": {
       status: "broker-untrusted",
+      tab: null,
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": null },
+      prompts: [],
+    },
+
+    // Bandeau de connexion — "pairing-retry" : le programme a refusé la
+    // poignée de main ; relances automatiques en cours (backoff). Pas de
+    // bouton Réessayer (doublon avec la tentative automatique). Texte :
+    // panel_banner_pairing_retry (amendement 2026-10-02, goal-j2FJ-kI7).
+    "pairing-retry": {
+      status: "pairing-retry",
       tab: null,
       faviconUrl: FAVICON,
       storageLocal: { "coati:conversation": [], "coati:attachPage": null },
@@ -442,21 +457,24 @@
       prompts: [],
     },
 
-    // auth-required d'un fournisseur à clé (claude-api, openai-compat) :
-    // « Clé refusée par le fournisseur », bouton « Ouvrir les réglages ».
+    // auth-required d'un fournisseur à clé — amendement 2026-10-02
+    // (goal-j2FJ-kI7) : « [Fournisseur] refuse la clé » (nommé quand connu),
+    // « Ouvrir les réglages » (profond vers la carte du fournisseur) et
+    // « Créer une clé chez [Fournisseur] » (lien externe keysUrl). Fournisseur
+    // claude-api ici : getProviderLinks résout par id (pas besoin de baseUrl).
     "error-auth-key": {
       status: "connected",
       tab: ARTICLE_TAB,
       extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
       faviconUrl: FAVICON,
-      providerStatus: { provider: "openai-compat", state: "ok", reason: "ready" },
+      providerStatus: { provider: "claude-api", state: "ok", reason: "ready" },
       storageLocal: {
         "coati:conversation": [
           { id: "ek-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
           {
             id: "ek",
             role: "assistant",
-            text: "⚠ Clé refusée par le fournisseur : vérifiez-la dans les réglages.",
+            text: "⚠ Claude (Anthropic) refuse la clé. Vérifiez-la dans les réglages.",
             authRequired: true,
             authKind: "key",
             streaming: false,
@@ -517,10 +535,101 @@
       prompts: [],
     },
 
-    // Goal U1, lot 2 — compte à court de crédit chez le fournisseur
-    // (quota-exceeded) : texte figé du broker + bouton « Ouvrir les réglages »
-    // (le remède est de choisir un autre modèle/fournisseur, pas de réessayer).
+    // Amendement 2026-10-02 (goal-j2FJ-kI7) — quota-exceeded : « Recharger
+    // chez Claude (Anthropic) » (lien externe billingUrl) + « Réessayer »
+    // (l'utilisateur peut avoir rechargé entre temps). Fournisseur claude-api :
+    // getProviderLinks résout par id. Round-trip live via chatErrorReply pour
+    // que pendingRetries soit peuplé et le bouton Réessayer visible.
     "error-quota": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      providerStatus: { provider: "claude-api", state: "ok", reason: "ready" },
+      chatErrorReply: {
+        code: "quota-exceeded",
+        message: "Votre compte chez le fournisseur n'a plus de crédit. Rechargez-le sur son site, ou choisissez un modèle gratuit dans les réglages.",
+      },
+      storageLocal: {
+        "coati:conversation": [
+          { id: "eq-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+        ],
+        "coati:attachPage": true,
+      },
+      prompts: [],
+      autoAction: {
+        steps: [
+          { type: "fill", selector: "#input", value: "Résumer cet article : Une mesure publiée le 25 septembre", delayMs: 0 },
+          { type: "click", selector: "#send", delayMs: 20 },
+        ],
+      },
+    },
+
+    // Goal U1, lot 2 — trop de requêtes chez le fournisseur (rate-limited),
+    // avec un retryAfterSec connu : bouton « Réessayer » désactivé, décompte
+    // en texte brut (sûr avec "réduire les animations"). Amendement 2026-10-02
+    // (goal-j2FJ-kI7) : round-trip live via chatErrorReply pour que
+    // pendingRetries soit peuplé et le bouton Réessayer visible.
+    "error-rate-limited": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      providerStatus: { provider: "openai-compat", state: "ok", reason: "ready" },
+      chatErrorReply: {
+        code: "rate-limited",
+        retryAfterSec: 20,
+        message: "Le fournisseur reçoit trop de requêtes en ce moment. Patientez un instant puis réessayez.",
+      },
+      storageLocal: {
+        "coati:conversation": [
+          { id: "er-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+        ],
+        "coati:attachPage": true,
+      },
+      prompts: [],
+      autoAction: {
+        steps: [
+          { type: "fill", selector: "#input", value: "Résumer cet article : Une mesure publiée le 25 septembre", delayMs: 0 },
+          { type: "click", selector: "#send", delayMs: 20 },
+        ],
+      },
+    },
+
+    // Amendement 2026-10-02 (goal-j2FJ-kI7) — provider-overloaded : le
+    // fournisseur lui-même est surchargé (transient, pas de réglage à changer).
+    // Bloc de récupération : « Réessayer » seulement (buildProviderOverload-
+    // RecoveryBlock). Round-trip live via chatErrorReply.
+    "error-provider-overloaded": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      providerStatus: { provider: "claude-api", state: "ok", reason: "ready" },
+      chatErrorReply: {
+        code: "provider-overloaded",
+        message: "Le fournisseur est surchargé en ce moment. Patientez un instant puis réessayez.",
+      },
+      storageLocal: {
+        "coati:conversation": [
+          { id: "epo-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+        ],
+        "coati:attachPage": true,
+      },
+      prompts: [],
+      autoAction: {
+        steps: [
+          { type: "fill", selector: "#input", value: "Résumer cet article : Une mesure publiée le 25 septembre", delayMs: 0 },
+          { type: "click", selector: "#send", delayMs: 20 },
+        ],
+      },
+    },
+
+    // Amendement 2026-10-02 (goal-j2FJ-kI7) — model-missing (fournisseur
+    // distant, non-Ollama) : ce modèle précis n'est pas disponible sur le
+    // compte. Bloc : « Ouvrir les réglages » (profond vers la carte). Pas de
+    // Réessayer (le payload n'est pas conservé — changer de modèle d'abord).
+    "error-model-missing": {
       status: "connected",
       tab: ARTICLE_TAB,
       extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
@@ -528,12 +637,12 @@
       providerStatus: { provider: "claude-api", state: "ok", reason: "ready" },
       storageLocal: {
         "coati:conversation": [
-          { id: "eq-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          { id: "emm-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
           {
-            id: "eq",
+            id: "emm",
             role: "assistant",
-            text: "⚠ Votre compte chez le fournisseur n'a plus de crédit. Rechargez-le sur son site, ou choisissez un modèle gratuit dans les réglages.",
-            quotaExceeded: true,
+            text: "⚠ Ce modèle n'est pas disponible sur votre compte. Choisissez-en un autre dans les réglages.",
+            modelMissing: true,
             streaming: false,
           },
         ],
@@ -542,37 +651,83 @@
       prompts: [],
     },
 
-    // Goal U1, lot 2 — trop de requêtes chez le fournisseur (rate-limited),
-    // avec un retryAfterSec connu : bouton « Réessayer » désactivé, décompte
-    // en texte brut (sûr avec "réduire les animations").
-    "error-rate-limited": {
+    // Amendement 2026-10-02 (goal-j2FJ-kI7) — model-missing sur Ollama :
+    // commande copiable « ollama pull llama3.2 » (buildModelMissingRecovery-
+    // Block spécialisé). Pas de Réessayer.
+    "error-ollama-model-absent": {
       status: "connected",
       tab: ARTICLE_TAB,
       extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
       faviconUrl: FAVICON,
-      providerStatus: { provider: "openai-compat", state: "ok", reason: "ready" },
+      providerStatus: { provider: "ollama", state: "ok", reason: "ready" },
       storageLocal: {
         "coati:conversation": [
-          { id: "er-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          { id: "eom-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
           {
-            id: "er",
+            id: "eom",
             role: "assistant",
-            // Exact copy of broker/src/messages.ts's rate-limited "fr" text.
-            text: "⚠ Le fournisseur reçoit trop de requêtes en ce moment. Patientez un instant puis réessayez.",
-            rateLimited: true,
-            retryAfterSec: 20,
+            text: "⚠ Ce modèle n'est pas installé dans Ollama. Installez-le avec la commande ci-dessous.",
+            modelMissing: true,
             streaming: false,
           },
         ],
         "coati:attachPage": true,
       },
-      // The "Retry" button only renders when pendingRetries still holds this
-      // id (panel.js, in-memory only) — this lab's stub keeps that payload
-      // around for whatever conversation.id the panel sent last, so this
-      // fixture re-sends the exact same question first (autoAction) before
-      // the error ever reaches storage would be simpler, but the simplest
-      // faithful fixture is the static one above: it shows the text and the
-      // countdown copy, the button itself needs a live round trip to arm.
+      prompts: [],
+    },
+
+    // Amendement 2026-10-02 (goal-j2FJ-kI7) — model-unavailable : diagnostic
+    // incertain (modèle injoignable ou timeout 120 s du broker). Bloc :
+    // « Réessayer » + « Ouvrir les réglages » (profond). Round-trip live.
+    "error-model-unavailable": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      providerStatus: { provider: "claude-api", state: "ok", reason: "ready" },
+      chatErrorReply: {
+        code: "model-unavailable",
+        message: "Le modèle n'a pas répondu (indisponible). Le programme local fonctionne normalement ; c'est le modèle qui pose problème. Réessayez dans un instant.",
+      },
+      storageLocal: {
+        "coati:conversation": [
+          { id: "emu-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+        ],
+        "coati:attachPage": true,
+      },
+      prompts: [],
+      autoAction: {
+        steps: [
+          { type: "fill", selector: "#input", value: "Résumer cet article : Une mesure publiée le 25 septembre", delayMs: 0 },
+          { type: "click", selector: "#send", delayMs: 20 },
+        ],
+      },
+    },
+
+    // Amendement 2026-10-02 (goal-j2FJ-kI7) — auth-required sur claude-cli :
+    // session expirée. Bloc : commande copiable « claude auth login --claudeai »
+    // + « Ouvrir les réglages » + « Réessayer » (même chemin que l'auth session
+    // normale — SESSION_AUTH_PROVIDERS contient "claude-cli").
+    "error-claude-session": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      providerStatus: { provider: "claude-cli", state: "ok", reason: "ready" },
+      storageLocal: {
+        "coati:conversation": [
+          { id: "ecs-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          {
+            id: "ecs",
+            role: "assistant",
+            text: "⚠ La session Claude a expiré. Reconnectez-vous avec la commande ci-dessous.",
+            authRequired: true,
+            authKind: "session",
+            streaming: false,
+          },
+        ],
+        "coati:attachPage": true,
+      },
       prompts: [],
     },
 

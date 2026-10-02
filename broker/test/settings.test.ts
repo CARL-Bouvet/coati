@@ -338,6 +338,27 @@ describe("settings.test", () => {
     ws.close();
   });
 
+  // Amendement 2026-10-02 (goal-j2FJ-kI7, "parcours panne modèle"): the FREE
+  // GET /v1/models probe also checks the CONFIGURED model is actually in the
+  // list this key can see — a wrong/retired model name must surface here
+  // (model-missing), not only on the first real, billed chat request.
+  test("claude-api: a successful key check whose configured model isn't listed reports model-missing", async () => {
+    __setClaudeApiFetch((async () =>
+      Response.json({ data: [{ id: "claude-opus-5" }] })) as unknown as typeof fetch);
+
+    const server = boot();
+    const ws = await connectAndAuth(server);
+    ws.send(
+      JSON.stringify({ type: "settings.set", id: "t0b", provider: "claude-api", apiKey: "sk-ant-works", model: "claude-retired-model" }),
+    );
+    await nextMessage(ws);
+    ws.send(JSON.stringify({ type: "settings.test", id: "t1b", provider: "claude-api" }));
+    const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
+    expect(msg.ok).toBe(false);
+    expect(msg.code).toBe("model-missing");
+    ws.close();
+  });
+
   test("claude-api: no key configured fails immediately, without a network call, naming the remedy", async () => {
     let fetchCalled = false;
     __setClaudeApiFetch((async () => {

@@ -111,21 +111,38 @@ async function resolveEffectiveUiLang() {
 
 let ws = null;
 // disconnected | connecting | handshaking | connected | no-host |
-// broker-untrusted | no-token | handshake-timeout — see docs/PROTOCOL.md
-// amendement 2026-09-30, "États et bandeaux".
+// broker-untrusted | no-token | pairing-retry | handshake-timeout
+// — see docs/PROTOCOL.md amendement 2026-09-30, "États et bandeaux"
+// and amendement 2026-10-02 (pairing-retry).
 let wsState = "disconnected";
 let backoffMs = 1000;
 let handshakeTimeoutId = null;
 // At most one request held while reconnecting (deliverable B2) —
 // { payload, timeoutId }, or null when nothing is queued.
 let pendingRequest = null;
-// docs/PROTOCOL.md "Poignée de main v: 2": at most one automatic retry per
-// connection cycle after the broker's proof fails to verify (close 4000) or
-// after a 4401. A cycle runs from a disconnection to the next `hello-ok`,
-// which resets this flag — never a silent infinite loop against a broker
-// that keeps failing. Only meaningful when the key just used came from the
-// native host (there is nothing to re-call for a pasted legacy key).
-let retriedThisCycle = false;
+// docs/PROTOCOL.md amendement 2026-10-02: up to 3 spaced retries per
+// connection cycle after a 4000 or 4401.  A cycle runs from a disconnection
+// to the next `hello-ok`, which resets this counter — never a silent infinite
+// loop.  Only meaningful when the key just used came from the native host
+// (there is nothing to re-call for a pasted legacy key).
+let pairingRetryCount = 0;
+let pairingRetryTimeoutId = null; // cleared in forceReconnect / hello-ok
+// Delays (ms) for the 1st, 2nd, and 3rd retry.  Overridable via
+// globalThis.__coatiTestRetryDelays__ in unit tests (avoids fake-timer
+// infrastructure for a simple 3-step sequence).
+const PAIRING_RETRY_DELAYS =
+  globalThis.__coatiTestRetryDelays__ ?? [2000, 5000, 10000];
+// Test-only: cancel any pending retry so afterEach cleanup is clean.
+// Always reassigned so it captures THIS module instance's pairingRetryTimeoutId
+// (each importServiceWorker() call creates a fresh module with fresh locals).
+if (globalThis.__coatiTestRetryDelays__) {
+  globalThis.__coatiCancelPairingRetry__ = () => {
+    if (pairingRetryTimeoutId !== null) {
+      clearTimeout(pairingRetryTimeoutId);
+      pairingRetryTimeoutId = null;
+    }
+  };
+}
 
 // Welcome page (docs/DECISIONS.md T51): a fresh install only — an update or
 // a browser update must never reopen it.
@@ -571,24 +588,33 @@ async function connectIfNeeded() {
     ws = null;
     handshakeSettled = true;
 
-    // docs/PROTOCOL.md "Poignée de main v: 2": 4000 = the broker's own proof
-    // didn't verify (our own close code, chosen above); 4401 = the broker
-    // rejected `auth` (or the Origin, before any challenge). Both clear the
-    // key that was just proven wrong/refused and retry once — but only when
-    // that key came from the native host: a pasted legacy key has no host
-    // to re-call, so it goes straight to the terminal state.
+    // docs/PROTOCOL.md amendement 2026-10-02: 4000 = broker proof wrong;
+    // 4401 = broker refused auth/origin.  Both clear the key and retry up to
+    // 3 times (delays: 2 s, 5 s, 10 s) when the key came from the native
+    // host.  A pasted legacy key has no host to re-call, so it goes straight
+    // to the terminal state.  The transient "pairing-retry" state is exposed
+    // to the panel during the wait so the banner reads "Nouvelle tentative en
+    // cours…" rather than a confusing terminal message.
     if (event.code === 4000 || event.code === 4401) {
       const terminalState = event.code === 4000 ? "broker-untrusted" : "no-token";
       const storageKey = keyInfo.source === "pasted" ? PASTED_KEY_STORAGE_KEY : BROKER_KEY_STORAGE_KEY;
-      const canRetry = keyInfo.source === "native" && !retriedThisCycle;
+      const canRetry = keyInfo.source === "native" && pairingRetryCount < PAIRING_RETRY_DELAYS.length;
       api.storage.session
         .remove(storageKey)
         .catch(() => {})
         .finally(() => {
           if (canRetry) {
-            retriedThisCycle = true;
-            setState("disconnected");
-            connectIfNeeded(); // immediate: re-resolves the key (fresh host call)
+            const delayMs = PAIRING_RETRY_DELAYS[pairingRetryCount];
+            pairingRetryCount++;
+            setState("pairing-retry");
+            pairingRetryTimeoutId = setTimeout(() => {
+              pairingRetryTimeoutId = null;
+              // Guard: another path (forceReconnect, hello-ok) may have taken
+              // over while we were waiting.
+              if (wsState !== "pairing-retry") return;
+              setState("disconnected");
+              connectIfNeeded(); // re-resolves the key via a fresh host call
+            }, delayMs);
             return;
           }
           setState(terminalState);
@@ -622,7 +648,11 @@ function forceReconnect() {
     ws = null;
   }
   backoffMs = 1000;
-  retriedThisCycle = false;
+  if (pairingRetryTimeoutId !== null) {
+    clearTimeout(pairingRetryTimeoutId);
+    pairingRetryTimeoutId = null;
+  }
+  pairingRetryCount = 0;
   setState("disconnected");
   connectIfNeeded();
 }
@@ -643,8 +673,12 @@ function handleBrokerMessage(message) {
     clearTimeout(handshakeTimeoutId);
     backoffMs = 1000;
     // hello-ok is the end of a handshake cycle (docs/PROTOCOL.md "Poignée de
-    // main v: 2") — the next 4000/4401 gets its own single retry again.
-    retriedThisCycle = false;
+    // main v: 2") — the next 4000/4401 gets its own fresh 3-retry budget.
+    if (pairingRetryTimeoutId !== null) {
+      clearTimeout(pairingRetryTimeoutId);
+      pairingRetryTimeoutId = null;
+    }
+    pairingRetryCount = 0;
     // No token to store (docs/PROTOCOL.md amendement 2026-09-30: hello-ok
     // v2 carries no token at all — the key already proved everything).
     setState("connected");

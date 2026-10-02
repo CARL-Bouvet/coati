@@ -335,6 +335,82 @@
       permissions: ["https://www.youtube.com/*"],
       autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
     },
+
+    // Amendement 2026-10-02 (goal-j2FJ-kI7) — "Tester la connexion" réussit
+    // pour openai-compat mais le solde de crédit n'a pas pu être vérifié
+    // (creditUnchecked: true) : ligne « connecté » + note secondaire
+    // (renderTestResult, options_credit_unchecked). Fournisseur openai-compat /
+    // OpenAI pour un provider réaliste.
+    "provider-test-connected-unchecked": {
+      status: "connected",
+      settings: {
+        provider: "openai-compat",
+        model: "gpt-5-mini",
+        models: [],
+        baseUrl: "https://api.openai.com/v1",
+        available: [
+          { id: "openai-compat", available: true, configured: true, label: "Compatible OpenAI" },
+          { id: "claude-api", available: false, configured: false, reason: "no Anthropic API key configured", label: "Clé API Anthropic" },
+          { id: "ollama", available: false, configured: false, reason: "Ollama unreachable at http://127.0.0.1:11434", label: "Ollama" },
+        ],
+      },
+      testResults: {
+        "openai-compat": { ok: true, creditUnchecked: true, message: "Connexion au serveur réussie." },
+      },
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: [],
+      autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
+    },
+
+    // Amendement 2026-10-02 (goal-j2FJ-kI7) — model-missing lors du test :
+    // ce modèle n'est pas disponible sur le compte (code "model-missing").
+    "provider-test-model-missing": {
+      status: "connected",
+      settings: NOMINAL_SETTINGS,
+      testResults: {
+        "claude-api": { ok: false, code: "model-missing", message: "Le modèle demandé n'est pas disponible sur ce compte." },
+      },
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
+      autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
+    },
+
+    // Amendement 2026-10-02 (goal-j2FJ-kI7) — provider-overloaded lors du
+    // test : le fournisseur est surchargé (code "provider-overloaded").
+    "provider-test-overloaded": {
+      status: "connected",
+      settings: NOMINAL_SETTINGS,
+      testResults: {
+        "claude-api": { ok: false, code: "provider-overloaded", message: "Le fournisseur est surchargé en ce moment." },
+      },
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
+      autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
+    },
+
+    // Amendement 2026-10-02 (goal-j2FJ-kI7) — claude-cli : session expirée
+    // lors du test. renderTestResult spécialise le texte (options_claude_cli_
+    // auth_required) et affiche la commande copiable « claude auth login
+    // --claudeai » (CLAUDE_CLI_LOGIN_COMMAND).
+    "provider-test-claude-cli-disconnected": {
+      status: "connected",
+      settings: {
+        provider: "claude-cli",
+        model: null,
+        models: [],
+        available: [
+          { id: "claude-cli", available: true, configured: true, label: "Claude (abonnement)" },
+          { id: "claude-api", available: false, configured: false, reason: "no Anthropic API key configured", label: "Clé API Anthropic" },
+          { id: "ollama", available: false, configured: false, reason: "Ollama unreachable at http://127.0.0.1:11434", label: "Ollama" },
+        ],
+      },
+      testResults: {
+        "claude-cli": { ok: false, code: "auth-required", provider: "claude-cli", message: "Session expirée." },
+      },
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: [],
+      autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
+    },
   };
 
   Object.assign(window.__COATI_LAB_FIXTURES__, GUIDE_STATES, KEY_CARD_STATES);

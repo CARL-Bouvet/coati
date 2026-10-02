@@ -26,6 +26,8 @@ import {
   ModelUnavailableError,
   QuotaExceededError,
   RateLimitedError,
+  ModelMissingError,
+  ProviderOverloadedError,
 } from "../src/model.ts";
 
 afterEach(() => {
@@ -244,7 +246,7 @@ describe("openai-compat streamAnswer — integration against a real fake server"
     }
   });
 
-  test("unknown model via HTTP 404 surfaces as model-unavailable, naming the model", async () => {
+  test("unknown model via HTTP 404 surfaces as model-missing, not model-unavailable (amendement 2026-10-02)", async () => {
     const server = fakeServer({
       "POST /v1/chat/completions": () => new Response("not found", { status: 404 }),
     });
@@ -259,8 +261,75 @@ describe("openai-compat streamAnswer — integration against a real fake server"
           return e as Error;
         }
       })();
-      expect(err).toBeInstanceOf(ModelUnavailableError);
-      expect(err!.message).toContain("does-not-exist");
+      expect(err).toBeInstanceOf(ModelMissingError);
+      expect(err).not.toBeInstanceOf(ModelUnavailableError);
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("Mistral unknown_model error body (any status) surfaces as model-missing (amendement 2026-10-02)", async () => {
+    const server = fakeServer({
+      "POST /v1/chat/completions": () =>
+        new Response(JSON.stringify({ message: "unknown_model", type: "invalid_request_error", code: "unknown_model" }), { status: 400 }),
+    });
+    try {
+      const built = buildPrompt({ kind: "chat", text: "salut" });
+      const err = await (async () => {
+        try {
+          for await (const _e of streamAnswer(built, { baseUrl: server.baseUrl, model: "does-not-exist" })) {
+            // draining
+          }
+        } catch (e) {
+          return e as Error;
+        }
+      })();
+      expect(err).toBeInstanceOf(ModelMissingError);
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("a 502/503 response surfaces as provider-overloaded (amendement 2026-10-02)", async () => {
+    for (const status of [502, 503]) {
+      const server = fakeServer({
+        "POST /v1/chat/completions": () => new Response("bad gateway", { status }),
+      });
+      try {
+        const built = buildPrompt({ kind: "chat", text: "salut" });
+        const err = await (async () => {
+          try {
+            for await (const _e of streamAnswer(built, { baseUrl: server.baseUrl, model: "m" })) {
+              // draining
+            }
+          } catch (e) {
+            return e;
+          }
+        })();
+        expect(err).toBeInstanceOf(ProviderOverloadedError);
+      } finally {
+        server.stop();
+      }
+    }
+  });
+
+  test("an in-stream finish_reason:error naming an overload surfaces as provider-overloaded", async () => {
+    const server = fakeServer({
+      "POST /v1/chat/completions": () =>
+        sse([`data: ${JSON.stringify({ choices: [{ finish_reason: "error" }], error: { message: "Upstream provider is overloaded" } })}`]),
+    });
+    try {
+      const built = buildPrompt({ kind: "chat", text: "salut" });
+      const err = await (async () => {
+        try {
+          for await (const _e of streamAnswer(built, { baseUrl: server.baseUrl, model: "m" })) {
+            // draining
+          }
+        } catch (e) {
+          return e;
+        }
+      })();
+      expect(err).toBeInstanceOf(ProviderOverloadedError);
     } finally {
       server.stop();
     }
@@ -582,7 +651,10 @@ describe("openai-compat testConnection (goal U2)", () => {
   test("default origin: reachable /models → ok, no code", async () => {
     const server = fakeServer({ "GET /v1/models": () => Response.json({ data: [] }) });
     try {
-      expect(await openaiCompatProvider.testConnection!({ baseUrl: server.baseUrl })).toEqual({ ok: true });
+      expect(await openaiCompatProvider.testConnection!({ baseUrl: server.baseUrl })).toEqual({
+        ok: true,
+        creditUnchecked: true,
+      });
     } finally {
       server.stop();
     }
@@ -631,7 +703,7 @@ describe("openai-compat testConnection (goal U2)", () => {
       baseUrl: "https://openrouter.ai/api/v1",
       apiKey: "sk-or-v1-works",
     });
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, creditUnchecked: true });
     expect(calledUrls).toEqual(["https://openrouter.ai/api/v1/key"]);
   });
 

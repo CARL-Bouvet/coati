@@ -210,6 +210,7 @@ textarea {
 .status--no-token .status-dot,
 .status--no-host .status-dot,
 .status--broker-untrusted .status-dot { background: var(--status-disconnected); }
+.status--pairing-retry .status-dot { background: var(--status-connecting); }
 
 /* Wraps: the text keeps at least ~18em of line before the buttons (moved
  * as ONE group) may sit beside it; below that (a 320-360 px panel) the
@@ -627,6 +628,11 @@ textarea {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--fg);
+  /* amendement 2026-10-02 (goal-j2FJ-kI7): this class is now also used on
+     external <a> links (buildExternalLink(), panel.js) — same look as the
+     buttons it shares the class with, never underlined/inline-link styling. */
+  display: inline-block;
+  text-decoration: none;
 }
 
 .recovery-copy:hover {
