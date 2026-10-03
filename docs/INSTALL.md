@@ -1,5 +1,41 @@
 # Installer Coati
 
+## Quick start (English)
+
+1. From the [Releases page](https://github.com/CARL-Bouvet/coati/releases), download the binary
+   for your OS, `SHA256SUMS`, and the "Source code" archive (all from the same release).
+2. Verify the checksum:
+   ```sh
+   # Linux
+   sha256sum --check --ignore-missing SHA256SUMS
+   # macOS
+   shasum -a 256 coati-broker-darwin-arm64   # compare with SHA256SUMS
+   ```
+   ```powershell
+   # Windows (PowerShell)
+   Get-FileHash .\coati-broker-windows-x64.exe -Algorithm SHA256
+   ```
+3. Decompress the "Source code" archive and run the installer from inside it:
+   ```sh
+   bash scripts/install/install-linux.sh ~/Downloads/coati-broker-linux-x64   # Linux
+   bash scripts/install/install-macos.sh ~/Downloads/coati-broker-darwin-arm64 # macOS
+   ```
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\install\install-windows.ps1 `
+     -Binary "$env:USERPROFILE\Downloads\coati-broker-windows-x64.exe"         # Windows
+   ```
+4. Load the extension unpacked: open `chrome://extensions`, enable Developer mode, click
+   "Load unpacked", and choose the `extension/` folder from the decompressed archive.
+   (Brave: `brave://extensions`; Edge: `edge://extensions`; Firefox: see `docs/FIREFOX.md`.)
+5. Install a model: `ollama pull llama3.2` (~2 GB).
+6. In the extension settings (click the Coati icon → "Open settings"), choose provider
+   **Ollama (local)** and pick `llama3.2` in the model list.
+7. Click the Coati icon to open the side panel, then click **Read the page**.
+
+If unsigned-binary warnings appear, see section 3 ("Exécutables non signés") below.
+
+---
+
 Coati a deux morceaux : l'extension, dans le navigateur, et le **broker**, un petit programme qui
 tourne sur votre machine et parle au modèle. Ce document installe le broker.
 
@@ -154,7 +190,84 @@ Ces dossiers sont créés par le broker à son premier démarrage, sur tous les 
 Si vous avez ajouté des modules de fournisseur (`docs/MODULES.md`), `coati-broker --check-modules`
 vérifie qu'ils se chargent, sans ouvrir de port.
 
-## 5. Désinstaller
+## 5. Charger l'extension
+
+L'extension se trouve dans le dossier `extension/` de l'archive « Source code » décompressée.
+Ne pas déplacer ni supprimer ce dossier : le supprimer désinstalle l'extension.
+
+**Chrome, Chromium, Brave, Edge**
+
+Ouvrir l'adresse selon le navigateur :
+
+- Chrome, Chromium : `chrome://extensions`
+- Brave : `brave://extensions`
+- Edge : `edge://extensions`
+
+Activer le **mode développeur** (interrupteur en haut à droite sous Chrome/Brave/Edge).
+Cliquer sur **Charger l'extension non empaquetée**, puis choisir le dossier `extension/`.
+
+L'identifiant de l'extension est fixé par le champ `key` du manifest : l'appairage avec le
+programme local fonctionne sans aucun geste supplémentaire, même après un rechargement.
+
+Après une mise à jour : remplacer le contenu du dossier `extension/` par la nouvelle version,
+puis, sur la page des extensions, cliquer sur **Recharger** (icône ↺) à côté de Coati.
+
+**Firefox**
+
+Voir `docs/FIREFOX.md` — Firefox requiert une procédure différente (manifest dédié, chargement
+depuis `about:debugging`, ou signature AMO pour une installation permanente).
+
+## 6. Choisir un modèle
+
+Le fournisseur par défaut de Coati est **Ollama** (`http://127.0.0.1:11434`). Coati ne
+choisit pas de modèle tout seul : si aucun modèle n'est configuré, le programme local refuse
+les requêtes. Il faut donc en choisir un.
+
+### Avec Ollama (recommandé pour débuter)
+
+1. Télécharger et installer [Ollama](https://ollama.com) pour votre système.
+2. Dans un terminal, télécharger un modèle :
+
+   ```sh
+   ollama pull llama3.2
+   ```
+
+   `llama3.2` est petit (~2 Go) et polyvalent. N'importe quel modèle de dialogue fonctionne ;
+   un modèle plus grand donne de meilleures réponses mais prend plus de temps à charger.
+
+3. Dans les réglages de l'extension (icône Coati → **Ouvrir les réglages**) :
+   - Choisir le fournisseur **Ollama (local)** ;
+   - Dans **Nom du modèle**, choisir `llama3.2` dans la liste des modèles installés (ou saisir
+     son nom, puis **Enregistrer le modèle**).
+
+Ollama limite par défaut le texte lu par le modèle à 4 096 tokens et coupe le reste sans
+prévenir. Coati lui demande une fenêtre adaptée à la page (jusqu'à 16 384 tokens) : une page
+longue occupe donc plus de mémoire, et Ollama recharge le modèle quand la taille change.
+
+### Autres fournisseurs
+
+Les réglages proposent aussi :
+- **Claude (clé API)** — votre propre clé Anthropic ;
+- **Compatible OpenAI** — LM Studio, OpenAI, Mistral, OpenRouter, DeepSeek, ou toute autre
+  adresse compatible. La clé est stockée par le programme local, pas dans l'extension.
+  Pour Ollama, préférer le fournisseur **Ollama (local)** à son adresse compatible OpenAI
+  (`/v1`) : par cette adresse, Coati ne peut pas agrandir la fenêtre de texte, et les pages
+  longues sont coupées.
+
+### Ce que vous devez voir
+
+À la première ouverture du panneau (icône Coati dans la barre d'outils), un encart
+**« Premiers pas avec Coati »** s'affiche avec trois points à cocher :
+- **Programme local détecté** — vert si le broker tourne ;
+- **Modèle connecté** — vert une fois le modèle configuré et Ollama lancé ;
+- **Accès aux pages accordé** — vert une fois l'accès aux pages autorisé.
+
+Les deux premiers points au vert, cliquer sur **Lire cette page**, autoriser l'accès aux sites
+quand le navigateur le demande (le troisième point passe au vert), et attendre la réponse du
+modèle.
+Le statut du fournisseur s'affiche en bas du panneau (ex. : « Ollama (local) : prêt »).
+
+## 7. Désinstaller
 
 Depuis le dossier décompressé de l'archive « Source code » :
 
@@ -204,17 +317,23 @@ Le panneau de l'extension affiche un bandeau quand la connexion échoue.
 
 | Bandeau | Cause probable | Que faire |
 |---|---|---|
-| « Programme local introuvable » | Le navigateur ne trouve pas l'hôte natif : broker non installé, navigateur installé après le broker, exécutable bloqué par Gatekeeper ou SmartScreen, ou navigateur en Flatpak ou Snap. | Relancer l'installateur (avec `--all` au besoin) puis redémarrer le navigateur. Voir « Exécutables non signés ». Flatpak ou Snap : section ci-dessus. |
-| « Broker non vérifié » | Un programme répond sur le port 8787 sans prouver qu'il est le broker Coati. L'extension ne lui a rien envoyé. Ce peut être une ancienne version du broker restée lancée. | Chercher ce qui écoute sur le port : `ss -ltnp 'sport = :8787'` (Linux), `lsof -iTCP:8787 -sTCP:LISTEN` (macOS), `netstat -ano \| findstr 8787` (Windows). L'arrêter, puis redémarrer le broker. |
-| « Pas de jeton — voir réglages » | Le broker refuse l'extension : son identifiant a été retiré de `allowedExtensionIds` dans `config.json`, ou, en appairage manuel, le secret collé est faux ou `legacyPairing` est éteint. | Remettre l'identifiant affiché par le bandeau dans `allowedExtensionIds`, puis redémarrer le broker. En appairage manuel : vérifier `legacyPairing`, puis recoller le secret de `--show-pairing-secret`. |
-| « Déconnecté » | Le broker ne tourne pas. | Linux : `systemctl --user status coati-broker`. macOS : voir le journal `~/Library/Logs/Coati/coati-broker.log`. Windows : `Start-ScheduledTask -TaskName CoatiBroker` dans PowerShell. |
+| « Coati ne trouve pas son programme local sur cet ordinateur. » | Hôte natif non installé, navigateur installé après le broker, exécutable bloqué par Gatekeeper ou SmartScreen, ou navigateur en Flatpak ou Snap. | Relancer l'installateur (avec `--all` au besoin) puis redémarrer le navigateur. Voir « Exécutables non signés ». Flatpak ou Snap : section « Navigateur en Flatpak ou Snap ». |
+| « Le programme local a refusé la connexion. » | Le broker a refusé la poignée de main. Le panneau réessaie automatiquement ; un bouton **Réessayer** est aussi disponible. | Si le bandeau reste : redémarrer le broker, puis cliquer sur **Réessayer**. Si `config.json` a été modifié à la main, vérifier que `allowedExtensionIds` contient l'identifiant de l'extension. En appairage manuel : vérifier que `legacyPairing` est activé et recoller le secret de `--show-pairing-secret`. |
+| « Un autre programme répond à la place de celui de Coati, sans prouver qu'il est fiable. » | Un programme répond sur le port 8787 sans s'authentifier (ancienne version restée lancée, ou autre programme). L'extension n'a rien envoyé. | Trouver ce qui écoute sur ce port : `ss -ltnp 'sport = :8787'` (Linux), `lsof -iTCP:8787 -sTCP:LISTEN` (macOS), `netstat -ano \| findstr 8787` (Windows). L'arrêter, puis redémarrer le broker. |
+| « Le programme local de Coati ne répond pas. » | Le broker ne tourne pas. | Linux : `systemctl --user status coati-broker`. macOS : `~/Library/Logs/Coati/coati-broker.log`. Windows : `Start-ScheduledTask -TaskName CoatiBroker` dans PowerShell. |
 
 ## Développement : installer depuis les sources
 
-Pour travailler sur Coati, sous Linux, avec [Bun](https://bun.sh) installé.
+Pour travailler sur Coati, sous Linux, avec [Bun](https://bun.sh) **>= 1.4.2** installé.
 
 ```sh
 cd broker && bun install
+```
+
+Pour lancer le broker directement sans le service systemd :
+
+```sh
+cd broker && bun run start
 ```
 
 ### Le broker en service systemd

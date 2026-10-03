@@ -141,6 +141,35 @@ async function testConnection(
   return { ok: true };
 }
 
+/**
+ * Picks the smallest Ollama context-window bucket (num_ctx) that fits the
+ * given total character count of all messages about to be sent.
+ *
+ * Why buckets instead of exact sizes: Ollama reloads the model whenever
+ * num_ctx changes between requests, which adds several seconds of latency.
+ * Rounding up to the next power-of-two-ish bucket keeps reload count low
+ * in practice (most pages fall in the same bucket session-wide).
+ *
+ * Why these three values: Ollama's hard default is 4 096 tokens — anything
+ * above that causes silent truncation from the START of the prompt (i.e. the
+ * system prompt and page beginning are dropped, not the end), leading to
+ * hallucination. The extension's content extractor caps page text at
+ * 40 000 chars (~13 k tokens after overhead); 16 384 covers that cap with
+ * headroom and is the ceiling because larger KV caches increase VRAM use
+ * noticeably. The middle bucket (8 192) handles typical short-to-medium pages.
+ *
+ * estimatedTokens = ⌈totalChars / 3⌉ + 1024  (1 024 = answer headroom)
+ */
+const CTX_BUCKETS = [4096, 8192, 16384] as const;
+
+export function ollamaContextSize(totalChars: number): number {
+  const estimatedTokens = Math.ceil(totalChars / 3) + 1024;
+  for (const bucket of CTX_BUCKETS) {
+    if (bucket >= estimatedTokens) return bucket;
+  }
+  return 16384;
+}
+
 /** Parses one line of an Ollama /api/chat NDJSON stream into zero or more
  * AnswerEvents. Exported standalone (alongside parseNdjsonStream below) so
  * tests can feed it fixed line fixtures without going through a fake fetch. */
@@ -244,6 +273,8 @@ export async function* streamAnswer(
   try {
     let response: Response;
     try {
+      const systemPrompt = buildSystemPrompt(built.nonce, built.lang);
+      const num_ctx = ollamaContextSize(systemPrompt.length + built.prompt.length);
       response = await fetchImpl(`${baseUrl}/api/chat`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -251,9 +282,10 @@ export async function* streamAnswer(
           model,
           stream: true,
           messages: [
-            { role: "system", content: buildSystemPrompt(built.nonce, built.lang) },
+            { role: "system", content: systemPrompt },
             { role: "user", content: built.prompt },
           ],
+          options: { num_ctx },
         }),
         signal: abortController.signal,
       });

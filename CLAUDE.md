@@ -21,6 +21,8 @@ secret.
 
 Interne (code, commentaires, briefs de worker, noms de variables) en anglais. Ce qui est lu par
 un humain — README, DECISIONS, PROTOCOL, JOURNAL, textes d'interface — en français.
+Exception depuis le 03/10 (dépôt ouvert aux contributeurs) : messages de commit, titres et
+descriptions d'issues et de PR en anglais. L'historique antérieur reste tel quel.
 
 ## Règles de sécurité non négociables
 

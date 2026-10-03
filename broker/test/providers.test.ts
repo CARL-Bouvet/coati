@@ -10,6 +10,7 @@ import {
   parseNdjsonLine,
   parseNdjsonStream,
   streamAnswer as ollamaStreamAnswer,
+  ollamaContextSize,
   __setFetchImplForTests,
   __resetFetchImplForTests,
 } from "../src/providers/ollama.ts";
@@ -37,6 +38,54 @@ describe("provider registry", () => {
   test("getProvider returns undefined for an unknown id", () => {
     expect(getProvider("nonsense")).toBeUndefined();
     expect(getProvider(undefined)).toBeUndefined();
+  });
+});
+
+describe("ollamaContextSize — bucket selection", () => {
+  // estimatedTokens = ceil(totalChars / 3) + 1024
+  // 4096 bucket: estimatedTokens <= 4096  →  totalChars <= 9216
+  // 8192 bucket: estimatedTokens <= 8192  →  totalChars <= 21504
+  // 16384 bucket / cap:                      totalChars > 21504
+
+  test("empty prompt → 4096 (minimum bucket)", () => {
+    expect(ollamaContextSize(0)).toBe(4096);
+  });
+
+  test("short prompt (100 chars) → 4096", () => {
+    expect(ollamaContextSize(100)).toBe(4096);
+  });
+
+  test("last char fitting 4096 bucket (9216 chars) → 4096", () => {
+    // ceil(9216/3)+1024 = 3072+1024 = 4096
+    expect(ollamaContextSize(9216)).toBe(4096);
+  });
+
+  test("one char over 4096 boundary (9217 chars) → 8192", () => {
+    // ceil(9217/3)+1024 = 3073+1024 = 4097
+    expect(ollamaContextSize(9217)).toBe(8192);
+  });
+
+  test("~20k chars (typical medium page) → 8192", () => {
+    expect(ollamaContextSize(20000)).toBe(8192);
+  });
+
+  test("last char fitting 8192 bucket (21504 chars) → 8192", () => {
+    // ceil(21504/3)+1024 = 7168+1024 = 8192
+    expect(ollamaContextSize(21504)).toBe(8192);
+  });
+
+  test("one char over 8192 boundary (21505 chars) → 16384", () => {
+    // ceil(21505/3)+1024 = 7169+1024 = 8193
+    expect(ollamaContextSize(21505)).toBe(16384);
+  });
+
+  test("40000 chars (extension extract cap) → 16384", () => {
+    // ceil(40000/3)+1024 = 13334+1024 = 14358
+    expect(ollamaContextSize(40000)).toBe(16384);
+  });
+
+  test("huge input (200000 chars) is capped at 16384", () => {
+    expect(ollamaContextSize(200000)).toBe(16384);
   });
 });
 
@@ -125,6 +174,29 @@ function fakeTagsResponse(names: string[]): Response {
 }
 
 describe("ollama streamAnswer — end to end against a fake fetch", () => {
+  test("fetch body includes options.num_ctx sized to the prompt", async () => {
+    let capturedBody: unknown;
+    __setFetchImplForTests((async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/api/tags")) return fakeTagsResponse(["llama3.2:latest"]);
+      if (url.endsWith("/api/chat")) {
+        capturedBody = JSON.parse(init?.body as string);
+        const line = JSON.stringify({ message: { content: "" }, done: true, prompt_eval_count: 1, eval_count: 1 }) + "\n";
+        return new Response(bodyFromChunks([line]), { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    }) as unknown as typeof fetch);
+
+    const built = buildPrompt({ kind: "chat", text: "hello" });
+    for await (const _e of ollamaStreamAnswer(built, { model: "llama3.2" })) { /* drain */ }
+
+    expect(capturedBody).toBeDefined();
+    const body = capturedBody as Record<string, unknown>;
+    expect(body.options).toBeDefined();
+    const opts = body.options as Record<string, unknown>;
+    expect(typeof opts.num_ctx).toBe("number");
+    expect([4096, 8192, 16384]).toContain(opts.num_ctx);
+  });
+
   test("streams deltas and usage from a full fake /api/chat response", async () => {
     const chatLines =
       [

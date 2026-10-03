@@ -45,17 +45,22 @@ function loadTestMessages() {
     // and a bare `import.meta` token is a SyntaxError there even inside an
     // unreachable branch — parsing a classic script, browsers reject the
     // token on sight, before any code runs. `process.cwd()` gives the same
-    // answer without that token: `bun test`/CI always run from this repo's
-    // public/ root (see CLAUDE.md / the G6 mission brief), so
-    // "<cwd>/extension/_locales/fr/messages.json" resolves the same way
+    // answer without that token: `bun test` runs from this repo's root or
+    // from broker/ (CI), so "<cwd or its parent>/extension/_locales/fr/
+    // messages.json" resolves the same way
     // every test file already resolves EXT/ROOT paths (join(import.meta.dir,
     // "..", "..") in scripts/lab/*.test.ts) — cwd-based here instead only
     // because it's the one option with no `import.meta` token at all.
     // eslint-disable-next-line no-undef -- Bun/Node only, guarded above.
-    const { readFileSync } = require("node:fs");
+    const { readFileSync, existsSync } = require("node:fs");
     // eslint-disable-next-line no-undef -- Bun/Node only, guarded above.
     const { join } = require("node:path");
-    const path = join(process.cwd(), "extension", "_locales", "fr", "messages.json");
+    // `bun test` may run from the repo root (public/) or from a subdirectory
+    // (public/broker/ when the CI workflow sets working-directory: broker).
+    // Try cwd first, then its parent, so both invocation styles work.
+    const rel = join("extension", "_locales", "fr", "messages.json");
+    const path = [join(process.cwd(), rel), join(process.cwd(), "..", rel)].find(existsSync);
+    if (!path) return testMessages;
     testMessages = JSON.parse(readFileSync(path, "utf8"));
   } catch {
     testMessages = {};
