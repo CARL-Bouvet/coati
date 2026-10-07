@@ -8,8 +8,10 @@
 
 import {
   buildSystemPrompt,
-  MODEL_TIMEOUT_MS,
+  FIRST_TOKEN_TIMEOUT_REMOTE_MS,
+  INACTIVITY_TIMEOUT_MS,
   ModelTimeoutError,
+  ModelStalledError,
   ModelUnavailableError,
   AuthRequiredError,
   QuotaExceededError,
@@ -297,12 +299,26 @@ export async function* streamAnswer(
     }
   }
 
-  const timeoutMs = opts.timeoutMs ?? MODEL_TIMEOUT_MS;
+  // Amendement 2026-10-07 (bis): two-stage timeout. claude-api is always
+  // remote → FIRST_TOKEN_TIMEOUT_REMOTE_MS (120 s) for first token.
+  const firstTokenMs = opts.timeoutMs ?? FIRST_TOKEN_TIMEOUT_REMOTE_MS;
+  const inactivityMs = opts.inactivityTimeoutMs ?? INACTIVITY_TIMEOUT_MS;
   let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    abortController.abort();
-  }, timeoutMs);
+  let stalled = false;
+  let gotFirstChunk = false;
+
+  const firstTokenTimer = setTimeout(() => {
+    if (!gotFirstChunk) { timedOut = true; abortController.abort(); }
+  }, firstTokenMs);
+
+  let inactivityTimer: ReturnType<typeof setTimeout> | undefined;
+  const resetInactivity = () => {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(() => {
+      stalled = true;
+      abortController.abort();
+    }, inactivityMs);
+  };
 
   try {
     let response: Response;
@@ -324,7 +340,8 @@ export async function* streamAnswer(
         signal: abortController.signal,
       });
     } catch (err) {
-      if (timedOut) throw new ModelTimeoutError(timeoutMs);
+      if (stalled) throw new ModelStalledError(inactivityMs);
+      if (timedOut) throw new ModelTimeoutError(firstTokenMs);
       // I3 (lot7 security review): this used to interpolate the raw fetch
       // error's own message into ModelUnavailableError, which reaches the
       // panel verbatim (see server.ts's runStream: err.message becomes the
@@ -391,15 +408,24 @@ export async function* streamAnswer(
       throw new Error("Anthropic API response has no body");
     }
 
-    yield* parseSseStream(response.body);
+    for await (const event of parseSseStream(response.body)) {
+      if (event.kind === "delta") {
+        if (!gotFirstChunk) { gotFirstChunk = true; clearTimeout(firstTokenTimer); resetInactivity(); }
+        else { resetInactivity(); }
+      }
+      yield event;
+    }
   } catch (err) {
-    if (timedOut) throw new ModelTimeoutError(timeoutMs);
+    if (stalled) throw new ModelStalledError(inactivityMs);
+    if (timedOut) throw new ModelTimeoutError(firstTokenMs);
     throw err;
   } finally {
-    clearTimeout(timer);
+    clearTimeout(firstTokenTimer);
+    clearTimeout(inactivityTimer);
   }
 
-  if (timedOut) throw new ModelTimeoutError(timeoutMs);
+  if (stalled) throw new ModelStalledError(inactivityMs);
+  if (timedOut) throw new ModelTimeoutError(firstTokenMs);
 }
 
 export const claudeApiProvider: ModelProvider = {
@@ -409,4 +435,5 @@ export const claudeApiProvider: ModelProvider = {
   checkStatus,
   testConnection,
   streamAnswer,
+  defaultModel: CLAUDE_API_DEFAULT_MODEL,
 };

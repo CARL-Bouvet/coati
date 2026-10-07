@@ -112,6 +112,28 @@ import { mountLanguageSelector, currentLanguageName } from "../lib/language-sele
 // unrecognised openai-compat address — every call site falls back to
 // generic wording in that case, never a broken link.
 import { getProviderLinks } from "../lib/setup-data.js";
+// Model pill + menu next to « Connecté » (amendement 2026-10-07, models.list).
+import {
+  groupModels,
+  isCurrentLocal,
+  moduleLabelsFrom,
+  renderModelList,
+  renderStaleBrokerMenu,
+  isSlowLocalModel,
+  sameModel,
+  shortModelName,
+} from "../lib/model-list.js";
+// Waiting line, « partagé » model notice, tip after a slow or cut answer
+// (plan-ollama-rapide-07-10.md, points 3, 4 and 6).
+import {
+  buildProgress,
+  buildSlowTip,
+  isSlowFirstWord,
+  OLLAMA_SPEEDUP_PATH,
+  readProgressStage,
+  sharedModelNoticeText,
+  slowTipFor,
+} from "./model-advice.js";
 
 applyI18n(document);
 const langSelector = mountLanguageSelector(document.getElementById("langSelectorMount"));
@@ -134,12 +156,13 @@ const PENDING_ACTION_KEY = "coati:pendingAction";
 const MAX_PERSISTED_MESSAGES = 200;
 
 // Client-side deadline for an in-flight request (deliverable B1). Set just
-// PAST the broker's own 120s model timeout (broker/src/model.ts,
-// MODEL_TIMEOUT_MS) so, when the broker's specific "model-unavailable" error
-// can still reach us, it wins the race and this generic deadline never fires.
-// It only fires for the case the broker's own timeout can't cover: the
-// answer that never arrives at all (socket dropped mid-request).
-const REQUEST_DEADLINE_MS = 130_000;
+// PAST the local program's own delays (plan-ollama-rapide-07-10.md, point 7:
+// up to 300 s before the first word, then 60 s of silence between two
+// chunks) so its specific error wins the race and this generic deadline
+// only fires for the answer that never arrives at all (socket dropped
+// mid-request). Re-armed by every `progress` and `chunk` — no total limit.
+const FIRST_WORD_DEADLINE_MS = 310_000;
+const IDLE_DEADLINE_MS = 70_000;
 // How often the panel checks that the service worker instance which
 // accepted the current request is still the same one (deliverable B4).
 const WORKER_HEARTBEAT_MS = 5_000;
@@ -166,6 +189,11 @@ const PAGE_KIND_BUTTON_LABELS = {
 const els = {
   status: document.getElementById("status"),
   statusLabel: document.querySelector("#status .status-label"),
+  modelPicker: document.getElementById("modelPicker"),
+  modelPill: document.getElementById("modelPill"),
+  modelPillName: document.querySelector("#modelPill .model-pill-name"),
+  modelPillWhere: document.querySelector("#modelPill .model-pill-where"),
+  modelMenu: document.getElementById("modelMenu"),
   connectionBanner: document.getElementById("connectionBanner"),
   connectionBannerText: document.getElementById("connectionBannerText"),
   connectCoati: document.getElementById("connectCoati"),
@@ -334,6 +362,10 @@ async function init() {
   // broker again (a status check, never a page read) — at most every 10 s,
   // and only while the first-launch card still shows that check missing.
   window.addEventListener("focus", maybeRecheckProviderForFirstRun);
+  // Back from the tutorial with a freshly pulled model: same 10 s floor.
+  window.addEventListener("focus", maybeRefreshModels);
+  wireModelPicker();
+  wireStatusLabel();
   els.send.addEventListener("click", sendChat);
   els.cancel.addEventListener("click", cancelActive);
   els.openMyPrompts.addEventListener("click", openMyPromptsPage);
@@ -498,16 +530,37 @@ function handleBrokerMessage(message) {
     case "chunk": {
       const msg = conversation.find((m) => m.id === message.id);
       if (msg) {
+        if (!msg.text && message.delta) onFirstWord(msg);
         msg.text += message.delta ?? "";
         renderMessage(msg);
       }
+      if (activeRequestId === message.id) armRequestDeadline(message.id, IDLE_DEADLINE_MS);
+      break;
+    }
+    // plan-ollama-rapide-07-10.md: Ollama only, before the first chunk —
+    // « Chargement du modèle… » then « Le modèle lit la page… ». Without
+    // any (online provider, older local program) the usual cursor stays.
+    case "progress": {
+      const stage = readProgressStage(message.stage);
+      const msg = conversation.find((m) => m.id === message.id);
+      if (stage && msg?.streaming && !msg.text) {
+        msg.progress = stage;
+        renderMessage(msg);
+      }
+      if (activeRequestId === message.id) armRequestDeadline(message.id, FIRST_WORD_DEADLINE_MS);
+      break;
+    }
+    case "model.warmup-result": {
+      if (message.id === warmupRequestId) warmupRequestId = null; // nothing to show, whatever the state
       break;
     }
     case "done": {
       pendingRetries.delete(message.id);
+      requestStarts.delete(message.id);
       const msg = conversation.find((m) => m.id === message.id);
       if (msg) {
         msg.streaming = false;
+        msg.progress = undefined;
         renderMessage(msg);
         // A complete answer proves the model works, whatever provider.status said.
         if (msg.role === "assistant" && msg.text && !modelAnswered) {
@@ -532,6 +585,31 @@ function handleBrokerMessage(message) {
         providerStatusRequestId = null;
         break;
       }
+      // Older local program without model.warmup, or a failed warm-up: the
+      // next question loads the model as before — never shown.
+      if (message.id === warmupRequestId) {
+        warmupRequestId = null;
+        break;
+      }
+      // Same for an older local program that doesn't know models.list
+      // (amendement 2026-10-07 bis): the pill STAYS, in a calm "update the
+      // local program" state (renderModelPicker() below), instead of
+      // hiding — settings.get (requested alongside, see applyStatus())
+      // can still name the current model even without models.list. A
+      // refused switch from the menu (modelsReply already populated):
+      // re-read the truth instead of a stale pill, no "update" state then.
+      if (message.id === modelsRequestId) {
+        modelsRequestId = null;
+        if (!modelsReply) {
+          modelsUnsupported = true;
+          renderModelPicker();
+        }
+        break;
+      }
+      if (message.id === modelSwitchRequestId) {
+        modelSwitchRequestId = null;
+        requestModels();
+      }
       const text = describeBrokerError(message);
       const authRequired = message.code === "auth-required";
       // Remedy depends on the provider (session to reopen vs key to fix) —
@@ -554,6 +632,13 @@ function handleBrokerMessage(message) {
       // fix is a settings change, no point offering a bare retry).
       const providerOverloaded = message.code === "provider-overloaded";
       const modelMissing = message.code === "model-missing";
+      // plan-ollama-rapide-07-10.md, point 7: the model went silent for a
+      // minute mid-answer, or never started in time. A retry is worth it,
+      // and an Ollama model gets the tip under the answer (point 6).
+      const modelStalled = message.code === "model-stalled" || message.code === "model-timeout";
+      const start = requestStarts.get(message.id);
+      requestStarts.delete(message.id);
+      const slowTip = modelStalled ? (slowTipFor(start?.entry ?? currentModelEntry(), currentGroupedModels()) ?? undefined) : undefined;
       const retryAfterSec =
         rateLimited && Number.isFinite(message.retryAfterSec) && message.retryAfterSec > 0
           ? message.retryAfterSec
@@ -564,7 +649,8 @@ function handleBrokerMessage(message) {
       // model switched) and model-unavailable (uncertain — just try again).
       // model-missing needs a model change first, not a bare retry of the
       // same call, so its payload isn't kept — same as any other/unknown code.
-      const keepsRetryPayload = authRequired || rateLimited || quotaExceeded || providerOverloaded || modelUnavailable;
+      const keepsRetryPayload =
+        authRequired || rateLimited || quotaExceeded || providerOverloaded || modelUnavailable || modelStalled;
       if (!keepsRetryPayload) pendingRetries.delete(message.id);
       // Clear activeRequestId BEFORE rendering: buildAuthRecoveryBlock()
       // reads it to decide whether the retry button starts enabled, and
@@ -573,7 +659,12 @@ function handleBrokerMessage(message) {
       const msg = conversation.find((m) => m.id === message.id);
       if (msg) {
         msg.streaming = false;
+        msg.progress = undefined;
+        // A cut answer keeps its words; the reason goes on its own line below.
+        if (modelStalled && msg.text) msg.cutNotice = text;
         msg.text = msg.text || text;
+        msg.modelStalled = modelStalled;
+        if (slowTip) msg.slowTip = slowTip;
         msg.authRequired = authRequired;
         msg.authKind = authKind;
         msg.quotaExceeded = quotaExceeded;
@@ -596,6 +687,8 @@ function handleBrokerMessage(message) {
           modelUnavailable,
           providerOverloaded,
           modelMissing,
+          modelStalled,
+          slowTip,
         });
       }
       persistConversation();
@@ -629,12 +722,53 @@ function handleBrokerMessage(message) {
     // message (docs/PROTOCOL.md: "jamais un secret").
     case "settings": {
       currentProviderBaseUrl = typeof message.baseUrl === "string" ? message.baseUrl : undefined;
+      if (Array.isArray(message.available)) modelProviderLabels = moduleLabelsFrom(message);
+      // Amendement 2026-10-07 bis: kept even when models.list itself isn't
+      // supported (older local program) — the only way that case can still
+      // name the current model in the pill (bug report, part 1).
+      if (typeof message.provider === "string") {
+        lastSettingsModel = {
+          provider: message.provider,
+          model: typeof message.model === "string" && message.model ? message.model : null,
+        };
+      }
+      if (modelsReply || modelsUnsupported) renderModelPicker();
+      if (message.id && message.id === modelSwitchRequestId) {
+        modelSwitchRequestId = null;
+        afterModelChange();
+      } else {
+        onSettingsOverheard(message);
+      }
+      break;
+    }
+    case "models": {
+      if (message.id !== modelsRequestId) break; // another page's request
+      modelsRequestId = null;
+      modelsUnsupported = false;
+      // Amendement 2026-10-07 bis: a fresh `current` naming another
+      // provider/model than what this panel still had (changed from
+      // elsewhere between two refreshes) means the status suffix next to
+      // « Connecté » may be stale too — re-check it.
+      const prevCurrent = modelsReply?.current;
+      modelsReply = message;
+      renderModelPicker();
+      // After a switch too: the `models` reply that follows names the new one.
+      maybeWarmup();
+      const nowCurrent = message.current ?? {};
+      const sameCurrent =
+        prevCurrent &&
+        prevCurrent.provider === nowCurrent.provider &&
+        (prevCurrent.model === nowCurrent.model || sameModel(prevCurrent.model, nowCurrent.model));
+      if (prevCurrent && !sameCurrent && !providerStatusRequestId) sendProviderStatus();
       break;
     }
     case "provider.status-result": {
       if (message.id !== providerStatusRequestId) break; // stale/unrelated — ignore
       providerStatusRequestId = null;
       providerStatusSuffix = formatProviderStatus(message);
+      // Amendement 2026-10-07 bis: a model-missing problem gets an action —
+      // clicking the status text opens the model menu (see renderStatusLabel()).
+      providerStatusActionable = message.reason === "model-missing";
       providerState = ["ok", "ko", "unknown"].includes(message.state) ? message.state : "unknown";
       currentProvider = typeof message.provider === "string" ? message.provider : null;
       // openai-compat's address (docs/PROTOCOL.md "provider.status", amendement
@@ -922,6 +1056,10 @@ function describeBrokerError(message) {
       return `⚠ ${message.message || t("common_error_provider_overloaded")}`;
     case "model-missing":
       return `⚠ ${message.message || t("common_error_model_missing")}`;
+    case "model-stalled":
+    case "model-timeout":
+      // Plain words, no English « Détail » line: the reason is fully known.
+      return `⚠ ${describeError(message.code)}`;
     default:
       // Covers "bad-request" and any other/unknown code: a French label
       // keyed on `code` (extension/lib/labels.js, shared with options.js),
@@ -939,6 +1077,10 @@ let currentConnState = "unknown";
 // there is nothing to add (state "ok", or no check done yet this panel
 // session) — see maybeRequestProviderStatus()/renderStatusLabel() below.
 let providerStatusSuffix = "";
+// Amendement 2026-10-07 bis: true when the last provider.status-result's
+// `reason` is "model-missing" — the one case the status text also doubles
+// as a button opening the model menu (see renderStatusLabel()).
+let providerStatusActionable = false;
 
 /** Same "are you there?" message the panel already sends once at startup
  * (connectIfNeeded() on the service-worker side) — reused as the "Retry"
@@ -961,7 +1103,22 @@ function applyStatus(state) {
   els.status.className = `status status--${state}`;
   renderStatusLabel();
   applyConnectionBanner(state);
-  if (state === "connected") maybeRequestProviderStatus();
+  if (state === "connected") {
+    maybeRequestProviderStatus();
+    if (!modelsReply && !modelsRequestId) {
+      requestModels();
+      // Read-only: the human names of modules (e.g. claude-cli) for the
+      // menu's online entries live only in `settings.available`.
+      api.runtime.sendMessage({ type: "coati:client-message", payload: { type: "settings.get", id: newId() } });
+    }
+  } else {
+    closeModelMenu(false);
+    els.modelPicker.hidden = true;
+    modelsReply = null;
+    // A restarted local program (or Ollama) starts cold: warm up again.
+    warmedModel = null;
+    warmupRequestId = null;
+  }
   renderFirstRun();
 }
 
@@ -974,6 +1131,20 @@ function renderStatusLabel() {
   let text = labels[currentConnState] ?? currentConnState;
   if (currentConnState === "connected" && providerStatusSuffix) text += ` · ${providerStatusSuffix}`;
   els.statusLabel.textContent = text;
+  // Amendement 2026-10-07 bis: a model-missing problem (the only
+  // providerStatusSuffix case with an actual fix) also makes the status
+  // text clickable, opening the same model menu as the pill.
+  const actionable = currentConnState === "connected" && providerStatusActionable && !!providerStatusSuffix;
+  els.statusLabel.classList.toggle("status-label--action", actionable);
+  if (actionable) {
+    els.statusLabel.setAttribute("role", "button");
+    els.statusLabel.tabIndex = 0;
+    els.statusLabel.setAttribute("aria-label", `${text} — ${t("panel_status_action_hint")}`);
+  } else {
+    els.statusLabel.removeAttribute("role");
+    els.statusLabel.tabIndex = -1;
+    els.statusLabel.removeAttribute("aria-label");
+  }
 }
 
 // Five connection-level states share this one banner (deliverable G4,
@@ -1094,10 +1265,313 @@ const PROVIDER_STATUS_REASON_TEXT = {
 };
 
 function formatProviderStatus(message) {
+  // Amendement 2026-10-07 bis: when the provider is ready, the pill next to
+  // « Connecté » already names the model — nothing left to add here. A
+  // suffix is shown only for a real problem (anything but "ok").
+  if (message.state === "ok") return "";
   const label = providerLabel(message.provider, t("panel_provider_default_label"));
-  const reasonText =
-    PROVIDER_STATUS_REASON_TEXT[message.reason] ?? (message.state === "ok" ? t("panel_provider_ready") : t("panel_provider_unknown_state"));
+  const reasonText = PROVIDER_STATUS_REASON_TEXT[message.reason] ?? t("panel_provider_unknown_state");
   return t("panel_provider_status_line", [label, reasonText]);
+}
+
+// --- Modèle actif : pastille + menu (amendement 2026-10-07, models.list) ----
+//
+// The pill next to « Connecté » names the model that will answer, before any
+// question. Asked when the panel reaches "connected" (opening the panel),
+// again whenever a `settings` message reports another provider/model (a
+// switch made here, in the settings page or in the tutorial), and when the
+// panel regains focus — at most every MODELS_REFRESH_MIN_MS. Never on a
+// timer. One click in the menu = settings.set {provider, model}, applied to
+// all of Coati (the local program's config), no reload.
+
+let modelsRequestId = null;
+let modelsReply = null;
+let modelsRequestedAt = 0;
+let modelSwitchRequestId = null;
+let modelMenuItems = [];
+// Amendement 2026-10-07 bis: true once an older local program has answered
+// `error` to models.list — the pill then shows a calm "update the local
+// program" state (renderStaleBrokerPill()) instead of hiding.
+let modelsUnsupported = false;
+// Best-known {provider, model} from the last `settings` message, kept even
+// when models.list isn't supported — the only way renderStaleBrokerPill()
+// can still name the current model in that case.
+let lastSettingsModel = null;
+// Module labels from the last `settings` (moduleLabelsFrom), for the menu.
+let modelProviderLabels = {};
+const MODELS_REFRESH_MIN_MS = 10_000;
+
+// --- Ollama: warm-up and slow-model advice (plan-ollama-rapide-07-10.md) ---
+//
+// Warm-up (point 1): once the panel knows the current model is Ollama, ask
+// the local program to load it (model.warmup) — once per model per
+// connection, again after a switch to another Ollama model. Nothing on
+// screen, nothing waits on it; an older local program answers `error`,
+// swallowed in handleBrokerMessage().
+let warmupRequestId = null;
+let warmedModel = null;
+// id -> {at, entry}: when each request left and which model answers it.
+const requestStarts = new Map();
+// Models whose « ne tient pas entièrement… » line was already shown during
+// this panel session (point 3: never twice for the same model).
+const sharedNoticeShown = new Set();
+
+/** The `models` entry of the current model, or a bare {provider, model}
+ * when the list doesn't hold it (older local program, no reply yet). */
+function currentModelEntry() {
+  if (!modelsReply) return currentProvider ? { provider: currentProvider } : null;
+  const grouped = groupModels(modelsReply);
+  return grouped.currentEntry ?? (grouped.current.provider ? grouped.current : null);
+}
+
+function currentGroupedModels() {
+  return groupModels(modelsReply);
+}
+
+function maybeWarmup() {
+  if (currentConnState !== "connected" || !modelsReply) return;
+  const { current } = groupModels(modelsReply);
+  if (current.provider !== "ollama" || !current.model) return;
+  if (warmedModel && sameModel(warmedModel, current.model)) return;
+  warmedModel = current.model;
+  warmupRequestId = newId();
+  api.runtime
+    .sendMessage({ type: "coati:client-message", payload: { type: "model.warmup", id: warmupRequestId } })
+    .catch(() => {});
+}
+
+/** First word of an answer: the waiting line goes, and a late one on a
+ * model that doesn't fit the card earns the tip (point 6). */
+function onFirstWord(msg) {
+  msg.progress = undefined;
+  const start = requestStarts.get(msg.id);
+  if (msg.role !== "assistant" || !start || msg.slowTip) return;
+  if (isSlowFirstWord(Date.now() - start.at, start.entry)) {
+    msg.slowTip = slowTipFor(start.entry, currentGroupedModels()) ?? undefined;
+  }
+}
+
+/** Point 3: picking a model that doesn't fit the card switches anyway,
+ * with one calm line in the conversation — once per model per session. */
+function maybeShowSharedNotice(entry) {
+  if (!isSlowLocalModel(entry)) return;
+  const key = `${entry.provider}\n${shortModelName(entry.model)}`;
+  if (sharedNoticeShown.has(key)) return;
+  sharedNoticeShown.add(key);
+  addMessage({ id: newId(), role: "notice", text: sharedModelNoticeText(entry, currentGroupedModels(), t) });
+  persistConversation();
+}
+
+/** « Passer à … » under a slow answer: same path as a pick in the menu. */
+function switchFromTip(model) {
+  if (!modelsReply) return;
+  const known = modelsReply.current ?? {};
+  if (known.provider === "ollama" && sameModel(known.model, model)) return;
+  pickModel({ provider: "ollama", model, current: false });
+}
+
+function openOllamaSpeedup() {
+  api.tabs.create({ url: api.runtime.getURL(OLLAMA_SPEEDUP_PATH) });
+}
+
+function requestModels() {
+  if (currentConnState !== "connected") return;
+  const id = newId();
+  modelsRequestId = id;
+  modelsRequestedAt = Date.now();
+  api.runtime.sendMessage({ type: "coati:client-message", payload: { type: "models.list", id } });
+}
+
+function maybeRefreshModels() {
+  if (currentConnState !== "connected" || modelsRequestId) return;
+  if (Date.now() - modelsRequestedAt < MODELS_REFRESH_MIN_MS) return;
+  requestModels();
+}
+
+/** The status suffix (« Ollama : prêt ») named the previous provider, and
+ * the list's checkmark the previous model: ask both again. */
+function afterModelChange() {
+  requestModels();
+  if (!providerStatusRequestId) sendProviderStatus();
+}
+
+/** A `settings` broadcast this panel didn't ask for (settings page,
+ * tutorial): follow it only when it names another provider/model. */
+function onSettingsOverheard(message) {
+  if (!modelsReply || typeof message.provider !== "string") return;
+  const model = typeof message.model === "string" && message.model ? message.model : null;
+  const known = modelsReply.current ?? {};
+  if (known.provider === message.provider && (known.model === model || sameModel(known.model, model))) return;
+  modelsReply = { ...modelsReply, current: { provider: message.provider, model } };
+  renderModelPicker();
+  afterModelChange();
+}
+
+/** Older local program, no models.list (amendement 2026-10-07 bis): the pill
+ * stays visible, naming the current model when `lastSettingsModel` (from a
+ * `settings` reply) gives one, with a calm "update the local program" label
+ * otherwise. The menu explains why and offers « Ouvrir les réglages ». */
+function renderStaleBrokerPill() {
+  const model = lastSettingsModel?.model ?? null;
+  const staleLabel = t("model_pill_stale_broker");
+  // Bug report (320 px): the "where" suffix (normally one short word, "local"
+  // / "en ligne") never shrinks (`flex: none`, no overflow handling) — it
+  // isn't built to carry this longer label. Everything goes in the name
+  // instead, which the CSS lets wrap onto a second line for this state
+  // (`.model-pill[data-where="stale"] .model-pill-name`) so the pill GROWS
+  // rather than clipping or overflowing past its own border.
+  els.modelPillName.textContent = model ? `${shortModelName(model)} · ${staleLabel}` : staleLabel;
+  els.modelPillWhere.textContent = "";
+  els.modelPillWhere.hidden = true;
+  els.modelPill.dataset.where = "stale";
+  els.modelPill.title = model ?? "";
+  els.modelPill.setAttribute("aria-label", t("model_pill_stale_broker_label"));
+
+  modelMenuItems = renderStaleBrokerMenu(els.modelMenu, {
+    t,
+    onOpenSettings: () => {
+      closeModelMenu(false);
+      api.runtime.openOptionsPage();
+    },
+  });
+  els.modelPicker.hidden = false;
+}
+
+function renderModelPicker() {
+  if (currentConnState !== "connected" || (!modelsReply && !modelsUnsupported)) {
+    els.modelPicker.hidden = true;
+    return;
+  }
+  if (modelsUnsupported) {
+    renderStaleBrokerPill();
+    return;
+  }
+  const grouped = groupModels(modelsReply);
+  const model = grouped.current.model;
+  const where = model ? t(isCurrentLocal(grouped) ? "model_pill_local" : "model_pill_online") : "";
+  els.modelPillName.textContent = model ? shortModelName(model) : t("model_pill_none");
+  els.modelPillWhere.textContent = where;
+  els.modelPillWhere.hidden = !where;
+  els.modelPill.dataset.where = model ? (isCurrentLocal(grouped) ? "local" : "online") : "none";
+  els.modelPill.title = model ?? "";
+  if (model) els.modelPill.setAttribute("aria-label", t("model_pill_label", [model, where]));
+  else els.modelPill.removeAttribute("aria-label");
+
+  // Re-rendered while open (a fresh reply): keep focus on the same item.
+  const focused = els.modelMenu.contains(document.activeElement) ? document.activeElement : null;
+  const focusedKey = focused ? `${focused.dataset.provider}\n${focused.dataset.model}\n${focused.className}` : null;
+  modelMenuItems = renderModelList(els.modelMenu, modelsReply, {
+    t,
+    providerLabel,
+    moduleLabels: modelProviderLabels,
+    baseUrl: currentProviderBaseUrl,
+    mode: "menu",
+    idPrefix: "modelMenu",
+    onPick: pickModel,
+    onAdd: () => {
+      closeModelMenu(false);
+      openModelTutorial();
+    },
+  });
+  if (focusedKey) {
+    const same = modelMenuItems.find(
+      (item) => `${item.dataset.provider}\n${item.dataset.model}\n${item.className}` === focusedKey,
+    );
+    (same ?? modelMenuItems[0])?.focus();
+  }
+  els.modelPicker.hidden = false;
+}
+
+function pickModel(entry) {
+  closeModelMenu(true);
+  if (entry.current) return;
+  const id = newId();
+  modelSwitchRequestId = id;
+  // Immediate: the pill and the checkmark follow the click; the local
+  // program's `settings` reply then triggers afterModelChange().
+  modelsReply = { ...modelsReply, current: { provider: entry.provider, model: entry.model } };
+  renderModelPicker();
+  api.runtime.sendMessage({
+    type: "coati:client-message",
+    payload: { type: "settings.set", id, provider: entry.provider, model: entry.model },
+  });
+  maybeShowSharedNotice(entry);
+}
+
+function openModelMenu(which = "current") {
+  if (modelMenuItems.length === 0) return;
+  els.modelMenu.hidden = false;
+  els.modelPill.setAttribute("aria-expanded", "true");
+  const target =
+    which === "last"
+      ? modelMenuItems[modelMenuItems.length - 1]
+      : (els.modelMenu.querySelector('[aria-checked="true"]') ?? modelMenuItems[0]);
+  target?.focus();
+  document.addEventListener("click", onModelMenuOutsideClick, true);
+}
+
+function closeModelMenu(refocus) {
+  if (els.modelMenu.hidden) return;
+  els.modelMenu.hidden = true;
+  els.modelPill.setAttribute("aria-expanded", "false");
+  document.removeEventListener("click", onModelMenuOutsideClick, true);
+  if (refocus) els.modelPill.focus();
+}
+
+function onModelMenuOutsideClick(event) {
+  if (!els.modelPicker.contains(event.target)) closeModelMenu(false);
+}
+
+/** The status text next to the dot is a button only while
+ * `.status-label--action` is set (renderStatusLabel()) — a model-missing
+ * problem, the one providerStatusSuffix case with an actual fix. */
+function wireStatusLabel() {
+  const isActionable = () => els.statusLabel.classList.contains("status-label--action");
+  els.statusLabel.addEventListener("click", () => {
+    if (isActionable()) openModelMenu();
+  });
+  els.statusLabel.addEventListener("keydown", (event) => {
+    if (!isActionable()) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openModelMenu();
+    }
+  });
+}
+
+function wireModelPicker() {
+  els.modelPill.addEventListener("click", () => {
+    if (els.modelMenu.hidden) openModelMenu();
+    else closeModelMenu(false);
+  });
+  els.modelPill.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      openModelMenu(event.key === "ArrowUp" ? "last" : "current");
+    }
+  });
+  els.modelMenu.addEventListener("keydown", (event) => {
+    const items = modelMenuItems;
+    const index = items.indexOf(document.activeElement);
+    let next = null;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeModelMenu(true);
+      return;
+    }
+    if (event.key === "Tab") {
+      closeModelMenu(false);
+      return;
+    }
+    if (event.key === "ArrowDown") next = items[(index + 1) % items.length];
+    else if (event.key === "ArrowUp") next = items[(index - 1 + items.length) % items.length];
+    else if (event.key === "Home") next = items[0];
+    else if (event.key === "End") next = items[items.length - 1];
+    if (next) {
+      event.preventDefault();
+      next.focus();
+    }
+  });
 }
 
 // --- Chat ---------------------------------------------------------------
@@ -1150,7 +1624,7 @@ async function sendChatMessage(text, context) {
   // copy of `context`, which can hold page content (kept out of
   // chrome.storage.local, same reasoning as context.url elsewhere).
   addMessage({ id: `${id}-u`, role: "user", text: `${text}${note}`, relaunch: { type: "chat", text } });
-  addMessage({ id, role: "assistant", text: "", streaming: true });
+  addMessage({ id, role: "assistant", text: "", streaming: true, readsPage: !!context });
 
   activeRequestId = id;
   setStreamingUi(true);
@@ -1371,7 +1845,7 @@ async function copyLoginCommand(button) {
  * by the time this can be clicked that id already reached a terminal state,
  * so the broker/service-worker no longer track anything under it. Sending it
  * again goes through the exact same path (sendToBroker's one-slot pending
- * queue, panel.js's 130s request-watch deadline) as any first-time request —
+ * queue, panel.js's request-watch deadline) as any first-time request —
  * no separate replay machinery (task brief, D1). */
 async function retryRequest(msg) {
   if (activeRequestId) return;
@@ -1382,6 +1856,9 @@ async function retryRequest(msg) {
   msg.authKind = undefined;
   msg.rateLimited = false;
   msg.retryAfterSec = undefined;
+  msg.slowTip = undefined;
+  msg.cutNotice = undefined;
+  msg.progress = undefined;
   msg.text = "";
   msg.streaming = true;
   renderMessage(msg);
@@ -1422,6 +1899,9 @@ function setStreamingUi(streaming) {
  * the ack (or null if the send itself failed) — the shared tail of every
  * place that kicks off a chat/summarize/act request or replays one. */
 async function sendClientMessage(payload) {
+  // When it left and which model answers it: the slow-answer tip
+  // (model-advice.js) needs both once the first word or an error arrives.
+  requestStarts.set(payload.id, { at: Date.now(), entry: currentModelEntry() });
   const ack = await api.runtime.sendMessage({ type: "coati:client-message", payload }).catch(() => null);
   startRequestWatch(payload.id, ack?.workerInstanceId ?? null);
 }
@@ -1429,8 +1909,15 @@ async function sendClientMessage(payload) {
 function startRequestWatch(id, workerInstanceId) {
   clearRequestWatch();
   requestWorkerInstanceId = workerInstanceId;
-  requestDeadlineTimer = setTimeout(() => onRequestDeadline(id), REQUEST_DEADLINE_MS);
+  armRequestDeadline(id, FIRST_WORD_DEADLINE_MS);
   requestHeartbeatTimer = setInterval(() => checkWorkerAlive(id), WORKER_HEARTBEAT_MS);
+}
+
+/** (Re)starts the generic deadline — a `progress` or `chunk` proves the
+ * local program is still there. */
+function armRequestDeadline(id, ms) {
+  clearTimeout(requestDeadlineTimer);
+  requestDeadlineTimer = setTimeout(() => onRequestDeadline(id), ms);
 }
 
 function clearRequestWatch() {
@@ -1456,7 +1943,7 @@ async function checkWorkerAlive(id) {
 
 function onRequestDeadline(id) {
   if (activeRequestId !== id) return;
-  failActiveRequest(id, t("panel_no_response_130s"));
+  failActiveRequest(id, t("panel_no_response"));
 }
 
 function failActiveRequest(id, text) {
@@ -2189,7 +2676,7 @@ async function summarize() {
   // It's what lets a rendered timestamp be tied back to "the video this
   // summary was made from" without ever persisting that video's URL.
   const videoId = context.kind === "youtube" ? context.videoId : undefined;
-  addMessage({ id, role: "assistant", text: "", streaming: true, videoId });
+  addMessage({ id, role: "assistant", text: "", streaming: true, videoId, readsPage: true });
 
   activeRequestId = id;
   setStreamingUi(true);
@@ -2513,9 +3000,14 @@ function renderMessage(msg, { append = false } = {}) {
     node.id = `msg-${msg.id}`;
     els.messages.appendChild(node);
   }
-  node.className = `message message--${msg.role}${msg.streaming ? " message--streaming" : ""}`;
+  const waiting = msg.streaming && !msg.text && !!msg.progress;
+  node.className = `message message--${msg.role}${msg.streaming ? " message--streaming" : ""}${waiting ? " message--progress" : ""}`;
 
-  if (msg.role === "user") {
+  if (msg.role === "notice") {
+    // A calm line from Coati itself (« partagé » model picked): plain text,
+    // the model name never goes through the markdown renderer.
+    node.replaceChildren(document.createTextNode(msg.text));
+  } else if (msg.role === "user") {
     // The bubble's own background/padding live on an inner node so
     // "Relancer" (card.css) can sit below it, not inside it (plan-mes-
     // prompts-28-09.md, "sous la bulle") — .message--user only aligns the
@@ -2529,6 +3021,11 @@ function renderMessage(msg, { append = false } = {}) {
     node.appendChild(buildRelaunchButton(msg));
   } else {
     node.replaceChildren(renderMarkdown(document, msg.text));
+    if (waiting) {
+      node.appendChild(
+        buildProgress(document, { stage: msg.progress, readsPage: msg.readsPage === true, t, iconSrc: "../icons/icon48.png" }),
+      );
+    }
     // Only a YouTube-context assistant message carries a videoId (set in
     // summarize()) — an ordinary article summary that happens to contain
     // "[1:23]" has none, so its timestamps stay plain text (deliverable 4).
@@ -2543,6 +3040,25 @@ function renderMessage(msg, { append = false } = {}) {
     // the message text alone (already telling the user to try again) is the
     // fallback, rather than a button permanently stuck disabled.
     if (msg.rateLimited && pendingRetries.has(msg.id)) node.appendChild(buildRateLimitRecoveryBlock(msg));
+    // Cut answer (model-stalled): the words stay, the reason follows, then
+    // « Réessayer » — same bare retry block as rate-limited.
+    if (msg.cutNotice) {
+      const notice = document.createElement("p");
+      notice.className = "message-cut-notice";
+      notice.textContent = msg.cutNotice;
+      node.appendChild(notice);
+    }
+    if (msg.modelStalled && pendingRetries.has(msg.id)) node.appendChild(buildRateLimitRecoveryBlock(msg));
+    if (msg.slowTip && !msg.streaming) {
+      node.appendChild(
+        buildSlowTip(document, msg.slowTip, {
+          t,
+          canSwitch: currentConnState === "connected" && !!modelsReply,
+          onSwitch: switchFromTip,
+          onSpeedup: openOllamaSpeedup,
+        }),
+      );
+    }
   }
   // Only follow the stream to the bottom if the user was already there
   // (or close enough) — a user scrolled up to read must not be yanked back

@@ -59,6 +59,49 @@
     return { provider: "ollama", state: state, reason: reason };
   };
 
+  // Amendement 2026-10-07 — `models` replies (models.list).
+  var OLLAMA_OK = { provider: "ollama", state: "ok" };
+  var MODELS_ONE_INSTALLED = {
+    current: { provider: "ollama", model: null },
+    entries: [{ provider: "ollama", model: "qwen3:4b", local: true, sizeBytes: 2600000000, thinks: true }],
+    sources: [OLLAMA_OK],
+  };
+  var MODELS_SUGGESTED_IN_USE = {
+    current: { provider: "ollama", model: "gemma3:4b" },
+    entries: [{ provider: "ollama", model: "gemma3:4b", local: true, sizeBytes: 3338801804 }],
+    sources: [OLLAMA_OK],
+  };
+  var MODELS_INSTALLED_CLAUDE_ACTIVE = {
+    current: { provider: "claude-api", model: "claude-sonnet-4-5" },
+    entries: [
+      { provider: "ollama", model: "qwen3:4b", local: true, sizeBytes: 2600000000, thinks: true },
+      { provider: "ollama", model: "llama3.2:latest", local: true, sizeBytes: 2019393189 },
+      { provider: "ollama", model: "gemma3:12b", local: true, sizeBytes: 8149190253 },
+      { provider: "claude-api", model: "claude-sonnet-4-5", local: false },
+    ],
+    sources: [OLLAMA_OK, { provider: "claude-api", state: "ok" }],
+  };
+  var MODELS_OLLAMA_UNREACHABLE = {
+    current: { provider: "ollama", model: null },
+    entries: [],
+    sources: [{ provider: "ollama", state: "unreachable" }],
+  };
+  function hostModels(host, entries) {
+    return { current: { provider: "ollama", model: null }, entries: entries, sources: [OLLAMA_OK], host: host };
+  }
+  // Claude answers, Ollama installed with three models: the case of the bug
+  // report (qwen3:4b missing from « Modèle » while another provider is active).
+  var CLAUDE_ACTIVE_SETTINGS = {
+    provider: "claude-api",
+    model: "claude-sonnet-4-5",
+    models: [],
+    available: [
+      { id: "claude-api", available: true, configured: true, label: "Clé API Anthropic" },
+      { id: "ollama", available: true, configured: true, label: "Ollama" },
+      { id: "openai-compat", available: false, configured: false, reason: "no base URL configured", label: "Compatible OpenAI" },
+    ],
+  };
+
   var GUIDE_STATES = {
     // First screen: one sentence on the local program, two cards.
     "setup-first": guide({}),
@@ -88,16 +131,61 @@
       autoAction: steps(click("#setupPathLocal", 60), click(".setup-check-ollama", 90)),
     }),
 
-    // Step 3 failed: the chosen model is not pulled yet.
+    // Step 3 failed: the chosen model (8 GB row, gemma3:4b) is not pulled
+    // yet. « Vérifier le modèle » reads models.list since 2026-10-07 and
+    // shows what IS installed below.
     "setup-local-model-missing": guide({
       providerStatus: OLLAMA_STATUS("ko", "model-missing"),
+      models: MODELS_ONE_INSTALLED,
       autoAction: steps(click("#setupPathLocal", 60), click(".setup-check-model", 90)),
     }),
 
-    // Steps 1-3 ticked: Ollama answers, model present.
+    // Steps 1-3 ticked: Ollama answers, model present and in use.
     "setup-local-ready": guide({
       providerStatus: OLLAMA_STATUS("ok", "ready"),
+      settings: Object.assign({}, FRESH_SETTINGS, { model: "gemma3:4b" }),
+      models: MODELS_SUGGESTED_IN_USE,
       autoAction: steps(click("#setupPathLocal", 60), click(".setup-check-model", 90)),
+    }),
+
+    // « Vérifier les modèles disponibles »: installed models listed, a
+    // « thinking » one labelled, none chosen yet (Claude still answers).
+    "setup-local-installed": guide({
+      settings: CLAUDE_ACTIVE_SETTINGS,
+      models: MODELS_INSTALLED_CLAUDE_ACTIVE,
+      autoAction: steps(click("#setupPathLocal", 60), click(".setup-check-models", 90)),
+    }),
+
+    // Lot 4 — suggestions filtered by the machine (`host`), read as soon as
+    // the local path opens. Romain's machine: qwen3.5:4b « conseillé »,
+    // qwen3:8b / qwen3.5:9b / gemma4:12b « partagé… »; qwen3:8b already
+    // installed (tag instead of the pull command when chosen).
+    "setup-local-host-gpu": guide({
+      models: hostModels({ ramGb: 16, vramGb: 6.4 }, [
+        { provider: "ollama", model: "qwen3:8b", local: true, sizeBytes: 5225387923, fit: "shared" },
+      ]),
+      autoAction: steps(click("#setupPathLocal", 60)),
+    }),
+
+    // Mac, 16 GB unified memory: every row fits, gemma4:12b « conseillé ».
+    "setup-local-host-mac": guide({
+      labPlatform: "macOS",
+      models: hostModels({ ramGb: 16, vramGb: null, unifiedMemory: true }, []),
+      autoAction: steps(click("#setupPathLocal", 60)),
+    }),
+
+    // Graphics memory unknown: CPU rule, three rows « partagé… », the
+    // smallest « conseillé », the two biggest hidden.
+    "setup-local-host-unknown-vram": guide({
+      labPlatform: "Linux",
+      models: hostModels({ ramGb: 16, vramGb: null }, []),
+      autoAction: steps(click("#setupPathLocal", 60)),
+    }),
+
+    // Same check, Ollama not answering: step 2 flagged, calm line in the list.
+    "setup-local-installed-unreachable": guide({
+      models: MODELS_OLLAMA_UNREACHABLE,
+      autoAction: steps(click("#setupPathLocal", 60), click(".setup-check-models", 90)),
     }),
 
     // « Avancé : LM Studio » open and checked OK.
@@ -108,6 +196,14 @@
         click(".setup-advanced > summary", 80),
         click(".setup-check-lmstudio", 100),
       ),
+    }),
+
+    // plan-ollama-rapide-07-10.md, point 5 — « Accélérer Ollama » open, as
+    // the panel's slow-answer tip opens it (options.html#setup-ollama-speedup):
+    // Linux first (systemd), then macOS and Windows.
+    "setup-ollama-speedup": guide({
+      labPlatform: "Linux",
+      labHash: "setup-ollama-speedup",
     }),
 
     // Online path chosen: the free-models warning comes before the choice.
@@ -246,6 +342,17 @@
       settings: NOMINAL_SETTINGS,
       storageLocal: { "coati:retentionDays": 30 },
       permissions: ["https://www.youtube.com/*", "https://exemple-actu.fr/*"],
+    },
+
+    // Amendement 2026-10-07: « Modèle » section fed by models.list — the
+    // Ollama models show while Claude answers; one click switches.
+    "options-models": {
+      status: "connected",
+      settings: CLAUDE_ACTIVE_SETTINGS,
+      models: MODELS_INSTALLED_CLAUDE_ACTIVE,
+      echoSettingsSet: true,
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
     },
 
     // U1 — language selector (lib/language-selector.js), "Langue" section,

@@ -84,8 +84,9 @@ describe("ollamaContextSize — bucket selection", () => {
     expect(ollamaContextSize(40000)).toBe(16384);
   });
 
-  test("huge input (200000 chars) is capped at 16384", () => {
-    expect(ollamaContextSize(200000)).toBe(16384);
+  test("huge input (200000 chars) is capped at 32768 (new 4-bucket range)", () => {
+    // estimatedTokens = ceil(200000/3)+1024 = 67691, exceeds all buckets → 32768
+    expect(ollamaContextSize(200000)).toBe(32768);
   });
 });
 

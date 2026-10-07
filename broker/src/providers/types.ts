@@ -97,6 +97,14 @@ export interface ModelProvider {
    * (currently just ollama, via /api/tags). Used to populate the settings
    * UI's model picker. */
   listModels?(opts: ProviderRuntimeOptions): Promise<string[]>;
+  /** The model this provider uses when none was ever set (amendement
+   * 2026-10-07 bis, docs/PROTOCOL.md). Lets `models.list` still name a
+   * sensible model for a configured provider that has neither a
+   * `listModels()` nor a remembered model yet — e.g. claude-api right after
+   * its key is entered, before any explicit `settings.set` with a model.
+   * Optional: a provider that cannot name one sensible default (most
+   * modules) simply omits it, and stays `not-configured` in that case. */
+  defaultModel?: string;
   /** Backs `provider.status` (see StatusCheck above). Every provider
    * implements this — unlike isAvailable(), it never makes a billed call. */
   checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck>;

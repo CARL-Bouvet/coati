@@ -281,6 +281,29 @@
             message: Object.assign({ type: "settings", id: payload.id }, settingsStore || {}),
           });
         }, 0);
+      } else if (payload.type === "models.list" && fixture.models) {
+        // Amendement 2026-10-07: only fixtures that declare `models` answer.
+        // `current` follows the settings store when the fixture echoes
+        // settings.set, so a pick in the menu moves the checkmark.
+        setTimeout(function () {
+          var reply = Object.assign({ type: "models", id: payload.id, host: null }, fixture.models);
+          if (fixture.echoSettingsSet && settingsStore && settingsStore.provider) {
+            reply.current = { provider: settingsStore.provider, model: settingsStore.model || null };
+          }
+          dispatchToListeners({ type: "coati:broker-message", message: reply });
+        }, 0);
+      } else if (payload.type === "models.list" && fixture.modelsUnsupported) {
+        // Amendement 2026-10-07 bis: simulates an older local program, which
+        // doesn't know this message type — the same generic error
+        // parseClientMessage() sends for any unrecognised `type`
+        // (broker/src/protocol.ts). The panel still shows the pill, in its
+        // calm "update the local program" state.
+        setTimeout(function () {
+          dispatchToListeners({
+            type: "coati:broker-message",
+            message: { type: "error", id: payload.id, code: "bad-request", message: "unknown type: models.list" },
+          });
+        }, 0);
       } else if (payload.type === "settings.set" && fixture.echoSettingsSet) {
         setTimeout(function () {
           dispatchToListeners({ type: "coati:broker-message", message: applySettingsSet(payload) });
@@ -324,6 +347,21 @@
             message: Object.assign({ type: "error", id: chatId }, errorReply),
           });
         }, 80);
+      }
+      // plan-ollama-rapide-07-10.md: `chatScript` = [{delayMs, message}] —
+      // broker messages sent, in order, for the request's own id (progress,
+      // chunk, error…). Without a terminal message the request stays in
+      // flight, frozen on the last step (the waiting-line states).
+      if (fixture.chatScript && (payload.type === "chat" || payload.type === "summarize" || payload.type === "act")) {
+        var scriptId = payload.id;
+        fixture.chatScript.forEach(function (step) {
+          setTimeout(function () {
+            dispatchToListeners({
+              type: "coati:broker-message",
+              message: Object.assign({}, step.message, { id: scriptId }),
+            });
+          }, step.delayMs);
+        });
       }
       return Promise.resolve({ workerInstanceId: "lab" });
     }

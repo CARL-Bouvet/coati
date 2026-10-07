@@ -2354,3 +2354,237 @@ menace », « Poignée de main » (remplacés) ; « Appairage silencieux », « 
 seulement) », « Jeton de session » (retirés, dans tous les modes — voir « Mode hérité ») ;
 « Admission HTTP et WebSocket », « Journalisation », « Règles invariantes » (complétés). Décisions :
 T48 et T49 de `docs/DECISIONS.md`.
+
+## Amendement 2026-10-07 : liste des modèles disponibles
+
+### Nouveau message client : `models.list`
+
+```json
+{ "type": "models.list", "id": "…" }
+```
+
+Demande au programme local la liste complète des modèles utilisables, toutes sources confondues. Aucun champ supplémentaire.
+
+### Réponse broker : `models`
+
+```json
+{
+  "type": "models",
+  "id": "…",
+  "current": { "provider": "claude-cli", "model": "claude-sonnet-4-5" },
+  "entries": [
+    { "provider": "ollama",  "model": "qwen3:4b",        "local": true,  "sizeBytes": 2600000000, "thinks": true },
+    { "provider": "ollama",  "model": "qwen3:8b",        "local": true,  "sizeBytes": 5200000000 },
+    { "provider": "ollama",  "model": "llama3.2:latest",  "local": true,  "sizeBytes": 2000000000 },
+    { "provider": "claude-cli", "model": "claude-sonnet-4-5", "local": false }
+  ],
+  "sources": [
+    { "provider": "ollama",     "state": "ok" },
+    { "provider": "claude-cli", "state": "ok" },
+    { "provider": "openai-compat", "state": "not-configured" }
+  ],
+  "host": { "ramGb": 16.0, "vramGb": 6.4 }
+}
+```
+
+Champs :
+
+- **`current`** : fournisseur et modèle actifs (identiques à la réponse `settings`).
+- **`entries`** : liste plate de tous les modèles proposables. Chaque entrée :
+  - `provider` : identifiant du fournisseur (chaîne libre, voir `ProviderId`) ;
+  - `model` : nom du modèle tel qu'il sera transmis à `settings.set` ;
+  - `local` : `true` si le modèle s'exécute sur la machine (Ollama, LM Studio en boucle locale) ;
+  - `sizeBytes` (optionnel) : taille du modèle en octets, quand disponible ;
+  - `thinks` (optionnel, `true`) : présent uniquement pour les modèles Ollama de type pensée-seule (voir § « Modèles réfléchissants »).
+- **`sources`** : une entrée par source consultée ; `state` vaut :
+  - `"ok"` — source répondante, au moins une entrée (ou une entrée mémorisée) fournie ;
+  - `"unreachable"` — source tentée mais n'ayant pas répondu dans le délai imparti ;
+  - `"not-configured"` — source connue mais sans configuration suffisante (pas de clé, pas d'URL, pas de modèle mémorisé).
+- **`host`** : capacités matérielles de la machine (voir § « Capacité machine et classification `fit` »).
+- **`fit`** (optionnel, dans chaque entrée locale) : classification de la capacité à exécuter le modèle — `"gpu"` (tient en VRAM), `"shared"` (déborde partiellement sur la RAM), `"too-big"` (trop volumineux). Absent si `sizeBytes` est inconnu ou si le modèle n'est pas local.
+- **`gpuPercent`** (optionnel, dans chaque entrée) : fraction du modèle actuellement chargée en VRAM, de 0 à 100 (`round(100 × size_vram / size)`), issu de l'appel Ollama `/api/ps`. Présent uniquement si le modèle est actuellement chargé en mémoire ; absent sinon.
+
+### Sources interrogées
+
+Chaque source est indépendante : l'échec de l'une n'empêche pas les autres de répondre. Toutes les nouvelles requêtes réseau utilisent `redirect: "error"`.
+
+| Source | Condition de consultation | `local` | `sizeBytes` |
+|---|---|---|---|
+| Ollama (`/api/tags`) | Toujours, quel que soit le fournisseur actif | `true` | depuis `/api/tags` |
+| openai-compat (`/models`) | Si `config.baseUrl` est en boucle locale (127.0.0.1 / localhost / ::1) | `true` | non disponible |
+| openai-compat (mémorisé) | Si `config.baseUrl` est distant ET une clé est enregistrée ET un modèle a été mémorisé | `false` | non disponible |
+| claude-api, modules | Si le fournisseur est configuré (`configured` au sens de `settings`) ET un modèle a été mémorisé | `false` | non disponible |
+
+**Filtrage Ollama :** seuls les modèles de conversation sont listés. Pour chaque modèle retourné par `/api/tags`, le programme local appelle `POST /api/show` (timeout 3 s, cache par `digest`) et écarte le modèle si le champ `capabilities` existe et ne contient pas `"completion"`. Si `capabilities` est absent, le modèle est conservé.
+
+### Mémoire des modèles par fournisseur (`lastModels`)
+
+`config.json` gagne un champ `lastModels: Record<ProviderId, string>` mis à jour à chaque `settings.set` qui spécifie un modèle. Lors d'un `settings.set { provider }` sans `model`, le programme local restaure `lastModels[provider]` comme modèle actif. Le champ `model` de `config.json` reste le modèle actif (rétrocompatibilité). À la première lecture d'un `config.json` antérieur, `lastModels` est amorcé avec la paire `{ provider: model }` existante.
+
+### Changer de modèle
+
+Changer de modèle = `settings.set { provider, model }` déjà documenté. Le message `models.list` / `models` est en lecture seule.
+
+### Modèles « réfléchissants » (thinking)
+
+Tous les modèles dont `/api/show` retourne `"thinking"` dans `capabilities` sont des modèles réfléchissants. Deux sous-cas selon le contenu du champ `template` retourné par `/api/show` :
+
+**Modèle hybride** (`template` contient `not $.Think`, ex. qwen3:8b) :
+- Le programme local envoie `"think": false` dans `POST /api/chat`.
+- Ollama supprime les tokens de raisonnement à la source.
+- Un filtre de flux supprime tout bloc `<think>…</think>` résiduel dans le contenu (filet de sécurité).
+- Le champ `message.thinking` éventuel est ignoré.
+
+**Modèle pensée-seule** (`template` ne contient pas `not $.Think`, ex. Qwen3-4B-Thinking-2507) :
+- Le programme local envoie `"think": true` dans `POST /api/chat`.
+- Ollama route le raisonnement dans `message.thinking` ; `message.content` est propre.
+- Le programme local ignore `message.thinking` ; le filtre `<think>…</think>` reste en filet de sécurité sur `message.content`.
+- Ces modèles apparaissent dans la réponse `models` avec `"thinks": true` (voir ci-dessous) pour que l'interface puisse les étiqueter « réfléchit avant de répondre, plus lent ».
+
+Le champ **`thinks`** (optionnel, booléen `true`) est présent dans une entrée `ModelEntry` si et seulement si le modèle est de type pensée-seule. Il est absent pour tous les autres modèles.
+
+Le même filtre s'applique au flux `openai-compat` ; le champ `delta.reasoning_content` éventuel est ignoré.
+
+### Capacité machine et classification `fit` (lot 4)
+
+#### Champ `host`
+
+```json
+{ "ramGb": 16.0, "vramGb": 6.4 }
+```
+
+| Champ | Type | Description |
+|---|---|---|
+| `ramGb` | nombre | RAM totale en Go, arrondie à 1 décimale (÷ 1 × 10⁹). |
+| `vramGb` | nombre \| `null` | VRAM dédiée en Go (sysfs AMD ou `nvidia-smi`), ou `null` si non détectable. Toujours `null` sur macOS. |
+| `unifiedMemory` | `true` (optionnel) | Présent uniquement sur macOS — le GPU partage la RAM hôte. |
+
+Ces deux valeurs arrondies sont lues **localement** (sysfs ou spawn d'un outil système) et transmises uniquement à l'extension, qui tourne sur la même machine. Aucune donnée matérielle ne quitte la machine.
+
+#### Champ `fit`
+
+Présent dans chaque entrée Ollama locale quand `sizeBytes` est connu. Règles (constante `OVERHEAD` = 1,5 Go pour KV cache + runtime) :
+
+| Contexte | `"gpu"` | `"shared"` | `"too-big"` |
+|---|---|---|---|
+| `unifiedMemory` | `besoin ≤ 0,75 × RAM` | — | sinon |
+| `vramGb` connu | `besoin ≤ VRAM` | `besoin ≤ VRAM + 0,5 × RAM` | sinon |
+| Pas de GPU | — | `besoin ≤ 0,5 × RAM` | sinon |
+
+Exemple sur la machine de référence (RX 5600 XT, 6,4 Go VRAM, 16 Go RAM) : qwen3:4b (2,5 Go) → `"gpu"` ; qwen3:8b (5,2 Go) → `"shared"` ; modèle 17 Go → `"too-big"`.
+
+#### Champ `gpuPercent`
+
+Le programme local interroge `GET /api/ps` (même timeout que `/api/tags`, `redirect:"error"`) pour obtenir la liste des modèles actuellement chargés en mémoire. Pour chaque modèle présent dans `/api/ps`, `gpuPercent = round(100 × size_vram / size)`. Un échec de `/api/ps` n'est pas une erreur — le champ est simplement absent.
+
+## Amendement 2026-10-07 bis : suivi d'un bug — modèle absent après redémarrage tardif
+
+Signalé par Romain : son programme local (service systemd lancé depuis les sources) n'avait pas
+été redémarré après l'amendement 2026-10-07 ci-dessus — version sans `models.list`. L'extension,
+déjà à jour, n'affichait aucune pastille, et la ligne de statut affirmait « modèle configuré
+absent d'Ollama » alors que le modèle choisi était bien installé. Deux défauts corrigés :
+
+**Un programme local plus ancien ne doit plus faire disparaître la pastille.** Une réponse
+d'erreur à `models.list` (type non reconnu, cas documenté au § « Sources interrogées » ci-dessus)
+affiche désormais la pastille dans un état calme « Programme local à mettre à jour », avec le nom
+du modèle courant quand `settings` le donne (l'extension l'écoute déjà sans requête dédiée). Son
+menu n'offre pas de changement de modèle — le programme local ne peut pas le dire — seulement la
+phrase d'explication et « Ouvrir les réglages ».
+
+**Entrée `ModelProvider.defaultModel` (optionnelle).** `buildModelsPayload()` ignorait un
+fournisseur `configured` (`isAvailable` vrai) tant qu'aucun modèle n'était mémorisé dans
+`lastModels` — le cas d'un fournisseur qui vient d'obtenir sa clé mais n'a encore jamais reçu de
+`settings.set` avec un `model` explicite. Il retombe maintenant sur `listModels()` du fournisseur
+quand il en a un (première entrée), sinon sur son `defaultModel` déclaré — un champ optionnel de
+l'interface `ModelProvider` (`broker/src/providers/types.ts`), renseigné pour `claude-api` depuis
+sa constante `CLAUDE_API_DEFAULT_MODEL` existante. Un fournisseur qui ne peut nommer aucun défaut
+sensé (la plupart des modules) omet simplement le champ et reste `"not-configured"` comme avant.
+
+**`lastModels` doit retenir l'ANCIEN fournisseur avant de basculer, pas seulement le nouveau.**
+`settings.set { provider }` mémorisait le modèle du fournisseur qui devient actif, jamais celui du
+fournisseur qu'on quitte s'il n'avait encore jamais reçu son propre `settings.set` avec un
+`model` — un modèle actif seulement depuis la configuration de démarrage perdait alors toute trace
+dans `lastModels` dès qu'on changeait de fournisseur, et revenir en arrière ne le restaurait plus.
+`applySettings()` capture maintenant le modèle courant de l'ancien fournisseur dans `lastModels`
+avant d'appliquer le changement de fournisseur.
+
+## Amendement 2026-10-07 (bis) : Ollama rapide
+
+### Nouveau message client : `model.warmup`
+
+```json
+{ "type": "model.warmup", "id": "…" }
+```
+
+Demande au programme local de précharger le modèle actif (Ollama uniquement) avant qu'une requête ne soit envoyée, avec la même taille de contexte que les requêtes normales.
+
+### Réponse broker : `model.warmup-result`
+
+```json
+{ "type": "model.warmup-result", "id": "…", "state": "loaded", "ms": 3200 }
+```
+
+- `state` : `"loaded"` (chargement effectué, `ms` présent), `"already"` (modèle déjà chargé), `"skipped"` (fournisseur non Ollama), `"failed"` (erreur).
+- `ms` : durée du chargement en millisecondes, présent uniquement si `state === "loaded"`.
+
+### Nouveaux messages broker : `progress`
+
+```json
+{ "type": "progress", "id": "…", "stage": "loading" }
+{ "type": "progress", "id": "…", "stage": "reading" }
+```
+
+Envoyés par le programme local pendant une requête `summarize` ou `chat`, avant le premier `chunk`, uniquement pour le fournisseur Ollama.
+
+- `stage: "loading"` : le modèle n'est pas encore chargé en mémoire (`/api/ps` ne le montre pas) ; le programme local sonde `/api/ps` toutes les secondes.
+- `stage: "reading"` : le modèle est chargé (`/api/ps` le confirme) ; la génération peut commencer.
+- `stage: "thinking"` : modèle à raisonnement seul (ex. `qwen3:4b` avec `think:true`) — des deltas `message.thinking` arrivent mais aucun contenu encore. Envoyé au plus une fois par requête, avant tout `chunk`. Ces deltas satisfont le délai du premier token et réinitialisent le délai d'inactivité.
+
+Jamais envoyé après le premier `chunk`. Si le modèle était déjà chargé au début de la requête, seul `"reading"` est envoyé (puis `"thinking"` si applicable).
+
+### Champ `contextTokens` sur les entrées Ollama de `models`
+
+Chaque entrée Ollama de la réponse `models` peut porter un champ optionnel `contextTokens` (entier positif) indiquant la taille de fenêtre de contexte fixée pour ce modèle. Calculée à partir de `/api/show` (`model_info`) en tenant compte de la capacité VRAM de la machine (voir ci-dessous).
+
+### Délais de réponse — remplacement du délai total
+
+**Avant cet amendement** : un délai total unique (`MODEL_TIMEOUT_MS = 120 000 ms`) coupait la réponse quelle que soit son avancement, causant des réponses tronquées pour les modèles lents (`qwen3:8b` à 12,6 tokens/s tué après 120 s alors qu'il écrivait encore).
+
+**Après cet amendement** : deux délais distincts, aucun délai total :
+
+| Délai | Valeur | Déclenchement |
+|---|---|---|
+| Premier token (local) | 300 s | Ollama et `openai-compat` en boucle locale |
+| Premier token (distant) | 120 s | Tout autre fournisseur |
+| Inactivité | 60 s | Reset à chaque morceau reçu ; déclenche `model-stalled` |
+
+- **`model-timeout`** (code existant) : aucun token reçu avant le délai du premier token.
+- **`model-stalled`** (nouveau code) : au moins un token reçu, puis silence de plus de 60 s.
+
+### Taille de contexte fixe par modèle Ollama
+
+Remplacement des paliers dynamiques `ollamaContextSize(totalChars)` par une taille fixée une fois par modèle, calculée depuis les métadonnées `/api/show` (`model_info`) :
+
+```
+arch = model_info["general.architecture"]
+block_count    = model_info[arch + ".block_count"]
+head_count_kv  = model_info[arch + ".attention.head_count_kv"]
+key_length     = model_info[arch + ".attention.key_length"]
+value_length   = model_info[arch + ".attention.value_length"]
+context_length = model_info[arch + ".context_length"]
+
+KV bytes/token = block_count × head_count_kv × (key_length + value_length) × 2  (f16)
+```
+
+Budget mémoire :
+- **GPU dédié (Linux AMD/NVIDIA)** : `vramGb×1 Go − 1,5 Go` (réserve fixe pour le compositeur d'affichage + tampons de calcul Ollama ; mesurée sur RX 5600 XT 6,4 Go avec KDE : ~1,1 Go compositeur + marge).
+- **Mémoire unifiée (macOS Apple Silicon)** : `0,75 × RAM`.
+- **VRAM inconnue** : 8 192 tokens.
+
+Paliers candidats : 4 096, 8 192, 16 384, 32 768 (capés par `context_length`). On choisit le plus grand tel que `sizeBytes + KV(ctx) + 0,5 Go ≤ budget`. Minimum 8 192 tokens.
+
+Exemple (mesuré sur RX 5600 XT 6,4 Go, budget effectif = 4,9 Go) : `qwen3:8b` (5,2 Go) → 8 192 tokens ; `qwen3:4b` (2,5 Go) → 8 192 tokens (le palier 16 384 dépasserait 4,9 Go avec 2,5 Go + 2,42 Go KV + 0,5 Go).
+
+Par requête : taille fixe sauf si l'estimation du prompt (`chars/3 + 1 024`) la dépasse — on prend alors le plus petit palier qui couvre le prompt (≤ 32 768, capé par `context_length`).
+
+**`keep_alive: "15m"`** ajouté sur les requêtes `/api/chat` et `/api/generate` (préchauffage) pour maintenir le modèle chargé entre deux questions.

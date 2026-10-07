@@ -18,6 +18,7 @@ export type ErrorCode =
   | "provider-overloaded"
   | "context-too-large"
   | "cancelled"
+  | "model-stalled"
   | "internal";
 
 // "selection" removed (KISS audit 2026-09-26, item H): grep-confirmed nothing
@@ -285,6 +286,22 @@ export interface ProviderStatusMessage {
   id: string;
 }
 
+// Amendement 2026-10-07 — "Liste des modèles disponibles". Lists all usable
+// models from every configured source, regardless of the active provider.
+// Lot 2 builds the UI; this message only provides the data.
+export interface ModelsListMessage {
+  type: "models.list";
+  id: string;
+}
+
+// Amendement 2026-10-07 (bis) — "Préchauffage du modèle". Asks the broker to
+// pre-load the active Ollama model so the first request is faster. Non-Ollama
+// providers reply with state:"skipped".
+export interface ModelWarmupMessage {
+  type: "model.warmup";
+  id: string;
+}
+
 export type ClientMessage =
   | HelloMessage
   | AuthMessage
@@ -301,7 +318,9 @@ export type ClientMessage =
   | SettingsGetMessage
   | SettingsSetMessage
   | SettingsTestMessage
-  | ProviderStatusMessage;
+  | ProviderStatusMessage
+  | ModelsListMessage
+  | ModelWarmupMessage;
 
 // --- Server -> client messages ---
 
@@ -428,6 +447,96 @@ export interface ProviderStatusResultMessage {
   baseUrl?: string;
 }
 
+// Lot 4 (2026-10-07): host capacity + model fit classification.
+
+/** Machine capacity reported in every `models` reply (lot 4). Two rounded
+ * numbers only — read locally, never sent to an external service. */
+export interface HostCapacity {
+  /** Total RAM in GB, rounded to 1 decimal (÷ 1e9). */
+  ramGb: number;
+  /** Dedicated VRAM in GB (AMD sysfs or nvidia-smi), or null when not
+   * detectable. Always null on macOS (unified memory). */
+  vramGb: number | null;
+  /** Present and true on macOS — GPU shares host RAM (unified memory arch).
+   * Absent on every other platform. */
+  unifiedMemory?: true;
+}
+
+/** Whether a local model is expected to run on GPU, shared CPU+GPU, or is too
+ * large for the machine. Absent for non-local (remote) models. */
+export type ModelFit = "gpu" | "shared" | "too-big";
+
+/** One model entry in a `models` response — amendement 2026-10-07. */
+export interface ModelEntry {
+  provider: ProviderId;
+  model: string;
+  local: boolean;
+  /** Byte size of the model weights, when available (Ollama /api/tags). */
+  sizeBytes?: number;
+  /**
+   * Present and true for Ollama thinking models that cannot disable thinking
+   * (think:false is ineffective — template has no `not $.Think` branch).
+   * The broker uses think:true for these; reasoning stays in message.thinking,
+   * message.content is clean. UI label: "réfléchit avant de répondre, plus lent".
+   * Absent (undefined) for all other models.
+   */
+  thinks?: true;
+  /** Lot 4: GPU fit classification for local Ollama models (see host.ts's
+   * computeFit). Absent when sizeBytes is unknown or the model is remote. */
+  fit?: ModelFit;
+  /** Lot 4: fraction of the model currently loaded on the GPU (0–100), from
+   * Ollama /api/ps. Present only while the model is loaded; absent otherwise.
+   * Example: 70 means 70 % of weights are in VRAM, rest spills to RAM. */
+  gpuPercent?: number;
+  /** Amendement 2026-10-07 (bis): chosen context window size in tokens for this
+   * Ollama model, computed from /api/show model_info and host VRAM capacity.
+   * Present only for Ollama entries when the info is available. */
+  contextTokens?: number;
+}
+
+/** Per-source availability in a `models` response — amendement 2026-10-07. */
+export interface ModelSource {
+  provider: string;
+  state: "ok" | "unreachable" | "not-configured";
+}
+
+/** Reply to `models.list` (amendement 2026-10-07, lot 4). */
+export interface ModelsMessage {
+  type: "models";
+  id: string;
+  current: { provider: ProviderId; model: string | undefined };
+  entries: ModelEntry[];
+  sources: ModelSource[];
+  /** Machine capacity (lot 4). null only before lot 4 or when host.ts fails. */
+  host: HostCapacity | null;
+}
+
+// Amendement 2026-10-07 (bis) — result of a `model.warmup` request.
+export interface ModelWarmupResultMessage {
+  type: "model.warmup-result";
+  id: string;
+  /** `"loaded"` (warmup succeeded, `ms` present), `"already"` (model was
+   * already loaded in Ollama), `"skipped"` (non-Ollama provider),
+   * `"failed"` (Ollama unreachable or error). */
+  state: "loaded" | "already" | "skipped" | "failed";
+  /** Wall-clock milliseconds for the load, only when state === "loaded". */
+  ms?: number;
+}
+
+// Amendement 2026-10-07 (bis) — progress notification sent before the first
+// chunk of a summarize/chat response, Ollama provider only.
+export interface ProgressMessage {
+  type: "progress";
+  id: string;
+  /**
+   * `"loading"` (model not yet in memory), `"reading"` (loaded, generating),
+   * `"thinking"` (thinking-only model actively reasoning — message.thinking
+   * deltas are arriving but no content yet; sent at most once per request,
+   * before any chunk; amendement 2026-10-07 bis).
+   */
+  stage: "loading" | "reading" | "thinking";
+}
+
 // Broker's step-3 challenge in the v: 2 handshake — docs/PROTOCOL.md. Never
 // part of the general message() dispatch: server.ts's handshake state
 // machine sends this directly, before the connection is authed.
@@ -448,7 +557,10 @@ export type ServerMessage =
   | ChallengeMessage
   | SettingsMessage
   | SettingsTestResultMessage
-  | ProviderStatusResultMessage;
+  | ProviderStatusResultMessage
+  | ModelsMessage
+  | ModelWarmupResultMessage
+  | ProgressMessage;
 
 // --- Parsing ---
 
@@ -828,6 +940,12 @@ export function parseClientMessage(raw: string): ParseResult {
     }
     case "provider.status": {
       return { ok: true, message: { type: "provider.status", id } };
+    }
+    case "models.list": {
+      return { ok: true, message: { type: "models.list", id } };
+    }
+    case "model.warmup": {
+      return { ok: true, message: { type: "model.warmup", id } };
     }
     default:
       return { ok: false, error: { code: "bad-request", message: `unknown type: ${type}`, id } };

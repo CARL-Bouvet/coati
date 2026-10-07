@@ -25,6 +25,8 @@
   "common_error_bad_request": { "message": "请求无效。" },
   "common_error_unauthorized": { "message": "未授权。" },
   "common_error_model_unavailable": { "message": "模型未响应。" },
+  "common_error_model_stalled": { "message": "模型已有一分钟没有发送文字，回答到此为止。您可以重试。" },
+  "common_error_model_timeout": { "message": "模型未能及时开始回答。请稍后重试。" },
   "common_error_auth_required": { "message": "需要向模型提供商进行身份验证。" },
   "common_error_context_too_large": { "message": "发送的内容对该模型而言过大。" },
   "common_error_cancelled": { "message": "请求已取消。" },
@@ -179,9 +181,32 @@
   "panel_worker_restarted": {
     "message": "请求已中断（后台服务重启），请重试。"
   },
-  "panel_no_response_130s": {
-    "message": "130 秒内无响应。本地程序未响应；请确认其正在运行，然后重试。"
+  "panel_no_response": {
+    "message": "本地程序没有任何回应。请确认其正在运行，然后重试。"
   },
+  "panel_progress_loading": { "message": "正在加载模型…" },
+  "panel_progress_reading_page": { "message": "模型正在阅读页面…" },
+  "panel_progress_reading_request": { "message": "模型正在阅读您的请求…" },
+  "panel_progress_thinking": { "message": "模型正在思考…" },
+  "panel_progress_thinking_hint": { "message": "该模型会先思考再回答，因此耗时更长。" },
+  "panel_shared_model_note": {
+    "message": "$MODEL$ 无法完全放入显卡：速度会较慢。",
+    "placeholders": { "model": { "content": "$1", "example": "qwen3:8b" } }
+  },
+  "panel_shared_model_alt": {
+    "message": "$MODEL$ 可以完全放入。",
+    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+  },
+  "panel_slow_tip_switch_text": {
+    "message": "想要更快的回答，可以试试 $MODEL$：它能完全放入显卡。",
+    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+  },
+  "panel_slow_tip_speedup_text": { "message": "Ollama 的两项设置可以让它回答得更快。" },
+  "panel_slow_tip_switch_action": {
+    "message": "切换到 $MODEL$",
+    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+  },
+  "panel_slow_tip_speedup_action": { "message": "加速 Ollama" },
   "panel_no_active_tab": { "message": "⚠ 没有活动的标签页可供读取。" },
   "panel_nothing_readable": {
     "message": "⚠ 此页面未找到可读内容。内容是否在后续加载，或仅供订阅者查看？"
@@ -448,6 +473,21 @@
   "setup_lmstudio_download": { "message": "下载 LM Studio" },
   "setup_lmstudio_use": { "message": "使用 LM Studio 并检查" },
   "setup_lmstudio_ok": { "message": "LM Studio 已响应。请在下方“模型”部分选择其模型。" },
+  "setup_speedup_title": { "message": "加速 Ollama" },
+  "setup_speedup_intro": { "message": "Ollama 的两项设置可将所读页面占用的内存减少约一半，质量损失很小：更节省的计算方式（“flash attention”）和压缩的工作内存。这样模型更常能完全放入显卡，回答也更快。" },
+  "setup_speedup_linux_edit": { "message": "打开 Ollama 服务的设置（标准安装，使用 systemd）：" },
+  "setup_speedup_linux_add": { "message": "在打开的编辑器中，将这三行粘贴到顶部的空白区域，然后保存并关闭：" },
+  "setup_speedup_linux_restart": { "message": "重启 Ollama：" },
+  "setup_speedup_mac_set": { "message": "在“终端”中运行以下两条命令：" },
+  "setup_speedup_mac_restart": { "message": "退出 Ollama（菜单栏中的图标，“Quit Ollama”），然后重新打开该应用。" },
+  "setup_speedup_win_open": { "message": "打开“设置”，搜索“编辑帐户的环境变量”。" },
+  "setup_speedup_win_add": { "message": "在“用户变量”下点击“新建…”，添加以下两个变量（先填名称，再填值）：" },
+  "setup_speedup_win_value": {
+    "message": "值：$VALUE$",
+    "placeholders": { "value": { "content": "$1", "example": "q8_0" } }
+  },
+  "setup_speedup_win_restart": { "message": "在时钟附近的 Ollama 图标上右键，选择“Quit Ollama”退出，然后重新启动它。" },
+  "setup_speedup_faq": { "message": "Ollama 文档（常见问题）" },
   "setup_online_service_title": { "message": "选择服务" },
   "setup_online_free_warning": { "message": "选择之前请注意：OpenRouter 的免费模型可能会保留并使用您发送的文本。请勿发送任何机密内容。" },
   "setup_online_free_detail": {
@@ -651,5 +691,93 @@
   "sugg_amazon_weaknesses_label": { "message": "已报告的缺点" },
   "sugg_amazon_weaknesses_prompt": {
     "message": "指出此产品评论中报告的缺点，即使是少数意见。"
-  }
+  },
+  "model_list_title": { "message": "可用模型" },
+  "model_list_local": { "message": "在这台电脑上" },
+  "model_list_online": { "message": "在线" },
+  "model_list_size_gb": {
+    "message": "$GB$ GB",
+    "placeholders": {
+      "gb": { "content": "$1", "example": "2.6" }
+    }
+  },
+  "model_list_thinks": { "message": "回答前会先思考，速度较慢" },
+  "model_list_ollama_unreachable": { "message": "Ollama 没有响应" },
+  "model_list_no_local": { "message": "尚未安装任何模型" },
+  "model_list_add": { "message": "添加模型…" },
+  "model_list_loading": { "message": "正在查找模型…" },
+  "model_list_unavailable": { "message": "本地程序无法列出模型。" },
+  "model_pill_local": { "message": "本地" },
+  "model_pill_online": { "message": "在线" },
+  "model_pill_none": { "message": "未选择模型" },
+  "model_pill_stale_broker": { "message": "需重启本地程序" },
+  "model_pill_stale_broker_label": {
+    "message": "本地程序比扩展版本更旧。打开菜单。"
+  },
+  "model_menu_stale_broker_line": {
+    "message": "本地程序比扩展版本更旧：请重启它以查看和更改模型。"
+  },
+  "panel_status_action_hint": { "message": "点击以更改模型。" },
+  "model_pill_label": {
+    "message": "模型：$MODEL$，$WHERE$。更换模型",
+    "placeholders": {
+      "model": { "content": "$1", "example": "qwen3:4b" },
+      "where": { "content": "$2", "example": "本地" }
+    }
+  },
+  "setup_local_models_check": { "message": "检查可用模型" },
+  "setup_local_models_text": { "message": "Ollama 里已经有模型了？Coati 会在这里列出它们，点一下即可选择用哪一个来回答。" },
+  "setup_local_suggestions_title": { "message": "可下载的模型" },
+  "setup_local_model_installed": {
+    "message": "$MODEL$ 已安装。请在下方的可用模型列表中选择它。",
+    "placeholders": {
+      "model": { "content": "$1", "example": "gemma3:4b" }
+    }
+  },
+  "setup_local_model_chosen": {
+    "message": "Coati 现在使用 $MODEL$。",
+    "placeholders": {
+      "model": { "content": "$1", "example": "qwen3:4b" }
+    }
+  },
+  "model_fit_gpu": { "message": "可完全放入显卡" },
+  "model_fit_shared": { "message": "与处理器共用内存，速度较慢" },
+  "model_fit_too_big": { "message": "对这台电脑来说太大" },
+  "model_fit_loaded_percent": {
+    "message": "已有 $PERCENT$% 加载到显卡中",
+    "placeholders": {
+      "percent": { "content": "$1", "example": "100" }
+    }
+  },
+  "setup_local_model_text_host": { "message": "根据这台电脑的内存，以下模型可以在本机运行。模型越大，回答越好，但速度越慢。" },
+  "setup_local_host_vram": {
+    "message": "这台电脑：$RAM$ GB 内存，$VRAM$ GB 显存。",
+    "placeholders": {
+      "ram": { "content": "$1", "example": "16" },
+      "vram": { "content": "$2", "example": "6.4" }
+    }
+  },
+  "setup_local_host_vram_unknown": {
+    "message": "这台电脑：$RAM$ GB 内存，显存未知。",
+    "placeholders": {
+      "ram": { "content": "$1", "example": "16" }
+    }
+  },
+  "setup_local_host_unified": {
+    "message": "这台电脑：$RAM$ GB 内存，统一内存（Mac）。",
+    "placeholders": {
+      "ram": { "content": "$1", "example": "16" }
+    }
+  },
+  "setup_local_col_fit": { "message": "在这台电脑上" },
+  "setup_local_none_fit": { "message": "列表中没有适合这台电脑的模型。使用在线服务会更顺畅。" },
+  "setup_local_installed_tag": { "message": "已安装" },
+  "setup_local_installed_no_pull": {
+    "message": "$MODEL$ 已安装，无需下载。",
+    "placeholders": {
+      "model": { "content": "$1", "example": "qwen3.5:4b" }
+    }
+  },
+  "model_list_provider_local": { "message": "在这台电脑上" },
+  "model_list_provider_online": { "message": "在线服务" }
 }

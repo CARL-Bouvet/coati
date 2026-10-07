@@ -427,15 +427,37 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
   }
 }
 
-/** Thrown by a provider's streamAnswer when its own timeout elapses with no
- * result from the model. Treated as a model-unavailable condition by
- * isModelUnavailableError below, so server.ts needs no special-casing beyond
- * its existing branch. Shared across providers. */
+/** Thrown by a provider's streamAnswer when the first-token deadline elapses
+ * with no chunk from the model (hung before generating anything). Distinct
+ * from ModelStalledError (below). Treated as model-unavailable by
+ * isModelUnavailableError; server.ts logs it with outcome "timeout". */
 export class ModelTimeoutError extends Error {
   constructor(timeoutMs: number) {
     super(`model call exceeded ${timeoutMs}ms with no response`);
     this.name = "ModelTimeoutError";
   }
+}
+
+/**
+ * Thrown by a provider's streamAnswer when the inactivity deadline elapses
+ * mid-stream (at least one chunk was received, then silence for
+ * INACTIVITY_TIMEOUT_MS). Distinct from ModelTimeoutError (which fires before
+ * the first chunk). Maps to error code "model-stalled" (amendement
+ * 2026-10-07 bis). isModelUnavailableError returns false for this — it gets
+ * its own code via isModelStalledError, checked first in server.ts.
+ */
+export class ModelStalledError extends Error {
+  constructor(inactivityMs: number) {
+    super(`model stream stalled: no token for ${inactivityMs}ms mid-answer`);
+    this.name = "ModelStalledError";
+  }
+}
+
+/** True when `err` is (or wraps) a ModelStalledError. Checked by server.ts
+ * BEFORE isModelUnavailableError so it gets code "model-stalled" rather than
+ * "model-unavailable". */
+export function isModelStalledError(err: unknown): boolean {
+  return err instanceof ModelStalledError;
 }
 
 /** Thrown by a provider when it can positively determine the model/backend is
@@ -588,6 +610,10 @@ export function isModelUnavailableError(err: unknown): boolean {
   // falling through to the heuristic below, unchanged.
   if (err instanceof QuotaExceededError) return false;
   if (err instanceof RateLimitedError) return false;
+  // Amendement 2026-10-07 (bis): model-stalled has its own code — checked
+  // first in server.ts (isModelStalledError), so never treated as
+  // model-unavailable here.
+  if (err instanceof ModelStalledError) return false;
   if (err instanceof ModelTimeoutError) return true;
   if (err instanceof ModelUnavailableError) return true;
   if (!(err instanceof Error)) return false;
@@ -632,25 +658,118 @@ export function parseRetryAfterSec(headerValue: string | null): number | undefin
   return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
 }
 
-// 2 minutes: generous enough for a full-page summarize/chat turn against a
-// local model (cold start + a long article), short enough that a hung call
-// (a subprocess stuck on an interactive prompt it can never answer, a wedged
-// pipe, an Ollama request that never completes) surfaces as an error instead
-// of leaving the request open forever. Without this, a hang meant the
-// `for await` in runStream() never returned, server.ts's `active` map entry
-// was never deleted, and the client got neither `done` nor `error` —
-// contradicting the PROTOCOL.md invariant "every id gets a terminal". Shared
-// by every provider; exported so tests can override it via
-// StreamAnswerOptions.timeoutMs instead of waiting 2 minutes.
-export const MODEL_TIMEOUT_MS = 120_000;
+// Amendement 2026-10-07 (bis): two-stage timeout replacing the old single cap.
+//
+// FIRST_TOKEN_TIMEOUT_*: deadline from request start to first chunk (no chunk
+// at all = hung call). Local loopback (Ollama, openai-compat on 127.x) gets
+// 300 s to account for cold model loads; remote APIs get 120 s.
+//
+// INACTIVITY_TIMEOUT_MS: reset on every chunk; fires when the stream goes
+// silent for 60 s mid-answer. Throws ModelStalledError (→ error code
+// "model-stalled"), distinct from ModelTimeoutError ("model-timeout").
+//
+// MODEL_TIMEOUT_MS kept for backward compat: equals FIRST_TOKEN_TIMEOUT_REMOTE_MS
+// so that test `timeoutMs` overrides keep working unchanged.
+export const FIRST_TOKEN_TIMEOUT_LOCAL_MS = 300_000;
+export const FIRST_TOKEN_TIMEOUT_REMOTE_MS = 120_000;
+export const INACTIVITY_TIMEOUT_MS = 60_000;
+/** @deprecated Use FIRST_TOKEN_TIMEOUT_REMOTE_MS or FIRST_TOKEN_TIMEOUT_LOCAL_MS. */
+export const MODEL_TIMEOUT_MS = FIRST_TOKEN_TIMEOUT_REMOTE_MS;
 
 export interface StreamAnswerOptions {
   signal?: AbortSignal;
-  /** Overrides MODEL_TIMEOUT_MS. Test-only knob. */
+  /**
+   * Overrides the first-token deadline. Test-only knob.
+   * Maps to FIRST_TOKEN_TIMEOUT_REMOTE_MS by default for non-loopback providers.
+   */
   timeoutMs?: number;
+  /**
+   * Overrides the inactivity deadline. Test-only knob.
+   * Defaults to INACTIVITY_TIMEOUT_MS (60 s).
+   */
+  inactivityTimeoutMs?: number;
 }
 
 export type AnswerEvent =
   | { kind: "delta"; text: string }
-  | { kind: "usage"; usage: { inputTokens: number; outputTokens: number } };
+  | { kind: "usage"; usage: { inputTokens: number; outputTokens: number } }
+  // Amendement 2026-10-07 (bis) — thinking-only models (e.g. qwen3:4b):
+  // Ollama routes reasoning to message.thinking; the provider emits this event
+  // so callers can count it as activity without forwarding it as text.
+  | { kind: "thinking" };
+
+/**
+ * Streaming filter that removes `<think>…</think>` blocks from text deltas.
+ * Robust to:
+ *  - Tags split across chunk boundaries (carries partial tag state between calls).
+ *  - A stream that starts with an unclosed `<think>` (drops content until `</think>`).
+ *  - Overlapping/nested think blocks (any `<think>` inside a block is ignored — we
+ *    only look for `</think>` to leave think state).
+ * Used by ollama.ts and openai-compat.ts to suppress reasoning tokens before
+ * they reach the extension. The filter is a no-op for models that never emit
+ * `<think>` tags. Amendement 2026-10-07 (docs/PROTOCOL.md).
+ */
+export class ThinkFilter {
+  private _inThink = false;
+  /** Tail of the last chunk that could be a partial opening/closing tag. */
+  private _buf = "";
+
+  /** Feed the next text chunk; returns the filtered output (may be ""). */
+  filter(chunk: string): string {
+    let text = this._buf + chunk;
+    this._buf = "";
+    let out = "";
+
+    while (text.length > 0) {
+      if (this._inThink) {
+        const end = text.indexOf("</think>");
+        if (end !== -1) {
+          // Found the close tag — resume normal output after it.
+          text = text.slice(end + "</think>".length);
+          this._inThink = false;
+        } else {
+          // Close tag not found; save a potential partial at the tail.
+          const CLOSE = "</think>";
+          let kept = 0;
+          for (let k = Math.min(CLOSE.length - 1, text.length); k > 0; k--) {
+            if (text.endsWith(CLOSE.slice(0, k))) { kept = k; break; }
+          }
+          this._buf = text.slice(text.length - kept);
+          text = "";
+        }
+      } else {
+        const start = text.indexOf("<think>");
+        if (start !== -1) {
+          out += text.slice(0, start);
+          text = text.slice(start + "<think>".length);
+          this._inThink = true;
+        } else {
+          // Open tag not found; save a potential partial at the tail.
+          const OPEN = "<think>";
+          let kept = 0;
+          for (let k = Math.min(OPEN.length - 1, text.length); k > 0; k--) {
+            if (text.endsWith(OPEN.slice(0, k))) { kept = k; break; }
+          }
+          out += text.slice(0, text.length - kept);
+          this._buf = text.slice(text.length - kept);
+          text = "";
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Flush any carried-over partial tag at end of stream. Must be called once
+   * after the last `filter()` to emit any text that was held in the buffer
+   * pending a potential tag that never completed.
+   */
+  flush(): string {
+    // If we were in a think block that never closed, the buffered partial is
+    // part of the think content — discard it. Otherwise emit it.
+    const result = this._inThink ? "" : this._buf;
+    this._buf = "";
+    return result;
+  }
+}
 

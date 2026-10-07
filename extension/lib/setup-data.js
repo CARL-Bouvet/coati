@@ -23,7 +23,22 @@ export const OLLAMA_LINUX_INSTALL_COMMAND = "curl -fsSL https://ollama.com/insta
  * installer (e.g. no systemd). Windows and macOS start the app instead. */
 export const OLLAMA_START_COMMAND = "ollama serve";
 
-/** Recommended model per amount of memory (RAM) of the machine. `minGb` is
+/** « Accélérer Ollama » (plan-ollama-rapide-07-10.md, point 5): flash
+ * attention + a q8_0 KV cache, about half the memory the page takes, little
+ * quality loss. Two environment variables, set the way each OS's Ollama
+ * reads them (https://docs.ollama.com/faq). */
+export const OLLAMA_SPEEDUP = {
+  faqUrl: "https://docs.ollama.com/faq",
+  env: [
+    ["OLLAMA_FLASH_ATTENTION", "1"],
+    ["OLLAMA_KV_CACHE_TYPE", "q8_0"],
+  ],
+  linuxEditCommand: "sudo systemctl edit ollama.service",
+  linuxRestartCommand: "sudo systemctl restart ollama",
+};
+
+/** FALLBACK (older local program without `host`): recommended model per
+ * amount of memory (RAM) the browser reports. `minGb` is
  * the smallest machine memory the row is meant for; `downloadGb` the size of
  * the download. Order: smallest machine first. */
 export const OLLAMA_MODELS_BY_MEMORY = [
@@ -33,6 +48,19 @@ export const OLLAMA_MODELS_BY_MEMORY = [
   // leaks into answers through Ollama's OpenAI-compatible path.
   { minGb: 16, model: "gemma3:12b", downloadGb: 8.1 },
   { minGb: 32, model: "gemma3:27b", downloadGb: 17 },
+];
+
+/** Download suggestions when the local program reports the machine's
+ * capacity (`host` in the `models` reply, amendement 2026-10-07, lot 4):
+ * filtered and tagged by lib/model-list.js suggestForHost(). Sizes checked
+ * on ollama.com on 2026-10-07. No qwen3:4b: thinking-only, slow. qwen3:8b
+ * honours `think: false` (verified on a real Ollama). Smallest first. */
+export const OLLAMA_SUGGESTIONS = [
+  { model: "qwen3.5:2b", downloadGb: 2.7 },
+  { model: "qwen3.5:4b", downloadGb: 3.3 },
+  { model: "qwen3:8b", downloadGb: 5.2 },
+  { model: "qwen3.5:9b", downloadGb: 6.6 },
+  { model: "gemma4:12b", downloadGb: 7.7 },
 ];
 
 // --- Local path, advanced: LM Studio ----------------------------------------

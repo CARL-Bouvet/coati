@@ -9,8 +9,11 @@
 
 import {
   buildSystemPrompt,
-  MODEL_TIMEOUT_MS,
+  FIRST_TOKEN_TIMEOUT_LOCAL_MS,
+  FIRST_TOKEN_TIMEOUT_REMOTE_MS,
+  INACTIVITY_TIMEOUT_MS,
   ModelTimeoutError,
+  ModelStalledError,
   ModelUnavailableError,
   AuthRequiredError,
   QuotaExceededError,
@@ -18,6 +21,7 @@ import {
   ModelMissingError,
   ProviderOverloadedError,
   parseRetryAfterSec,
+  ThinkFilter,
   type AnswerEvent,
   type BuiltPrompt,
   type StreamAnswerOptions,
@@ -429,12 +433,33 @@ export async function* streamAnswer(
     }
   }
 
-  const timeoutMs = opts.timeoutMs ?? MODEL_TIMEOUT_MS;
+  // Amendement 2026-10-07 (bis): two-stage timeout.
+  // Loopback URLs get FIRST_TOKEN_TIMEOUT_LOCAL_MS (300 s); remote gets 120 s.
+  const isLoopback = (() => {
+    try {
+      const u = new URL(baseUrl);
+      return u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "[::1]";
+    } catch { return false; }
+  })();
+  const defaultFirstToken = isLoopback ? FIRST_TOKEN_TIMEOUT_LOCAL_MS : FIRST_TOKEN_TIMEOUT_REMOTE_MS;
+  const firstTokenMs = opts.timeoutMs ?? defaultFirstToken;
+  const inactivityMs = opts.inactivityTimeoutMs ?? INACTIVITY_TIMEOUT_MS;
   let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    abortController.abort();
-  }, timeoutMs);
+  let stalled = false;
+  let gotFirstChunk = false;
+
+  const firstTokenTimer = setTimeout(() => {
+    if (!gotFirstChunk) { timedOut = true; abortController.abort(); }
+  }, firstTokenMs);
+
+  let inactivityTimer: ReturnType<typeof setTimeout> | undefined;
+  const resetInactivity = () => {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(() => {
+      stalled = true;
+      abortController.abort();
+    }, inactivityMs);
+  };
 
   try {
     let response: Response;
@@ -455,7 +480,8 @@ export async function* streamAnswer(
         signal: abortController.signal,
       });
     } catch (err) {
-      if (timedOut) throw new ModelTimeoutError(timeoutMs);
+      if (stalled) throw new ModelStalledError(inactivityMs);
+      if (timedOut) throw new ModelTimeoutError(firstTokenMs);
       // Same reasoning as claude-api.ts's own catch here (I3, lot7 security
       // review): never forward a raw fetch error's own message, which can
       // echo request internals in some runtimes — a fixed, generic message
@@ -517,15 +543,33 @@ export async function* streamAnswer(
       throw new Error("server response has no body");
     }
 
-    yield* parseSseStream(response.body);
+    // Amendement 2026-10-07: strip <think>…</think> blocks (and ignore any
+    // delta.reasoning_content — already not read by parseSseLine) so that
+    // thinking tokens from o1/qwen3-style models never reach the extension.
+    const filter = new ThinkFilter();
+    for await (const event of parseSseStream(response.body)) {
+      if (event.kind === "delta") {
+        if (!gotFirstChunk) { gotFirstChunk = true; clearTimeout(firstTokenTimer); resetInactivity(); }
+        else { resetInactivity(); }
+        const filtered = filter.filter(event.text);
+        if (filtered.length > 0) yield { kind: "delta", text: filtered };
+      } else {
+        yield event;
+      }
+    }
+    const tail = filter.flush();
+    if (tail.length > 0) yield { kind: "delta", text: tail };
   } catch (err) {
-    if (timedOut) throw new ModelTimeoutError(timeoutMs);
+    if (stalled) throw new ModelStalledError(inactivityMs);
+    if (timedOut) throw new ModelTimeoutError(firstTokenMs);
     throw err;
   } finally {
-    clearTimeout(timer);
+    clearTimeout(firstTokenTimer);
+    clearTimeout(inactivityTimer);
   }
 
-  if (timedOut) throw new ModelTimeoutError(timeoutMs);
+  if (stalled) throw new ModelStalledError(inactivityMs);
+  if (timedOut) throw new ModelTimeoutError(firstTokenMs);
 }
 
 export const openaiCompatProvider: ModelProvider = {

@@ -83,6 +83,13 @@ export interface CoatiConfig {
    * `key: "pasted"` branch of the v: 2 handshake for browsers that cannot
    * launch a native host (Flatpak, Snap). */
   legacyPairing?: boolean;
+  /** Amendement 2026-10-07 (docs/PROTOCOL.md "Mémoire des modèles par
+   * fournisseur") — the last model used per provider. Updated on every
+   * settings.set that sets a model; restored when settings.set changes
+   * only the provider (no explicit model). The active model is still
+   * config.model (backward compat). Seeded from provider+model on first
+   * load of an older config.json that lacks this field. */
+  lastModels?: Record<ProviderId, string>;
 }
 
 export interface Dirs {
@@ -262,6 +269,34 @@ export function parseModuleConfigEntries(raw: unknown): ModuleConfigEntry[] {
   return entries;
 }
 
+/** Parses the raw `lastModels` object from config.json, tolerantly dropping
+ * malformed entries. Seeds from the raw object's own provider+model pair when
+ * the field is absent (backward compat with older config.json files). Exported
+ * for tests. */
+export function parseLastModels(
+  rawLastModels: unknown,
+  rawObj: Record<string, unknown>,
+): Record<ProviderId, string> | undefined {
+  const result: Record<string, string> = {};
+
+  if (rawLastModels && typeof rawLastModels === "object" && !Array.isArray(rawLastModels)) {
+    for (const [k, v] of Object.entries(rawLastModels as Record<string, unknown>)) {
+      if (isProviderId(k) && typeof v === "string" && v.length > 0) {
+        result[k] = v;
+      }
+    }
+  }
+
+  // Seed from current provider+model when the field was absent (older config.json)
+  const seedProvider = isProviderId(rawObj.provider) ? rawObj.provider : undefined;
+  const seedModel = typeof rawObj.model === "string" && rawObj.model ? rawObj.model : undefined;
+  if (seedProvider && seedModel && !result[seedProvider]) {
+    result[seedProvider] = seedModel;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 function configPath(dirs: Dirs): string {
   return join(dirs.configDir, "config.json");
 }
@@ -332,6 +367,7 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
     baseUrl: typeof obj.baseUrl === "string" && obj.baseUrl ? obj.baseUrl : undefined,
     modules: parseModuleConfigEntries(obj.modules),
     legacyPairing,
+    lastModels: parseLastModels(obj.lastModels, obj),
   };
 }
 

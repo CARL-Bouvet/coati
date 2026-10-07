@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   DEFAULT_CONFIG,
+  DEFAULT_OLLAMA_URL,
   defaultDirs,
   loadConfig,
   saveConfig,
@@ -48,6 +49,8 @@ import {
   ITEM_DETAIL_MAX,
   type ClientMessage,
   type Context,
+  type ModelEntry,
+  type ModelSource,
   type ProviderStatus,
   type ServerMessage,
   type SettingsSetMessage,
@@ -60,6 +63,7 @@ import {
   isModelMissingError,
   isProviderOverloadedError,
   isModelUnavailableError,
+  isModelStalledError,
   ModelTimeoutError,
   RateLimitedError,
   type BuiltPrompt,
@@ -67,6 +71,14 @@ import {
 import { listPrompts, savePrompt, deletePrompt, setPromptSite, withDirLock, type PromptsDirs } from "./prompts.ts";
 import { getPrefs, setSitePrefs, moveInPrefs, type PrefsDirs } from "./prefs.ts";
 import { getProviders, getProvider, initRegistry } from "./providers/registry.ts";
+import {
+  listModelEntries as listOllamaModelEntries,
+  fetchPsEntries,
+  matchesModel,
+  warmupModel,
+} from "./providers/ollama.ts";
+import { readHostCapacity, computeFit, FIT_CONSTANTS as _FIT_CONSTANTS } from "./host.ts";
+import type { HostCapacity } from "./protocol.ts";
 import type { ModelProvider, ProviderRuntimeOptions, TestConnectionCode } from "./providers/types.ts";
 import { t, normalizeLang, DEFAULT_LANG, type Lang } from "./messages.ts";
 
@@ -349,6 +361,43 @@ async function runStream(
 ): Promise<void> {
   const controller = new AbortController();
   active.set(id, controller);
+
+  // Amendement 2026-10-07 (bis): progress notifications (Ollama only).
+  // Check /api/ps before the stream starts, emit loading/reading, then poll
+  // every 1 s until the model appears in /api/ps or the first chunk arrives.
+  let firstChunkSent = false;
+  let progressPollingDone = false;
+  // Amendement 2026-10-07 (bis): thinking stage — sent at most once, before
+  // any content, when the provider emits a thinking event (thinking-only model).
+  let thinkingProgressSent = false;
+
+  if (provider.id === "ollama") {
+    const ollamaUrl = providerOpts.ollamaUrl ?? DEFAULT_OLLAMA_URL;
+    const model = providerOpts.model ?? "";
+    const psEntries = await fetchPsEntries({ ollamaUrl, signal: controller.signal }).catch(() => [] as Awaited<ReturnType<typeof fetchPsEntries>>);
+    if (!controller.signal.aborted) {
+      const alreadyLoaded = psEntries.some((e) => matchesModel(e.name, model));
+      send(ws, { type: "progress", id, stage: alreadyLoaded ? "reading" : "loading" });
+      if (alreadyLoaded) {
+        progressPollingDone = true;
+      } else {
+        // Poll /api/ps every 1 s in background; stop when model appears or stream ends.
+        void (async () => {
+          while (!progressPollingDone && !firstChunkSent) {
+            await new Promise<void>((r) => setTimeout(r, 1000));
+            if (progressPollingDone || firstChunkSent) break;
+            const ps = await fetchPsEntries({ ollamaUrl, signal: controller.signal }).catch(() => [] as Awaited<ReturnType<typeof fetchPsEntries>>);
+            if (ps.some((e) => matchesModel(e.name, model))) {
+              if (!firstChunkSent) send(ws, { type: "progress", id, stage: "reading" });
+              progressPollingDone = true;
+              break;
+            }
+          }
+        })();
+      }
+    }
+  }
+
   try {
     let usage = { inputTokens: 0, outputTokens: 0 };
     for await (const event of provider.streamAnswer(built, { signal: controller.signal, ...providerOpts })) {
@@ -356,6 +405,19 @@ async function runStream(
       if (event.kind === "usage") {
         usage = event.usage;
         continue;
+      }
+      // Amendement 2026-10-07 (bis): thinking event — emit progress:thinking
+      // once (before any content chunk), never forward as text.
+      if (event.kind === "thinking") {
+        if (!thinkingProgressSent && !firstChunkSent) {
+          thinkingProgressSent = true;
+          send(ws, { type: "progress", id, stage: "thinking" });
+        }
+        continue;
+      }
+      if (!firstChunkSent) {
+        firstChunkSent = true;
+        progressPollingDone = true; // stop progress polling
       }
       send(ws, { type: "chunk", id, delta: event.text });
     }
@@ -367,6 +429,7 @@ async function runStream(
       logRequestCompleted(id, "ok", Date.now() - startedAt);
     }
   } catch (err) {
+    progressPollingDone = true;
     if (controller.signal.aborted) {
       send(ws, { type: "error", id, code: "cancelled", message: "request cancelled" });
       logRequestCompleted(id, "cancelled", Date.now() - startedAt);
@@ -382,15 +445,22 @@ async function runStream(
               ? "model-missing"
               : isProviderOverloadedError(err)
                 ? "provider-overloaded"
-                : isModelUnavailableError(err)
-                  ? "model-unavailable"
-                  : "internal";
+                : isModelStalledError(err)
+                  ? "model-stalled"
+                  : isModelUnavailableError(err)
+                    ? "model-unavailable"
+                    : "internal";
       const retryAfterSec = err instanceof RateLimitedError ? err.retryAfterSec : undefined;
       send(ws, { type: "error", id, code, message, ...(retryAfterSec !== undefined ? { retryAfterSec } : {}) });
-      const outcome = err instanceof ModelTimeoutError ? "timeout" : `error:${code}`;
+      const outcome = err instanceof ModelTimeoutError
+        ? "timeout"
+        : isModelStalledError(err)
+          ? "stalled"
+          : `error:${code}`;
       logRequestCompleted(id, outcome, Date.now() - startedAt, message);
     }
   } finally {
+    progressPollingDone = true;
     active.delete(id);
   }
 }
@@ -461,6 +531,168 @@ async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Promise<{
   // carries any provider-specific config value beyond id/label/available).
   const baseUrl = provider === "openai-compat" ? config.baseUrl : undefined;
   return { provider, model: config.model, available, models, baseUrl };
+}
+
+// --- models.list (amendement 2026-10-07) -------------------------------------
+//
+// Builds the payload for a `models` reply: queries every configured source
+// independently (each failure is isolated, reported in `sources`) and returns
+// the flat list of usable models. Sources:
+//   1. Ollama — always queried, regardless of the active provider.
+//   2. openai-compat — if config.baseUrl is loopback, list via /models; if
+//      remote with a stored key and a remembered model, one static entry.
+//   3. claude-api — if key is configured and a model was remembered.
+//   4. Any loaded module provider — if configured (isAvailable sans model)
+//      and a model was remembered.
+// `host: null` until lot 4 fills it.
+
+// Amendement 2026-10-07 bis: a sensible model for a configured provider with
+// no remembered model — its own listModels() (first entry) when it has one,
+// else its declared defaultModel. Never throws: a listModels() failure just
+// falls through to defaultModel, same as having none.
+async function resolveFallbackModel(provider: ModelProvider, opts: ProviderRuntimeOptions): Promise<string | undefined> {
+  if (provider.listModels) {
+    try {
+      const models = await provider.listModels(opts);
+      if (models.length > 0) return models[0];
+    } catch {
+      // fall through to defaultModel
+    }
+  }
+  return provider.defaultModel;
+}
+
+function isLoopbackUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
+async function buildModelsPayload(config: CoatiConfig): Promise<{
+  current: { provider: ProviderId; model: string | undefined };
+  entries: ModelEntry[];
+  sources: ModelSource[];
+  host: HostCapacity | null;
+}> {
+  const currentProvider = config.provider ?? DEFAULT_CONFIG.provider!;
+  const entries: ModelEntry[] = [];
+  const sources: ModelSource[] = [];
+
+  // --- Source 1: Ollama — always queried -----------------------------------
+  try {
+    const ollamaEntries = await listOllamaModelEntries({ ollamaUrl: config.ollamaUrl ?? DEFAULT_OLLAMA_URL });
+    for (const e of ollamaEntries) {
+      const hasThinking = Array.isArray(e.capabilities) && e.capabilities.includes("thinking");
+      // thinks:true = thinking-capable but cannot disable it (think:false ineffective).
+      const thinks: true | undefined = hasThinking && !e.canDisableThinking ? true : undefined;
+      entries.push({
+        provider: "ollama",
+        model: e.name,
+        local: true,
+        ...(e.sizeBytes > 0 ? { sizeBytes: e.sizeBytes } : {}),
+        ...(thinks ? { thinks } : {}),
+        ...(e.contextTokens !== undefined ? { contextTokens: e.contextTokens } : {}),
+      });
+    }
+    sources.push({ provider: "ollama", state: "ok" });
+  } catch {
+    sources.push({ provider: "ollama", state: "unreachable" });
+  }
+
+  // --- Source 2: openai-compat ---------------------------------------------
+  if (config.baseUrl) {
+    if (isLoopbackUrl(config.baseUrl)) {
+      const ocProvider = getProvider("openai-compat");
+      if (ocProvider?.listModels) {
+        try {
+          const models = await ocProvider.listModels({
+            baseUrl: config.baseUrl,
+            apiKey: resolveApiKey(config, "openai-compat"),
+          });
+          for (const m of models) {
+            entries.push({ provider: "openai-compat", model: m, local: true });
+          }
+          sources.push({ provider: "openai-compat", state: "ok" });
+        } catch {
+          sources.push({ provider: "openai-compat", state: "unreachable" });
+        }
+      }
+    } else {
+      // Remote openai-compat: one static entry if key + remembered model.
+      const hasKey = !!resolveApiKey(config, "openai-compat");
+      const remembered = config.lastModels?.["openai-compat"];
+      if (hasKey && remembered) {
+        entries.push({ provider: "openai-compat", model: remembered, local: false });
+        sources.push({ provider: "openai-compat", state: "ok" });
+      } else {
+        sources.push({ provider: "openai-compat", state: "not-configured" });
+      }
+    }
+  }
+
+  // --- Sources 3+: claude-api and loaded module providers ------------------
+  for (const p of getProviders()) {
+    if (p.id === "ollama" || p.id === "openai-compat") continue;
+    const pOpts = {
+      ollamaUrl: config.ollamaUrl,
+      apiKey: resolveApiKey(config, p.id as ProviderId),
+      baseUrl: config.baseUrl,
+    };
+    const configured = await p.isAvailable(pOpts).then((r) => r.available).catch(() => false);
+    if (configured) {
+      const remembered = config.lastModels?.[p.id];
+      // Amendement 2026-10-07 bis: a configured provider with no remembered
+      // model yet (never switched to with an explicit model) still gets a
+      // sensible entry — its own listModels() when it has one, else its
+      // declared defaultModel — instead of vanishing from the list. Without
+      // this, a configured-but-never-explicitly-set provider (e.g. claude-api
+      // right after its key is entered) reported "not-configured" even
+      // though it is perfectly usable.
+      const model = remembered ?? (await resolveFallbackModel(p, pOpts));
+      if (model) {
+        entries.push({ provider: p.id, model, local: false });
+        sources.push({ provider: p.id, state: "ok" });
+      } else {
+        sources.push({ provider: p.id, state: "not-configured" });
+      }
+    }
+  }
+
+  // --- Lot 4: host capacity + /api/ps + fit classification -------------------
+  const ollamaUrl = config.ollamaUrl ?? DEFAULT_OLLAMA_URL;
+  const [host, psEntries] = await Promise.all([
+    readHostCapacity().catch(() => null as HostCapacity | null),
+    fetchPsEntries({ ollamaUrl }).catch(() => [] as Awaited<ReturnType<typeof fetchPsEntries>>),
+  ]);
+
+  // Build a map of currently-loaded model name → gpuPercent.
+  const psMap = new Map<string, number>();
+  for (const ps of psEntries) {
+    if (ps.size > 0) {
+      psMap.set(ps.name, Math.round((100 * ps.size_vram) / ps.size));
+    }
+  }
+
+  // Annotate entries: fit (local Ollama with known size) + gpuPercent (from /api/ps).
+  for (const entry of entries) {
+    if (entry.local && host && typeof entry.sizeBytes === "number") {
+      entry.fit = computeFit(entry.sizeBytes, host);
+    }
+    const gpu = psMap.get(entry.model);
+    if (gpu !== undefined) {
+      entry.gpuPercent = gpu;
+    }
+  }
+
+  return {
+    current: { provider: currentProvider, model: config.model },
+    entries,
+    sources,
+    host,
+  };
 }
 
 // --- settings.test (task 3): "Tester la connexion" backend ------------------
@@ -894,6 +1126,51 @@ function handleMessage(
       });
       return;
     }
+    case "models.list": {
+      // Amendement 2026-10-07: lists all usable models from every configured
+      // source, regardless of the active provider (root-cause fix for Ollama
+      // models disappearing when active provider is claude-cli).
+      void buildModelsPayload(settingsCtx.getConfig()).then((payload) => {
+        send(ws, { type: "models", id: message.id, ...payload });
+      });
+      return;
+    }
+    case "model.warmup": {
+      // Amendement 2026-10-07 (bis): pre-load the active Ollama model into
+      // memory so the first summarize/chat request doesn't wait for a cold load.
+      void (async () => {
+        const config = settingsCtx.getConfig();
+        if (settingsCtx.providerId !== "ollama") {
+          send(ws, { type: "model.warmup-result", id: message.id, state: "skipped" });
+          return;
+        }
+        const model = config.model?.trim();
+        if (!model) {
+          send(ws, { type: "model.warmup-result", id: message.id, state: "skipped" });
+          return;
+        }
+        // Determine context tokens for the model (from show cache or default).
+        const ollamaUrl = config.ollamaUrl ?? DEFAULT_OLLAMA_URL;
+        // Use models.list entries to find the contextTokens if already cached,
+        // otherwise default to 8192.
+        let contextTokens = 8192;
+        try {
+          const entries = await listOllamaModelEntries({ ollamaUrl });
+          const entry = entries.find((e) => matchesModel(e.name, model));
+          if (entry?.contextTokens !== undefined) contextTokens = entry.contextTokens;
+        } catch {
+          // fallback to 8192
+        }
+        const result = await warmupModel(model, contextTokens, { ollamaUrl });
+        send(ws, {
+          type: "model.warmup-result",
+          id: message.id,
+          state: result.state,
+          ...(result.ms !== undefined ? { ms: result.ms } : {}),
+        });
+      })();
+      return;
+    }
   }
 }
 
@@ -1140,8 +1417,42 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       providerOpts,
       getConfig: () => currentConfig,
       applySettings(patch) {
+        // Amendement 2026-10-07 bis: capture the OLD provider's current
+        // model into lastModels BEFORE switching away from it. Without this,
+        // a model only ever set through the initial config (never through
+        // its own settings.set while that provider was active) had no entry
+        // yet, and switching away lost it for good — switching back could
+        // not restore it (bug report: "Ollama (local) : modèle configuré
+        // absent d'Ollama" shown even though the model was installed, after
+        // an earlier provider switch had dropped it).
+        if (patch.provider !== undefined) {
+          const oldProvider = currentConfig.provider ?? DEFAULT_CONFIG.provider!;
+          if (oldProvider !== patch.provider && currentConfig.model) {
+            currentConfig = {
+              ...currentConfig,
+              lastModels: { ...currentConfig.lastModels, [oldProvider]: currentConfig.model },
+            };
+          }
+        }
         if (patch.provider !== undefined) currentConfig = { ...currentConfig, provider: patch.provider };
-        if (patch.model !== undefined) currentConfig = { ...currentConfig, model: patch.model };
+        if (patch.model !== undefined) {
+          currentConfig = { ...currentConfig, model: patch.model };
+        } else if (patch.provider !== undefined) {
+          // Switching provider without specifying a model: restore the last
+          // model used with that provider (amendement 2026-10-07).
+          const remembered = currentConfig.lastModels?.[patch.provider];
+          if (remembered) {
+            currentConfig = { ...currentConfig, model: remembered };
+          }
+        }
+        // Track the last model per provider (amendement 2026-10-07).
+        const activeProvider = currentConfig.provider ?? DEFAULT_CONFIG.provider!;
+        if (currentConfig.model) {
+          currentConfig = {
+            ...currentConfig,
+            lastModels: { ...currentConfig.lastModels, [activeProvider]: currentConfig.model },
+          };
+        }
         // Same "" = forget semantics as apiKey — but baseUrl is NOT a secret
         // (amendement 2026-09-30 bis): it still gets dropped from the JSON
         // on "" for the same "leaves no stale trace" reasoning, not because

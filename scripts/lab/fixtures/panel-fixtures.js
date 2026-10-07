@@ -195,6 +195,81 @@
   var PROVIDER_OK = { provider: "ollama", state: "ok", reason: "ready" };
   var PROVIDER_KO = { provider: "claude-api", state: "ko", reason: "no-key" };
 
+  // Amendement 2026-10-07 (models.list): the model pill next to « Connecté »
+  // and its menu. Local + online, one « thinking » model, sizes in GB.
+  var MODELS_LOCAL_AND_ONLINE = {
+    current: { provider: "ollama", model: "qwen3:4b" },
+    entries: [
+      { provider: "ollama", model: "qwen3:4b", local: true, sizeBytes: 2_600_000_000, thinks: true },
+      { provider: "ollama", model: "llama3.2:latest", local: true, sizeBytes: 2_019_393_189 },
+      { provider: "ollama", model: "gemma3:12b", local: true, sizeBytes: 8_149_190_253 },
+      { provider: "claude-cli", model: "claude-sonnet-4-5", local: false },
+      { provider: "openai-compat", model: "meta-llama/llama-3.3-70b-instruct:free", local: false },
+    ],
+    sources: [
+      { provider: "ollama", state: "ok" },
+      { provider: "claude-cli", state: "ok" },
+      { provider: "openai-compat", state: "ok" },
+    ],
+  };
+  // Ollama down, an online model answering: the calm line replaces the
+  // local section.
+  var MODELS_OLLAMA_DOWN = {
+    current: { provider: "claude-cli", model: "claude-sonnet-4-5" },
+    entries: [{ provider: "claude-cli", model: "claude-sonnet-4-5", local: false }],
+    sources: [
+      { provider: "ollama", state: "unreachable" },
+      { provider: "claude-cli", state: "ok" },
+      { provider: "openai-compat", state: "not-configured" },
+    ],
+  };
+  // Lot 4: machine capacity — Romain's machine (16 GB, 6.4 GB VRAM). The
+  // loaded model carries a measured gpuPercent, which wins over its fit.
+  var MODELS_WITH_FIT = {
+    current: { provider: "ollama", model: "qwen3:8b" },
+    entries: [
+      { provider: "ollama", model: "qwen3:8b", local: true, sizeBytes: 5_225_387_923, fit: "shared", gpuPercent: 74 },
+      { provider: "ollama", model: "qwen3.5:4b", local: true, sizeBytes: 3_300_000_000, fit: "gpu" },
+      { provider: "ollama", model: "qwen3:4b", local: true, sizeBytes: 2_600_000_000, fit: "gpu", thinks: true },
+      { provider: "ollama", model: "gemma3:27b", local: true, sizeBytes: 17_396_936_315, fit: "too-big" },
+      { provider: "claude-cli", model: "claude-sonnet-4-5", local: false },
+    ],
+    sources: [
+      { provider: "ollama", state: "ok" },
+      { provider: "claude-cli", state: "ok" },
+    ],
+    host: { ramGb: 16, vramGb: 6.4 },
+  };
+  // plan-ollama-rapide-07-10.md — same machine, qwen3:4b in use: picking
+  // qwen3:8b (« partagé ») in the menu adds the calm notice line.
+  var MODELS_FIT_4B_CURRENT = Object.assign({}, MODELS_WITH_FIT, {
+    current: { provider: "ollama", model: "qwen3:4b" },
+  });
+  var ARTICLE_QUESTION = "Résumer cet article : Une mesure publiée le 25 septembre";
+  function sendQuestion() {
+    return {
+      steps: [
+        { type: "fill", selector: "#input", value: ARTICLE_QUESTION, delayMs: 40 },
+        { type: "click", selector: "#send", delayMs: 20 },
+      ],
+    };
+  }
+  // `settings` answered to the panel's one settings.get: module labels for
+  // the menu's online entries (never the raw id « claude-cli »).
+  function settingsFor(provider, model) {
+    return {
+      provider: provider,
+      model: model,
+      models: [],
+      available: [
+        { id: "ollama", available: true, configured: true, label: "Ollama" },
+        { id: "claude-cli", available: true, configured: true, label: "Claude (abonnement)" },
+        { id: "openai-compat", available: true, configured: true, label: "Compatible OpenAI" },
+      ],
+    };
+  }
+  var PROVIDER_CLAUDE_CLI_OK ={ provider: "claude-cli", state: "ok", reason: "logged-in" };
+
   window.__COATI_LAB_FIXTURES__ = {
     // Connecté, site reconnu (favicon + nom + suggestions), fil vide.
     // État requis : site connu avec favicon.
@@ -222,6 +297,238 @@
       autoAction: {
         steps: [{ type: "click", selector: "#langSelectorButton", delayMs: 0 }],
       },
+    },
+
+    // Model pill, menu closed: local model named next to « Connecté ».
+    "model-pill": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      models: MODELS_LOCAL_AND_ONLINE,
+    },
+
+    // Menu open: « Sur cet ordinateur » (sizes, qwen3 « réfléchit avant de
+    // répondre »), « En ligne », « Ajouter un modèle… »; qwen3:4b checked.
+    "model-menu-open": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      models: MODELS_LOCAL_AND_ONLINE,
+      settings: settingsFor("ollama", "qwen3:4b"),
+      echoSettingsSet: true,
+      autoAction: {
+        steps: [{ type: "click", selector: "#modelPill", delayMs: 60 }],
+      },
+    },
+
+    // Lot 4 — menu open with fit words: « chargé à 74 % dans la carte
+    // graphique » (measured, current), « tient dans la carte graphique »,
+    // « trop gros pour cet ordinateur » (muted, still selectable).
+    "model-menu-fit": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      models: MODELS_WITH_FIT,
+      settings: settingsFor("ollama", "qwen3:8b"),
+      echoSettingsSet: true,
+      autoAction: {
+        steps: [{ type: "click", selector: "#modelPill", delayMs: 60 }],
+      },
+    },
+
+    // Ollama not answering, Claude in use: pill « en ligne », menu open with
+    // « Ollama ne répond pas » instead of the local models.
+    "model-menu-ollama-down": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_CLAUDE_CLI_OK,
+      models: MODELS_OLLAMA_DOWN,
+      settings: settingsFor("claude-cli", "claude-sonnet-4-5"),
+      autoAction: {
+        steps: [{ type: "click", selector: "#modelPill", delayMs: 60 }],
+      },
+    },
+
+    // Amendement 2026-10-07 bis — older local program, no models.list: the
+    // pill stays visible (calm "update the local program" state) instead of
+    // hiding, and still names the current model from settings.get.
+    "model-pill-stale-broker": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      modelsUnsupported: true,
+      settings: settingsFor("ollama", "qwen3:8b"),
+    },
+
+    // Same state, menu open: one calm line explaining why, plus « Ouvrir les
+    // réglages » — no model list, no switching (the local program can't say).
+    "model-menu-stale-broker-open": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      modelsUnsupported: true,
+      settings: settingsFor("ollama", "qwen3:8b"),
+      autoAction: {
+        steps: [{ type: "click", selector: "#modelPill", delayMs: 60 }],
+      },
+    },
+
+    // Amendement 2026-10-07 bis — provider.status reason "model-missing":
+    // the pill names the (wrongly) configured model, the status text next
+    // to « Connecté » carries the only real problem and is itself a button
+    // (underline on hover/focus) — clicking it opens the same model menu.
+    "status-model-missing": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: { provider: "ollama", state: "ko", reason: "model-missing" },
+      models: MODELS_LOCAL_AND_ONLINE,
+    },
+
+    // Same state, status text clicked: the model menu opens, same as a pill
+    // click would.
+    "status-model-missing-menu-open": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: { provider: "ollama", state: "ko", reason: "model-missing" },
+      models: MODELS_LOCAL_AND_ONLINE,
+      autoAction: {
+        steps: [{ type: "click", selector: "#status .status-label", delayMs: 60 }],
+      },
+    },
+
+    // plan-ollama-rapide-07-10.md, point 3 — waiting line before the first
+    // word, Ollama « loading » stage: sniffing coati head + « Chargement du
+    // modèle… » in the pending answer, no blinking cursor.
+    "progress-loading": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      models: MODELS_WITH_FIT,
+      settings: settingsFor("ollama", "qwen3:8b"),
+      chatScript: [{ delayMs: 40, message: { type: "progress", stage: "loading" } }],
+      autoAction: sendQuestion(),
+    },
+
+    // Same, then « reading »: « Le modèle lit la page… » (page attached).
+    "progress-reading": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      models: MODELS_WITH_FIT,
+      settings: settingsFor("ollama", "qwen3:8b"),
+      chatScript: [
+        { delayMs: 30, message: { type: "progress", stage: "loading" } },
+        { delayMs: 90, message: { type: "progress", stage: "reading" } },
+      ],
+      autoAction: sendQuestion(),
+    },
+
+    // Thinking-only model (qwen3:4b) reasoning before its first word:
+    // « Le modèle réfléchit… » + the hint line « …c'est plus long. ».
+    "progress-thinking": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      models: MODELS_FIT_4B_CURRENT,
+      settings: settingsFor("ollama", "qwen3:4b"),
+      chatScript: [
+        { delayMs: 30, message: { type: "progress", stage: "reading" } },
+        { delayMs: 90, message: { type: "progress", stage: "thinking" } },
+      ],
+      autoAction: sendQuestion(),
+    },
+
+    // Point 3 — qwen3:4b in use, qwen3:8b (« partagé ») picked in the menu:
+    // the switch happens, and one calm line follows in the conversation
+    // (« … ne tient pas entièrement … il sera lent. qwen3.5:4b y tient. »).
+    "shared-model-advice": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      models: MODELS_FIT_4B_CURRENT,
+      settings: settingsFor("ollama", "qwen3:4b"),
+      echoSettingsSet: true,
+      autoAction: {
+        steps: [
+          { type: "click", selector: "#modelPill", delayMs: 60 },
+          { type: "click", selector: '#modelMenu .model-item[data-model="qwen3:8b"]', delayMs: 60 },
+        ],
+      },
+    },
+
+    // Points 6-7 — qwen3:8b goes silent mid-answer (model-stalled): the
+    // words stay, the reason follows, « Réessayer », then the tip
+    // (« essayez qwen3.5:4b… », « Passer à qwen3.5:4b », « Accélérer Ollama »).
+    "answer-stalled-tip": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      models: MODELS_WITH_FIT,
+      settings: settingsFor("ollama", "qwen3:8b"),
+      chatScript: [
+        { delayMs: 20, message: { type: "progress", stage: "reading" } },
+        {
+          delayMs: 50,
+          message: {
+            type: "chunk",
+            delta: "L'article décrit une mesure publiée le 25 septembre. La méthode est présentée comme reproductible, et",
+          },
+        },
+        { delayMs: 90, message: { type: "error", code: "model-stalled", message: "no text from the model for 60 s" } },
+      ],
+      autoAction: sendQuestion(),
     },
 
     // Question + longue réponse markdown (gras, liste, lien), case "lit

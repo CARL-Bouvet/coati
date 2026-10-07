@@ -866,6 +866,52 @@ h3.setup-step-title {
   overflow-wrap: anywhere;
 }
 
+/* Several lines pasted as one (systemd's [Service] block). */
+.setup-command-text--block {
+  white-space: pre-wrap;
+}
+
+/* « Accélérer Ollama »: one short block per OS, this machine's first. */
+.setup-speedup-os {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.setup-speedup-os-title {
+  margin: var(--space-2) 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Plain list items (a flex <li> would lose its number). */
+.setup-speedup-steps > li + li {
+  margin-top: var(--space-2);
+}
+
+.setup-speedup-steps > li > * + * {
+  margin-top: var(--space-1);
+}
+
+.setup-env-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  width: 100%;
+}
+
+.setup-env-row > .setup-command {
+  flex: 1 1 16em;
+  width: auto;
+}
+
+.setup-env-value {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .setup-table-wrap {
   width: 100%;
   overflow-x: auto;
@@ -1030,4 +1076,186 @@ h3.setup-step-title {
   .setup-intro { gap: var(--space-3); }
   .setup-illustration { width: 96px; }
   .provider-item > .key-input { margin-left: 0; }
+}
+
+/* --- Available models (lib/model-list.js, amendement 2026-10-07) -----------
+ * Same list as the panel's model menu, as plain toggle buttons
+ * (aria-pressed) in the « Modèle » section and the tutorial step
+ * « Télécharger un modèle ». Overrides the page-wide primary <button>. */
+.models-available {
+  margin: 0 0 var(--space-3);
+}
+
+.models-available[hidden],
+.setup-installed-models[hidden] {
+  display: none;
+}
+
+h3.models-available-title,
+h4.setup-subtitle {
+  margin: 0 0 var(--space-1);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+h4.setup-subtitle {
+  margin: var(--space-1) 0 0;
+}
+
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  max-width: 32em;
+}
+
+.model-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-list-heading {
+  padding: 0 var(--space-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.model-list .model-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 0;
+  padding: var(--space-1) var(--space-2);
+  font-weight: 400;
+  text-align: left;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+}
+
+.model-list .model-item:hover {
+  background: var(--surface);
+  border-color: var(--divider);
+}
+
+.model-list .model-item:active {
+  background: var(--divider);
+  border-color: var(--divider);
+}
+
+.model-list .model-item--current {
+  border-color: var(--accent);
+}
+
+.model-item-check {
+  flex: none;
+  width: 1em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.model-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.model-item-name {
+  overflow-wrap: anywhere;
+}
+
+.model-item--current .model-item-name {
+  font-weight: 600;
+}
+
+.model-item-detail,
+.model-item-note {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.model-list-note {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Lot 4: too big for this machine — still selectable, only muted; the
+ * words « trop gros pour cet ordinateur » carry the meaning, not colour. */
+.model-item--too-big .model-item-name {
+  color: var(--muted);
+}
+
+/* Download suggestions filtered by the machine (options-setup.js). */
+.setup-model-fit {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.setup-tag--installed {
+  font-weight: 500;
+  border-color: var(--border);
+}
+
+/* Narrow (320 px panel-like windows): each suggestion row stacks into a
+ * block — line 1: choice + tags, line 2: size · fit, aligned under the
+ * name. Table roles are set explicitly in options-setup.js, so the display
+ * change keeps the semantics. Wide widths keep the plain table. */
+@media (max-width: 480px) {
+  .setup-models--host,
+  .setup-models--host tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .setup-models--host thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* Left padding = 16 px radio + its gap: line 2 (and its wrapped lines)
+   * align with the model name; line 1 pulls the radio back into it. */
+  .setup-models--host tr {
+    display: block;
+    padding: 6px 8px 6px calc(8px + 16px + var(--space-2));
+    border-bottom: 1px solid var(--divider);
+  }
+
+  .setup-models--host .setup-model-row--suggested {
+    background: var(--surface);
+  }
+
+  .setup-models--host td,
+  .setup-models--host .setup-model-row--suggested td {
+    display: inline;
+    padding: 0;
+    border: none;
+    background: none;
+  }
+
+  .setup-models--host td:first-child {
+    display: block;
+    margin: 0 0 2px calc(-1 * (16px + var(--space-2)));
+  }
+
+  /* Separator only between two present parts, glued to the fit text's
+   * first word (no-break space) so it never dangles at a line end. */
+  .setup-models--host .setup-model-size + .setup-model-fit::before {
+    content: " \00b7\00a0";
+    color: var(--muted);
+  }
+}
+
+.setup-memory-hint:empty {
+  display: none;
 }

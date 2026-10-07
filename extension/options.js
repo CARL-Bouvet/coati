@@ -17,6 +17,7 @@ import { mountLanguageSelector } from "./lib/language-selector.js";
 import { createKeyInput } from "./lib/key-input.js";
 import { ONLINE_PROVIDERS } from "./lib/setup-data.js";
 import { mountSetupGuide } from "./options-setup.js";
+import { moduleLabelsFrom, renderModelList, sameModel } from "./lib/model-list.js";
 
 applyI18n(document);
 mountLanguageSelector(document.getElementById("languageSelectorMount"), { compact: false });
@@ -63,6 +64,8 @@ const els = {
   modelSection: document.getElementById("modelSection"),
   modelDisconnected: document.getElementById("modelDisconnected"),
   providerList: document.getElementById("providerList"),
+  modelsAvailable: document.getElementById("modelsAvailable"),
+  modelsAvailableList: document.getElementById("modelsAvailableList"),
   modelField: document.getElementById("modelField"),
   modelSelect: document.getElementById("modelSelect"),
   modelInput: document.getElementById("modelInput"),
@@ -162,8 +165,18 @@ async function init() {
       setupGuide.onBrokerMessage(message.message);
     }
     if (message?.type === "coati:broker-message" && message.message?.type === "settings") {
+      lastSettings = message.message;
       renderModelSection(message.message);
       setupGuide.onSettings(message.message);
+      // Any settings change (here, in the panel's model menu, a new key) can
+      // add or move entries: re-read the full list (amendement 2026-10-07).
+      requestModels();
+    }
+    if (message?.type === "coati:broker-message" && message.message?.type === "models") {
+      applyModels(message.message);
+    }
+    if (message?.type === "coati:broker-message" && message.message?.type === "error" && message.message.id === modelsRequestId) {
+      modelsRequestId = null; // older local program without models.list
     }
     if (message?.type === "coati:broker-message" && message.message?.type === "settings.test-result") {
       applyTestResult(message.message);
@@ -188,6 +201,8 @@ function newId() {
 function setupOpenOnHash() {
   const openIfAsked = () => {
     if (location.hash === "#setup") setupGuide.open();
+    // The panel's slow-answer tip (plan-ollama-rapide-07-10.md, point 6).
+    else if (location.hash === "#setup-ollama-speedup") setupGuide.openSpeedup();
     else applyProviderHash();
   };
   openIfAsked();
@@ -297,6 +312,66 @@ function requestSettings() {
     type: "coati:client-message",
     payload: { type: "settings.get", id: newId() },
   });
+}
+
+// --- Available models (docs/PROTOCOL.md, amendement 2026-10-07) -------------
+//
+// models.list lists every usable model, whatever the active provider — so
+// installed Ollama models show here even while another provider answers.
+// Same rendering as the panel's model menu (lib/model-list.js).
+
+let lastSettings = null;
+let modelsReply = null;
+let modelsRequestId = null;
+
+function requestModels() {
+  if (modelsRequestId) return;
+  modelsRequestId = newId();
+  sendClientMessage({ type: "models.list", id: modelsRequestId });
+}
+
+function applyModels(reply) {
+  if (reply.id !== modelsRequestId) return; // another page's request
+  modelsRequestId = null;
+  modelsReply = reply;
+  renderModelsAvailable();
+  if (lastSettings) renderModelField(lastSettings);
+}
+
+function renderModelsAvailable() {
+  if (!modelsReply || !lastSettings) {
+    els.modelsAvailable.hidden = true;
+    return;
+  }
+  const focused = els.modelsAvailableList.contains(document.activeElement) ? document.activeElement : null;
+  const focusedKey = focused ? `${focused.dataset.provider}\n${focused.dataset.model}` : null;
+  // The checkmark follows the latest `settings`, fresher than the reply.
+  const reply = { ...modelsReply, current: { provider: lastSettings.provider, model: lastSettings.model ?? null } };
+  const items = renderModelList(els.modelsAvailableList, reply, {
+    t,
+    providerLabel,
+    moduleLabels: moduleLabelsFrom(lastSettings),
+    baseUrl: lastSettings.baseUrl,
+    mode: "list",
+    idPrefix: "optionsModels",
+    onPick: (entry) => {
+      if (!entry.current) setProvider(entry.provider, entry.model);
+    },
+  });
+  els.modelsAvailable.hidden = false;
+  if (focusedKey) items.find((item) => `${item.dataset.provider}\n${item.dataset.model}` === focusedKey)?.focus();
+}
+
+/** Model names for the selected provider's own select: the `settings` list
+ * plus whatever models.list found for that provider (Ollama answers there
+ * even when `settings.models` was empty). */
+function modelNamesFor(settings) {
+  const names = Array.isArray(settings.models) ? [...settings.models] : [];
+  for (const entry of modelsReply?.entries ?? []) {
+    if (entry?.provider !== settings.provider || typeof entry.model !== "string") continue;
+    if (!names.some((name) => sameModel(name, entry.model))) names.push(entry.model);
+  }
+  return names;
 }
 
 function setProvider(provider, model) {
@@ -431,6 +506,8 @@ function renderModelSection(settings) {
 
   if (!settings) {
     els.modelField.hidden = true;
+    lastSettings = null;
+    els.modelsAvailable.hidden = true;
     return;
   }
 
@@ -521,6 +598,7 @@ function renderModelSection(settings) {
   }
 
   renderModelField(settings);
+  renderModelsAvailable();
   applyProviderHash();
 }
 
@@ -641,8 +719,9 @@ function buildTestRow(providerId) {
 
 function renderModelField(settings) {
   els.modelField.hidden = false;
+  const names = modelNamesFor(settings);
 
-  if (Array.isArray(settings.models) && settings.models.length > 0) {
+  if (names.length > 0) {
     els.modelSelect.hidden = false;
     els.modelInput.hidden = true;
     els.modelSave.hidden = true;
@@ -652,7 +731,7 @@ function renderModelField(settings) {
     placeholder.value = "";
     placeholder.textContent = t("options_choose_model");
     els.modelSelect.appendChild(placeholder);
-    for (const name of settings.models) {
+    for (const name of names) {
       const option = document.createElement("option");
       option.value = name;
       option.textContent = name;

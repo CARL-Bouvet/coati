@@ -25,6 +25,8 @@
   "common_error_bad_request": { "message": "Requête invalide." },
   "common_error_unauthorized": { "message": "Non autorisé." },
   "common_error_model_unavailable": { "message": "Le modèle ne répond pas." },
+  "common_error_model_stalled": { "message": "Le modèle n'a plus envoyé de texte depuis une minute : la réponse s'arrête là. Vous pouvez réessayer." },
+  "common_error_model_timeout": { "message": "Le modèle n'a pas commencé à répondre à temps. Réessayez dans un instant." },
   "common_error_auth_required": { "message": "Authentification requise auprès du fournisseur de modèle." },
   "common_error_context_too_large": { "message": "Le contenu envoyé est trop volumineux pour le modèle." },
   "common_error_cancelled": { "message": "Requête annulée." },
@@ -179,9 +181,32 @@
   "panel_worker_restarted": {
     "message": "La requête a été interrompue (le service en arrière-plan a redémarré), relancez-la."
   },
-  "panel_no_response_130s": {
-    "message": "Aucune réponse après 130 s. Le programme local ne répond pas ; vérifiez qu'il tourne, puis réessayez."
+  "panel_no_response": {
+    "message": "Plus aucune nouvelle du programme local. Vérifiez qu'il tourne, puis réessayez."
   },
+  "panel_progress_loading": { "message": "Chargement du modèle…" },
+  "panel_progress_reading_page": { "message": "Le modèle lit la page…" },
+  "panel_progress_reading_request": { "message": "Le modèle lit votre demande…" },
+  "panel_progress_thinking": { "message": "Le modèle réfléchit…" },
+  "panel_progress_thinking_hint": { "message": "Ce modèle réfléchit avant de répondre : c'est plus long." },
+  "panel_shared_model_note": {
+    "message": "$MODEL$ ne tient pas entièrement dans la carte graphique : il sera lent.",
+    "placeholders": { "model": { "content": "$1", "example": "qwen3:8b" } }
+  },
+  "panel_shared_model_alt": {
+    "message": "$MODEL$ y tient.",
+    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+  },
+  "panel_slow_tip_switch_text": {
+    "message": "Pour des réponses plus rapides, essayez $MODEL$ : il tient entièrement dans la carte graphique.",
+    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+  },
+  "panel_slow_tip_speedup_text": { "message": "Deux réglages d'Ollama peuvent rendre ses réponses plus rapides." },
+  "panel_slow_tip_switch_action": {
+    "message": "Passer à $MODEL$",
+    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+  },
+  "panel_slow_tip_speedup_action": { "message": "Accélérer Ollama" },
   "panel_no_active_tab": { "message": "⚠ Aucun onglet actif à lire." },
   "panel_nothing_readable": {
     "message": "⚠ Rien de lisible n'a été trouvé sur cette page. Contenu chargé après coup, ou réservé aux abonnés ?"
@@ -448,6 +473,21 @@
   "setup_lmstudio_download": { "message": "Télécharger LM Studio" },
   "setup_lmstudio_use": { "message": "Utiliser LM Studio et vérifier" },
   "setup_lmstudio_ok": { "message": "LM Studio répond. Choisissez son modèle dans la section « Modèle » ci-dessous." },
+  "setup_speedup_title": { "message": "Accélérer Ollama" },
+  "setup_speedup_intro": { "message": "Deux réglages d'Ollama divisent environ par deux la mémoire qu'occupe la page lue, pour une perte de qualité minime : un calcul plus économe (« flash attention ») et une mémoire de travail compressée. Le modèle tient alors plus souvent entièrement dans la carte graphique, et répond plus vite." },
+  "setup_speedup_linux_edit": { "message": "Ouvrez le réglage du service Ollama (installation standard, avec systemd) :" },
+  "setup_speedup_linux_add": { "message": "Dans l'éditeur qui s'ouvre, collez ces trois lignes dans la zone vide du haut, puis enregistrez et fermez :" },
+  "setup_speedup_linux_restart": { "message": "Redémarrez Ollama :" },
+  "setup_speedup_mac_set": { "message": "Dans le Terminal, lancez ces deux commandes :" },
+  "setup_speedup_mac_restart": { "message": "Quittez Ollama (son icône dans la barre des menus, « Quit Ollama »), puis relancez l'application." },
+  "setup_speedup_win_open": { "message": "Ouvrez Paramètres et cherchez « Modifier les variables d'environnement pour votre compte »." },
+  "setup_speedup_win_add": { "message": "Sous « Variables utilisateur », cliquez sur « Nouvelle… » et ajoutez ces deux variables (nom, puis valeur) :" },
+  "setup_speedup_win_value": {
+    "message": "valeur : $VALUE$",
+    "placeholders": { "value": { "content": "$1", "example": "q8_0" } }
+  },
+  "setup_speedup_win_restart": { "message": "Quittez Ollama depuis son icône près de l'horloge (clic droit, « Quit Ollama »), puis relancez-le." },
+  "setup_speedup_faq": { "message": "Documentation d'Ollama (questions fréquentes)" },
   "setup_online_service_title": { "message": "Choisir un service" },
   "setup_online_free_warning": { "message": "À savoir avant de choisir : les modèles gratuits d'OpenRouter peuvent conserver les textes que vous leur envoyez, et s'en servir. N'y envoyez rien de confidentiel." },
   "setup_online_free_detail": {
@@ -651,5 +691,93 @@
   "sugg_amazon_weaknesses_label": { "message": "Points faibles signalés" },
   "sugg_amazon_weaknesses_prompt": {
     "message": "Relève les points faibles signalés dans les avis de cette fiche produit, même minoritaires."
-  }
+  },
+  "model_list_title": { "message": "Modèles disponibles" },
+  "model_list_local": { "message": "Sur cet ordinateur" },
+  "model_list_online": { "message": "En ligne" },
+  "model_list_size_gb": {
+    "message": "$GB$ Go",
+    "placeholders": {
+      "gb": { "content": "$1", "example": "2,6" }
+    }
+  },
+  "model_list_thinks": { "message": "réfléchit avant de répondre, plus lent" },
+  "model_list_ollama_unreachable": { "message": "Ollama ne répond pas" },
+  "model_list_no_local": { "message": "Aucun modèle installé" },
+  "model_list_add": { "message": "Ajouter un modèle…" },
+  "model_list_loading": { "message": "Recherche des modèles…" },
+  "model_list_unavailable": { "message": "Le programme local n'a pas pu donner la liste des modèles." },
+  "model_pill_local": { "message": "local" },
+  "model_pill_online": { "message": "en ligne" },
+  "model_pill_none": { "message": "Aucun modèle" },
+  "model_pill_stale_broker": { "message": "Programme local à redémarrer" },
+  "model_pill_stale_broker_label": {
+    "message": "Programme local plus ancien que l'extension. Ouvrir le menu."
+  },
+  "model_menu_stale_broker_line": {
+    "message": "Le programme local est plus ancien que l'extension : redémarrez-le pour voir et changer le modèle."
+  },
+  "panel_status_action_hint": { "message": "Cliquer pour changer de modèle." },
+  "model_pill_label": {
+    "message": "Modèle : $MODEL$, $WHERE$. Changer de modèle",
+    "placeholders": {
+      "model": { "content": "$1", "example": "qwen3:4b" },
+      "where": { "content": "$2", "example": "local" }
+    }
+  },
+  "setup_local_models_check": { "message": "Vérifier les modèles disponibles" },
+  "setup_local_models_text": { "message": "Déjà des modèles dans Ollama ? Coati les liste ici ; un clic choisit celui qui répond." },
+  "setup_local_suggestions_title": { "message": "Modèles à télécharger" },
+  "setup_local_model_installed": {
+    "message": "$MODEL$ est installé. Choisissez-le dans la liste des modèles disponibles ci-dessous.",
+    "placeholders": {
+      "model": { "content": "$1", "example": "gemma3:4b" }
+    }
+  },
+  "setup_local_model_chosen": {
+    "message": "Coati utilise maintenant $MODEL$.",
+    "placeholders": {
+      "model": { "content": "$1", "example": "qwen3:4b" }
+    }
+  },
+  "model_fit_gpu": { "message": "tient dans la carte graphique" },
+  "model_fit_shared": { "message": "partagé avec le processeur, plus lent" },
+  "model_fit_too_big": { "message": "trop gros pour cet ordinateur" },
+  "model_fit_loaded_percent": {
+    "message": "chargé à $PERCENT$ % dans la carte graphique",
+    "placeholders": {
+      "percent": { "content": "$1", "example": "100" }
+    }
+  },
+  "setup_local_model_text_host": { "message": "Voici les modèles qui tournent sur cet ordinateur, d'après sa mémoire. Un modèle plus gros répond mieux, mais plus lentement." },
+  "setup_local_host_vram": {
+    "message": "Cet ordinateur : $RAM$ Go de mémoire, $VRAM$ Go de mémoire graphique.",
+    "placeholders": {
+      "ram": { "content": "$1", "example": "16" },
+      "vram": { "content": "$2", "example": "6,4" }
+    }
+  },
+  "setup_local_host_vram_unknown": {
+    "message": "Cet ordinateur : $RAM$ Go de mémoire, mémoire graphique inconnue.",
+    "placeholders": {
+      "ram": { "content": "$1", "example": "16" }
+    }
+  },
+  "setup_local_host_unified": {
+    "message": "Cet ordinateur : $RAM$ Go de mémoire, mémoire partagée (Mac).",
+    "placeholders": {
+      "ram": { "content": "$1", "example": "16" }
+    }
+  },
+  "setup_local_col_fit": { "message": "Sur cet ordinateur" },
+  "setup_local_none_fit": { "message": "Aucun modèle de cette liste ne tient sur cet ordinateur. Un service en ligne sera plus confortable." },
+  "setup_local_installed_tag": { "message": "déjà installé" },
+  "setup_local_installed_no_pull": {
+    "message": "$MODEL$ est déjà installé : rien à télécharger.",
+    "placeholders": {
+      "model": { "content": "$1", "example": "qwen3.5:4b" }
+    }
+  },
+  "model_list_provider_local": { "message": "sur cet ordinateur" },
+  "model_list_provider_online": { "message": "service en ligne" }
 }

@@ -202,6 +202,18 @@ textarea {
   background: var(--status-idle);
 }
 
+/* Model-missing problem (amendement 2026-10-07 bis): the status text itself
+ * becomes a button opening the model menu — underline on hover/focus is
+ * enough, no colour change (it isn't an error, just an actionable detail). */
+.status-label--action {
+  cursor: pointer;
+}
+
+.status-label--action:hover,
+.status-label--action:focus-visible {
+  text-decoration: underline;
+}
+
 .status--connected .status-dot { background: var(--status-connected); }
 .status--connecting .status-dot,
 .status--handshaking .status-dot,
@@ -211,6 +223,203 @@ textarea {
 .status--no-host .status-dot,
 .status--broker-untrusted .status-dot { background: var(--status-disconnected); }
 .status--pairing-retry .status-dot { background: var(--status-connecting); }
+
+/* Model pill + menu (amendement 2026-10-07): right after « Connecté ». The
+ * brand row wraps, so on a 320 px panel the pill drops under the status
+ * instead of pushing the header tools off-screen. */
+.brand {
+  flex-wrap: wrap;
+  min-width: 0;
+  row-gap: var(--space-1);
+}
+
+.model-picker {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.model-picker[hidden] {
+  display: none;
+}
+
+.model-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  min-width: 0;
+  max-width: 14em;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--header-surface);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 0.85em;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.model-pill:hover {
+  border-color: var(--muted);
+}
+
+.model-pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.model-pill[aria-expanded="true"] {
+  border-color: var(--accent);
+}
+
+.model-pill-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.model-pill-where {
+  flex: none;
+  color: var(--muted);
+}
+
+/* Stale-broker pill (amendement 2026-10-07 bis): its label is a short
+ * sentence, not a one-word suffix — let the name wrap onto a second line and
+ * grow the pill's height, instead of a single nowrap line clipping (or, for
+ * the "where" suffix, overflowing past the border — bug report, 320 px). */
+.model-pill[data-where="stale"] {
+  max-width: 16em;
+  align-items: center;
+}
+
+.model-pill[data-where="stale"] .model-pill-name {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* Caret drawn in CSS: no glyph to translate, same colour as the text. */
+.model-pill::after {
+  content: "";
+  flex: none;
+  align-self: center;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--muted);
+}
+
+.model-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  min-width: 15em;
+  max-width: calc(100vw - 2 * var(--space-3));
+  max-height: min(26em, 70vh);
+  overflow-y: auto;
+  padding: var(--space-1);
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--overlay-shadow);
+}
+
+.model-list-section + .model-list-section {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--surface);
+}
+
+.model-list-heading {
+  padding: var(--space-1) var(--space-2) 2px;
+  font-size: 0.75em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.model-item,
+.model-list-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  font-size: 0.9em;
+}
+
+.model-item {
+  cursor: pointer;
+}
+
+.model-item:hover,
+.model-item:focus-visible,
+.model-list-note:focus-visible {
+  background: var(--surface);
+  outline: none;
+}
+
+.model-list-note {
+  color: var(--muted);
+  cursor: default;
+}
+
+.model-item-check {
+  flex: none;
+  width: 1em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.model-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.model-item-name {
+  overflow-wrap: anywhere;
+}
+
+.model-item--current .model-item-name {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.model-item-detail,
+.model-item-note {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+/* Lot 4: too big for this machine — still selectable, only muted; the
+ * words « trop gros pour cet ordinateur » carry the meaning, not colour. */
+.model-item--too-big .model-item-name {
+  color: var(--muted);
+}
+
+/* « Ajouter un modèle… »: no checkmark column, aligned with the names. */
+.model-item--add {
+  padding-left: calc(var(--space-2) + 1em + var(--space-2));
+  color: var(--accent);
+}
+
+.model-list-separator {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--surface);
+}
 
 /* Wraps: the text keeps at least ~18em of line before the buttons (moved
  * as ONE group) may sit beside it; below that (a 320-360 px panel) the
@@ -588,6 +797,113 @@ textarea {
 .message--streaming::after {
   content: "▍";
   animation: blink 1s step-start infinite;
+}
+
+/* Before the first word (plan-ollama-rapide-07-10.md, point 3): the coati
+ * head sniffs next to « Chargement du modèle… » / « Le modèle lit la
+ * page… ». The head is mirrored so it faces right, towards the words. The
+ * line replaces the blinking cursor. */
+.message--progress::after {
+  content: none;
+}
+
+.message-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+}
+
+.message-progress-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* « Ce modèle réfléchit avant de répondre : c'est plus long. » */
+.message-progress-hint {
+  font-size: 0.9em;
+}
+
+.message-progress-coati {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  transform: scaleX(-1);
+  transform-origin: 50% 60%;
+  animation: coati-sniff 1.8s ease-in-out infinite;
+}
+
+/* Three small nose twitches, then a rest. Every frame keeps the mirror. */
+@keyframes coati-sniff {
+  0%, 45%, 100% { transform: scaleX(-1) translateY(0) rotate(0deg); }
+  52% { transform: scaleX(-1) translateY(-1px) rotate(-7deg); }
+  59% { transform: scaleX(-1) translateY(0) rotate(1deg); }
+  66% { transform: scaleX(-1) translateY(-1px) rotate(-6deg); }
+  73% { transform: scaleX(-1) translateY(0) rotate(1deg); }
+  80% { transform: scaleX(-1) translateY(-1px) rotate(-5deg); }
+  87% { transform: scaleX(-1) translateY(0) rotate(0deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-progress-coati { animation: none; }
+}
+
+/* « qwen3:8b ne tient pas entièrement dans la carte graphique… »: Coati's
+ * own calm line, not an error (no --danger). */
+.message--notice {
+  align-self: center;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9em;
+  text-align: center;
+}
+
+/* Why a cut answer stops where it does (model-stalled). */
+.message-cut-notice {
+  margin: var(--space-2) 0 0;
+  color: var(--danger);
+  font-size: 0.9em;
+}
+
+/* Tip under a slow or cut answer: one sentence, two small actions. */
+.slow-tip {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  white-space: normal;
+}
+
+.slow-tip-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.slow-tip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.slow-tip-action {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-3);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.slow-tip-action:hover {
+  background: var(--surface);
 }
 
 .recovery-block {
