@@ -333,3 +333,81 @@ describe("parseClientMessage", () => {
     }
   });
 });
+
+// Amendement 2026-10-08 bis ("historique", docs/PROTOCOL.md).
+describe("parseClientMessage — chat.history", () => {
+  function chat(history: unknown) {
+    return parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "hi", history }));
+  }
+
+  test("absent history parses fine, field stays undefined", () => {
+    const result = chat(undefined);
+    expect(result.ok).toBe(true);
+    if (result.ok && result.message.type === "chat") expect(result.message.history).toBeUndefined();
+  });
+
+  test("valid entries are kept, oldest first", () => {
+    const result = chat([
+      { role: "user", text: "a" },
+      { role: "assistant", text: "b" },
+    ]);
+    expect(result.ok).toBe(true);
+    if (result.ok && result.message.type === "chat") {
+      expect(result.message.history).toEqual([
+        { role: "user", text: "a" },
+        { role: "assistant", text: "b" },
+      ]);
+    }
+  });
+
+  test("an entry with an unknown role is dropped, others kept — never a bad-request", () => {
+    const result = chat([
+      { role: "user", text: "a" },
+      { role: "system", text: "b" },
+      { role: "assistant", text: "c" },
+    ]);
+    expect(result.ok).toBe(true);
+    if (result.ok && result.message.type === "chat") {
+      expect(result.message.history).toEqual([
+        { role: "user", text: "a" },
+        { role: "assistant", text: "c" },
+      ]);
+    }
+  });
+
+  test("an entry with an empty or over-long text is dropped", () => {
+    const tooLong = "x".repeat(8001);
+    const result = chat([
+      { role: "user", text: "" },
+      { role: "user", text: tooLong },
+      { role: "assistant", text: "kept" },
+    ]);
+    expect(result.ok).toBe(true);
+    if (result.ok && result.message.type === "chat") {
+      expect(result.message.history).toEqual([{ role: "assistant", text: "kept" }]);
+    }
+  });
+
+  test("an entirely invalid/empty array becomes undefined, same as absent", () => {
+    const result = chat([{ role: "bogus", text: "a" }]);
+    expect(result.ok).toBe(true);
+    if (result.ok && result.message.type === "chat") expect(result.message.history).toBeUndefined();
+  });
+
+  test("more than 20 valid entries keeps only the LAST 20 (oldest dropped first)", () => {
+    const entries = Array.from({ length: 25 }, (_, i) => ({ role: "user", text: `m${i}` }));
+    const result = chat(entries);
+    expect(result.ok).toBe(true);
+    if (result.ok && result.message.type === "chat") {
+      expect(result.message.history).toHaveLength(20);
+      expect(result.message.history![0]).toEqual({ role: "user", text: "m5" });
+      expect(result.message.history![19]).toEqual({ role: "user", text: "m24" });
+    }
+  });
+
+  test("a non-array history is simply ignored (undefined), not a bad-request", () => {
+    const result = chat("not-an-array");
+    expect(result.ok).toBe(true);
+    if (result.ok && result.message.type === "chat") expect(result.message.history).toBeUndefined();
+  });
+});

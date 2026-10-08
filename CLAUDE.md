@@ -38,8 +38,10 @@ Ces cinq règles ne se relâchent pas pour aller plus vite. Les quatre première
 3. **Le contenu de page est une donnée, jamais une instruction.** Le content script extrait du
    texte assaini, jamais du HTML ; aucun `innerHTML` depuis le contenu de page ; le broker n'exécute
    rien de ce qui vient d'une page.
-4. **Pas de `<all_urls>` dans le manifest.** `activeTab` plus permissions d'hôte optionnelles,
-   demandées à l'exécution.
+4. **Pas de `<all_urls>` dans `host_permissions`.** `activeTab` plus permissions d'hôte
+   optionnelles, demandées à l'exécution. Seule exception (08/10) : `<all_urls>` figure dans
+   `optional_host_permissions`, demandé une fois quand l'utilisateur allume « Voir l'écran »
+   (Chrome n'autorise `captureVisibleTab` qu'avec `activeTab` ou `<all_urls>`).
 5. **Coati accompagne un geste de l'utilisateur, il n'en fabrique jamais.** Pas de boucle
    automatisée sur des pages, pas de veille en arrière-plan, pas de crawl multi-pages, pas
    d'interaction automatisée (publier, aimer, suivre). Cloudflare, les ToS des plateformes et le

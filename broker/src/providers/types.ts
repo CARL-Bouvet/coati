@@ -115,6 +115,30 @@ export interface ModelProvider {
    * (a real minimal model call) for that provider only. Never throws —
    * reports failure via TestConnectionResult.code instead. */
   testConnection?(opts: ProviderRuntimeOptions & { timeoutMs?: number }): Promise<TestConnectionResult>;
+  /**
+   * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): STATIC vision
+   * support, for a provider whose answer never depends on which specific
+   * model is active — `true` for claude-api/claude-cli, whatever an
+   * external module declares (docs/MODULES.md's `vision`). Checked by
+   * server.ts's vision gate ONLY when `supportsVision` below is absent.
+   * Absent AND no `supportsVision` (a module that declares neither) is
+   * treated as `false` — fail closed, per docs/MODULES.md. A provider whose
+   * vision support DOES vary by model (ollama, openai-compat) leaves this
+   * absent and implements `supportsVision` instead.
+   */
+  vision?: boolean;
+  /**
+   * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): does the model
+   * `opts` names right now understand an attached image? The LIVE gate
+   * server.ts calls before honouring a `chat.image` — distinct from
+   * `ModelEntry.vision` (protocol.ts), which is display-only, for the
+   * `models` list. Returns `true`/`false` when the provider can tell (e.g.
+   * ollama's `/api/show` capabilities for THIS model), `undefined` when it
+   * can't (server.ts then lets the request through and relies on the
+   * provider's own 400 — VisionUnsupportedError — if it turns out wrong).
+   * Takes precedence over the static `vision` field above when present.
+   * Never throws. */
+  supportsVision?(opts: ProviderRuntimeOptions): Promise<boolean | undefined>;
   /** Streams the model's answer to `built.prompt`. Throws ModelTimeoutError
    * or ModelUnavailableError (../model.ts) for conditions server.ts should
    * report as `model-unavailable` rather than `internal`. */

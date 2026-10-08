@@ -238,7 +238,16 @@
     if (!message || typeof message !== "object") return Promise.resolve(null);
 
     if (message.type === "coati:panel-ready" || message.type === "coati:get-status") {
-      return Promise.resolve({ state: fixture.status || "connected", workerInstanceId: "lab" });
+      // Lot F — `fixture.features` (A2/B3/C2's hello-ok.features: "elements",
+      // "vision", "docsearch") rides the SAME response real service-worker.js
+      // now carries it on (bug fix 08/10 — see its own comment), so a lab
+      // fixture can show the "Montrer"/"Joindre l'écran"/"Chercher dans la
+      // doc" UI with zero extra stub plumbing.
+      return Promise.resolve({
+        state: fixture.status || "connected",
+        workerInstanceId: "lab",
+        features: fixture.features || [],
+      });
     }
 
     if (message.type === "coati:set-token") {

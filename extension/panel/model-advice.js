@@ -16,6 +16,18 @@ export const SLOW_FIRST_WORD_MS = 30_000;
 /** Options page anchor of the « Accélérer Ollama » block (options.js). */
 export const OLLAMA_SPEEDUP_PATH = "options.html#setup-ollama-speedup";
 
+/** The sniffing coati (WebP/still PNG) shows for at most this long per
+ * request, counted once from the first progress stage — not replayed when
+ * the stage changes (loading -> reading -> thinking). */
+export const COATI_VISIBLE_MS = 2000;
+
+/** `startedAt`: ms timestamp of the first progress stage of this message, or
+ * null/undefined before any stage fired. `now`: injected clock (tests pass a
+ * fixed value; panel.js passes Date.now()). */
+export function coatiVisible(startedAt, now) {
+  return typeof startedAt === "number" && now - startedAt < COATI_VISIBLE_MS;
+}
+
 /** "loading" | "reading" | "thinking" | null — the only stages the panel
  * draws ("thinking": a thinking-only model reasoning before its first word). */
 export function readProgressStage(stage) {
@@ -61,18 +73,25 @@ export function sharedModelNoticeText(entry, grouped, t) {
   return alt ? `${first} ${t("panel_shared_model_alt", [shortModelName(alt.model)])}` : first;
 }
 
-/** Waiting line with the sniffing coati head (CSS animation, static under
- * prefers-reduced-motion — panel.css). */
-export function buildProgress(doc, { stage, readsPage, t, iconSrc }) {
+/** Waiting line with the sniffing coati head: an animated WebP (still PNG
+ * under prefers-reduced-motion), shown for at most COATI_VISIBLE_MS and then
+ * removed — the slot it sat in stays reserved so the row doesn't jump.
+ * `startedAt`/`now`: see coatiVisible(). */
+export function buildProgress(doc, { stage, readsPage, t, iconSrc, iconStillSrc, reducedMotion, startedAt, now }) {
   const wrap = doc.createElement("div");
   wrap.className = "message-progress";
   wrap.dataset.stage = stage;
-  const icon = doc.createElement("img");
-  icon.className = "message-progress-coati";
-  icon.src = iconSrc;
-  icon.alt = "";
-  icon.width = 24;
-  icon.height = 24;
+  const slot = doc.createElement("span");
+  slot.className = "message-progress-icon-slot";
+  if (coatiVisible(startedAt, now)) {
+    const icon = doc.createElement("img");
+    icon.className = "message-progress-coati";
+    icon.src = reducedMotion ? iconStillSrc : iconSrc;
+    icon.alt = "";
+    icon.width = 32;
+    icon.height = 32;
+    slot.append(icon);
+  }
   const body = doc.createElement("span");
   body.className = "message-progress-body";
   const label = doc.createElement("span");
@@ -86,7 +105,7 @@ export function buildProgress(doc, { stage, readsPage, t, iconSrc }) {
     hint.textContent = t("panel_progress_thinking_hint");
     body.append(hint);
   }
-  wrap.append(icon, body);
+  wrap.append(slot, body);
   return wrap;
 }
 

@@ -120,11 +120,16 @@ describe("firstRunChecks (T51)", () => {
 
 describe("voie B — static invariants", () => {
   for (const name of ["manifest.json", "manifest.firefox.json"]) {
-    test(`${name}: all sites optional, no tabs, no <all_urls>, no mandatory host permission`, () => {
+    test(`${name}: all sites optional, no tabs, <all_urls> only in optional_host_permissions, no mandatory host permission`, () => {
       const manifest = JSON.parse(readFileSync(join(EXT, name), "utf8"));
       expect(manifest.optional_host_permissions).toEqual(expect.arrayContaining(ALL_SITES_ORIGINS));
+      // Exception (08/10, screen-capture permission): "<all_urls>" is allowed
+      // in optional_host_permissions only — requested when the user turns
+      // "Voir l'écran" on (captureVisibleTab needs it or activeTab). Never in
+      // `permissions`/`host_permissions`, never silently granted upfront.
+      expect(manifest.optional_host_permissions).toContain("<all_urls>");
       expect(manifest.permissions).not.toContain("tabs");
-      expect(JSON.stringify(manifest)).not.toContain("<all_urls>");
+      expect(manifest.permissions.join(",")).not.toContain("<all_urls>");
       expect(JSON.stringify(manifest)).not.toContain("*://");
       expect(manifest.host_permissions ?? []).toEqual([]);
     });

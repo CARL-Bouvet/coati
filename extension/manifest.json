@@ -17,7 +17,8 @@
   ],
   "optional_host_permissions": [
     "http://*/*",
-    "https://*/*"
+    "https://*/*",
+    "<all_urls>"
   ],
   "content_security_policy": {
     "extension_pages": "default-src 'self'; connect-src ws://127.0.0.1:8787 'self'; img-src 'self'; style-src 'self'"

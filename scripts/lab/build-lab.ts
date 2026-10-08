@@ -208,6 +208,7 @@ async function main() {
   cpSync(join(LAB_SRC, "fixtures", "panel-zones.js"), join(labDir, "panel-zones.js"));
   cpSync(join(LAB_SRC, "fixtures", "panel-annotate.js"), join(labDir, "panel-annotate.js"));
   cpSync(join(LAB_SRC, "fixtures", "options-fixtures.js"), join(labDir, "options-fixtures.js"));
+  cpSync(join(LAB_SRC, "fixtures", "options-zones.js"), join(labDir, "options-zones.js"));
   cpSync(join(LAB_SRC, "fixtures", "identity-pairs.js"), join(labDir, "identity-pairs.js"));
   cpSync(join(LAB_SRC, "static", "lab-pair.js"), join(labDir, "lab-pair.js"));
 
@@ -306,6 +307,7 @@ async function main() {
       determinismRelPath: "../lab/lab-determinism.css",
       identityPairsRelPath: "../lab/identity-pairs.js",
       labPairRelPath: "../lab/lab-pair.js",
+      extraScriptRelPaths: ["../lab/options-zones.js"],
     });
 
     buildHtmlPage({

@@ -36,6 +36,9 @@
   "common_error_rate_limited": { "message": "Le fournisseur reçoit trop de requêtes en ce moment." },
   "common_error_provider_overloaded": { "message": "Le fournisseur est surchargé, réessayez dans un instant." },
   "common_error_model_missing": { "message": "Ce modèle n'est pas disponible sur votre compte." },
+  "common_error_vision_unsupported": {
+    "message": "Le modèle actif ne voit pas les images. Choisissez-en un qui voit (ex. qwen2.5vl, gemma3) puis renvoyez votre question."
+  },
   "common_error_detail": {
     "message": "Détail : $MESSAGE$",
     "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
@@ -59,6 +62,8 @@
   "panel_save_prompt": { "message": "Enregistrer le texte saisi comme prompt" },
   "panel_input_placeholder": { "message": "Écrivez à Coati…" },
   "panel_erase_conversation": { "message": "Effacer la conversation" },
+  "panel_history_long": { "message": "Conversation longue : le modèle risque de perdre le fil. Effacez-la pour repartir de zéro." },
+  "panel_history_dropped": { "message": "Les premiers échanges ne sont plus transmis au modèle." },
   "panel_cancel": { "message": "Annuler" },
   "panel_send": { "message": "Envoyer" },
   "panel_confirm_erase": { "message": "Confirmer l'effacement ?" },
@@ -224,6 +229,55 @@
   "panel_relaunch": { "message": "Relancer" },
   "panel_relaunch_title": { "message": "Renvoyer cette question" },
   "panel_seek_timestamp_title": { "message": "Aller à cet instant de la vidéo" },
+  "panel_point_button": {
+    "message": "Montrer : $LABEL$",
+    "placeholders": { "label": { "content": "$1", "example": "Générer" } }
+  },
+  "panel_point_stale": { "message": "La page a changé : relancez la question." },
+  "panel_point_failed": { "message": "Impossible de montrer cet élément." },
+  "panel_point_frame_limit": { "message": "Les éléments situés dans un cadre (iframe) ne sont pas repérés." },
+  "panel_attach_screen": { "message": "Voir l'écran" },
+  "panel_attach_screen_title": { "message": "Coati regarde l'onglet à chaque question" },
+  "panel_attach_screen_local": { "message": "Reste sur cet ordinateur" },
+  "panel_attach_screen_online": {
+    "message": "Part vers $PROVIDER$ (en ligne)",
+    "placeholders": { "provider": { "content": "$1", "example": "Claude" } }
+  },
+  "panel_screen_no_vision": { "message": "Le modèle actif ne voit pas les images — choisissez-en un qui voit (ex. qwen2.5vl, gemma3)." },
+  "panel_screen_attached": {
+    "message": "(capture de l'écran jointe, $DIMENSIONS$)",
+    "placeholders": { "dimensions": { "content": "$1", "example": "1280×720" } }
+  },
+  "panel_screen_denied": { "message": "Coati ne peut pas capturer cette page." },
+  "panel_screen_too_big": { "message": "La capture est trop lourde pour être envoyée." },
+  "panel_screen_need_gesture": {
+    "message": "Activez l'interrupteur « Voir l'écran » pour autoriser la capture, puis renvoyez votre question."
+  },
+  "panel_docsearch_query": {
+    "message": "Recherche : $QUERY$",
+    "placeholders": { "query": { "content": "$1", "example": "export video kling ai tutorial" } }
+  },
+  "panel_docsearch_scope": {
+    "message": "Recherche dans $SITE$ via $ENGINE$",
+    "placeholders": {
+      "site": { "content": "$1", "example": "help.kling.ai" },
+      "engine": { "content": "$2", "example": "Brave Search" }
+    }
+  },
+  "panel_docsearch_web": {
+    "message": "sur le web via $ENGINE$",
+    "placeholders": { "engine": { "content": "$1", "example": "Brave Search" } }
+  },
+  "panel_docsearch_reading": { "message": "Lecture des pages trouvées…" },
+  "panel_sources_title": { "message": "Sources" },
+  "error_search_not_configured": {
+    "message": "Aucun service de recherche n'est configuré — ajoutez une clé Brave ou Tavily dans les réglages."
+  },
+  "error_search_unavailable_auth": { "message": "La clé de recherche a été refusée par le service." },
+  "error_search_unavailable_quota": { "message": "Le quota gratuit du service de recherche est épuisé." },
+  "error_search_unavailable_rate": { "message": "Le service de recherche reçoit trop de requêtes en ce moment." },
+  "error_search_unavailable_network": { "message": "Le service de recherche ou la documentation est injoignable." },
+  "error_search_unavailable_no_result": { "message": "Rien de pertinent n'a été trouvé." },
   "panel_build_fingerprint": {
     "message": "v$VERSION$ · $FINGERPRINT$",
     "placeholders": {
@@ -301,6 +355,13 @@
   "options_attach_title": { "message": "Lecture de la page" },
   "options_attach_checkbox": { "message": "Joindre la page ouverte à mes questions" },
   "options_attach_help": { "message": "Réglage de départ de l'interrupteur « Lire la page » du panneau." },
+  "options_point_effect_label": { "message": "Montrer un élément" },
+  "options_point_effect_subtle": { "message": "Discret" },
+  "options_point_effect_strong": { "message": "Marqué" },
+  "options_point_effect_spectacular": { "message": "Spectaculaire" },
+  "options_point_effect_help": {
+    "message": "Comment Coati met un élément en évidence sur la page quand vous cliquez sur « Montrer »."
+  },
   "options_shortcut_title": { "message": "Raccourci clavier" },
   "options_shortcut_edit": { "message": "Modifier le raccourci" },
   "options_shortcut_help": {
@@ -779,5 +840,52 @@
     }
   },
   "model_list_provider_local": { "message": "sur cet ordinateur" },
-  "model_list_provider_online": { "message": "service en ligne" }
+  "model_list_provider_online": { "message": "service en ligne" },
+  "options_current_label": { "message": "Modèle actuel" },
+  "options_current_no_model": { "message": "Aucun modèle choisi" },
+  "options_test_short": { "message": "Tester" },
+  "options_installed_title": { "message": "Modèles installés" },
+  "options_refresh": { "message": "Actualiser" },
+  "options_services_title": { "message": "Services configurés" },
+  "options_services_empty": { "message": "Aucun service en ligne pour l'instant." },
+  "options_add_service": { "message": "Ajouter un service" },
+  "options_other_address_title": { "message": "Autre adresse compatible OpenAI" },
+  "options_cap_title": { "message": "Plafond de dépense" },
+  "options_cap_text": { "message": "Les services payants facturent à l'usage. Fixez un plafond mensuel sur leur site :" },
+  "options_state_key_missing": { "message": "Clé à saisir" },
+  "options_state_address_missing": { "message": "Adresse à saisir" },
+  "options_state_check": { "message": "À vérifier : cliquez sur Tester" },
+  "options_state_key_saved": { "message": "Clé enregistrée" },
+  "options_state_ready": { "message": "Prêt" },
+  "options_service_active": { "message": "En service" },
+  "options_service_use": { "message": "Utiliser" },
+  "options_service_remove": { "message": "Retirer" },
+  "options_service_remove_confirm": { "message": "Confirmer le retrait" },
+  "options_service_settings": { "message": "Clé et modèle" },
+  "options_local_guide_title": { "message": "Installer Ollama et un modèle conseillé, pas à pas" },
+  "options_add_service_replaces": {
+    "message": "Un seul service de ce type à la fois (OpenRouter, OpenAI, Mistral, DeepSeek, autre adresse) : en ajouter un autre remplace $SERVICE$ et sa clé.",
+    "placeholders": {
+      "service": { "content": "$1", "example": "OpenRouter" }
+    }
+  },
+  "options_current_default_model": { "message": "Modèle par défaut du service" },
+  "options_search_title": { "message": "Recherche dans la doc" },
+  "options_search_help": { "message": "Coati cherche dans la documentation officielle du site quand vous le lui demandez depuis le panneau. Il faut une clé d'un service de recherche ; les deux ont une offre gratuite." },
+  "options_search_provider_brave": { "message": "Brave Search" },
+  "options_search_provider_tavily": { "message": "Tavily" },
+  "options_search_test": { "message": "Vérifier" },
+  "options_search_test_paid_note": { "message": "La vérification utilise une requête de votre quota gratuit." },
+  "setup_search_title": { "message": "Obtenir une clé gratuite" },
+  "setup_search_intro": { "message": "Les deux services ont une offre gratuite qui suffit à un usage personnel :" },
+  "setup_search_brave": { "message": "Brave Search : environ 1 000 recherches gratuites par mois (5 dollars de crédits offerts chaque mois). Créez un compte et une clé sur le tableau de bord de l'API." },
+  "setup_search_brave_link": { "message": "Tableau de bord Brave Search API" },
+  "setup_search_tavily": { "message": "Tavily : 1 000 crédits gratuits par mois. Créez un compte sur le site de Tavily, puis une clé." },
+  "setup_search_paste": { "message": "Choisissez le service ci-dessus, collez la clé, enregistrez-la, puis cliquez sur « Vérifier »." },
+  "options_search_placeholder": {
+    "message": "Clé API $SERVICE$",
+    "placeholders": {
+      "service": { "content": "$1", "example": "Brave Search" }
+    }
+  }
 }

@@ -15,6 +15,8 @@ import {
   resolveApiKey,
   setApiKey,
   pruneStaleOpenAiCompatKey,
+  resolveSearchApiKey,
+  setSearchApiKey,
   type Dirs,
   type ProviderId,
   type CoatiConfig,
@@ -38,6 +40,7 @@ import { hardenDir } from "./fs-atomic.ts";
 import { ProviderStatusCache } from "./provider-status.ts";
 import {
   MAX_MESSAGE_BYTES,
+  MAX_IMAGE_MESSAGE_BYTES,
   parseClientMessage,
   FACTS_MAX,
   FACT_LABEL_MAX,
@@ -47,8 +50,12 @@ import {
   ITEM_PRICE_MAX,
   ITEM_LOCATION_MAX,
   ITEM_DETAIL_MAX,
+  ELEMENTS_MAX,
+  ELEMENT_LABEL_MAX,
   type ClientMessage,
+  type ChatImage,
   type Context,
+  type HistoryEntry,
   type ModelEntry,
   type ModelSource,
   type ProviderStatus,
@@ -64,6 +71,7 @@ import {
   isProviderOverloadedError,
   isModelUnavailableError,
   isModelStalledError,
+  isVisionUnsupportedError,
   ModelTimeoutError,
   RateLimitedError,
   type BuiltPrompt,
@@ -71,6 +79,7 @@ import {
 import { listPrompts, savePrompt, deletePrompt, setPromptSite, withDirLock, type PromptsDirs } from "./prompts.ts";
 import { getPrefs, setSitePrefs, moveInPrefs, type PrefsDirs } from "./prefs.ts";
 import { getProviders, getProvider, initRegistry } from "./providers/registry.ts";
+import { fetchOpenAiCompatVisionMap } from "./providers/openai-compat.ts";
 import {
   listModelEntries as listOllamaModelEntries,
   fetchPsEntries,
@@ -81,10 +90,33 @@ import { readHostCapacity, computeFit, FIT_CONSTANTS as _FIT_CONSTANTS } from ".
 import type { HostCapacity } from "./protocol.ts";
 import type { ModelProvider, ProviderRuntimeOptions, TestConnectionCode } from "./providers/types.ts";
 import { t, normalizeLang, DEFAULT_LANG, type Lang } from "./messages.ts";
+import {
+  runDocSearch,
+  isSearchNotConfiguredError,
+  isSearchUnavailableError,
+  type DocSearchStatusEvent,
+} from "./search/doc-search.ts";
+import { braveTestConnection } from "./search/brave.ts";
+import { tavilyTestConnection } from "./search/tavily.ts";
+import { isSearchProviderId, type SearchProviderId } from "./search/types.ts";
+import { detectSearchIntent } from "./search/intent.ts";
+import { reformulateSearchQuery } from "./search/reformulate.ts";
+import { registrableDomain } from "./search/discover.ts";
 
 // Content is truncated to 40 000 chars by the content script (see PROTOCOL.md).
 // The broker enforces the same cap server-side as a safety net.
 export const MAX_CONTEXT_CHARS = 40_000;
+
+// Amendement 2026-10-08 (lot 0/A1/B1/C1): open-ended wire capabilities this
+// broker build understands — docs/PROTOCOL.md "Amendement 2026-10-08" §1.
+// "elements" (context.elements, lot A1), "vision" (chat.image, lot B1) and
+// "docsearch" (chat.docSearch, lot C1) are all unconditional — this build
+// always implements the WIRE capability regardless of the active
+// model/provider or of whether a search key is actually configured yet
+// (whether a GIVEN model sees, or search is actually usable right now, are
+// separate questions — see ModelEntry.vision/supportsVision and the
+// search-not-configured error code respectively).
+export const BROKER_FEATURES: string[] = ["elements", "vision", "docsearch", "history"];
 
 export function contextTooLarge(text: string | undefined): boolean {
   return typeof text === "string" && text.length > MAX_CONTEXT_CHARS;
@@ -105,9 +137,12 @@ export function contextBudgetError(context: Context | undefined): string | undef
   if (!context) return undefined;
   const facts = context.facts ?? [];
   const items = context.items ?? [];
+  // Amendement 2026-10-08 (lot A1, "Montrer du doigt" — docs/PROTOCOL.md §2).
+  const elements = context.elements ?? [];
 
   if (facts.length > FACTS_MAX) return `facts exceeds ${FACTS_MAX} entries`;
   if (items.length > ITEMS_MAX) return `items exceeds ${ITEMS_MAX} entries`;
+  if (elements.length > ELEMENTS_MAX) return `elements exceeds ${ELEMENTS_MAX} entries`;
 
   for (const fact of facts) {
     if (fact.label.length > FACT_LABEL_MAX) return `fact label exceeds ${FACT_LABEL_MAX} characters`;
@@ -125,6 +160,9 @@ export function contextBudgetError(context: Context | undefined): string | undef
       return `item detail exceeds ${ITEM_DETAIL_MAX} characters`;
     }
   }
+  for (const el of elements) {
+    if (el.label.length > ELEMENT_LABEL_MAX) return `element label exceeds ${ELEMENT_LABEL_MAX} characters`;
+  }
 
   const total =
     (context.text?.length ?? 0) +
@@ -133,7 +171,8 @@ export function contextBudgetError(context: Context | undefined): string | undef
       (sum, it) =>
         sum + it.title.length + (it.price?.length ?? 0) + (it.location?.length ?? 0) + (it.detail?.length ?? 0),
       0,
-    );
+    ) +
+    elements.reduce((sum, el) => sum + el.ref.length + el.role.length + el.label.length, 0);
   if (total > MAX_CONTEXT_CHARS) return `context exceeds ${MAX_CONTEXT_CHARS} characters`;
 
   return undefined;
@@ -166,9 +205,13 @@ export function logRequestReceived(
   pageKind?: string,
   factsCount = 0,
   itemsCount = 0,
+  // Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §3): "Jamais journalisée
+  // (seulement `image: true` + octets)" — a boolean presence flag only,
+  // never mediaType/data/dimensions.
+  hasImage = false,
 ): void {
   console.log(
-    `coati-broker: request received type=${type} id=${sanitizeLogValue(id)} context=${contextKind ?? "-"} textLength=${textLength} pageKind=${pageKind ?? "-"} facts=${factsCount} items=${itemsCount}`,
+    `coati-broker: request received type=${type} id=${sanitizeLogValue(id)} context=${contextKind ?? "-"} textLength=${textLength} pageKind=${pageKind ?? "-"} facts=${factsCount} items=${itemsCount} image=${hasImage}`,
   );
 }
 
@@ -292,6 +335,19 @@ interface ConnData {
    * defaults to "en" until a hello sets it, and for the handful of tests that
    * connect without ever sending one. */
   lang: Lang;
+  /** Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §C "Sécurité", R5):
+   * "une seule recherche en cours par connexion" — set true for the
+   * lifetime of one `chat.docSearch` request, checked (and rejected with
+   * bad-request) by a second one arriving before the first finishes. Never
+   * reset on error paths other than the request's own completion — see
+   * handleChatDocSearch's try/finally. */
+  docSearching: boolean;
+  /** Security review (L9): true from the `close` handler onward — checked
+   * by handleChatDocSearch before it ever calls `send()` or starts
+   * `runStream()` after its (potentially long) search phase, so a
+   * connection that closed mid-search never gets written to, and never
+   * starts a model stream nobody is listening to anymore. */
+  closed: boolean;
 }
 
 function send(ws: { send(data: string): unknown }, msg: ServerMessage): void {
@@ -400,10 +456,15 @@ async function runStream(
 
   try {
     let usage = { inputTokens: 0, outputTokens: 0 };
+    // Amendement 2026-10-08 (bis, "historique"): forwarded verbatim as
+    // DoneMessage.historyKept below — undefined stays undefined (no
+    // `history` on this request), never coerced to 0.
+    let historyKept: number | undefined;
     for await (const event of provider.streamAnswer(built, { signal: controller.signal, ...providerOpts })) {
       if (controller.signal.aborted) break;
       if (event.kind === "usage") {
         usage = event.usage;
+        historyKept = event.historyKept;
         continue;
       }
       // Amendement 2026-10-07 (bis): thinking event — emit progress:thinking
@@ -425,7 +486,7 @@ async function runStream(
       send(ws, { type: "error", id, code: "cancelled", message: "request cancelled" });
       logRequestCompleted(id, "cancelled", Date.now() - startedAt);
     } else {
-      send(ws, { type: "done", id, usage });
+      send(ws, { type: "done", id, usage, ...(historyKept !== undefined ? { historyKept } : {}) });
       logRequestCompleted(id, "ok", Date.now() - startedAt);
     }
   } catch (err) {
@@ -447,9 +508,14 @@ async function runStream(
                 ? "provider-overloaded"
                 : isModelStalledError(err)
                   ? "model-stalled"
-                  : isModelUnavailableError(err)
-                    ? "model-unavailable"
-                    : "internal";
+                  // Amendement 2026-10-08 (lot B1): checked ahead of the
+                  // generic model-unavailable heuristic, same rank as the
+                  // other typed errors above — docs/PROTOCOL.md §4.
+                  : isVisionUnsupportedError(err)
+                    ? "vision-unsupported"
+                    : isModelUnavailableError(err)
+                      ? "model-unavailable"
+                      : "internal";
       const retryAfterSec = err instanceof RateLimitedError ? err.retryAfterSec : undefined;
       send(ws, { type: "error", id, code, message, ...(retryAfterSec !== undefined ? { retryAfterSec } : {}) });
       const outcome = err instanceof ModelTimeoutError
@@ -475,6 +541,7 @@ async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Promise<{
   available: ProviderStatus[];
   models?: string[];
   baseUrl?: string;
+  search: { provider: SearchProviderId | null; configured: boolean };
 }> {
   const provider = config.provider ?? DEFAULT_CONFIG.provider!;
   // Each provider gets ONLY its own key (security fix, 2026-09-30 ter) — see
@@ -530,7 +597,14 @@ async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Promise<{
   // (openai-compat), never for every provider in `available` (which never
   // carries any provider-specific config value beyond id/label/available).
   const baseUrl = provider === "openai-compat" ? config.baseUrl : undefined;
-  return { provider, model: config.model, available, models, baseUrl };
+  // Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §9): same `configured`
+  // semantics as every other provider — a key is present, never the key
+  // itself (CLAUDE.md rule #1).
+  const search = {
+    provider: config.searchProvider ?? null,
+    configured: config.searchProvider ? !!resolveSearchApiKey(config, config.searchProvider) : false,
+  };
+  return { provider, model: config.model, available, models, baseUrl, search };
 }
 
 // --- models.list (amendement 2026-10-07) -------------------------------------
@@ -588,6 +662,13 @@ async function buildModelsPayload(config: CoatiConfig): Promise<{
       const hasThinking = Array.isArray(e.capabilities) && e.capabilities.includes("thinking");
       // thinks:true = thinking-capable but cannot disable it (think:false ineffective).
       const thinks: true | undefined = hasThinking && !e.canDisableThinking ? true : undefined;
+      // Amendement 2026-10-08 (lot B1): vision from the same /api/show
+      // capabilities array already fetched for this entry — true/false when
+      // the array is present, absent (unknown) when the daemon's /api/show
+      // doesn't report capabilities at all (older Ollama).
+      const vision: boolean | undefined = Array.isArray(e.capabilities)
+        ? e.capabilities.includes("vision")
+        : undefined;
       entries.push({
         provider: "ollama",
         model: e.name,
@@ -595,6 +676,7 @@ async function buildModelsPayload(config: CoatiConfig): Promise<{
         ...(e.sizeBytes > 0 ? { sizeBytes: e.sizeBytes } : {}),
         ...(thinks ? { thinks } : {}),
         ...(e.contextTokens !== undefined ? { contextTokens: e.contextTokens } : {}),
+        ...(vision !== undefined ? { vision } : {}),
       });
     }
     sources.push({ provider: "ollama", state: "ok" });
@@ -608,12 +690,16 @@ async function buildModelsPayload(config: CoatiConfig): Promise<{
       const ocProvider = getProvider("openai-compat");
       if (ocProvider?.listModels) {
         try {
-          const models = await ocProvider.listModels({
-            baseUrl: config.baseUrl,
-            apiKey: resolveApiKey(config, "openai-compat"),
-          });
+          const ocApiKey = resolveApiKey(config, "openai-compat");
+          const models = await ocProvider.listModels({ baseUrl: config.baseUrl, apiKey: ocApiKey });
+          // Amendement 2026-10-08 (lot B1): one shared fetch for the whole
+          // batch (OpenRouter's /models or LM Studio's /api/v0/models),
+          // instead of a per-entry round trip — absent map (unknown origin)
+          // simply leaves `vision` off every entry.
+          const visionMap = await fetchOpenAiCompatVisionMap(config.baseUrl, ocApiKey).catch(() => undefined);
           for (const m of models) {
-            entries.push({ provider: "openai-compat", model: m, local: true });
+            const vision = visionMap?.get(m);
+            entries.push({ provider: "openai-compat", model: m, local: true, ...(vision !== undefined ? { vision } : {}) });
           }
           sources.push({ provider: "openai-compat", state: "ok" });
         } catch {
@@ -653,7 +739,11 @@ async function buildModelsPayload(config: CoatiConfig): Promise<{
       // though it is perfectly usable.
       const model = remembered ?? (await resolveFallbackModel(p, pOpts));
       if (model) {
-        entries.push({ provider: p.id, model, local: false });
+        // Amendement 2026-10-08 (lot B1): the provider's static `vision`
+        // field (claude-api: true; an external module: whatever it
+        // declared, docs/MODULES.md) — never a per-model lookup here, this
+        // loop never knows the model's own capabilities beyond its name.
+        entries.push({ provider: p.id, model, local: false, ...(p.vision !== undefined ? { vision: p.vision } : {}) });
         sources.push({ provider: p.id, state: "ok" });
       } else {
         sources.push({ provider: p.id, state: "not-configured" });
@@ -869,6 +959,46 @@ export async function testProviderConnection(
   }
 }
 
+/** Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §9) — `settings.test`'s
+ * `target: "search"` branch: a FREE-in-spirit probe (spends one real search
+ * call — neither Brave nor Tavily offers a true free key check, see
+ * search/brave.ts's own comment) against whichever engine `searchProvider`
+ * names, using whichever key is CURRENTLY stored for it (never a key the
+ * message itself might carry — settings.test never carries one, by design,
+ * same as the model-provider branch). */
+export async function testSearchConnection(
+  searchProvider: SearchProviderId,
+  config: CoatiConfig,
+  lang: Lang = DEFAULT_LANG,
+): Promise<{ ok: boolean; message: string; code?: TestConnectionCode }> {
+  const apiKey = resolveSearchApiKey(config, searchProvider);
+  if (!apiKey) {
+    return { ok: false, message: t("testConnection.noSearchApiKey", lang), code: "auth-required" };
+  }
+  const result =
+    searchProvider === "brave" ? await braveTestConnection(apiKey) : await tavilyTestConnection(apiKey);
+  if (result.ok) {
+    return { ok: true, message: t(`settingsTest.success.search.${searchProvider}`, lang) };
+  }
+  const code: TestConnectionCode =
+    result.reason === "auth"
+      ? "auth-required"
+      : result.reason === "quota"
+        ? "quota-exceeded"
+        : result.reason === "rate"
+          ? "rate-limited"
+          : "model-unavailable";
+  const message =
+    result.reason === "auth"
+      ? t("auth.apiKeyRejected", lang)
+      : result.reason === "quota"
+        ? t("provider.quotaExceeded", lang)
+        : result.reason === "rate"
+          ? t("provider.rateLimited", lang)
+          : t(`settingsTest.failure.search.${searchProvider}`, lang);
+  return { ok: false, message, code };
+}
+
 /** Bundles what handleMessage needs beyond the message itself: the provider
  * currently selected (for chat/summarize/act) and read/write access to the
  * live config (for settings.get/settings.set). Config is process-wide per
@@ -890,18 +1020,139 @@ interface SettingsCtx {
   /** Applies provider/model/apiKey fields from a settings.set message,
    * persists to config.json when a configDir was supplied to startServer,
    * and returns the resulting config. */
-  applySettings(patch: Pick<SettingsSetMessage, "provider" | "model" | "apiKey" | "baseUrl">): CoatiConfig;
+  applySettings(
+    patch: Pick<
+      SettingsSetMessage,
+      "provider" | "model" | "apiKey" | "baseUrl" | "searchProvider" | "searchApiKey" | "clearKey"
+    >,
+  ): CoatiConfig;
   /** `provider.status` for the currently active provider, through the
    * broker-wide ProviderStatusCache (see docs/PROTOCOL.md "Disponibilité du
    * fournisseur"). */
   getProviderStatus(): ReturnType<ProviderStatusCache["get"]>;
 }
 
-/** Shared preamble for the three streaming request types (chat/summarize/act):
- * log receipt, reject an oversized payload, reject a full concurrency cap,
- * then hand off to buildPrompt/runStream. Each case only supplies what makes
- * it different — the log fields, which text (if any) to size-check, which
- * context (if any) to budget-check, and how to build its prompt. */
+/**
+ * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): resolves whether
+ * `provider` can see an attached image RIGHT NOW, with `opts` (the active
+ * model). Prefers the live, per-model `supportsVision` probe (ollama,
+ * openai-compat); falls back to the provider's static `vision` field
+ * (claude-api, claude-cli, an external module that declared one); a
+ * provider with NEITHER (a module that declared nothing) fails closed —
+ * `false`, never `undefined` — per docs/MODULES.md's documented safe
+ * default. Never throws: a `supportsVision` rejection is treated as
+ * "unknown", not as a hard false (a transient probe failure shouldn't block
+ * a request a model may well be able to answer).
+ */
+async function resolveVisionSupport(
+  provider: ModelProvider,
+  opts: ProviderRuntimeOptions,
+): Promise<boolean | undefined> {
+  if (provider.supportsVision) {
+    try {
+      return await provider.supportsVision(opts);
+    } catch {
+      return undefined;
+    }
+  }
+  if (provider.vision !== undefined) return provider.vision;
+  return false;
+}
+
+/** Shared SYNCHRONOUS preamble for every streaming request type
+ * (chat/summarize/act, including a `chat.docSearch`): log receipt, reject an
+ * oversized payload, reject a full concurrency cap, reject an unknown
+ * configured provider. Returns the resolved provider/opts/startedAt on
+ * success, or `undefined` once it has already sent an error and logged the
+ * outcome itself (caller just returns in that case — amendement 2026-10-08
+ * lot C1 split this out of the old handleStreamingRequest so a
+ * `chat.docSearch` request can run its own async steps, unlike
+ * summarize/act, between this gate and buildPrompt/runStream). */
+function gateStreamingRequest(
+  ws: { send(data: string): unknown },
+  message: { id: string },
+  active: Map<string, AbortController>,
+  settingsCtx: SettingsCtx,
+  opts: {
+    logType: string;
+    logContextKind: string | undefined;
+    logTextLength: number;
+    logPageKind: string | undefined;
+    logFactsCount: number;
+    logItemsCount: number;
+    hasImage: boolean;
+    tooLargeText?: string;
+    budgetContext?: Context;
+  },
+): { provider: ModelProvider; providerOpts: ProviderRuntimeOptions; startedAt: number } | undefined {
+  const startedAt = Date.now();
+  logRequestReceived(
+    opts.logType,
+    message.id,
+    opts.logContextKind,
+    opts.logTextLength,
+    opts.logPageKind,
+    opts.logFactsCount,
+    opts.logItemsCount,
+    opts.hasImage,
+  );
+  if (opts.tooLargeText !== undefined && contextTooLarge(opts.tooLargeText)) {
+    send(ws, { type: "error", id: message.id, code: "context-too-large", message: "text exceeds 40000 characters" });
+    logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
+    return undefined;
+  }
+  const budgetError = contextBudgetError(opts.budgetContext);
+  if (budgetError) {
+    send(ws, { type: "error", id: message.id, code: "context-too-large", message: budgetError });
+    logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
+    return undefined;
+  }
+  if (active.size >= MAX_CONCURRENT_STREAMS) {
+    send(ws, { type: "error", id: message.id, code: "bad-request", message: `too many concurrent requests (max ${MAX_CONCURRENT_STREAMS} per connection)` });
+    logRequestCompleted(message.id, "error:bad-request", Date.now() - startedAt);
+    return undefined;
+  }
+  // Amendement 2026-09-29 (docs/PROTOCOL.md): a configured provider that
+  // isn't known (built in or a module loaded successfully) fails the request
+  // as model-unavailable, naming the missing id — it is NEVER silently
+  // swapped for another provider.
+  if (!settingsCtx.provider) {
+    const message2 = `configured provider "${settingsCtx.providerId}" is not available (unknown or failed to load)`;
+    send(ws, { type: "error", id: message.id, code: "model-unavailable", message: message2 });
+    logRequestCompleted(message.id, "error:model-unavailable", Date.now() - startedAt, message2);
+    return undefined;
+  }
+  return { provider: settingsCtx.provider, providerOpts: settingsCtx.providerOpts, startedAt };
+}
+
+/** Amendement 2026-10-08 (lot B1): gates a request carrying `image` on
+ * vision support BEFORE calling the provider (docs/PROTOCOL.md §4). Returns
+ * true when the request should proceed (vision known-true, or unknown —
+ * left to the provider's own 400), false once it has already sent
+ * vision-unsupported and logged the outcome. */
+async function gateVisionSupport(
+  ws: { send(data: string): unknown },
+  message: { id: string },
+  provider: ModelProvider,
+  providerOpts: ProviderRuntimeOptions,
+  startedAt: number,
+): Promise<boolean> {
+  const vision = await resolveVisionSupport(provider, providerOpts);
+  if (vision === false) {
+    const message2 = `active model (provider "${provider.id}") does not support image input`;
+    send(ws, { type: "error", id: message.id, code: "vision-unsupported", message: message2 });
+    logRequestCompleted(message.id, "error:vision-unsupported", Date.now() - startedAt, message2);
+    return false;
+  }
+  return true;
+}
+
+/** Shared preamble for the two SYNCHRONOUS-build streaming request types
+ * (summarize/act, and a `chat` with no `docSearch`): gate, then optionally
+ * gate vision, then buildPrompt/runStream. A `chat.docSearch` request uses
+ * gateStreamingRequest/gateVisionSupport directly instead — see
+ * handleChatDocSearch below, which also needs search.status/doc-search
+ * between the gate and the build. */
 function handleStreamingRequest(
   ws: { send(data: string): unknown },
   message: { id: string },
@@ -916,47 +1167,232 @@ function handleStreamingRequest(
     logItemsCount: number;
     tooLargeText?: string;
     budgetContext?: Context;
+    image?: ChatImage;
     build: () => BuiltPrompt;
   },
 ): void {
-  const startedAt = Date.now();
-  logRequestReceived(
-    opts.logType,
-    message.id,
-    opts.logContextKind,
-    opts.logTextLength,
-    opts.logPageKind,
-    opts.logFactsCount,
-    opts.logItemsCount,
-  );
-  if (opts.tooLargeText !== undefined && contextTooLarge(opts.tooLargeText)) {
-    send(ws, { type: "error", id: message.id, code: "context-too-large", message: "text exceeds 40000 characters" });
-    logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
-    return;
-  }
-  const budgetError = contextBudgetError(opts.budgetContext);
-  if (budgetError) {
-    send(ws, { type: "error", id: message.id, code: "context-too-large", message: budgetError });
-    logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
-    return;
-  }
-  if (active.size >= MAX_CONCURRENT_STREAMS) {
-    send(ws, { type: "error", id: message.id, code: "bad-request", message: `too many concurrent requests (max ${MAX_CONCURRENT_STREAMS} per connection)` });
-    logRequestCompleted(message.id, "error:bad-request", Date.now() - startedAt);
-    return;
-  }
-  // Amendement 2026-09-29 (docs/PROTOCOL.md): a configured provider that
-  // isn't known (built in or a module loaded successfully) fails the request
-  // as model-unavailable, naming the missing id — it is NEVER silently
-  // swapped for another provider.
-  if (!settingsCtx.provider) {
-    const message2 = `configured provider "${settingsCtx.providerId}" is not available (unknown or failed to load)`;
-    send(ws, { type: "error", id: message.id, code: "model-unavailable", message: message2 });
-    logRequestCompleted(message.id, "error:model-unavailable", Date.now() - startedAt, message2);
+  const gated = gateStreamingRequest(ws, message, active, settingsCtx, { ...opts, hasImage: opts.image !== undefined });
+  if (!gated) return;
+  const { provider, providerOpts, startedAt } = gated;
+  if (opts.image) {
+    void gateVisionSupport(ws, message, provider, providerOpts, startedAt).then((proceed) => {
+      if (!proceed) return;
+      const built = opts.build();
+      void runStream(ws, active, message.id, built, provider, providerOpts, startedAt);
+    });
     return;
   }
   const built = opts.build();
-  void runStream(ws, active, message.id, built, settingsCtx.provider, settingsCtx.providerOpts, startedAt);
+  void runStream(ws, active, message.id, built, provider, providerOpts, startedAt);
+}
+
+/** Best-effort site name for reformulate.ts's fallback query ("+ nom du
+ * site") — the origin's registrable domain, or its bare hostname when it
+ * has none (e.g. a single-label host), or "" when `origin` is empty/invalid
+ * (no http(s) tab — chat.docSearch wasn't sent at all). Never throws. */
+function siteNameForOrigin(origin: string): string {
+  if (!origin) return "";
+  try {
+    const hostname = new URL(origin).hostname;
+    return registrableDomain(hostname) ?? hostname;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Amendement 2026-10-08 (lot C1 + bis "recherche sur demande explicite" —
+ * docs/PROTOCOL.md §6/§7/§8). Called only once handleMessage's own
+ * detectSearchIntent() found an explicit search request in the message
+ * text. Gates the request exactly like any other chat (size, budget,
+ * concurrency, provider, vision if an image is also attached), enforces
+ * "une seule recherche en cours par connexion" (R5), reformulates the
+ * question into a short search query (search/reformulate.ts, emits
+ * `search.status` stage "query"), then runs discover → search → read
+ * (search/doc-search.ts), emitting `search.status` before the first `chunk`
+ * at each remaining stage, and only THEN builds the prompt (with `sources`)
+ * and streams the answer. `search-not-configured`/`search-unavailable`
+ * (with `reason`) are sent as a normal `error` message — the request does
+ * NOT silently fall back to answering without sources, same "hard error,
+ * never a silent degrade" stance as `vision-unsupported`.
+ */
+function handleChatDocSearch(
+  ws: { send(data: string): unknown },
+  message: {
+    id: string;
+    text: string;
+    context?: Context;
+    image?: ChatImage;
+    history?: HistoryEntry[];
+    docSearch: { origin: string };
+  },
+  active: Map<string, AbortController>,
+  settingsCtx: SettingsCtx,
+  lang: Lang,
+  dataDir: string,
+  connState: { docSearching: boolean; closed: boolean },
+): void {
+  const gated = gateStreamingRequest(ws, message, active, settingsCtx, {
+    logType: "chat",
+    logContextKind: message.context?.kind,
+    logTextLength: message.text.length + (message.context?.text?.length ?? 0),
+    logPageKind: message.context?.pageKind,
+    logFactsCount: message.context?.facts?.length ?? 0,
+    logItemsCount: message.context?.items?.length ?? 0,
+    hasImage: message.image !== undefined,
+    tooLargeText: message.text,
+    budgetContext: message.context,
+  });
+  if (!gated) return;
+  const { provider, providerOpts, startedAt } = gated;
+
+  if (connState.docSearching) {
+    send(ws, {
+      type: "error",
+      id: message.id,
+      code: "bad-request",
+      message: "a documentation search is already in progress on this connection",
+    });
+    logRequestCompleted(message.id, "error:bad-request", Date.now() - startedAt);
+    return;
+  }
+
+  // Set BEFORE the first `await` (synchronously, in this same tick) so a
+  // second `chat.docSearch` arriving while this one is still gating on
+  // vision support can never slip past the check above — R5.
+  connState.docSearching = true;
+  // Security review (L9): registered in `active` for the WHOLE search phase
+  // (discover/search/read), not just once runStream() eventually starts —
+  // without this, a `cancel` for this id arriving mid-search found nothing
+  // to abort (handleMessage's "cancel" case is a bare `active.get(target)
+  // ?.abort()`), and the search ran to completion regardless. `close()`'s
+  // existing "abort everything in `active`" loop now reaches it too. If the
+  // request DOES reach runStream(), that function `active.set`s its OWN
+  // controller under the same id — overwriting this one — and owns the
+  // entry's lifecycle from then on; the `finally` below only ever deletes
+  // this controller's OWN entry, never one runStream already replaced it with.
+  const searchController = new AbortController();
+  active.set(message.id, searchController);
+  void (async () => {
+    try {
+      if (message.image) {
+        const proceed = await gateVisionSupport(ws, message, provider, providerOpts, startedAt);
+        if (!proceed) return;
+      }
+      if (searchController.signal.aborted || connState.closed) {
+        if (!connState.closed) {
+          send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
+        }
+        logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
+        return;
+      }
+
+      const config = settingsCtx.getConfig();
+      const searchProvider = config.searchProvider;
+      const searchApiKey = searchProvider ? resolveSearchApiKey(config, searchProvider) : undefined;
+
+      // Amendement 2026-10-08 (bis, "recherche sur demande explicite" §3):
+      // one short extra model call turns the question into a standalone
+      // search query BEFORE the pipeline runs — skipped when no provider is
+      // configured at all (runDocSearch below throws SearchNotConfiguredError
+      // immediately in that case; a reformulation call would be wasted work
+      // for a search that can never run).
+      let query = message.text;
+      if (searchProvider && searchApiKey) {
+        query = await reformulateSearchQuery({
+          provider,
+          providerOpts,
+          question: message.text,
+          pageTitle: message.context?.title,
+          pageUrl: message.context?.url,
+          history: message.history,
+          lang,
+          siteName: siteNameForOrigin(message.docSearch.origin),
+          signal: searchController.signal,
+        });
+        if (searchController.signal.aborted || connState.closed) {
+          if (!connState.closed) {
+            send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
+          }
+          logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
+          return;
+        }
+        if (!connState.closed) {
+          send(ws, { type: "search.status", id: message.id, stage: "query", scope: null, query });
+        }
+      }
+
+      const result = await runDocSearch({
+        origin: message.docSearch.origin,
+        question: query,
+        dataDir,
+        searchProvider,
+        apiKey: searchApiKey,
+        onStatus: (event: DocSearchStatusEvent) => {
+          // Security review (L9): never write to a connection that already
+          // closed while the (potentially long) search phase was running.
+          if (connState.closed) return;
+          send(ws, { type: "search.status", id: message.id, ...event });
+        },
+      });
+
+      // Security review (L9): re-checked AFTER the search phase too — a
+      // `cancel`/close that arrived WHILE runDocSearch was awaiting network
+      // calls must still stop this request from starting a model stream
+      // (runDocSearch itself isn't signal-aware mid-flight — its own
+      // network calls run to their own completion/timeout regardless — but
+      // nothing downstream of it ever reaches the model or the socket).
+      if (searchController.signal.aborted || connState.closed) {
+        if (!connState.closed) {
+          send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
+        }
+        logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
+        return;
+      }
+
+      const built = buildPrompt(
+        {
+          kind: "chat",
+          text: message.text,
+          context: message.context,
+          image: message.image,
+          sources: result.sources,
+          sourcesScoped: result.scope !== null,
+        },
+        lang,
+      );
+      void runStream(ws, active, message.id, built, provider, providerOpts, startedAt);
+    } catch (err) {
+      if (connState.closed) return; // nobody left to tell
+      // Security review (L9): a cancel that arrived WHILE runDocSearch's own
+      // network calls were in flight surfaces here as whatever error those
+      // calls happened to end up throwing (e.g. "no-result") — that's an
+      // artifact of timing, not the real outcome; report the cancellation
+      // the user actually asked for instead.
+      if (searchController.signal.aborted) {
+        send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
+        logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
+        return;
+      }
+      if (isSearchNotConfiguredError(err)) {
+        const msg = "no search provider is configured — open settings to add a Brave Search or Tavily key";
+        send(ws, { type: "error", id: message.id, code: "search-not-configured", message: msg });
+        logRequestCompleted(message.id, "error:search-not-configured", Date.now() - startedAt, msg);
+        return;
+      }
+      if (isSearchUnavailableError(err)) {
+        send(ws, { type: "error", id: message.id, code: "search-unavailable", message: err.message, reason: err.reason });
+        logRequestCompleted(message.id, "error:search-unavailable", Date.now() - startedAt, err.message);
+        return;
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      send(ws, { type: "error", id: message.id, code: "internal", message: msg });
+      logRequestCompleted(message.id, "error:internal", Date.now() - startedAt, msg);
+    } finally {
+      connState.docSearching = false;
+      if (active.get(message.id) === searchController) active.delete(message.id);
+    }
+  })();
 }
 
 function handleMessage(
@@ -966,6 +1402,12 @@ function handleMessage(
   promptsDirs: PromptsDirs,
   settingsCtx: SettingsCtx,
   lang: Lang,
+  // Amendement 2026-10-08 (lot C1): only ever used by a `chat.docSearch`
+  // request — dataDir for discover.ts's cache, connState for the "one
+  // search in flight per connection" rule (R5). Every other message type
+  // ignores both.
+  dataDir: string,
+  connState: { docSearching: boolean; closed: boolean },
 ): void {
   switch (message.type) {
     case "hello":
@@ -973,6 +1415,27 @@ function handleMessage(
       // Duplicate hello/auth after an already-authed handshake: no-op.
       return;
     case "chat": {
+      // Amendement 2026-10-08 (bis, "recherche sur demande explicite" —
+      // docs/PROTOCOL.md): the panel no longer has a search button —
+      // `chat.docSearch.origin` now just means "this chat's tab is http(s),
+      // a search is ALLOWED for this origin" and is sent on every chat for
+      // such a tab. Whether a search actually runs is decided HERE, on the
+      // message TEXT alone (fr/en/zh intent phrases, search/intent.ts) —
+      // never on the mere presence of `docSearch`. `docSearch.origin` can be
+      // "" (no http(s) tab) and intent can still be detected: the pipeline
+      // then runs unscoped (open web), see doc-search.ts's ladder.
+      if (detectSearchIntent(message.text, lang)) {
+        handleChatDocSearch(
+          ws,
+          { ...message, docSearch: message.docSearch ?? { origin: "" } },
+          active,
+          settingsCtx,
+          lang,
+          dataDir,
+          connState,
+        );
+        return;
+      }
       handleStreamingRequest(ws, message, active, settingsCtx, {
         logType: "chat",
         logContextKind: message.context?.kind,
@@ -982,7 +1445,15 @@ function handleMessage(
         logItemsCount: message.context?.items?.length ?? 0,
         tooLargeText: message.text,
         budgetContext: message.context,
-        build: () => buildPrompt({ kind: "chat", text: message.text, context: message.context }, lang),
+        // Amendement 2026-10-08 (lot B1): `image` is never logged beyond its
+        // presence (docs/PROTOCOL.md §3) — see logRequestReceived's own call
+        // site below, which only ever gets booleans/counts, never content.
+        image: message.image,
+        build: () =>
+          buildPrompt(
+            { kind: "chat", text: message.text, context: message.context, image: message.image, history: message.history },
+            lang,
+          ),
       });
       return;
     }
@@ -1084,6 +1555,9 @@ function handleMessage(
         model: message.model,
         apiKey: message.apiKey,
         baseUrl: message.baseUrl,
+        searchProvider: message.searchProvider,
+        searchApiKey: message.searchApiKey,
+        clearKey: message.clearKey,
       });
       void buildSettingsPayload(updated, lang).then((payload) => {
         send(ws, { type: "settings", id: message.id, ...payload });
@@ -1091,6 +1565,26 @@ function handleMessage(
       return;
     }
     case "settings.test": {
+      // Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §9): target "search"
+      // tests a search engine instead of a model provider. The reply keeps
+      // the exact same shape either way ("ne change pas de forme") — the
+      // engine id (open-ended ProviderId shape already, see
+      // search/types.ts's SearchProviderId) is echoed back in `provider`.
+      if (message.target === "search") {
+        void testSearchConnection(message.searchProvider, settingsCtx.getConfig(), lang).then(
+          ({ ok, message: resultMessage, code }) => {
+            send(ws, {
+              type: "settings.test-result",
+              id: message.id,
+              provider: message.searchProvider,
+              ok,
+              message: resultMessage,
+              code,
+            });
+          },
+        );
+        return;
+      }
       void testProviderConnection(message.provider, settingsCtx.getConfig(), lang).then(
         ({ ok, message: resultMessage, code, creditUnchecked }) => {
           send(ws, {
@@ -1248,7 +1742,7 @@ function handleHandshakeMessage(
   ws.data.authed = true;
   onAuthed();
   console.error(`coati-broker: grant via=${hs.keyLabel} origin=${sanitizeLogValue(origin)}`);
-  send(ws, { type: "hello-ok", v: 2 });
+  send(ws, { type: "hello-ok", v: 2, features: BROKER_FEATURES });
 }
 
 /** promptsDirs, widened with an optional configDir so startServer can persist
@@ -1475,6 +1969,39 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           const targetProvider = patch.provider ?? currentConfig.provider ?? DEFAULT_CONFIG.provider!;
           currentConfig = { ...currentConfig, apiKeys: setApiKey(currentConfig, targetProvider, patch.apiKey) };
         }
+        // Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §9): independent of
+        // the model `provider`/`model`/`apiKey` fields above — "" forgets the
+        // stored choice, same convention as every other field here.
+        if (patch.searchProvider !== undefined) {
+          currentConfig = {
+            ...currentConfig,
+            searchProvider: patch.searchProvider === "" ? undefined : patch.searchProvider,
+          };
+        }
+        // Bound to whichever engine THIS SAME patch's searchProvider names,
+        // or the currently configured one otherwise — mirrors apiKey/provider
+        // above. A searchApiKey with neither a same-patch nor an already
+        // configured searchProvider has nowhere safe to bind to and is
+        // dropped, same reasoning as setApiKey's own "no baseUrl yet" case.
+        if (patch.searchApiKey !== undefined) {
+          const targetSearchProvider = patch.searchProvider || currentConfig.searchProvider;
+          if (targetSearchProvider) {
+            currentConfig = {
+              ...currentConfig,
+              searchKeys: setSearchApiKey(currentConfig, targetSearchProvider, patch.searchApiKey),
+            };
+          }
+        }
+        // Amendement 2026-10-08 (lot C1, EXTRA task, docs/PROTOCOL.md §9bis):
+        // forgets a stored key WITHOUT touching provider/model/searchProvider
+        // — independent of every other field in this same patch.
+        if (patch.clearKey !== undefined) {
+          if (isSearchProviderId(patch.clearKey)) {
+            currentConfig = { ...currentConfig, searchKeys: setSearchApiKey(currentConfig, patch.clearKey, "") };
+          } else {
+            currentConfig = { ...currentConfig, apiKeys: setApiKey(currentConfig, patch.clearKey, "") };
+          }
+        }
         if (dirs.configDir) saveConfig({ configDir: dirs.configDir }, currentConfig);
         // docs/PROTOCOL.md "Disponibilité du fournisseur": "Un settings.set
         // réussi vide le cache."
@@ -1532,6 +2059,8 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           hs: { stage: "awaiting-hello" },
           countedUnauth: false,
           lang: DEFAULT_LANG,
+          docSearching: false,
+          closed: false,
         } satisfies ConnData,
       });
       if (!upgraded) {
@@ -1544,11 +2073,14 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       // WebSocket frame of any size in full before this handler ever runs —
       // a multi-hundred-MB frame sent before auth (when there is no other
       // gate yet) would be fully received into memory regardless of what
-      // the `message` handler below goes on to check. 4 KiB of slack over
-      // MAX_MESSAGE_BYTES (256 KiB, docs/PROTOCOL.md "Limites côté broker")
-      // covers the JSON envelope/framing around the largest legitimate
-      // prompt payload without meaningfully widening the DoS window.
-      maxPayloadLength: MAX_MESSAGE_BYTES + 4096,
+      // the `message` handler below goes on to check. Amendement 2026-10-08
+      // (lot B1): raised from MAX_MESSAGE_BYTES to MAX_IMAGE_MESSAGE_BYTES
+      // (1.5 MiB) + 4 KiB slack, so a legitimate chat+image frame (up to
+      // ~1.37 MiB of base64 for a 1 MiB decoded image, plus the rest of the
+      // envelope) can still reach the `message` handler below, which is
+      // where the finer-grained 256 KiB-vs-1.5 MiB distinction actually
+      // lives (docs/PROTOCOL.md §5) — this is only the hard backstop.
+      maxPayloadLength: MAX_IMAGE_MESSAGE_BYTES + 4096,
       open(ws) {
         // docs/PROTOCOL.md "Plafond de connexions non authentifiées": checked
         // FIRST, before the origin step — a 17th unauthenticated connection
@@ -1576,48 +2108,79 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       },
       message(ws, raw) {
         // Final security review: the raw frame's byte length is checked
-        // BEFORE any UTF-8 decoding or JSON.parse, and before/regardless of
-        // auth state — a frame this large gets no CPU/memory spent turning
-        // it into a JS string at all. `websocket.maxPayloadLength` below
-        // (set to MAX_MESSAGE_BYTES + slack) is the hard backstop at the Bun
-        // protocol layer, closing the socket before this handler even runs
-        // for anything past that; this check catches the remaining gap
-        // between MAX_MESSAGE_BYTES and that slack, pre- or post-auth alike.
+        // BEFORE any UTF-8 decoding or JSON.parse. `websocket.maxPayloadLength`
+        // above is the hard backstop at the Bun protocol layer, closing the
+        // socket before this handler even runs for anything past that; the
+        // checks below catch the remaining gap.
         const rawByteLength = typeof raw === "string" ? Buffer.byteLength(raw, "utf8") : raw.byteLength;
-        if (rawByteLength > MAX_MESSAGE_BYTES) {
-          console.error(`coati-broker: reject stage=oversized origin=${sanitizeLogValue(ws.data.origin)}`);
-          if (ws.data.authed) {
-            send(ws, {
-              type: "error",
-              id: "oversized",
-              code: "bad-request",
-              message: `message exceeds ${MAX_MESSAGE_BYTES} byte cap`,
-            });
-            ws.close(1009, "oversized");
-          } else {
-            // Pre-auth: no `error` frame — same as every other handshake
-            // rejection (docs/PROTOCOL.md "Journalisation"/rejectHandshake).
-            rejectHandshake(ws, ws.data.origin, "oversized message before auth");
-          }
-          return;
-        }
-        const text = typeof raw === "string" ? raw : Buffer.from(raw).toString("utf8");
+
+        // Pre-auth: hello/auth never carry an image (docs/PROTOCOL.md §5,
+        // amendement 2026-10-08) — the raised cap below only ever applies
+        // post-auth, to a chat+image. Unauthenticated connections keep the
+        // original, unconditional 256 KiB gate, no JSON parsed on a breach.
         if (!ws.data.authed) {
+          if (rawByteLength > MAX_MESSAGE_BYTES) {
+            console.error(`coati-broker: reject stage=oversized origin=${sanitizeLogValue(ws.data.origin)}`);
+            // No `error` frame — same as every other handshake rejection
+            // (docs/PROTOCOL.md "Journalisation"/rejectHandshake).
+            rejectHandshake(ws, ws.data.origin, "oversized message before auth");
+            return;
+          }
+          const text = typeof raw === "string" ? raw : Buffer.from(raw).toString("utf8");
           handleHandshakeMessage(ws, text, nativeKey, getLegacySecret, legacyPairingEnabled, () => releaseUnauthSlot(ws));
           return;
         }
+
+        // Authenticated: a frame past MAX_IMAGE_MESSAGE_BYTES is refused
+        // outright regardless of content — same oversized+close(1009)
+        // treatment as every message beyond MAX_MESSAGE_BYTES that isn't a
+        // legitimate chat+image (docs/PROTOCOL.md §5). Defense in depth:
+        // websocket.maxPayloadLength above normally stops a frame this
+        // large from ever reaching this handler.
+        if (rawByteLength > MAX_IMAGE_MESSAGE_BYTES) {
+          console.error(`coati-broker: reject stage=oversized origin=${sanitizeLogValue(ws.data.origin)}`);
+          send(ws, {
+            type: "error",
+            id: "oversized",
+            code: "bad-request",
+            message: `message exceeds ${MAX_IMAGE_MESSAGE_BYTES} byte cap`,
+          });
+          ws.close(1009, "oversized");
+          return;
+        }
+        const text = typeof raw === "string" ? raw : Buffer.from(raw).toString("utf8");
         const result = parseClientMessage(text);
         if (!result.ok) {
+          // Amendement 2026-10-08 (lot B1): the two-tier oversized rejection
+          // (> MAX_MESSAGE_BYTES and not a legitimate chat+image) also
+          // closes the connection — same policy as the raw-byte-length gate
+          // this generalises (docs/PROTOCOL.md §5).
+          if (result.error.oversized) {
+            console.error(`coati-broker: reject stage=oversized origin=${sanitizeLogValue(ws.data.origin)}`);
+            send(ws, { type: "error", id: result.error.id ?? "oversized", code: result.error.code, message: result.error.message });
+            ws.close(1009, "oversized");
+            return;
+          }
           if (result.error.id) {
             send(ws, { type: "error", id: result.error.id, code: result.error.code, message: result.error.message });
           }
           return;
         }
-        handleMessage(ws, result.message, ws.data.active, promptsDirs, settingsCtx(ws.data.lang), ws.data.lang);
+        handleMessage(
+          ws,
+          result.message,
+          ws.data.active,
+          promptsDirs,
+          settingsCtx(ws.data.lang),
+          ws.data.lang,
+          dirs.dataDir,
+          ws.data,
+        );
       },
       close(ws) {
         if (ws.data.helloTimer) clearTimeout(ws.data.helloTimer);
         releaseUnauthSlot(ws);
+        ws.data.closed = true; // security review (L9) — see ConnData.closed's own doc
         for (const controller of ws.data.active.values()) controller.abort();
         ws.data.active.clear();
       },

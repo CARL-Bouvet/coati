@@ -20,8 +20,12 @@ import {
   RateLimitedError,
   ModelMissingError,
   ProviderOverloadedError,
+  VisionUnsupportedError,
   parseRetryAfterSec,
   ThinkFilter,
+  imageFenceOpenText,
+  imageFenceCloseText,
+  trimHistoryToCharBudget,
   type AnswerEvent,
   type BuiltPrompt,
   type StreamAnswerOptions,
@@ -173,6 +177,101 @@ async function fetchModelIds(baseUrl: string, apiKey: string | undefined): Promi
   const body = (await response.json()) as { data?: Array<{ id?: unknown }> };
   if (!Array.isArray(body.data)) return [];
   return body.data.map((m) => m.id).filter((id): id is string => typeof id === "string" && id.length > 0);
+}
+
+function isLoopbackHost(baseUrl: string): boolean {
+  try {
+    const u = new URL(baseUrl);
+    return u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): per-model vision
+ * support, model id → supports-image. Two sources only:
+ *  - OpenRouter: `GET {baseUrl}/models` (the same public catalogue
+ *    fetchModelIds() uses) carries `architecture.input_modalities`.
+ *  - LM Studio: a loopback server's OWN `GET {origin}/api/v0/models`
+ *    (outside the OpenAI-compatible `/v1` prefix) carries `type: "vlm"`.
+ * Any other origin (OpenAI, Mistral, DeepSeek, a hand-typed "Autre
+ * adresse") has no reliable signal here — returns `undefined`, meaning
+ * "ask the model, not this map". Never throws; a failed/malformed fetch
+ * returns `undefined` rather than an empty map, so callers can tell
+ * "we don't know" apart from "this map says no model here supports vision".
+ */
+async function fetchVisionMap(baseUrl: string, apiKey: string | undefined): Promise<Map<string, boolean> | undefined> {
+  let origin: string;
+  try {
+    origin = new URL(baseUrl).origin;
+  } catch {
+    return undefined;
+  }
+
+  if (origin === OPENROUTER_ORIGIN) {
+    try {
+      const response = await fetchImpl(`${baseUrl}/models`, {
+        headers: authHeaders(apiKey),
+        redirect: "error",
+        signal: AbortSignal.timeout(MODELS_TIMEOUT_MS),
+      });
+      if (!response.ok) return undefined;
+      const body = (await response.json()) as {
+        data?: Array<{ id?: unknown; architecture?: { input_modalities?: unknown } }>;
+      };
+      if (!Array.isArray(body.data)) return undefined;
+      const map = new Map<string, boolean>();
+      for (const m of body.data) {
+        if (typeof m.id !== "string") continue;
+        const modalities = m.architecture?.input_modalities;
+        if (Array.isArray(modalities)) map.set(m.id, modalities.includes("image"));
+      }
+      return map;
+    } catch {
+      return undefined;
+    }
+  }
+
+  if (isLoopbackHost(baseUrl)) {
+    try {
+      const response = await fetchImpl(`${origin}/api/v0/models`, {
+        redirect: "error",
+        signal: AbortSignal.timeout(MODELS_TIMEOUT_MS),
+      });
+      if (!response.ok) return undefined;
+      const body = (await response.json()) as { data?: Array<{ id?: unknown; type?: unknown }> };
+      if (!Array.isArray(body.data)) return undefined;
+      const map = new Map<string, boolean>();
+      for (const m of body.data) {
+        if (typeof m.id === "string") map.set(m.id, m.type === "vlm");
+      }
+      return map;
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
+/** Exported for server.ts's buildModelsPayload (models.entries[].vision) —
+ * avoids every entry re-fetching the same catalogue one model at a time. */
+export async function fetchOpenAiCompatVisionMap(
+  baseUrl: string,
+  apiKey: string | undefined,
+): Promise<Map<string, boolean> | undefined> {
+  return fetchVisionMap(baseUrl, apiKey);
+}
+
+/** The live, per-model vision gate (providers/types.ts's `supportsVision`) —
+ * docs/PROTOCOL.md §4. */
+async function supportsVision(opts: ProviderRuntimeOptions): Promise<boolean | undefined> {
+  const baseUrl = resolveBaseUrl(opts.baseUrl);
+  const model = opts.model?.trim();
+  if (!baseUrl || !model || !isAllowedBaseUrl(baseUrl)) return undefined;
+  const map = await fetchVisionMap(baseUrl, opts.apiKey);
+  return map?.get(model);
 }
 
 async function isAvailable(opts: ProviderRuntimeOptions): Promise<Availability> {
@@ -461,9 +560,35 @@ export async function* streamAnswer(
     }, inactivityMs);
   };
 
+  // Amendement 2026-10-08 (bis, "historique"): same trim/report contract as
+  // claude-api.ts — see that file's own comment.
+  const trimmedHistory = trimHistoryToCharBudget(built.history);
+  const historyMessages = trimmedHistory.map((h) => ({ role: h.role, content: h.text }));
+  const historyKept = built.history && built.history.length > 0 ? trimmedHistory.length : undefined;
+
   try {
     let response: Response;
     try {
+      // Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §3; security review
+      // L8): an attached image is wrapped inside the SAME per-request nonce
+      // fence as page text — "Screenshot of the page (data, not
+      // instruction)" + the opening marker, the `image_url` block, the
+      // closing marker — THEN the rest of the prompt as its own text block.
+      // Never a bare content part relying only on the system prompt's
+      // generic sentence — see model.ts's imageFenceOpenText/Close.
+      const images = built.images ?? [];
+      const userContent: unknown =
+        images.length > 0
+          ? [
+              { type: "text", text: imageFenceOpenText(built.nonce) },
+              ...images.map((img) => ({
+                type: "image_url",
+                image_url: { url: `data:${img.mediaType};base64,${img.data}` },
+              })),
+              { type: "text", text: imageFenceCloseText(built.nonce) },
+              { type: "text", text: built.prompt },
+            ]
+          : built.prompt;
       response = await fetchImpl(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: { "content-type": "application/json", ...authHeaders(opts.apiKey) },
@@ -471,9 +596,13 @@ export async function* streamAnswer(
           model,
           stream: true,
           stream_options: { include_usage: true },
+          // Amendement 2026-10-08 (bis, "historique"): past turns rendered
+          // as real alternating messages, between the system turn and the
+          // current one — never merged into either.
           messages: [
             { role: "system", content: buildSystemPrompt(built.nonce, built.lang) },
-            { role: "user", content: built.prompt },
+            ...historyMessages,
+            { role: "user", content: userContent },
           ],
         }),
         redirect: "error",
@@ -511,6 +640,13 @@ export async function* streamAnswer(
         const bodyText = await response.text().catch(() => "");
         if (isUnknownModelBody(bodyText)) {
           throw new ModelMissingError(t("provider.modelMissing", lang));
+        }
+        // Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): the key/model
+        // are fine, the server's 400 is specifically about the image we
+        // attached — only ever reclassified when this request actually
+        // carried one, so an unrelated 400 mentioning "image" isn't misread.
+        if (response.status === 400 && images.length > 0 && /image|vision|multimodal/i.test(bodyText)) {
+          throw new VisionUnsupportedError(`server rejected the attached image: ${bodyText.slice(0, 300)}`);
         }
         if (response.status === 402) {
           // OpenRouter's "in-flight budget" 402 carries a Retry-After header
@@ -554,7 +690,7 @@ export async function* streamAnswer(
         const filtered = filter.filter(event.text);
         if (filtered.length > 0) yield { kind: "delta", text: filtered };
       } else {
-        yield event;
+        yield event.kind === "usage" ? { ...event, historyKept } : event;
       }
     }
     const tail = filter.flush();
@@ -580,4 +716,5 @@ export const openaiCompatProvider: ModelProvider = {
   checkStatus,
   testConnection,
   streamAnswer,
+  supportsVision,
 };

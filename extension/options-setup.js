@@ -1,11 +1,12 @@
-// "Connecter un modèle d'IA" — the step-by-step guide inside the settings
-// page (goal U2). Opened by `options.html#setup` (contract with the panel:
-// its "never connected" message and "?" button open that URL).
-//
-// Two paths, chosen on the first screen:
-//   local  — Ollama (LM Studio under a collapsed « Avancé »): install, check
-//            it answers, pull a model sized to the machine's memory;
-//   online — OpenRouter free models first, then Claude and OpenAI (paid),
+// The step-by-step model guide (goal U2), merged into the settings page's
+// two model tabs (redesign 08/10). `options.html#setup` still opens it
+// (contract with the panel: its "never connected" message and "?" button
+// open that URL) — options.js picks the tab, this file builds the steps:
+//   local  — appended to the « Sur cet ordinateur » tab: one fold with the
+//            Ollama steps (install, check it answers, pull a model sized to
+//            the machine), then « Accélérer Ollama », then LM Studio;
+//   online — appended inside « Ajouter un service » (« En ligne » tab):
+//            OpenRouter free models first, then Claude and OpenAI (paid),
 //            Mistral and DeepSeek under « Autres »; create a key, paste it in
 //            the shared key component (lib/key-input.js).
 // Both end on « Essayer sur une page ». Each step is ticked as soon as the
@@ -18,8 +19,7 @@
 
 import { t } from "./lib/i18n-page.js";
 import { createKeyInput } from "./lib/key-input.js";
-import { providerLabel } from "./lib/labels.js";
-import { groupModels, moduleLabelsFrom, readHost, renderModelList, sameModel, shortModelName, suggestForHost } from "./lib/model-list.js";
+import { groupModels, readHost, sameModel, shortModelName, suggestForHost } from "./lib/model-list.js";
 import {
   OLLAMA_DOWNLOADS,
   OLLAMA_LINUX_INSTALL_COMMAND,
@@ -159,21 +159,29 @@ function actionButton(text, className) {
   return button;
 }
 
+/** A fold (<details>) with the page's shared chevron style (options.css .fold). */
+function fold(id, title, className = "fold") {
+  const details = el("details", className);
+  if (id) details.id = id;
+  const summary = el("summary", null, title);
+  const body = el("div", "fold-body");
+  details.append(summary, body);
+  return { details, summary, body };
+}
+
 /**
  * @param {object} opts
- * @param {HTMLDetailsElement} opts.root      the #setup <details>
+ * @param {HTMLElement} opts.localRoot   « Sur cet ordinateur » tab: the folds are appended here
+ * @param {HTMLElement} opts.onlineRoot  inside « Ajouter un service »: the online steps
  * @param {(payload: object) => void} opts.send
  * @param {() => string} opts.newId
+ * @param {(reply: object) => void} [opts.onModels]  every `models` reply this guide receives
  */
-export function mountSetupGuide({ root, send, newId }) {
-  const summary = root.querySelector("summary");
-  const pathButtons = [...root.querySelectorAll(".setup-path")];
-  const localWrap = root.querySelector("#setupLocal");
-  const onlineWrap = root.querySelector("#setupOnline");
-  const notice = root.querySelector("#setupNotConnected");
-
+export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }) {
   let settings = null;
   let connected = false;
+  // The local tab is on screen: only then is `host` worth fetching.
+  let localVisible = false;
   // request id -> callback(message), for settings.set / provider.status
   // replies this guide is waiting on.
   const pending = new Map();
@@ -183,25 +191,9 @@ export function mountSetupGuide({ root, send, newId }) {
   const suggestedRow = suggestedModelRow(navigator.deviceMemory);
   let chosenModel = OLLAMA_MODELS_BY_MEMORY[Math.max(0, suggestedRow)].model;
 
-  // --- Path choice -------------------------------------------------------------
-
-  for (const button of pathButtons) {
-    button.addEventListener("click", () => choosePath(button.dataset.path));
-  }
-
-  function choosePath(path) {
-    for (const button of pathButtons) {
-      button.setAttribute("aria-pressed", String(button.dataset.path === path));
-    }
-    localWrap.hidden = path !== "local";
-    onlineWrap.hidden = path !== "online";
-    const target = path === "local" ? localWrap : onlineWrap;
-    target.querySelector(".setup-step-title")?.scrollIntoView?.({ block: "nearest" });
-    if (path === "local") prefetchModels();
-  }
-
   // --- Local path: Ollama ------------------------------------------------------
 
+  const guide = fold("setupLocalGuide", t("options_local_guide_title"));
   const localList = el("ol", "setup-steps");
   const install = makeStep(1, t("setup_local_install_title"));
   const running = makeStep(2, t("setup_local_running_title"));
@@ -382,32 +374,21 @@ export function mountSetupGuide({ root, send, newId }) {
     pullSlot.replaceChildren(commandLine(`ollama pull ${chosenModel}`));
   }
   // « Vérifier le modèle » only checks (models.list): it never writes the
-  // suggested row's model into the config any more — choosing is done in
-  // the installed list just below.
+  // suggested row's model into the config — choosing is done in the
+  // installed list at the top of the tab (options.js), which this check
+  // refreshes through `onModels`.
   const modelCheck = actionButton(t("setup_local_model_check"), "setup-check setup-check-model");
   modelCheck.addEventListener("click", () => checkChosenModel());
   checkButtons.push(modelCheck);
   model.body.append(modelCheck);
 
-  // Models already installed (amendement 2026-10-07): same list as the
-  // panel's model menu (lib/model-list.js), one click = settings.set.
-  model.body.append(el("p", "setup-text setup-models-intro", t("setup_local_models_text")));
-  const modelsCheck = actionButton(t("setup_local_models_check"), "button-secondary setup-check setup-check-models");
-  modelsCheck.addEventListener("click", () => listInstalledModels());
-  checkButtons.push(modelsCheck);
-  const installedList = el("div", "model-list setup-installed-models");
-  installedList.setAttribute("role", "group");
-  installedList.setAttribute("aria-label", t("model_list_title"));
-  installedList.hidden = true;
-  model.body.append(modelsCheck, installedList);
-
   // Step 4 — try it.
   tryLocal.body.append(el("p", "setup-text", t("setup_try_text")));
+  guide.body.append(localList);
 
-  // Advanced: LM Studio.
-  const lmStudio = el("details", "setup-advanced");
-  const lmSummary = el("summary", null, t("setup_lmstudio_title"));
-  const lmBody = el("div", "setup-advanced-body");
+  // LM Studio (local server speaking the OpenAI format).
+  const lmFold = fold("setupLmStudio", t("setup_lmstudio_title"));
+  const lmBody = lmFold.body;
   lmBody.append(el("p", "setup-text", t("setup_lmstudio_text")));
   const lmLinks = el("p", "setup-links");
   lmLinks.append(externalLink(LM_STUDIO.downloadUrl, t("setup_lmstudio_download")));
@@ -429,24 +410,25 @@ export function mountSetupGuide({ root, send, newId }) {
   });
   checkButtons.push(lmButton);
   lmBody.append(lmButton, lmResult);
-  lmStudio.append(lmSummary, lmBody);
 
-  // Advanced: « Accélérer Ollama » (plan-ollama-rapide-07-10.md, point 5) —
-  // after LM Studio so `.setup-advanced > summary` still means LM Studio.
-  // This machine's OS first (same detectOs() as the download button).
-  const speedup = el("details", "setup-advanced setup-speedup");
-  speedup.id = "setupOllamaSpeedup";
-  const speedupSummary = el("summary", null, t("setup_speedup_title"));
-  const speedupBody = el("div", "setup-advanced-body");
+  // « Accélérer Ollama » (plan-ollama-rapide-07-10.md, point 5). This
+  // machine's OS first (same detectOs() as the download button).
+  const speedupFold = fold("setupOllamaSpeedup", t("setup_speedup_title"), "fold setup-speedup");
+  const speedup = speedupFold.details;
+  const speedupSummary = speedupFold.summary;
+  const speedupBody = speedupFold.body;
   speedupBody.append(el("p", "setup-text", t("setup_speedup_intro")));
   const speedupOrder = os ? [os, ...Object.keys(OS_NAMES).filter((key) => key !== os)] : Object.keys(OS_NAMES);
   for (const key of speedupOrder) speedupBody.append(speedupOsBlock(key));
   const speedupLinks = el("p", "setup-links");
   speedupLinks.append(externalLink(OLLAMA_SPEEDUP.faqUrl, t("setup_speedup_faq")));
   speedupBody.append(speedupLinks);
-  speedup.append(speedupSummary, speedupBody);
 
-  localWrap.append(localList, lmStudio, speedup);
+  // Order agreed 08/10: guide (with the suggested models), Accélérer, LM Studio.
+  localRoot.append(guide.details, speedup, lmFold.details);
+  guide.details.addEventListener("toggle", () => {
+    if (guide.details.open) prefetchModels();
+  });
 
   function speedupOsBlock(key) {
     const section = el("section", "setup-speedup-os");
@@ -506,30 +488,17 @@ export function mountSetupGuide({ root, send, newId }) {
       if (reply?.type === "models") {
         lastModels = reply;
         renderSuggestions();
+        onModels?.(reply);
       }
       callback?.(reply?.type === "models" ? reply : null);
     });
   }
 
   /** Quietly reads `host` + installed models for the suggestions, once the
-   * local path is on screen — no step state touched. */
+   * local tab is on screen — no step state touched. */
   function prefetchModels() {
-    if (!connected || lastModels || modelsInFlight || localWrap.hidden) return;
+    if (!connected || lastModels || modelsInFlight || !localVisible) return;
     fetchModels(null);
-  }
-
-  function renderInstalled() {
-    installedList.hidden = false;
-    renderModelList(installedList, lastModels, {
-      t,
-      providerLabel,
-      moduleLabels: moduleLabelsFrom(settings),
-      baseUrl: settings?.baseUrl,
-      mode: "list",
-      localOnly: true,
-      idPrefix: "setupModels",
-      onPick: pickInstalled,
-    });
   }
 
   /** Ollama down → step 2 is the one to fix; true when it answered. */
@@ -544,28 +513,6 @@ export function mountSetupGuide({ root, send, newId }) {
     return true;
   }
 
-  function listInstalledModels() {
-    if (!connected) return;
-    model.setState("busy", t("setup_checking"));
-    fetchModels((reply) => {
-      if (!reply) {
-        model.setState("failed", t("model_list_unavailable"));
-        return;
-      }
-      renderInstalled();
-      const grouped = groupModels(reply);
-      if (!applyOllamaSource(grouped)) {
-        model.setState("todo");
-      } else if (grouped.local.length === 0) {
-        model.setState("todo", t("setup_local_no_model"));
-      } else if (grouped.currentEntry?.local) {
-        model.setState("done", t("setup_local_model_chosen", [shortModelName(grouped.currentEntry.model)]));
-      } else {
-        model.setState("todo");
-      }
-    });
-  }
-
   /** Is the suggested row's model installed? Reads only — never settings.set. */
   function checkChosenModel() {
     if (!connected) return;
@@ -575,7 +522,6 @@ export function mountSetupGuide({ root, send, newId }) {
         model.setState("failed", t("setup_check_unknown"));
         return;
       }
-      renderInstalled();
       const grouped = groupModels(reply);
       if (!applyOllamaSource(grouped)) {
         model.setState("todo");
@@ -585,21 +531,6 @@ export function mountSetupGuide({ root, send, newId }) {
       if (!found) model.setState("failed", t("setup_local_model_missing", [chosenModel]));
       else if (found.current) model.setState("done", t("setup_local_model_ok"));
       else model.setState("done", t("setup_local_model_installed", [shortModelName(found.model)]));
-    });
-  }
-
-  function pickInstalled(entry) {
-    if (!connected || entry.current) return;
-    model.setState("busy", t("setup_checking"));
-    request({ type: "settings.set", provider: entry.provider, model: entry.model }, (reply) => {
-      if (reply?.type !== "settings") {
-        model.setState("failed", t("setup_check_unknown"));
-        return;
-      }
-      lastModels = { ...lastModels, current: { provider: entry.provider, model: entry.model } };
-      renderInstalled();
-      installedList.querySelector('[aria-pressed="true"]')?.focus();
-      model.setState("done", t("setup_local_model_chosen", [shortModelName(entry.model)]));
     });
   }
 
@@ -640,7 +571,7 @@ export function mountSetupGuide({ root, send, newId }) {
   const key = makeStep(3, t("setup_online_key_title"));
   const tryOnline = makeStep(4, t("setup_try_title"));
   onlineList.append(service.li, account.li, key.li, tryOnline.li);
-  onlineWrap.append(onlineList);
+  onlineRoot.append(onlineList);
 
   // Step 1 — said BEFORE the choice: free models may keep the texts.
   const warning = el("p", "setup-warning", t("setup_online_free_warning"));
@@ -649,9 +580,9 @@ export function mountSetupGuide({ root, send, newId }) {
   serviceList.setAttribute("role", "radiogroup");
   serviceList.setAttribute("aria-label", t("setup_online_service_title"));
   const serviceRadios = new Map();
-  const others = el("details", "setup-advanced setup-others");
+  const others = el("details", "fold fold--inner setup-others");
   others.append(el("summary", null, t("setup_online_others")));
-  const othersBody = el("div", "setup-services");
+  const othersBody = el("div", "fold-body setup-services");
   others.append(othersBody);
   for (const entry of ONLINE_PROVIDERS) {
     const option = el("label", "setup-service");
@@ -783,12 +714,20 @@ export function mountSetupGuide({ root, send, newId }) {
   }
 
   function refreshEnabled() {
-    notice.hidden = connected;
     for (const button of checkButtons) button.disabled = !connected;
     guideKeyInput?.setConnected(connected);
   }
 
   refreshEnabled();
+
+  /** Step 3 ticked once an installed Ollama model answers (picked in the
+   * tab's installed list, the panel's menu, or already in use). */
+  function markChosenLocalModel() {
+    const current = settings?.provider === "ollama" && settings.model ? installedOllamaModel(settings.model) : null;
+    if (current && model.state !== "busy") {
+      model.setState("done", t("setup_local_model_chosen", [shortModelName(current.model)]));
+    }
+  }
 
   return {
     onStatus(state) {
@@ -796,16 +735,21 @@ export function mountSetupGuide({ root, send, newId }) {
       refreshEnabled();
       prefetchModels();
     },
+    /** A `models` reply received by the page (options.js's own request). */
+    onModels(reply) {
+      if (reply?.type !== "models") return;
+      lastModels = reply;
+      renderSuggestions();
+      markChosenLocalModel();
+    },
+    /** The « Sur cet ordinateur » tab is shown (true) or hidden (false). */
+    setLocalVisible(visible) {
+      localVisible = Boolean(visible);
+      prefetchModels();
+    },
     onSettings(next) {
       settings = next;
-      // A switch made elsewhere (panel menu, « Modèle » section): move the
-      // checkmark of the installed list already on screen.
-      const known = lastModels?.current;
-      const moved = known && (known.provider !== next?.provider || !sameModel(known.model, next?.model));
-      if (moved && !installedList.hidden && typeof next?.provider === "string") {
-        lastModels = { ...lastModels, current: { provider: next.provider, model: next.model ?? null } };
-        renderInstalled();
-      }
+      markChosenLocalModel();
       guideKeyInput?.update(chosenService ? entryFor(chosenService.provider) : null);
       if (!chosenService) {
         const current = serviceFromSettings(next);
@@ -827,16 +771,15 @@ export function mountSetupGuide({ root, send, newId }) {
         lmResult.textContent = message.ok ? t("setup_lmstudio_ok") : message.message || t("setup_check_unknown");
       }
     },
-    /** Opens the guide, scrolls to it and focuses its heading. */
-    open() {
-      root.open = true;
-      root.scrollIntoView?.({ block: "start" });
-      summary?.focus({ preventScroll: true });
+    /** Opens the Ollama guide fold (the caller shows the local tab first). */
+    openLocalGuide({ scroll = true } = {}) {
+      guide.details.open = true;
+      if (!scroll) return;
+      guide.details.scrollIntoView?.({ block: "start" });
+      guide.summary.focus({ preventScroll: true });
     },
     /** options.html#setup-ollama-speedup (the panel's slow-answer tip). */
     openSpeedup() {
-      root.open = true;
-      choosePath("local");
       speedup.open = true;
       speedup.scrollIntoView?.({ block: "start" });
       speedupSummary.focus({ preventScroll: true });

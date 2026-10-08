@@ -328,12 +328,20 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "coati:panel-ready") {
     connectIfNeeded();
-    sendResponse({ state: wsState, workerInstanceId: WORKER_INSTANCE_ID });
+    // Bug fix (lot F review, 08/10): a panel opened AFTER the connection was
+    // already established (the common case — this service worker and its
+    // WebSocket outlive the panel closing) never saw the ORIGINAL hello-ok's
+    // `features` broadcast, which only ever reaches listeners registered at
+    // the moment it fires. Every A2/B3/C2 feature-gated button (Montrer,
+    // Joindre l'écran, Chercher dans la doc) silently never appeared on a
+    // normal reopen. Carried here too now, same `features` setState()
+    // already broadcasts on every state change.
+    sendResponse({ state: wsState, workerInstanceId: WORKER_INSTANCE_ID, features: lastHelloFeatures });
     return undefined;
   }
 
   if (message.type === "coati:get-status") {
-    sendResponse({ state: wsState, workerInstanceId: WORKER_INSTANCE_ID });
+    sendResponse({ state: wsState, workerInstanceId: WORKER_INSTANCE_ID, features: lastHelloFeatures });
     return undefined;
   }
 
@@ -399,9 +407,19 @@ function broadcast(message) {
   });
 }
 
+// Lot 0 / A2 (plan-montrer-voir-chercher-08-10.md §2 + §3A) — hello-ok gains
+// an optional `features` list (e.g. ["elements", "vision", "docsearch"]);
+// an old broker never sets it. Captured once per handshake (below) and
+// relayed on the SAME "coati:status" broadcast the panel already listens to
+// for connection state — no new message type. Cleared on every disconnect:
+// a feature negotiated on a PREVIOUS connection must never survive past a
+// reconnect to a possibly different (older) broker.
+let lastHelloFeatures = [];
+
 function setState(next) {
   wsState = next;
-  broadcast({ type: "coati:status", state: wsState });
+  if (wsState !== "connected") lastHelloFeatures = [];
+  broadcast({ type: "coati:status", state: wsState, features: lastHelloFeatures });
 }
 
 /** Resolves the key (K) used for the v2 handshake, per docs/PROTOCOL.md
@@ -681,6 +699,10 @@ function handleBrokerMessage(message) {
     pairingRetryCount = 0;
     // No token to store (docs/PROTOCOL.md amendement 2026-09-30: hello-ok
     // v2 carries no token at all — the key already proved everything).
+    // §2 amendement 2026-10-08: an open-ended `features` string list; an old
+    // broker never sends it, so this stays [] (filtered to strings only —
+    // never trust the wire shape blindly).
+    lastHelloFeatures = Array.isArray(message.features) ? message.features.filter((f) => typeof f === "string") : [];
     setState("connected");
     flushPendingRequest();
     return;

@@ -61,7 +61,10 @@ import { classifyPageType, classifyPageTypeFromMetadata } from "../content/detec
 import { applyRetention, RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./retention.js";
 import { api, IS_GECKO } from "../lib/browser-compat.js";
 import { parseTimestamps, getYouTubeVideoIdFromUrl } from "./timestamps.js";
+import { parseElementRefs, prepareContextForWire, resolveElementClick } from "./element-refs.js";
+import { buildHistoryForWire, historyAlertState } from "./history.js";
 import { isNearBottom } from "./scroll.js";
+import { parseStoredPointEffect, POINT_EFFECT_KEY } from "./point-effect.js";
 import {
   providerLabel,
   describeError,
@@ -116,6 +119,7 @@ import { getProviderLinks } from "../lib/setup-data.js";
 import {
   groupModels,
   isCurrentLocal,
+  currentModelVision,
   moduleLabelsFrom,
   renderModelList,
   renderStaleBrokerMenu,
@@ -123,11 +127,19 @@ import {
   sameModel,
   shortModelName,
 } from "../lib/model-list.js";
+// Lot B3 (plan-montrer-voir-chercher-08-10.md §3B) — "Regarder l'écran".
+import {
+  captureScreen,
+  captureNeedsGesture,
+  isInternalBrowserUrl,
+  ScreenshotTooBigError,
+} from "./screenshot.js";
 // Waiting line, « partagé » model notice, tip after a slow or cut answer
 // (plan-ollama-rapide-07-10.md, points 3, 4 and 6).
 import {
   buildProgress,
   buildSlowTip,
+  COATI_VISIBLE_MS,
   isSlowFirstWord,
   OLLAMA_SPEEDUP_PATH,
   readProgressStage,
@@ -152,6 +164,12 @@ const INSTALL_DOC_URL = "https://github.com/CARL-Bouvet/coati/blob/main/docs/INS
 
 const STORAGE_KEY = "coati:conversation";
 const ATTACH_PAGE_KEY = "coati:attachPage";
+const ATTACH_SCREEN_KEY = "coati:attachScreen";
+// `captureVisibleTab` needs `activeTab` or `<all_urls>` — the narrower
+// per-site `ALL_SITES_ORIGINS` (read-button.js) does NOT satisfy it (B0
+// finding, 08/10, see screenshot.js's own header comment). Requested only
+// when the user turns "Voir l'écran" on (CLAUDE.md rule #5).
+const SCREEN_CAPTURE_ORIGINS = ["<all_urls>"];
 const PENDING_ACTION_KEY = "coati:pendingAction";
 const MAX_PERSISTED_MESSAGES = 200;
 
@@ -223,6 +241,10 @@ const els = {
   promptSavedNotice: document.getElementById("promptSavedNotice"),
   messages: document.getElementById("messages"),
   attachPage: document.getElementById("attachPage"),
+  attachScreenRow: document.getElementById("attachScreenRow"),
+  attachScreen: document.getElementById("attachScreen"),
+  attachScreenDestination: document.getElementById("attachScreenDestination"),
+  historyNotice: document.getElementById("historyNotice"),
   input: document.getElementById("input"),
   send: document.getElementById("send"),
   cancel: document.getElementById("cancel"),
@@ -244,6 +266,15 @@ reloadOnLanguageChange();
 /** @type {Array<{id: string, role: 'user'|'assistant'|'system', text: string}>} */
 let conversation = [];
 let activeRequestId = null;
+
+// Amendement 2026-10-08 bis ("historique", docs/PROTOCOL.md §4). Last
+// `done.historyKept` seen, across requests — in-memory only, never
+// persisted (it's a transient hint for the notice below, not conversation
+// content). `undefined` until the first chat whose request carried
+// `history` completes; updateHistoryNotice() treats that the same as "no
+// trimming happened yet" (historyAlertState()'s own `droppedByProvider`
+// check is false whenever this is undefined).
+let lastHistoryKept;
 /** @type {Array<{id:string, site:string, title?:string, body:string}>} */
 let prompts = [];
 /** @type {Record<string, {order?:string[], removed?:string[]}>} */
@@ -264,6 +295,33 @@ const pendingRetries = new Map();
 let requestDeadlineTimer = null;
 let requestHeartbeatTimer = null;
 let requestWorkerInstanceId = null; // service worker instance that accepted the current request, or null
+
+// Lot A2 (plan-montrer-voir-chercher-08-10.md §3A) — "Montrer du doigt".
+// `brokerFeatures` mirrors the latest `hello-ok.features` relayed by
+// service-worker.js on its `coati:status` broadcast; an old broker that
+// predates the amendment never sets it, so this stays `[]` and
+// `context.elements` is simply never sent (§2: "Absent = aucune"). Reset to
+// `[]` whenever the connection drops — a feature negotiated on a PREVIOUS
+// connection must not survive past a reconnect to a possibly older broker.
+let brokerFeatures = [];
+function hasFeature(name) {
+  return brokerFeatures.includes(name);
+}
+
+// Shown at most once per panel session (plan: "cadre principal seulement :
+// les iframes ne sont pas numérotées — limite annoncée").
+let frameLimitNoticeShown = false;
+
+// Lot A2 bug fix (admin review, 08/10): the `{extractionId, elements}` an
+// assistant message's `[[eN]]` tokens resolve against is stored ON THAT
+// MESSAGE (msg.elementsSnapshot — see buildElementsSnapshot()), never in a
+// single shared variable. A shared "last send" variable meant a SECOND
+// question silently repointed every OLDER message's "Montrer : …" buttons
+// at the NEW extraction: same ref ("e1"), possibly a different element —
+// the button's label still read the old one, but the click highlighted
+// whatever "e1" meant in the new page read. In memory only, same reasoning
+// as `pendingRetries` (page-derived) — persistConversation() strips it
+// before every chrome.storage.local write (CLAUDE.md rule #1).
 
 // Page detection state (deliverable 1) — see the comment block above.
 let currentTabId = null;
@@ -293,6 +351,18 @@ let cardDetectingTimer = null;
 // "Coati lit cette page" toggle (deliverable 3). null = no stored
 // preference yet, so default to true once a page type is known.
 let attachPagePreference = null;
+
+// "Voir l'écran" toggle (sticky, same persisted-global shape as
+// attachPagePreference above — plan: it stays ON after a send, unlike the
+// B3-era "unchecked every time" behaviour). null/false = off by default.
+let attachScreenPreference = false;
+
+// The "Montrer : …" button currently showing a highlight, if any — a second
+// click on THIS button clears it (toggle off); clicking a different one
+// just replaces it (pointer.js's own removeExistingHighlight() already does
+// that). Not re-synced when pointer.js auto-dismisses on its own (timeout,
+// Escape, a click on the page) — out of scope, no message channel back.
+let activePointButton = null;
 
 // Erase-button two-step confirm state (no window.confirm — see the comment
 // above wireEraseButton()).
@@ -336,6 +406,16 @@ class ExtractionTimeoutError extends Error {
   }
 }
 
+// Lot B3 — `message` is already the ready-to-display, localized text
+// (captureScreenIfChecked() picks it per failure kind); never the raw
+// English chrome.tabs.captureVisibleTab() rejection.
+class ScreenCaptureDeniedError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ScreenCaptureDeniedError";
+  }
+}
+
 init();
 
 async function init() {
@@ -375,6 +455,23 @@ async function init() {
     attachPagePreference = !isAttachPageChecked();
     setAttachPageChecked(attachPagePreference);
     persistConversation();
+  });
+  // Sticky, persisted like attachPage above (renamed "Voir l'écran" —
+  // superseded the B3-era "décochée après chaque envoi"). Turning it ON is
+  // the user gesture Chrome/Firefox need for the broad capture permission:
+  // the request call below must be the very first thing in this handler,
+  // no `await` before it, or the gesture is dropped.
+  els.attachScreen.addEventListener("click", () => {
+    if (els.attachScreen.disabled) return;
+    if (isAttachScreenChecked()) {
+      attachScreenPreference = false;
+      setAttachScreenChecked(false);
+      persistConversation();
+      return;
+    }
+    const asked = api.permissions.request({ origins: SCREEN_CAPTURE_ORIGINS });
+    setAttachScreenChecked(true); // optimistic — reverted in finishAttachScreenToggle() on refusal
+    finishAttachScreenToggle(asked);
   });
   els.input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -431,9 +528,16 @@ async function init() {
   // The settings page writes the same key: adopt its value, or the next
   // persistConversation() would overwrite it with the stale in-memory one.
   api.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !(ATTACH_PAGE_KEY in changes)) return;
-    const value = changes[ATTACH_PAGE_KEY].newValue;
-    attachPagePreference = typeof value === "boolean" ? value : null;
+    if (area !== "local") return;
+    if (ATTACH_PAGE_KEY in changes) {
+      const value = changes[ATTACH_PAGE_KEY].newValue;
+      attachPagePreference = typeof value === "boolean" ? value : null;
+    }
+    if (ATTACH_SCREEN_KEY in changes) {
+      const value = changes[ATTACH_SCREEN_KEY].newValue;
+      attachScreenPreference = value === true;
+      updateAttachScreenUi();
+    }
   });
 
   await loadAccessPrefs();
@@ -491,6 +595,7 @@ function onRuntimeMessage(message) {
 
   if (message.type === "coati:status") {
     applyStatus(message.state);
+    applyBrokerFeatures(message.state, message.features);
     if (message.state === "connected") {
       requestPrompts();
       requestPrefs();
@@ -545,6 +650,40 @@ function handleBrokerMessage(message) {
       const msg = conversation.find((m) => m.id === message.id);
       if (stage && msg?.streaming && !msg.text) {
         msg.progress = stage;
+        // The coati's 2s window is counted once per request, from its FIRST
+        // progress stage — not reset when the stage later changes (loading
+        // -> reading -> thinking). Nothing else re-renders this message once
+        // the stage stops changing, so a timer forces the redraw that drops
+        // the icon right when the window closes.
+        if (!msg.progressStartedAt) {
+          msg.progressStartedAt = Date.now();
+          setTimeout(() => {
+            if (msg.progress) renderMessage(msg);
+          }, COATI_VISIBLE_MS);
+        }
+        renderMessage(msg);
+      }
+      if (activeRequestId === message.id) armRequestDeadline(message.id, FIRST_WORD_DEADLINE_MS);
+      break;
+    }
+    // Lot C2 (plan-montrer-voir-chercher-08-10.md §3C, docs/PROTOCOL.md §7)
+    // — sent before the first `chunk`, like `progress`. `sources` arrives
+    // only at the "reading" stage; kept on the message (never stripped
+    // before persistConversation() — doc titles/urls aren't the kind of
+    // page content the other lots had to keep out of storage). Amendement
+    // 2026-10-08 ter ("recherche sur demande explicite"): stage "query"
+    // (sent first, before "discovering") carries the reformulated search
+    // query text — kept on the message the same tolerant way.
+    case "search.status": {
+      const msg = conversation.find((m) => m.id === message.id);
+      if (msg) {
+        msg.searchStatus = {
+          stage: message.stage,
+          scope: typeof message.scope === "string" ? message.scope : null,
+          engine: message.engine,
+          sources: Array.isArray(message.sources) ? message.sources : msg.searchStatus?.sources,
+          query: typeof message.query === "string" ? message.query : msg.searchStatus?.query,
+        };
         renderMessage(msg);
       }
       if (activeRequestId === message.id) armRequestDeadline(message.id, FIRST_WORD_DEADLINE_MS);
@@ -557,11 +696,17 @@ function handleBrokerMessage(message) {
     case "done": {
       pendingRetries.delete(message.id);
       requestStarts.delete(message.id);
+      // Amendement 2026-10-08 bis: only ever present on a chat that carried
+      // `history` — see protocol.ts's DoneMessage.historyKept doc for the
+      // 0-vs-absent distinction kept here too (an absent field never resets
+      // the last known value to undefined).
+      if (typeof message.historyKept === "number") lastHistoryKept = message.historyKept;
       const msg = conversation.find((m) => m.id === message.id);
       if (msg) {
         msg.streaming = false;
         msg.progress = undefined;
         renderMessage(msg);
+        updateHistoryNotice();
         // A complete answer proves the model works, whatever provider.status said.
         if (msg.role === "assistant" && msg.text && !modelAnswered) {
           modelAnswered = true;
@@ -636,6 +781,8 @@ function handleBrokerMessage(message) {
       // minute mid-answer, or never started in time. A retry is worth it,
       // and an Ollama model gets the tip under the answer (point 6).
       const modelStalled = message.code === "model-stalled" || message.code === "model-timeout";
+      // Lot C2 — "ouvrez les réglages" remedy (docs/PROTOCOL.md §8).
+      const searchNotConfigured = message.code === "search-not-configured";
       const start = requestStarts.get(message.id);
       requestStarts.delete(message.id);
       const slowTip = modelStalled ? (slowTipFor(start?.entry ?? currentModelEntry(), currentGroupedModels()) ?? undefined) : undefined;
@@ -673,6 +820,7 @@ function handleBrokerMessage(message) {
         msg.modelUnavailable = modelUnavailable;
         msg.providerOverloaded = providerOverloaded;
         msg.modelMissing = modelMissing;
+        msg.searchNotConfigured = searchNotConfigured;
         renderMessage(msg);
       } else {
         addMessage({
@@ -681,6 +829,7 @@ function handleBrokerMessage(message) {
           text,
           authRequired,
           authKind,
+          searchNotConfigured,
           quotaExceeded,
           rateLimited,
           retryAfterSec,
@@ -1006,6 +1155,83 @@ function authKindFor(provider) {
   return SESSION_AUTH_PROVIDERS.has(provider) ? "session" : "key";
 }
 
+// Lot C2 (plan-montrer-voir-chercher-08-10.md §3C) — "Chercher dans la doc".
+
+/** Open settings on the "En ligne" tab's search card — same pattern as
+ * openProviderSettings() above (api.tabs.create + a deep-link hash); the
+ * anchor itself is lot C3's (options page), harmless if it doesn't exist
+ * yet (options.html just opens, unscrolled). */
+function buildSearchNotConfiguredRecoveryBlock() {
+  const block = document.createElement("div");
+  block.className = "recovery-block";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "recovery-copy";
+  button.textContent = t("panel_open_settings");
+  button.addEventListener("click", () => api.tabs.create({ url: api.runtime.getURL("options.html#search") }));
+  block.appendChild(button);
+  return block;
+}
+
+const SEARCH_ENGINE_LABELS = { brave: "Brave Search", tavily: "Tavily", "llms.txt": "llms.txt" };
+
+/** docs/PROTOCOL.md §7 (+ 2026-10-08 ter amendment) — `search.status`'s
+ * progress line. `sources` is rendered separately (buildSourcesBlock) only
+ * once sources exist. Stage "query" shows the reformulated search query
+ * text verbatim (it's a search-engine query, not a UI sentence — never
+ * translated, same stance as a doc source's own title/url). */
+function buildSearchStatusLine(status) {
+  const engineLabel = SEARCH_ENGINE_LABELS[status.engine] ?? status.engine ?? "";
+  const line = document.createElement("p");
+  line.className = "search-status-line";
+  line.textContent =
+    status.stage === "query"
+      ? t("panel_docsearch_query", [status.query ?? ""])
+      : status.stage === "reading"
+        ? t("panel_docsearch_reading")
+        : status.scope
+          ? t("panel_docsearch_scope", [status.scope, engineLabel])
+          : t("panel_docsearch_web", [engineLabel]);
+  return line;
+}
+
+/** Plain text only — no `<a>`, no innerHTML (CLAUDE.md rule #3): sources
+ * are page content the model/local program named, not something this
+ * panel decided to make clickable yet (product question open, plan §6.5 —
+ * conservative default, same rule markdown.js already applies to every
+ * link/image a model writes). One text node per source: "title — url". */
+function buildSourcesBlock(sources) {
+  const wrap = document.createElement("div");
+  wrap.className = "search-sources";
+  const title = document.createElement("p");
+  title.className = "search-sources-title";
+  title.textContent = t("panel_sources_title");
+  wrap.appendChild(title);
+  const list = document.createElement("ul");
+  list.className = "search-sources-list";
+  for (const source of sources) {
+    const li = document.createElement("li");
+    li.className = "search-sources-item";
+    const label = typeof source?.title === "string" && source.title ? source.title : source?.url ?? "";
+    li.textContent = source?.url ? `${label} — ${source.url}` : label;
+    list.appendChild(li);
+  }
+  wrap.appendChild(list);
+  return wrap;
+}
+
+// Lot C2 — docs/PROTOCOL.md §8: "auth"|"quota"|"rate"|"network"|"no-result".
+// An unrecognized/absent reason (older broker, or a future addition) falls
+// back to the "network" wording in describeBrokerError() above — the most
+// neutral of the five, rather than guessing.
+const SEARCH_UNAVAILABLE_KEYS = {
+  auth: "error_search_unavailable_auth",
+  quota: "error_search_unavailable_quota",
+  rate: "error_search_unavailable_rate",
+  network: "error_search_unavailable_network",
+  "no-result": "error_search_unavailable_no_result",
+};
+
 /** Maps a terminal broker `error` to a French message that names its own
  * remedy (deliverable B5, third banner: "broker reachable but the model
  * failed"). The other two B5 causes — broker unreachable, no pairing token —
@@ -1060,6 +1286,16 @@ function describeBrokerError(message) {
     case "model-timeout":
       // Plain words, no English « Détail » line: the reason is fully known.
       return `⚠ ${describeError(message.code)}`;
+    // Lot C2 (plan-montrer-voir-chercher-08-10.md §3C, docs/PROTOCOL.md §8).
+    // Not in extension/lib/labels.js's ERROR_CODE_KEYS: that table is keyed
+    // on `code` alone, and search-unavailable needs a DIFFERENT sentence per
+    // `reason` — handled here instead, same as quota/rate-limited above.
+    case "search-not-configured":
+      return `⚠ ${t("error_search_not_configured")}`;
+    case "search-unavailable": {
+      const key = SEARCH_UNAVAILABLE_KEYS[message.reason] ?? "error_search_unavailable_network";
+      return `⚠ ${t(key)}`;
+    }
     default:
       // Covers "bad-request" and any other/unknown code: a French label
       // keyed on `code` (extension/lib/labels.js, shared with options.js),
@@ -1082,6 +1318,19 @@ let providerStatusSuffix = "";
 // as a button opening the model menu (see renderStatusLabel()).
 let providerStatusActionable = false;
 
+/** `brokerFeatures` (hello-ok.features, A2/B3/C2) from ANY status source —
+ * the "coati:status" broadcast (handleBrokerMessage's hello-ok branch in
+ * service-worker.js) or a direct "coati:panel-ready"/"coati:get-status"
+ * response (retryConnection() below). Bug fix (lot F review, 08/10): a
+ * panel opened AFTER the connection already settled only ever saw the
+ * broadcast path before this — never connected (or an older broker) means
+ * [], exactly as if freshly disconnected, never "trust the last known
+ * list". */
+function applyBrokerFeatures(state, features) {
+  brokerFeatures = state === "connected" && Array.isArray(features) ? features.filter((f) => typeof f === "string") : [];
+  updateAttachScreenUi();
+}
+
 /** Same "are you there?" message the panel already sends once at startup
  * (connectIfNeeded() on the service-worker side) — reused as the "Retry"
  * action on the connection banner (program not found / not responding) so
@@ -1089,6 +1338,7 @@ let providerStatusActionable = false;
 async function retryConnection() {
   const status = await api.runtime.sendMessage({ type: "coati:panel-ready" }).catch(() => null);
   applyStatus(status?.state ?? "unknown");
+  applyBrokerFeatures(status?.state ?? "unknown", status?.features);
 }
 
 function applyStatus(state) {
@@ -1438,6 +1688,7 @@ function renderStaleBrokerPill() {
 }
 
 function renderModelPicker() {
+  updateAttachScreenUi();
   if (currentConnState !== "connected" || (!modelsReply && !modelsUnsupported)) {
     els.modelPicker.hidden = true;
     return;
@@ -1586,6 +1837,82 @@ async function extractIfAttaching() {
   return attach ? extractReadableFromTab(currentTabId) : undefined;
 }
 
+/** Resolves the `permissions.request()` fired synchronously by the click
+ * handler above. Refused → revert the optimistic checked state, a short
+ * localized message, and don't persist the now-false preference as a user
+ * choice (so turning the toggle on again re-asks instead of silently
+ * staying off). Granted → persist, same shape as attachPage's preference. */
+async function finishAttachScreenToggle(asked) {
+  const granted = await Promise.resolve(asked).catch(() => false);
+  if (!granted) {
+    setAttachScreenChecked(false);
+    addMessage({ id: newId(), role: "system", text: t("panel_screen_need_gesture") });
+    return;
+  }
+  attachScreenPreference = true;
+  persistConversation();
+}
+
+/** "Voir l'écran" — captures when checked; STAYS checked after sending
+ * (sticky, superseded the B3-era "décochée après chaque envoi" — same
+ * persisted-preference shape as attachPage). Returns `null` when unchecked/
+ * unavailable; throws ScreenCaptureDeniedError (ready-to-display message)
+ * on any failure, which callers treat exactly like reportExtractionError:
+ * abort the send, nothing half-sent. */
+async function captureScreenIfChecked() {
+  if (!isAttachScreenChecked() || els.attachScreen.disabled) return null;
+  if (currentTabId == null) throw new ScreenCaptureDeniedError(t("panel_screen_denied"));
+
+  let tab = null;
+  try {
+    tab = await api.tabs.get(currentTabId);
+  } catch {
+    tab = null;
+  }
+  if (isInternalBrowserUrl(tab?.url)) throw new ScreenCaptureDeniedError(t("panel_screen_denied"));
+
+  try {
+    const image = await captureScreen(tab?.windowId);
+    return { image, marker: t("panel_screen_attached", [`${image.width}×${image.height}`]) };
+  } catch (err) {
+    if (err instanceof ScreenshotTooBigError) throw new ScreenCaptureDeniedError(t("panel_screen_too_big"));
+    // The <all_urls> grant (requested when the switch turned on) can still
+    // be revoked later (chrome://extensions, the "Mes prompts" page). When
+    // that's what captureVisibleTab is rejecting with, turn the switch back
+    // off — leaving it checked would retry and fail the same way forever.
+    if (captureNeedsGesture(err)) {
+      attachScreenPreference = false;
+      setAttachScreenChecked(false);
+      persistConversation();
+      throw new ScreenCaptureDeniedError(t("panel_screen_need_gesture"));
+    }
+    throw new ScreenCaptureDeniedError(t("panel_screen_denied"));
+  }
+}
+
+/** Amendement 2026-10-08 bis ("recherche sur demande explicite" —
+ * docs/PROTOCOL.md §6, no more "Chercher dans la doc" button): origin only
+ * (§6 — "jamais le chemin ni la query string"), and only for an http(s) tab
+ * (a chrome://, file:// or extension page has no "doc site" to search).
+ * Resolved fresh at SEND time (called from sendChatMessage() below), same
+ * simplification as captureScreenIfChecked()'s internal-page check above —
+ * no extra page-detection wiring kept live for this alone. */
+async function activeTabDocSearchOrigin() {
+  if (currentTabId == null) return null;
+  let tab = null;
+  try {
+    tab = await api.tabs.get(currentTabId);
+  } catch {
+    return null;
+  }
+  try {
+    const url = new URL(tab?.url ?? "");
+    return url.protocol === "http:" || url.protocol === "https:" ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
 async function sendChat() {
   const text = els.input.value.trim();
   if (!text || activeRequestId) return;
@@ -1604,34 +1931,103 @@ async function sendChat() {
     return;
   }
 
+  let screen = null;
+  try {
+    screen = await captureScreenIfChecked();
+  } catch (err) {
+    addMessage({ id: newId(), role: "system", text: err.message });
+    return;
+  }
+
   const text0 = text;
   els.input.value = "";
   resizeComposer();
   updateSavePromptEnabled();
-  await sendChatMessage(text0, context);
+  await sendChatMessage(text0, context, screen);
 }
 
 /** Shared tail of "send a chat message, with or without the page attached" —
  * used by sendChat() (the composer's Send button, attach depending on the
  * "Coati lit cette page" toggle) and runSuggestion() (a site-card
- * suggestion click, always attached — see its own comment). */
-async function sendChatMessage(text, context) {
+ * suggestion click, always attached — see its own comment). `screen` (Lot
+ * B3, only ever set by sendChat() itself — runSuggestion() never attaches
+ * one) is `{ image, marker } | null`, see captureScreenIfChecked().
+ *
+ * Amendement 2026-10-08 bis ("recherche sur demande explicite" —
+ * docs/PROTOCOL.md): there is no more "Chercher dans la doc" button, so
+ * `chat.docSearch` is no longer a caller-supplied param — it's resolved
+ * fresh HERE, on every chat, straight from the current tab
+ * (activeTabDocSearchOrigin(), same "origin only, http(s) tab only" rule as
+ * before). It no longer requests a search; it only tells the broker a
+ * search is ALLOWED for this origin — whether one actually runs is decided
+ * broker-side, from the question text alone. */
+async function sendChatMessage(text, context, screen = null) {
   const id = newId();
-  const note = context ? PAGE_CONTENT_MARKER_SUFFIX : "";
+  // Amendement 2026-10-08 bis ("historique", docs/PROTOCOL.md): computed
+  // from `conversation` BEFORE the two addMessage() calls below push this
+  // turn's own user/assistant placeholders onto it — history is the PAST
+  // exchanges only, never this one. Gated on the negotiated capability,
+  // same pattern as `elements`/`vision`/`docsearch` above/below.
+  const history = hasFeature("history") ? buildHistoryForWire(conversation) : null;
+  const note = (context ? PAGE_CONTENT_MARKER_SUFFIX : "") + (screen ? ` ${screen.marker}` : "");
   // `relaunch` (plan-mes-prompts-28-09.md, "Relancer"): resending this exact
   // message means resending `text` through this same function, reading the
   // page per the switch's state AT THE TIME OF THE RELAUNCH — never a cached
   // copy of `context`, which can hold page content (kept out of
-  // chrome.storage.local, same reasoning as context.url elsewhere).
+  // chrome.storage.local, same reasoning as context.url elsewhere). Never a
+  // cached screenshot either (plan B3: "Relancer ne renvoie jamais l'ancienne
+  // image") — `relaunch` below carries no `image` at all, on purpose.
   addMessage({ id: `${id}-u`, role: "user", text: `${text}${note}`, relaunch: { type: "chat", text } });
-  addMessage({ id, role: "assistant", text: "", streaming: true, readsPage: !!context });
+  // elementsSnapshot: see its own comment above `frameLimitNoticeShown` —
+  // THIS message's own {extractionId, elements}, computed now, never read
+  // back from a shared variable later.
+  addMessage({
+    id,
+    role: "assistant",
+    text: "",
+    streaming: true,
+    readsPage: !!context,
+    elementsSnapshot: buildElementsSnapshot(context),
+  });
 
   activeRequestId = id;
   setStreamingUi(true);
   persistConversation();
 
-  pendingRetries.set(id, { type: "chat", text, context });
-  await sendClientMessage({ type: "chat", id, text, context });
+  const wireContext = prepareContextForWire(context, hasFeature("elements"));
+  // Gated the same way as `elements` above, defensively — the checkbox is
+  // only ever visible/checkable when hasFeature("vision") in the first
+  // place (updateAttachScreenUi()), so this should already be true here.
+  const image = screen && hasFeature("vision") ? screen.image : undefined;
+  // Gated the same way, defensively — never sent at all when the broker
+  // build doesn't even understand the field.
+  const origin = hasFeature("docsearch") ? await activeTabDocSearchOrigin() : null;
+  const wireDocSearch = origin ? { origin } : undefined;
+  // Amendement 2026-10-08 bis: omitted entirely (never an empty array) when
+  // there is nothing eligible yet — "le panneau envoie l'historique
+  // seulement s'il est présent" (docs/PROTOCOL.md).
+  const wireHistory = history && history.entries.length > 0 ? history.entries : undefined;
+
+  pendingRetries.set(id, { type: "chat", text, context: wireContext, image, docSearch: wireDocSearch, history: wireHistory });
+  await sendClientMessage({ type: "chat", id, text, context: wireContext, image, docSearch: wireDocSearch, history: wireHistory });
+}
+
+/** Lot A2 (plan-montrer-voir-chercher-08-10.md §3A) — builds the
+ * `{extractionId, elements}` snapshot to attach to the ONE assistant message
+ * this `context` is answering (see `elementsSnapshot`'s comment above).
+ * Also surfaces, at most once per panel session, the "iframes aren't
+ * numbered" notice (the plan's own stated limitation: "cadre principal
+ * seulement") — only when it would actually matter, i.e. the page DOES have
+ * elements to show and ALSO has an iframe. Returns `null` when there is
+ * nothing to attach (no page read, or an extraction that predates this lot). */
+function buildElementsSnapshot(context) {
+  if (!context || typeof context.extractionId !== "string") return null;
+  const elements = Array.isArray(context.elements) ? context.elements : [];
+  if (context.elementsFrameLimited && elements.length && !frameLimitNoticeShown) {
+    frameLimitNoticeShown = true;
+    addMessage({ id: newId(), role: "system", text: t("panel_point_frame_limit") });
+  }
+  return { extractionId: context.extractionId, elements };
 }
 
 // --- Site card suggestions (T27-T30) ---------------------------------------
@@ -1712,6 +2108,11 @@ function cancelActive() {
   const msg = conversation.find((m) => m.id === id);
   if (msg) {
     msg.streaming = false;
+    // extension/panel/history.js reads this to exclude a cancelled turn from
+    // the conversation memory sent to the model — set unconditionally, even
+    // when a partial answer already streamed in (its text stays displayed,
+    // it just never counts as a completed exchange).
+    msg.cancelled = true;
     if (!msg.text) msg.text = t("panel_request_cancelled");
     renderMessage(msg);
   }
@@ -1859,6 +2260,7 @@ async function retryRequest(msg) {
   msg.slowTip = undefined;
   msg.cutNotice = undefined;
   msg.progress = undefined;
+  msg.progressStartedAt = undefined; // same msg object restreams: the coati's 2s window starts over
   msg.text = "";
   msg.streaming = true;
   renderMessage(msg);
@@ -1987,6 +2389,51 @@ function setAttachPageChecked(checked) {
 
 function isAttachPageChecked() {
   return els.attachPage.getAttribute("aria-checked") === "true";
+}
+
+// --- "Voir l'écran" ---------------------------------------------------------
+
+function setAttachScreenChecked(checked) {
+  els.attachScreen.setAttribute("aria-checked", String(checked));
+  els.attachScreen.classList.toggle("switch--on", checked);
+}
+
+function isAttachScreenChecked() {
+  return els.attachScreen.getAttribute("aria-checked") === "true";
+}
+
+/** Shows/hides the row, greys the switch out with a reason when the
+ * current model is KNOWN not to see images, and sets the destination line.
+ * Called whenever what it depends on changes: `brokerFeatures` (coati:status)
+ * and the current model (renderModelPicker(), already called on every
+ * models/status update). Unknown vision (older local program, or a source
+ * that can't tell) leaves the switch active — plan §3B: "inconnu : case
+ * active". */
+function updateAttachScreenUi() {
+  const show = hasFeature("vision");
+  els.attachScreenRow.hidden = !show;
+  if (!show) return;
+
+  const grouped = currentGroupedModels();
+  const vision = currentModelVision(grouped);
+  const noVision = vision === false;
+  els.attachScreen.disabled = noVision;
+  // Sticky preference (ATTACH_SCREEN_KEY) is the source of truth, same as
+  // attachPage's — re-applied every time this row becomes usable again
+  // (e.g. the model regains vision after this very function greyed it out).
+  setAttachScreenChecked(!noVision && attachScreenPreference);
+
+  if (noVision) {
+    els.attachScreenDestination.textContent = t("panel_screen_no_vision");
+    return;
+  }
+  // No current model known yet (models.list hasn't answered this session) —
+  // leave the line blank rather than guessing a provider from a null id.
+  els.attachScreenDestination.textContent = !grouped.current.provider
+    ? ""
+    : isCurrentLocal(grouped)
+      ? t("panel_attach_screen_local")
+      : t("panel_attach_screen_online", [providerLabel(grouped.current.provider, grouped.current.provider)]);
 }
 
 // --- Site card (T27-T29, encart lot 3 — plan-mes-prompts-28-09.md) --------
@@ -2676,14 +3123,24 @@ async function summarize() {
   // It's what lets a rendered timestamp be tied back to "the video this
   // summary was made from" without ever persisting that video's URL.
   const videoId = context.kind === "youtube" ? context.videoId : undefined;
-  addMessage({ id, role: "assistant", text: "", streaming: true, videoId, readsPage: true });
+  addMessage({
+    id,
+    role: "assistant",
+    text: "",
+    streaming: true,
+    videoId,
+    readsPage: true,
+    elementsSnapshot: buildElementsSnapshot(context),
+  });
 
   activeRequestId = id;
   setStreamingUi(true);
   persistConversation();
 
-  pendingRetries.set(id, { type: "summarize", context });
-  await sendClientMessage({ type: "summarize", id, context });
+  const wireContext = prepareContextForWire(context, hasFeature("elements"));
+
+  pendingRetries.set(id, { type: "summarize", context: wireContext });
+  await sendClientMessage({ type: "summarize", id, context: wireContext });
 }
 
 async function activeTabId() {
@@ -2981,6 +3438,28 @@ function renderAll() {
   els.messages.replaceChildren();
   for (const msg of conversation) renderMessage(msg, { append: true });
   els.messages.scrollTop = els.messages.scrollHeight;
+  updateHistoryNotice();
+}
+
+// Amendement 2026-10-08 bis ("historique", docs/PROTOCOL.md §6). Recomputes
+// from `conversation` + `lastHistoryKept` on every renderAll() (addMessage,
+// init's first render, eraseConversation, a relaunch/retry replay) — always
+// in sync, cheap enough (conversation is capped at MAX_PERSISTED_MESSAGES).
+// Muted, never the error style — same family as .prompt-saved-notice.
+function updateHistoryNotice() {
+  if (!els.historyNotice) return;
+  const { totalExchanges, sentExchanges } = buildHistoryForWire(conversation);
+  const state = historyAlertState({ totalExchanges, sentExchanges, historyKept: lastHistoryKept });
+  if (state === "dropped") {
+    els.historyNotice.textContent = t("panel_history_dropped");
+    els.historyNotice.hidden = false;
+  } else if (state === "long") {
+    els.historyNotice.textContent = t("panel_history_long");
+    els.historyNotice.hidden = false;
+  } else {
+    els.historyNotice.textContent = "";
+    els.historyNotice.hidden = true;
+  }
 }
 
 function wasNearBottom() {
@@ -3023,18 +3502,44 @@ function renderMessage(msg, { append = false } = {}) {
     node.replaceChildren(renderMarkdown(document, msg.text));
     if (waiting) {
       node.appendChild(
-        buildProgress(document, { stage: msg.progress, readsPage: msg.readsPage === true, t, iconSrc: "../icons/icon48.png" }),
+        buildProgress(document, {
+          stage: msg.progress,
+          readsPage: msg.readsPage === true,
+          t,
+          iconSrc: "../illustrations/coati-sniff.webp",
+          iconStillSrc: "../illustrations/coati-sniff-still.png",
+          reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+          startedAt: msg.progressStartedAt,
+          now: Date.now(),
+        }),
       );
     }
     // Only a YouTube-context assistant message carries a videoId (set in
     // summarize()) — an ordinary article summary that happens to contain
     // "[1:23]" has none, so its timestamps stay plain text (deliverable 4).
     if (msg.role === "assistant" && msg.videoId) linkifyTimestamps(node, msg.videoId);
+    // Lot A2 bug fix — THIS message's own snapshot (see its comment above),
+    // never a shared "current" one: an older message keeps resolving its
+    // own refs against the extraction it was actually answered from.
+    if (msg.role === "assistant" && msg.elementsSnapshot && msg.elementsSnapshot.elements.length) {
+      renderElementRefs(node, msg.elementsSnapshot);
+    }
     if (msg.authRequired) node.appendChild(buildAuthRecoveryBlock(msg));
     if (msg.quotaExceeded) node.appendChild(buildQuotaRecoveryBlock(msg));
     if (msg.modelUnavailable) node.appendChild(buildModelUnavailableRecoveryBlock(msg));
     if (msg.providerOverloaded) node.appendChild(buildProviderOverloadRecoveryBlock(msg));
     if (msg.modelMissing) node.appendChild(buildModelMissingRecoveryBlock());
+    if (msg.searchNotConfigured) node.appendChild(buildSearchNotConfiguredRecoveryBlock());
+    // Lot C2 fix (admin review): the progress LINE ("Recherche dans …" /
+    // "Lecture…") is a WAITING indicator — same condition as `waiting`
+    // above (buildProgress) — and must disappear the moment real answer
+    // text exists or streaming ends, same as that other indicator. The
+    // "Sources" block is different: once sources exist, it's the citation
+    // record, kept even after the answer is done.
+    if (msg.role === "assistant" && msg.searchStatus) {
+      if (msg.streaming && !msg.text) node.appendChild(buildSearchStatusLine(msg.searchStatus));
+      if (msg.searchStatus.sources?.length) node.appendChild(buildSourcesBlock(msg.searchStatus.sources));
+    }
     // No retry payload survives a panel reload (pendingRetries is in-memory
     // only, same limitation as buildAuthRecoveryBlock() above) — in that case
     // the message text alone (already telling the user to try again) is the
@@ -3101,6 +3606,140 @@ function linkifyTimestamps(container, videoId) {
   }
 }
 
+/**
+ * Lot A2 (plan-montrer-voir-chercher-08-10.md §3A, flow (4)) — walks a
+ * rendered message's text nodes and turns known `[[eN]]` tokens into
+ * "Montrer : …" <button>s, same split as linkifyTimestamps() above. The
+ * button's visible label always comes from `elements` (the extraction),
+ * never from the model's surrounding text — see element-refs.js's own
+ * header. No innerHTML anywhere (CLAUDE.md rule #3).
+ *
+ * `elementsSnapshot` is THIS message's own `{extractionId, elements}` (see
+ * its field's comment on the assistant message object) — every button
+ * built here captures its full click payload (resolveElementClick(),
+ * element-refs.js) from THIS snapshot, at render time, into the closure.
+ * Bug fixed 08/10 (admin review): a shared "current" snapshot used to let a
+ * SECOND question silently repoint an OLDER message's button at whatever
+ * the new extraction's same ref number happened to mean.
+ */
+function renderElementRefs(container, elementsSnapshot) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  let n;
+  while ((n = walker.nextNode())) textNodes.push(n);
+
+  for (const textNode of textNodes) {
+    const tokens = parseElementRefs(textNode.data, elementsSnapshot.elements);
+    if (tokens.length === 1 && tokens[0].type === "text" && tokens[0].value === textNode.data) continue; // nothing changed
+
+    const fragment = document.createDocumentFragment();
+    for (const token of tokens) {
+      if (token.type === "text") {
+        fragment.appendChild(document.createTextNode(token.value));
+        continue;
+      }
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "element-point-button";
+      button.textContent = t("panel_point_button", [token.label]);
+      button.setAttribute("aria-pressed", "false");
+      const clickPayload = resolveElementClick(elementsSnapshot, token.ref);
+      button.addEventListener("click", () => onPointButtonClick(button, clickPayload));
+      fragment.appendChild(button);
+    }
+    textNode.parentNode.replaceChild(fragment, textNode);
+  }
+}
+
+// A "Montrer : …" button is a toggle (added alongside the sticky "Voir
+// l'écran" work): a second click on the SAME button clears the highlight
+// immediately; clicking a DIFFERENT one just replaces it (pointer.js's own
+// "une seule surbrillance à la fois" already handles that case). Escape /
+// a click on the page still dismiss on the content-script side — this
+// doesn't re-sync `activePointButton`/aria-pressed when that happens (no
+// message channel back), same limitation noted where it's declared above.
+function onPointButtonClick(button, entry) {
+  if (activePointButton === button) {
+    activePointButton = null;
+    button.setAttribute("aria-pressed", "false");
+    clearPointer(currentTabId);
+    return;
+  }
+  const previous = activePointButton;
+  activePointButton = button;
+  button.setAttribute("aria-pressed", "true");
+  if (previous) previous.setAttribute("aria-pressed", "false");
+  pointAtElement(currentTabId, entry).then((ok) => {
+    if (!ok && activePointButton === button) {
+      activePointButton = null;
+      button.setAttribute("aria-pressed", "false");
+    }
+  });
+}
+
+// Highlights the element a "Montrer : …" button names, on the CURRENT page
+// of `tabId` — a real click just happened (CLAUDE.md rule #5: this tools the
+// user's own gesture, it never fires on its own). Two separate injections,
+// per the plan (§3A flow (5)): first `pointer.js` itself (defines
+// `globalThis.__coatiPoint` in that tab's isolated world, does nothing on
+// its own), then a `func` call that invokes it with the ref/role/label/
+// extractionId `entry` already carries (built by renderElementRefs(), from
+// THAT message's own snapshot — see resolveElementClick(), element-refs.js),
+// plus the user's chosen highlight intensity (`effect`, read fresh from
+// chrome.storage.local — point-effect.js) — pointer.js re-verifies all of
+// the entry's own fields against the LIVE page before drawing anything, and
+// this function never touches the DOM itself.
+// @returns {Promise<boolean>} true on "ok", false on "stale"/any failure —
+// used by onPointButtonClick() above to decide whether the button stays
+// pressed.
+async function pointAtElement(tabId, entry) {
+  if (!entry || tabId == null) {
+    addMessage({ id: newId(), role: "system", text: t("panel_point_failed") });
+    return false;
+  }
+  try {
+    // Read fresh at click time (not cached) — a change in Options should
+    // apply to the very next "Montrer : …" click, not the next panel open.
+    const stored = await api.storage.local.get([POINT_EFFECT_KEY]).catch(() => ({}));
+    const effect = parseStoredPointEffect(stored[POINT_EFFECT_KEY]);
+    await api.scripting.executeScript({ target: { tabId }, files: ["/content/pointer.js"] });
+    const results = await api.scripting.executeScript({
+      target: { tabId },
+      func: (opts) => (typeof globalThis.__coatiPoint === "function" ? globalThis.__coatiPoint(opts) : "stale"),
+      args: [{ ...entry, effect }],
+    });
+    const status = results?.[0]?.result;
+    if (status === "stale") {
+      addMessage({ id: newId(), role: "system", text: t("panel_point_stale") });
+    } else if (status !== "ok") {
+      addMessage({ id: newId(), role: "system", text: t("panel_point_failed") });
+    }
+    return status === "ok";
+  } catch {
+    // Tab closed, no more permission, page navigated away mid-click — best
+    // effort, reported the same way a failed highlight is.
+    addMessage({ id: newId(), role: "system", text: t("panel_point_failed") });
+    return false;
+  }
+}
+
+/** Second click on the same "Montrer : …" button — removes the highlight
+ * without drawing anything new. Best-effort, same spirit as
+ * pointAtElement(): a closed tab or a navigated-away page is not an error
+ * worth surfacing here, the highlight is gone either way. */
+async function clearPointer(tabId) {
+  if (tabId == null) return;
+  try {
+    await api.scripting.executeScript({ target: { tabId }, files: ["/content/pointer.js"] });
+    await api.scripting.executeScript({
+      target: { tabId },
+      func: () => (typeof globalThis.__coatiPoint === "function" ? globalThis.__coatiPoint({ clear: true }) : "stale"),
+    });
+  } catch {
+    // best-effort
+  }
+}
+
 // Seeks the <video> element of the CURRENT active tab — but only when a real
 // click just happened (this is only ever called from a "click" listener
 // above) AND that tab is showing the same video the summary was made from.
@@ -3127,8 +3766,9 @@ async function seekActiveVideoTab(videoId, seconds) {
 // --- Persistence ----------------------------------------------------------
 
 async function loadConversation() {
-  const data = await api.storage.local.get([STORAGE_KEY, ATTACH_PAGE_KEY, RETENTION_DAYS_KEY]);
+  const data = await api.storage.local.get([STORAGE_KEY, ATTACH_PAGE_KEY, ATTACH_SCREEN_KEY, RETENTION_DAYS_KEY]);
   attachPagePreference = typeof data[ATTACH_PAGE_KEY] === "boolean" ? data[ATTACH_PAGE_KEY] : null;
+  attachScreenPreference = data[ATTACH_SCREEN_KEY] === true;
   const retentionDays = parseStoredRetentionDays(data[RETENTION_DAYS_KEY]);
   const raw = Array.isArray(data[STORAGE_KEY]) ? data[STORAGE_KEY] : [];
   const filtered = applyRetention(raw, retentionDays);
@@ -3142,7 +3782,21 @@ async function loadConversation() {
 }
 
 function persistConversation() {
-  api.storage.local.set({ [STORAGE_KEY]: conversation, [ATTACH_PAGE_KEY]: attachPagePreference });
+  // `elementsSnapshot` (Lot A2) is page-derived (element labels are text
+  // read off the page) and tab/extraction-specific — kept in memory only,
+  // same reasoning as `context`/`pendingRetries` (CLAUDE.md rule #1). Strip
+  // it from the COPY written to chrome.storage.local; the in-memory
+  // `conversation` objects (and their buttons, already rendered) keep it.
+  const toStore = conversation.map((msg) => {
+    if (!msg.elementsSnapshot) return msg;
+    const { elementsSnapshot, ...rest } = msg;
+    return rest;
+  });
+  api.storage.local.set({
+    [STORAGE_KEY]: toStore,
+    [ATTACH_PAGE_KEY]: attachPagePreference,
+    [ATTACH_SCREEN_KEY]: attachScreenPreference,
+  });
 }
 
 function newId() {

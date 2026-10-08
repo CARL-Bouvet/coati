@@ -36,6 +36,9 @@
   "common_error_rate_limited": { "message": "The provider is getting too many requests right now." },
   "common_error_provider_overloaded": { "message": "The provider is overloaded, try again in a moment." },
   "common_error_model_missing": { "message": "This model is not available on your account." },
+  "common_error_vision_unsupported": {
+    "message": "The active model can't see images. Choose one that does (e.g. qwen2.5vl, gemma3) and send your question again."
+  },
   "common_error_detail": {
     "message": "Detail: $MESSAGE$",
     "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
@@ -59,6 +62,8 @@
   "panel_save_prompt": { "message": "Save the typed text as a prompt" },
   "panel_input_placeholder": { "message": "Write to Coati…" },
   "panel_erase_conversation": { "message": "Clear the conversation" },
+  "panel_history_long": { "message": "Long conversation: the model may start losing track. Clear it to start fresh." },
+  "panel_history_dropped": { "message": "The earliest exchanges are no longer sent to the model." },
   "panel_cancel": { "message": "Cancel" },
   "panel_send": { "message": "Send" },
   "panel_confirm_erase": { "message": "Confirm erase?" },
@@ -224,6 +229,55 @@
   "panel_relaunch": { "message": "Retry" },
   "panel_relaunch_title": { "message": "Resend this question" },
   "panel_seek_timestamp_title": { "message": "Jump to this moment in the video" },
+  "panel_point_button": {
+    "message": "Show: $LABEL$",
+    "placeholders": { "label": { "content": "$1", "example": "Generate" } }
+  },
+  "panel_point_stale": { "message": "The page has changed: ask again." },
+  "panel_point_failed": { "message": "Couldn't show this element." },
+  "panel_point_frame_limit": { "message": "Elements inside a frame (iframe) aren't tracked." },
+  "panel_attach_screen": { "message": "See the screen" },
+  "panel_attach_screen_title": { "message": "Coati looks at the tab with every question" },
+  "panel_attach_screen_local": { "message": "Stays on this computer" },
+  "panel_attach_screen_online": {
+    "message": "Goes to $PROVIDER$ (online)",
+    "placeholders": { "provider": { "content": "$1", "example": "Claude" } }
+  },
+  "panel_screen_no_vision": { "message": "The active model can't see images — choose one that does (e.g. qwen2.5vl, gemma3)." },
+  "panel_screen_attached": {
+    "message": "(screen capture attached, $DIMENSIONS$)",
+    "placeholders": { "dimensions": { "content": "$1", "example": "1280×720" } }
+  },
+  "panel_screen_denied": { "message": "Coati can't capture this page." },
+  "panel_screen_too_big": { "message": "The capture is too large to send." },
+  "panel_screen_need_gesture": {
+    "message": "Turn on the \"See the screen\" switch to allow the capture, then send your question again."
+  },
+  "panel_docsearch_query": {
+    "message": "Searching: $QUERY$",
+    "placeholders": { "query": { "content": "$1", "example": "export video kling ai tutorial" } }
+  },
+  "panel_docsearch_scope": {
+    "message": "Searching $SITE$ via $ENGINE$",
+    "placeholders": {
+      "site": { "content": "$1", "example": "help.kling.ai" },
+      "engine": { "content": "$2", "example": "Brave Search" }
+    }
+  },
+  "panel_docsearch_web": {
+    "message": "on the web via $ENGINE$",
+    "placeholders": { "engine": { "content": "$1", "example": "Brave Search" } }
+  },
+  "panel_docsearch_reading": { "message": "Reading the pages found…" },
+  "panel_sources_title": { "message": "Sources" },
+  "error_search_not_configured": {
+    "message": "No search service is configured — add a Brave or Tavily key in settings."
+  },
+  "error_search_unavailable_auth": { "message": "The search key was refused by the service." },
+  "error_search_unavailable_quota": { "message": "The search service's free quota is used up." },
+  "error_search_unavailable_rate": { "message": "The search service is getting too many requests right now." },
+  "error_search_unavailable_network": { "message": "The search service or the documentation couldn't be reached." },
+  "error_search_unavailable_no_result": { "message": "Nothing relevant was found." },
   "panel_build_fingerprint": {
     "message": "v$VERSION$ · $FINGERPRINT$",
     "placeholders": {
@@ -301,6 +355,13 @@
   "options_attach_title": { "message": "Reading the page" },
   "options_attach_checkbox": { "message": "Attach the open page to my questions" },
   "options_attach_help": { "message": "Starting value of the panel's \"Read the page\" switch." },
+  "options_point_effect_label": { "message": "Show an element" },
+  "options_point_effect_subtle": { "message": "Subtle" },
+  "options_point_effect_strong": { "message": "Strong" },
+  "options_point_effect_spectacular": { "message": "Spectacular" },
+  "options_point_effect_help": {
+    "message": "How Coati highlights an element on the page when you click \"Show\"."
+  },
   "options_shortcut_title": { "message": "Keyboard shortcut" },
   "options_shortcut_edit": { "message": "Change the shortcut" },
   "options_shortcut_help": {
@@ -779,5 +840,52 @@
     }
   },
   "model_list_provider_local": { "message": "on this computer" },
-  "model_list_provider_online": { "message": "online service" }
+  "model_list_provider_online": { "message": "online service" },
+  "options_current_label": { "message": "Current model" },
+  "options_current_no_model": { "message": "No model chosen" },
+  "options_test_short": { "message": "Test" },
+  "options_installed_title": { "message": "Installed models" },
+  "options_refresh": { "message": "Refresh" },
+  "options_services_title": { "message": "Configured services" },
+  "options_services_empty": { "message": "No online service yet." },
+  "options_add_service": { "message": "Add a service" },
+  "options_other_address_title": { "message": "Another OpenAI-compatible address" },
+  "options_cap_title": { "message": "Spending cap" },
+  "options_cap_text": { "message": "Paid services bill by usage. Set a monthly cap on their site:" },
+  "options_state_key_missing": { "message": "Key needed" },
+  "options_state_address_missing": { "message": "Address needed" },
+  "options_state_check": { "message": "Needs a check: click Test" },
+  "options_state_key_saved": { "message": "Key saved" },
+  "options_state_ready": { "message": "Ready" },
+  "options_service_active": { "message": "In use" },
+  "options_service_use": { "message": "Use" },
+  "options_service_remove": { "message": "Remove" },
+  "options_service_remove_confirm": { "message": "Confirm removal" },
+  "options_service_settings": { "message": "Key and model" },
+  "options_local_guide_title": { "message": "Install Ollama and a recommended model, step by step" },
+  "options_add_service_replaces": {
+    "message": "One service of this kind at a time (OpenRouter, OpenAI, Mistral, DeepSeek, another address): adding another replaces $SERVICE$ and its key.",
+    "placeholders": {
+      "service": { "content": "$1", "example": "OpenRouter" }
+    }
+  },
+  "options_current_default_model": { "message": "Service's default model" },
+  "options_search_title": { "message": "Search in the docs" },
+  "options_search_help": { "message": "Coati searches the site's official documentation when you ask it from the panel. It needs a key from a search service; both have a free tier." },
+  "options_search_provider_brave": { "message": "Brave Search" },
+  "options_search_provider_tavily": { "message": "Tavily" },
+  "options_search_test": { "message": "Check" },
+  "options_search_test_paid_note": { "message": "The check uses one request of your free quota." },
+  "setup_search_title": { "message": "Get a free key" },
+  "setup_search_intro": { "message": "Both services have a free tier that covers personal use:" },
+  "setup_search_brave": { "message": "Brave Search: about 1,000 free searches a month (5 dollars of credits offered each month). Create an account and a key on the API dashboard." },
+  "setup_search_brave_link": { "message": "Brave Search API dashboard" },
+  "setup_search_tavily": { "message": "Tavily: 1,000 free credits a month. Create an account on Tavily's site, then a key." },
+  "setup_search_paste": { "message": "Pick the service above, paste the key, save it, then click “Check”." },
+  "options_search_placeholder": {
+    "message": "$SERVICE$ API key",
+    "placeholders": {
+      "service": { "content": "$1", "example": "Brave Search" }
+    }
+  }
 }

@@ -568,6 +568,17 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+/* Amendement 2026-10-08 bis ("historique", docs/PROTOCOL.md §6) — discreet
+ * line above the composer's input, same muted register as
+ * .prompt-saved-notice/.message-cut-notice, never the error style. */
+.history-notice {
+  margin: 0 0 var(--space-2) 0;
+  font-size: 0.85em;
+  line-height: 1.3;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 .messages {
   flex: 1;
   overflow-y: auto;
@@ -801,8 +812,7 @@ textarea {
 
 /* Before the first word (plan-ollama-rapide-07-10.md, point 3): the coati
  * head sniffs next to « Chargement du modèle… » / « Le modèle lit la
- * page… ». The head is mirrored so it faces right, towards the words. The
- * line replaces the blinking cursor. */
+ * page… ». The line replaces the blinking cursor. */
 .message--progress::after {
   content: none;
 }
@@ -825,28 +835,21 @@ textarea {
   font-size: 0.9em;
 }
 
-.message-progress-coati {
+/* Fixed-size slot regardless of whether the coati icon is currently in it
+ * (removed after COATI_VISIBLE_MS, model-advice.js) — keeps the row from
+ * jumping when it disappears. */
+.message-progress-icon-slot {
+  display: block;
   flex: none;
-  width: 24px;
-  height: 24px;
-  transform: scaleX(-1);
-  transform-origin: 50% 60%;
-  animation: coati-sniff 1.8s ease-in-out infinite;
+  width: 32px;
+  height: 32px;
 }
 
-/* Three small nose twitches, then a rest. Every frame keeps the mirror. */
-@keyframes coati-sniff {
-  0%, 45%, 100% { transform: scaleX(-1) translateY(0) rotate(0deg); }
-  52% { transform: scaleX(-1) translateY(-1px) rotate(-7deg); }
-  59% { transform: scaleX(-1) translateY(0) rotate(1deg); }
-  66% { transform: scaleX(-1) translateY(-1px) rotate(-6deg); }
-  73% { transform: scaleX(-1) translateY(0) rotate(1deg); }
-  80% { transform: scaleX(-1) translateY(-1px) rotate(-5deg); }
-  87% { transform: scaleX(-1) translateY(0) rotate(0deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .message-progress-coati { animation: none; }
+.message-progress-coati {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 /* « qwen3:8b ne tient pas entièrement dans la carte graphique… »: Coati's
@@ -990,6 +993,93 @@ textarea {
   align-items: center;
   gap: var(--space-2);
   min-height: 28px;
+}
+
+/* Lot B3/F — "Joindre l'écran". Reuses the `.switch` class already styled
+ * for #attachPage (card.css) — same widget, same look; only the row layout
+ * and the destination line's own (muted, identity P24) color are new. */
+/* Lot F fix (admin review, 320px capture): was a single row, squeezing the
+ * destination/reason text into a narrow column beside the toggle (wrapped
+ * 4 lines). Stacked instead — the text gets the full composer width on its
+ * own line below, at every width, not just narrow ones. */
+.attach-screen-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-height: 24px;
+}
+
+.attach-screen-destination {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+/* Lot C2/F — search.status progress line + "Sources" block, under an
+ * assistant message. Discreet (muted), same family as .message-cut-notice. */
+.search-status-line {
+  margin: var(--space-2) 0 0;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.search-sources {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.search-sources-title {
+  margin: 0 0 var(--space-1);
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.search-sources-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Plain text, deliberately not a link (CLAUDE.md rule #3; product question
+ * open — see buildSourcesBlock()'s own comment in panel.js): no --link
+ * color here, just readable muted text that wraps at 320px like any prose. */
+.search-sources-item {
+  font-size: 0.85em;
+  color: var(--fg);
+  word-break: break-word;
+}
+
+/* Lot A2/F — "Montrer : …" button: inline, discreet, caramel (P24), wraps
+ * at 320px like ordinary text (display: inline, not inline-block — a long
+ * label must be able to break across lines, same as the surrounding prose,
+ * rather than overflow as one rigid box). */
+.element-point-button {
+  display: inline;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.element-point-button:hover {
+  filter: brightness(0.85);
+}
+
+.element-point-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* One line at rest; composer-autogrow.js sets the height (CSSOM) as the text

@@ -192,3 +192,15 @@ export function getProviderLinks(providerId, baseUrl) {
   if (!service) return undefined;
   return { keysUrl: service.keysUrl, billingUrl: service.billingUrl, name: service.name };
 }
+
+// --- Doc search (lot C3, docs/PROTOCOL.md amendement 2026-10-08 §9) -----------
+//
+// The two search services the local program can use. Facts from
+// Internal study of 08/10 (search APIs, Q2): Brave Search
+// API ~1,000 free requests a month (5 USD of credits offered monthly), Tavily
+// 1,000 free credits a month. Brave first (decided in the plan). `keysUrl`:
+// only the address the study gives (Brave's API dashboard); none for Tavily.
+export const SEARCH_PROVIDERS = [
+  { id: "brave", name: "Brave Search", keysUrl: "https://api-dashboard.search.brave.com/" },
+  { id: "tavily", name: "Tavily" },
+];

@@ -36,6 +36,9 @@
   "common_error_rate_limited": { "message": "该提供商目前收到的请求过多。" },
   "common_error_provider_overloaded": { "message": "提供商过载，请稍后重试。" },
   "common_error_model_missing": { "message": "此模型在您的账户中不可用。" },
+  "common_error_vision_unsupported": {
+    "message": "当前模型无法识别图像。请选择支持图像的模型（如 qwen2.5vl、gemma3）后重新发送问题。"
+  },
   "common_error_detail": {
     "message": "详情：$MESSAGE$",
     "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
@@ -59,6 +62,8 @@
   "panel_save_prompt": { "message": "将当前文本保存为提示词" },
   "panel_input_placeholder": { "message": "与 Coati 对话…" },
   "panel_erase_conversation": { "message": "清除对话" },
+  "panel_history_long": { "message": "对话较长：模型可能会忘记前文。清除对话可以重新开始。" },
+  "panel_history_dropped": { "message": "最早的几轮对话已不再发送给模型。" },
   "panel_cancel": { "message": "取消" },
   "panel_send": { "message": "发送" },
   "panel_confirm_erase": { "message": "确认清除？" },
@@ -224,6 +229,53 @@
   "panel_relaunch": { "message": "重试" },
   "panel_relaunch_title": { "message": "重新发送此问题" },
   "panel_seek_timestamp_title": { "message": "跳转到视频中的此时刻" },
+  "panel_point_button": {
+    "message": "显示：$LABEL$",
+    "placeholders": { "label": { "content": "$1", "example": "生成" } }
+  },
+  "panel_point_stale": { "message": "页面已更改：请重新提问。" },
+  "panel_point_failed": { "message": "无法显示该元素。" },
+  "panel_point_frame_limit": { "message": "框架（iframe）内的元素不会被标注。" },
+  "panel_attach_screen": { "message": "查看屏幕" },
+  "panel_attach_screen_title": { "message": "Coati 会在每次提问时查看该标签页" },
+  "panel_attach_screen_local": { "message": "保留在本机" },
+  "panel_attach_screen_online": {
+    "message": "发送到 $PROVIDER$（在线）",
+    "placeholders": { "provider": { "content": "$1", "example": "Claude" } }
+  },
+  "panel_screen_no_vision": { "message": "当前模型无法识别图像——请选择支持图像的模型（如 qwen2.5vl、gemma3）。" },
+  "panel_screen_attached": {
+    "message": "（已附加屏幕截图，$DIMENSIONS$）",
+    "placeholders": { "dimensions": { "content": "$1", "example": "1280×720" } }
+  },
+  "panel_screen_denied": { "message": "Coati 无法捕获此页面。" },
+  "panel_screen_too_big": { "message": "截图太大，无法发送。" },
+  "panel_screen_need_gesture": {
+    "message": "请打开“查看屏幕”开关以授权捕获，然后重新发送您的问题。"
+  },
+  "panel_docsearch_query": {
+    "message": "搜索：$QUERY$",
+    "placeholders": { "query": { "content": "$1", "example": "export video kling ai tutorial" } }
+  },
+  "panel_docsearch_scope": {
+    "message": "正在通过 $ENGINE$ 搜索 $SITE$",
+    "placeholders": {
+      "site": { "content": "$1", "example": "help.kling.ai" },
+      "engine": { "content": "$2", "example": "Brave Search" }
+    }
+  },
+  "panel_docsearch_web": {
+    "message": "通过 $ENGINE$ 在网络上搜索",
+    "placeholders": { "engine": { "content": "$1", "example": "Brave Search" } }
+  },
+  "panel_docsearch_reading": { "message": "正在阅读找到的页面…" },
+  "panel_sources_title": { "message": "来源" },
+  "error_search_not_configured": { "message": "未配置任何搜索服务——请在设置中添加 Brave 或 Tavily 密钥。" },
+  "error_search_unavailable_auth": { "message": "搜索密钥被服务拒绝。" },
+  "error_search_unavailable_quota": { "message": "搜索服务的免费额度已用完。" },
+  "error_search_unavailable_rate": { "message": "搜索服务目前收到的请求过多。" },
+  "error_search_unavailable_network": { "message": "无法访问搜索服务或文档页面。" },
+  "error_search_unavailable_no_result": { "message": "未找到相关内容。" },
   "panel_build_fingerprint": {
     "message": "v$VERSION$ · $FINGERPRINT$",
     "placeholders": {
@@ -301,6 +353,11 @@
   "options_attach_title": { "message": "读取页面" },
   "options_attach_checkbox": { "message": "将当前页面附加到我的问题中" },
   "options_attach_help": { "message": "面板中「读取页面」开关的初始值。" },
+  "options_point_effect_label": { "message": "显示元素" },
+  "options_point_effect_subtle": { "message": "低调" },
+  "options_point_effect_strong": { "message": "明显" },
+  "options_point_effect_spectacular": { "message": "炫目" },
+  "options_point_effect_help": { "message": "点击「显示」时，Coati 在页面上突出元素的方式。" },
   "options_shortcut_title": { "message": "键盘快捷键" },
   "options_shortcut_edit": { "message": "修改快捷键" },
   "options_shortcut_help": {
@@ -779,5 +836,52 @@
     }
   },
   "model_list_provider_local": { "message": "在这台电脑上" },
-  "model_list_provider_online": { "message": "在线服务" }
+  "model_list_provider_online": { "message": "在线服务" },
+  "options_current_label": { "message": "当前模型" },
+  "options_current_no_model": { "message": "尚未选择模型" },
+  "options_test_short": { "message": "测试" },
+  "options_installed_title": { "message": "已安装的模型" },
+  "options_refresh": { "message": "刷新" },
+  "options_services_title": { "message": "已配置的服务" },
+  "options_services_empty": { "message": "还没有在线服务。" },
+  "options_add_service": { "message": "添加服务" },
+  "options_other_address_title": { "message": "其他兼容 OpenAI 的地址" },
+  "options_cap_title": { "message": "支出上限" },
+  "options_cap_text": { "message": "付费服务按用量计费。请在其网站上设置每月上限：" },
+  "options_state_key_missing": { "message": "需要密钥" },
+  "options_state_address_missing": { "message": "需要地址" },
+  "options_state_check": { "message": "需要检查：请点击“测试”" },
+  "options_state_key_saved": { "message": "密钥已保存" },
+  "options_state_ready": { "message": "就绪" },
+  "options_service_active": { "message": "使用中" },
+  "options_service_use": { "message": "使用" },
+  "options_service_remove": { "message": "移除" },
+  "options_service_remove_confirm": { "message": "确认移除" },
+  "options_service_settings": { "message": "密钥和模型" },
+  "options_local_guide_title": { "message": "分步安装 Ollama 和推荐模型" },
+  "options_add_service_replaces": {
+    "message": "此类服务一次只能有一个（OpenRouter、OpenAI、Mistral、DeepSeek 或其他地址）：添加新的服务会替换 $SERVICE$ 及其密钥。",
+    "placeholders": {
+      "service": { "content": "$1", "example": "OpenRouter" }
+    }
+  },
+  "options_current_default_model": { "message": "服务的默认模型" },
+  "options_search_title": { "message": "在文档中搜索" },
+  "options_search_help": { "message": "当您在面板中提出请求时，Coati 会在网站的官方文档中搜索。这需要一个搜索服务的密钥；两者都有免费额度。" },
+  "options_search_provider_brave": { "message": "Brave Search" },
+  "options_search_provider_tavily": { "message": "Tavily" },
+  "options_search_test": { "message": "检查" },
+  "options_search_test_paid_note": { "message": "检查会消耗免费额度中的一次请求。" },
+  "setup_search_title": { "message": "获取免费密钥" },
+  "setup_search_intro": { "message": "两个服务都有足以满足个人使用的免费额度：" },
+  "setup_search_brave": { "message": "Brave Search：每月约 1,000 次免费搜索（每月赠送 5 美元额度）。请在 API 控制台创建账户和密钥。" },
+  "setup_search_brave_link": { "message": "Brave Search API 控制台" },
+  "setup_search_tavily": { "message": "Tavily：每月 1,000 个免费额度。请在 Tavily 网站创建账户，然后创建密钥。" },
+  "setup_search_paste": { "message": "在上方选择服务，粘贴密钥并保存，然后点击“检查”。" },
+  "options_search_placeholder": {
+    "message": "$SERVICE$ API 密钥",
+    "placeholders": {
+      "service": { "content": "$1", "example": "Brave Search" }
+    }
+  }
 }

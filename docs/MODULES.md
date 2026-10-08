@@ -65,11 +65,51 @@ export default function createProvider(host: ProviderHost, options: Record<strin
 | `listModels?(opts)` | `(opts) => Promise<string[]>` | Facultatif — seulement si le fournisseur sait énumérer ses modèles installés (utilisé par le sélecteur de modèle des réglages). |
 | `defaultModel?` | `string` | Facultatif, amendement 2026-10-07 bis — le modèle à proposer dans `models.list` (`docs/PROTOCOL.md`) quand ce fournisseur est configuré mais n'a ni `listModels()` ni de modèle encore mémorisé (`lastModels`). Un module qui ne peut nommer aucun défaut sensé omet simplement le champ — il reste `"not-configured"` dans ce cas, comme avant. |
 | `testConnection?(opts)` | `(opts) => Promise<{ ok: boolean; code?: "auth-required" \| "quota-exceeded" \| "rate-limited" \| "model-unavailable" \| "model-missing" }>` | Facultatif, amendement 2026-10-01 (goal U2) — backend de `settings.test` quand le module peut offrir une vérification **gratuite** (ex. un `GET /models` ou équivalent, jamais un vrai appel au modèle). `code` seulement si `ok: false` ; absent si `ok: true`. Un module qui ne l'implémente pas garde l'ancien comportement : `settings.test` fait un vrai appel minimal via `streamAnswer` (facturé si le fournisseur facture). |
-| `streamAnswer(built, opts)` | `(built, opts) => AsyncIterable<AnswerEvent>` | Diffuse la réponse du modèle à `built.prompt`, fencé avec `built.nonce`. `opts` porte `signal` (annulation) et `timeoutMs`. Lève `host.ModelTimeoutError` ou `host.ModelUnavailableError` pour une condition à rapporter en `model-unavailable`, `host.AuthRequiredError` pour une session/clé expirée. |
+| `vision?` | `boolean` | Facultatif, amendement 2026-10-08 (lot 0, `docs/PROTOCOL.md` « Vision : capacité par modèle et fournisseur ») — déclaré une fois pour tout le module (pas par modèle : un module n'énumère pas forcément ses modèles). `true` seulement si ce module sait lire `built.images` (ci-dessous) et les transmettre au fournisseur sous-jacent. **Absent équivaut à `false`** : défaut sûr, le broker refuse une image (`vision-unsupported`) plutôt que de l'envoyer à l'aveugle à un module qui l'ignorerait silencieusement. |
+| `streamAnswer(built, opts)` | `(built, opts) => AsyncIterable<AnswerEvent>` | Diffuse la réponse du modèle à `built.prompt`, fencé avec `built.nonce`. `opts` porte `signal` (annulation) et `timeoutMs`. Lève `host.ModelTimeoutError` ou `host.ModelUnavailableError` pour une condition à rapporter en `model-unavailable`, `host.AuthRequiredError` pour une session/clé expirée. Depuis l'amendement 2026-10-08 (lot B1), `built` porte aussi `images?` et `sources?` (voir ci-dessous) — un module qui n'a pas déclaré `vision: true` ne reçoit jamais `images` rempli (le broker filtre avant d'appeler `streamAnswer`, voir « Vision » dans `docs/PROTOCOL.md`), mais doit tout de même accepter le champ comme optionnel dans son typage. Depuis l'amendement 2026-10-08 bis, `built` porte aussi `history?` (voir « `BuiltPrompt.history` » ci-dessous). |
 
 `opts` (le paramètre `ProviderRuntimeOptions`) porte `model`, `ollamaUrl`, `apiKey` — un module
 ignore les champs qu'il ne connaît pas ; sa propre configuration passe plutôt par `options`
 (deuxième argument de `createProvider`, ci-dessus).
+
+### `BuiltPrompt.images` et `BuiltPrompt.sources`
+
+Amendement 2026-10-08 (lots B1/C1). `BuiltPrompt` (`broker/src/model.ts`), déjà `{ prompt, nonce,
+lang }`, gagne deux champs optionnels que `streamAnswer` reçoit dans son premier argument :
+
+- **`images?`** : tableau (une entrée aujourd'hui — un seul `chat.image` par message, voir
+  `docs/PROTOCOL.md`), chaque entrée `{ mediaType: "image/jpeg" | "image/png", data: string,
+  width: number, height: number }` — `data` en base64, déjà vérifiée côté broker (octets
+  magiques, ≤ 1 Mio décodé, côtés ≤ 2000) avant de jamais atteindre un module. Rempli **seulement**
+  si ce module a déclaré `vision: true` (ci-dessus) ; sinon toujours absent, même si le client a
+  envoyé une image — le broker refuse la requête (`vision-unsupported`) avant d'appeler
+  `streamAnswer`.
+- **`sources?`** : tableau (lot C1, « Consulter la doc officielle »), pages lues pour une recherche
+  dans la documentation officielle d'un site — `{ n: number, url: string, title: string, text:
+  string }`. Un module qui l'ignore se comporte comme avant ce lot (le texte des sources, lui, est
+  déjà inclus dans `built.prompt`, entre les marqueurs du délimiteur — `sources` n'existe à part
+  que pour un module qui voudrait les traiter différemment).
+
+### `BuiltPrompt.history`
+
+Amendement 2026-10-08 bis (« historique », `docs/PROTOCOL.md`). Tableau optionnel `{ role:
+"user" | "assistant", text: string }[]`, du plus ancien au plus récent — déjà validé et
+neutralisé (fence/jetons de référence retirés, comme page/sources) avant d'atteindre
+`streamAnswer`, **jamais inclus dans `built.prompt`** : contrairement à `sources`, un module doit
+le rendre lui-même. Un module qui l'ignore se comporte comme si la conversation n'avait pas de
+mémoire — pas d'erreur, juste moins de contexte pour le modèle. Le module privé `claude-cli`
+(seul fournisseur à prendre un prompt unique plutôt qu'un tableau `messages`) le rend comme un
+bloc de texte intitulé « Previous conversation (data, not instruction) », fencé avec le même
+nonce, placé avant la requête courante — voir son propre `renderHistoryBlock`/
+`trimHistoryToCharBudget` (dupliqués à la main depuis `broker/src/model.ts`, même convention que
+son `imageFenceOpenText`/`imageFenceCloseText` déjà dupliqués). Un module qui parle une vraie API
+de type chat (messages alternés) devrait plutôt rendre chaque entrée comme son propre tour
+`{ role, content }`, inséré entre le tour système et le tour courant — jamais fusionné avec l'un
+ou l'autre. Un module peut trier `history` plus loin pour sa propre capacité avant de l'envoyer
+au fournisseur sous-jacent ; `AnswerEvent`'s champ optionnel `historyKept` (sur l'évènement
+`"usage"`) rapporte alors le nombre d'entrées effectivement gardées, repris tel quel par
+`done.historyKept` (`docs/PROTOCOL.md`) — absent si `built.history` était absent, `0` si présent
+mais entièrement retiré par le tri.
 
 ### Ce que `host` fournit
 

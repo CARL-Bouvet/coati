@@ -217,9 +217,13 @@ gère ses propres identifiants, hors de ce dépôt.
   s'ajouter sans créer un tout nouveau canal — ce n'est pas un oubli à combler, c'est la
   frontière de la règle du geste.
 - **Pas de mémoire de conversation côté broker.** Chaque `summarize`/`chat`/`act` produit un appel
-  indépendant au fournisseur actif ; le broker ne garde aucun historique entre deux
-  requêtes. Une fonctionnalité qui suppose que le broker « se souvient » du tour précédent sans
-  que le panneau renvoie le contexte est fausse par construction.
+  indépendant au fournisseur actif ; le broker ne garde **lui-même** aucun historique entre deux
+  requêtes — rien n'est écrit sur disque, rien ne survit à la connexion. *Amendement 2026-10-08
+  bis (« historique ») : `chat` peut désormais porter un champ `history` optionnel — c'est le
+  **panneau** qui renvoie, à chaque requête, le texte des échanges déjà affichés (`docs/
+  PROTOCOL.md`), jamais le broker qui les relit d'un stockage quelconque. Une fonctionnalité qui
+  suppose que le broker « se souvient » d'un tour sans que le panneau le lui redonne explicitement
+  dans **ce** message reste fausse par construction.
 
 ## 7. Les points faibles que j'ai vus
 

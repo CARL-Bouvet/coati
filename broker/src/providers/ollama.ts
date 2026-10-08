@@ -14,6 +14,7 @@ import {
   ModelStalledError,
   ModelUnavailableError,
   ThinkFilter,
+  trimHistoryToCharBudget,
   type AnswerEvent,
   type BuiltPrompt,
   type StreamAnswerOptions,
@@ -86,6 +87,8 @@ const showInfoCache = new Map<string, ShowInfo>();
 // 32768 added over the old [4096, 8192, 16384] — lets larger VRAM budgets use
 // bigger windows without reloading the model on every request.
 const CTX_BUCKETS_FIXED = [32768, 16384, 8192, 4096] as const; // largest-first for selection
+// Amendement 2026-10-08 (lot B1): ascending order, to find the next tier UP.
+const CTX_BUCKETS_FIXED_ASC = [4096, 8192, 16384, 32768] as const;
 
 // Amendement 2026-10-07 (bis) follow-up: on a discrete GPU the display
 // compositor (e.g. KDE/GNOME on a RX 5600 XT) already holds ~1.1 GB of VRAM,
@@ -607,15 +610,42 @@ export async function* streamAnswer(
   const promptEstimate = Math.ceil(totalChars / 3) + 1024;
   // Use the fixed context size; if the prompt is too large, fall back to the
   // smallest per-request bucket that fits, capped by the model's context_length.
+  const ctxCap = showInfo.contextLength ?? 32768;
   let num_ctx: number;
   if (contextTokens !== undefined && promptEstimate <= contextTokens) {
     num_ctx = contextTokens;
   } else {
     // Per-request fallback (prompt larger than fixed size, or no model_info).
     num_ctx = ollamaContextSize(totalChars);
-    const ctxCap = showInfo.contextLength ?? 32768;
     if (num_ctx > ctxCap) num_ctx = ctxCap;
   }
+  // Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §2 item 6): a screenshot
+  // costs the vision encoder its own tokens, on top of the text estimate
+  // above — without headroom, Ollama silently truncates the prompt from the
+  // START when num_ctx is exceeded (hallucination risk, not an error). One
+  // tier up, capped by the model's own context_length.
+  const hasImage = (built.images?.length ?? 0) > 0;
+  if (hasImage) {
+    for (const bucket of CTX_BUCKETS_FIXED_ASC) {
+      if (bucket > num_ctx && bucket <= ctxCap) {
+        num_ctx = bucket;
+        break;
+      }
+    }
+  }
+
+  // Amendement 2026-10-08 (bis, "historique"): fit WITHIN the tier already
+  // chosen above, rather than growing it for history — "fewer when the
+  // model has little room" (docs/PROTOCOL.md). `promptEstimate` already
+  // reserves the answer's own headroom (+1024 tokens); whatever is left of
+  // `num_ctx` is the history budget, converted back to a char count with the
+  // same /3 ratio ollamaContextSize uses the other way. A model whose own
+  // prompt already fills its tier gets 0 chars of room — every history
+  // entry is dropped, not the request.
+  const remainingChars = Math.max(0, (num_ctx - promptEstimate) * 3);
+  const trimmedHistory = trimHistoryToCharBudget(built.history, remainingChars);
+  const historyMessages = trimmedHistory.map((h) => ({ role: h.role, content: h.text }));
+  const historyKept = built.history && built.history.length > 0 ? trimmedHistory.length : undefined;
 
   try {
     let response: Response;
@@ -634,9 +664,27 @@ export async function* streamAnswer(
           //     reasoning to message.thinking (ignored by parseNdjsonLine);
           //     message.content stays clean; ThinkFilter is a safety net.
           ...(hasThinking ? { think: showInfo.canDisableThinking ? false : true } : {}),
+          // Amendement 2026-10-08 (bis, "historique"): past turns rendered
+          // as real alternating messages, between the system turn and the
+          // current one, already trimmed to fit `num_ctx` above.
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: built.prompt },
+            ...historyMessages,
+            {
+              role: "user",
+              content: built.prompt,
+              // Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §3): Ollama's
+              // /api/chat takes base64 strings (no data: URI prefix) on the
+              // message, not a separate content-block array. Security review
+              // (L8): unlike claude-api.ts/openai-compat.ts, there is no
+              // ordered content array here to interleave a fence-wrapped
+              // image into — `images` is a flat sibling field on the whole
+              // message, with no notion of "where" relative to `content`'s
+              // text it belongs. Left as-is; the system prompt's own
+              // sentence ("A message may also include an attached image...")
+              // remains the only framing for this one provider.
+              ...(hasImage ? { images: built.images!.map((img) => img.data) } : {}),
+            },
           ],
           options: { num_ctx },
         }),
@@ -678,7 +726,7 @@ export async function* streamAnswer(
           const filtered = filter.filter(event.text);
           if (filtered.length > 0) yield { kind: "delta", text: filtered };
         } else {
-          yield event;
+          yield event.kind === "usage" ? { ...event, historyKept } : event;
         }
       }
       const tail = filter.flush();
@@ -689,7 +737,7 @@ export async function* streamAnswer(
           if (!gotFirstChunk) { gotFirstChunk = true; clearTimeout(firstTokenTimer); resetInactivity(); }
           else { resetInactivity(); }
         }
-        yield event;
+        yield event.kind === "usage" ? { ...event, historyKept } : event;
       }
     }
   } catch (err) {
@@ -758,6 +806,31 @@ export async function warmupModel(
   }
 }
 
+/**
+ * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): the live, per-model
+ * vision gate — `true`/`false` from /api/show's `capabilities` for THIS
+ * model (digest-cached, same lookup streamAnswer already makes), `undefined`
+ * if the model isn't found or the daemon is unreachable.
+ */
+async function supportsVision(opts: ProviderRuntimeOptions): Promise<boolean | undefined> {
+  const model = opts.model?.trim();
+  if (!model) return undefined;
+  const baseUrl = resolveBaseUrl(opts.ollamaUrl);
+  let installedTags: OllamaModelTag[];
+  try {
+    installedTags = await fetchModelTags(baseUrl);
+  } catch {
+    return undefined;
+  }
+  const matchedTag = installedTags.find((t) => matchesModel(t.name, model));
+  if (!matchedTag) return undefined;
+  const showInfo = await fetchModelShowInfo(baseUrl, matchedTag.name, matchedTag.digest).catch(
+    () => ({ capabilities: null, canDisableThinking: false }) as ShowInfo,
+  );
+  if (!Array.isArray(showInfo.capabilities)) return undefined;
+  return showInfo.capabilities.includes("vision");
+}
+
 export const ollamaProvider: ModelProvider = {
   id: "ollama",
   label: "Ollama (local)",
@@ -766,4 +839,5 @@ export const ollamaProvider: ModelProvider = {
   checkStatus,
   testConnection,
   streamAnswer,
+  supportsVision,
 };

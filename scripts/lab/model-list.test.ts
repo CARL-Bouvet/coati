@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 import {
   bestGpuModel,
   classifyFit,
+  currentModelVision,
   FIT_CONSTANTS,
   fitNoteKey,
   groupModels,
@@ -203,6 +204,36 @@ describe("model-list helpers", () => {
     expect(grouped.local).toEqual([]);
     expect(grouped.online).toEqual([]);
     expect(grouped.current).toEqual({ provider: null, model: null });
+  });
+});
+
+// Lot B3 (plan-montrer-voir-chercher-08-10.md §3B) — vision is a real
+// tri-state (true/false/undefined), never coerced to a plain boolean.
+describe("vision (Lot B3) — tri-state, never coerced", () => {
+  function replyWith(vision: unknown) {
+    return {
+      current: { provider: "ollama", model: "m" },
+      entries: [{ provider: "ollama", model: "m", local: true, ...(vision === undefined ? {} : { vision }) }],
+      sources: [],
+      host: null,
+    };
+  }
+
+  test("vision: true passes through", () => {
+    expect(currentModelVision(groupModels(replyWith(true)))).toBe(true);
+  });
+
+  test("vision: false passes through (greys the checkbox out)", () => {
+    expect(currentModelVision(groupModels(replyWith(false)))).toBe(false);
+  });
+
+  test("vision absent on the entry: undefined (unknown — checkbox stays active)", () => {
+    expect(currentModelVision(groupModels(replyWith(undefined)))).toBeUndefined();
+  });
+
+  test("no current entry at all (older local program, no models.list): undefined", () => {
+    expect(currentModelVision(groupModels(null))).toBeUndefined();
+    expect(currentModelVision(groupModels({ current: { provider: "openai-compat", model: "gpt-x" }, entries: [], sources: [], host: null }))).toBeUndefined();
   });
 });
 

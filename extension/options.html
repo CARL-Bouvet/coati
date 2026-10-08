@@ -8,70 +8,132 @@
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
-  <main class="page">
-    <header class="page-head">
+  <!-- Anthracite band (P24, same as the panel and the welcome page). The
+       language selector (lib/language-selector.js, compact, as in the panel)
+       is mounted at its right edge. -->
+  <header class="page-head">
+    <div class="page-head-inner">
       <h1 data-i18n="options_heading">Réglages Coati</h1>
       <span id="headerStatus" class="status status--unknown" role="status">
         <span class="status-dot"></span>
         <span class="status-label">…</span>
       </span>
-    </header>
+      <span id="languageSelectorMount" class="page-head-lang"></span>
+    </div>
+  </header>
 
-    <!-- 0. "Connecter un modèle d'IA" guide (goal U2) — options-setup.js.
-         Opened by options.html#setup (the panel links there). -->
-    <details id="setup" class="section advanced setup">
-      <summary><h2 id="h-setup" data-i18n="setup_title">Connecter un modèle d'IA</h2></summary>
-      <div class="setup-body">
-        <div class="setup-intro">
-          <img class="setup-illustration setup-illustration--resting" src="illustrations/coati-resting.png" alt="" width="128" height="56" />
+  <main class="page">
+    <!-- 1. Model: current model, then two tabs « Sur cet ordinateur » /
+         « En ligne » (same labels as the panel's model menu). The setup
+         guide (goal U2, options-setup.js) lives inside the tabs:
+         Ollama steps under the local tab, API-key steps under « Ajouter un
+         service ». Deep links: #setup, #setup-ollama-speedup, #provider-<id>. -->
+    <section id="modelSection" class="section section--model" aria-labelledby="h-model">
+      <h2 id="h-model" data-i18n="options_model_title">Modèle</h2>
+
+      <div class="current-model">
+        <p id="modelDisconnected" class="notice" hidden data-i18n="options_model_disconnected">
+          Le programme local ne répond pas : ouvrez-le sur votre ordinateur, puis revenez sur cette page pour voir ou changer le modèle.
+        </p>
+        <div id="setupIntro" class="setup-intro" hidden>
+          <img class="setup-illustration" src="illustrations/coati-resting.png" alt="" width="128" height="56" />
           <div class="setup-intro-text">
             <p data-i18n="setup_intro_need">Pour vous répondre, Coati a besoin d'un modèle d'IA.</p>
             <p class="help" data-i18n="setup_intro_local_program">Le programme local, installé avec Coati sur cet ordinateur, fait le lien entre votre navigateur et ce modèle.</p>
           </div>
         </div>
-        <p id="setupNotConnected" class="notice" hidden data-i18n="setup_not_connected">Le programme local ne répond pas : les vérifications reprendront dès qu'il sera lancé.</p>
-        <p id="setupChooseLabel" class="setup-choose" data-i18n="setup_choose">Où le modèle doit-il tourner ?</p>
-        <div class="setup-paths" role="group" aria-labelledby="setupChooseLabel">
-          <button type="button" id="setupPathLocal" class="setup-path" data-path="local" aria-pressed="false" aria-controls="setupLocal">
-            <span class="setup-path-title" data-i18n="setup_path_local_title">Sur mon ordinateur</span>
-            <span class="setup-path-text" data-i18n="setup_path_local_text">Gratuit et privé : vos textes ne quittent pas l'ordinateur. Il faut un ordinateur récent.</span>
-          </button>
-          <button type="button" id="setupPathOnline" class="setup-path" data-path="online" aria-pressed="false" aria-controls="setupOnline">
-            <span class="setup-path-title" data-i18n="setup_path_online_title">En ligne</span>
-            <span class="setup-path-text" data-i18n="setup_path_online_text">Plus simple : une clé à créer chez un service. Gratuit ou payant selon le service.</span>
-          </button>
-        </div>
-        <div id="setupLocal" class="setup-path-steps" hidden></div>
-        <div id="setupOnline" class="setup-path-steps" hidden></div>
-      </div>
-    </details>
-
-    <!-- 1. Model: the only section whose content comes from the broker. -->
-    <section class="section section--primary" aria-labelledby="h-model">
-      <h2 id="h-model" data-i18n="options_model_title">Modèle</h2>
-      <p class="help" data-i18n="options_model_help">
-        Le modèle qui répond à vos demandes. Ce choix est enregistré par le
-        broker, sur cette machine.
-      </p>
-      <p class="help setup-open-row">
-        <a id="openSetup" class="link" href="#setup" data-i18n="setup_open_link">Besoin d'aide ? Suivre le guide pas à pas</a>
-      </p>
-      <div id="modelSection">
-        <p id="modelDisconnected" class="notice" hidden data-i18n="options_model_disconnected">
-          Broker non connecté : impossible d'afficher ou de changer le modèle.
-        </p>
-        <div id="modelsAvailable" class="models-available" hidden>
-          <h3 id="h-models-available" class="models-available-title" data-i18n="model_list_title">Modèles disponibles</h3>
-          <div id="modelsAvailableList" class="model-list" role="group" aria-labelledby="h-models-available"></div>
-        </div>
-        <ul id="providerList" class="provider-list"></ul>
-        <div id="modelField" class="field" hidden>
-          <label for="modelSelect" id="modelLabel" data-i18n="options_model_name_label">Nom du modèle</label>
-          <select id="modelSelect" hidden></select>
-          <div class="inline-row">
-            <input id="modelInput" type="text" aria-labelledby="modelLabel" data-i18n-placeholder="options_model_name_placeholder" placeholder="ex : llama3.2 (facultatif)" hidden />
-            <button id="modelSave" type="button" class="button-secondary" hidden data-i18n="options_model_save">Enregistrer le modèle</button>
+        <div id="currentModel" class="current-line" hidden>
+          <div class="current-text">
+            <span class="current-eyebrow" data-i18n="options_current_label">Modèle actuel</span>
+            <span id="currentModelName" class="current-name"></span>
+            <span id="currentModelWhere" class="current-where"></span>
+            <span id="currentModelState" class="current-state" hidden></span>
           </div>
+          <button id="currentTest" type="button" class="button-secondary current-test" data-i18n="options_test_short">Tester</button>
+          <span id="currentTestResult" class="test-result current-test-result" role="status"></span>
+        </div>
+      </div>
+
+      <div id="modelTabs" class="model-tabs" role="tablist" aria-labelledby="h-model">
+        <button type="button" role="tab" id="tabLocal" class="model-tab" data-tab="local" aria-controls="panelLocal" aria-selected="true" data-i18n="model_list_local">Sur cet ordinateur</button>
+        <button type="button" role="tab" id="tabOnline" class="model-tab" data-tab="online" aria-controls="panelOnline" aria-selected="false" tabindex="-1" data-i18n="model_list_online">En ligne</button>
+      </div>
+
+      <!-- Tab « Sur cet ordinateur »: installed models (one click = settings.set),
+           then options-setup.js appends three folds: the Ollama guide (with the
+           suggested models), « Accélérer Ollama », LM Studio. -->
+      <div id="panelLocal" class="tab-panel" role="tabpanel" aria-labelledby="tabLocal">
+        <p class="help tab-lead" data-i18n="setup_path_local_text">Gratuit et privé : vos textes ne quittent pas l'ordinateur. Il faut un ordinateur récent.</p>
+        <div class="tab-block">
+          <div class="block-head">
+            <h3 id="h-installed" class="block-title" data-i18n="options_installed_title">Modèles installés</h3>
+            <button id="modelsRefresh" type="button" class="button-secondary button-small" data-i18n="options_refresh">Actualiser</button>
+          </div>
+          <div id="modelsAvailableList" class="model-list" role="group" aria-labelledby="h-installed"></div>
+          <p id="modelsLoading" class="model-list-note" hidden data-i18n="model_list_loading">Recherche des modèles…</p>
+          <div id="modelFieldSlotLocal" class="model-field-slot"></div>
+        </div>
+        <div id="setupLocal" class="tab-folds"></div>
+      </div>
+
+      <!-- Tab « En ligne »: configured services, « Ajouter un service »
+           (the online guide + another OpenAI-compatible address), spending cap. -->
+      <div id="panelOnline" class="tab-panel" role="tabpanel" aria-labelledby="tabOnline" hidden>
+        <p class="help tab-lead" data-i18n="setup_path_online_text">Plus simple : une clé à créer chez un service. Gratuit ou payant selon le service.</p>
+        <div class="tab-block">
+          <h3 id="h-services" class="block-title" data-i18n="options_services_title">Services configurés</h3>
+          <p id="servicesEmpty" class="model-list-note" hidden data-i18n="options_services_empty">Aucun service en ligne pour l'instant.</p>
+          <ul id="serviceList" class="service-list" aria-labelledby="h-services"></ul>
+        </div>
+        <div class="tab-folds">
+          <details id="addService" class="fold">
+            <summary data-i18n="options_add_service">Ajouter un service</summary>
+            <div class="fold-body">
+              <p id="addServiceReplaces" class="help help--tight" hidden></p>
+              <div id="setupOnline" class="setup-online"></div>
+              <details id="otherAddress" class="fold fold--inner">
+                <summary data-i18n="options_other_address_title">Autre adresse compatible OpenAI</summary>
+                <div id="otherAddressBody" class="fold-body"></div>
+              </details>
+            </div>
+          </details>
+        </div>
+        <div class="tab-block spending-cap">
+          <h3 class="block-title" data-i18n="options_cap_title">Plafond de dépense</h3>
+          <p class="help help--tight" data-i18n="options_cap_text">Les services payants facturent à l'usage. Fixez un plafond mensuel sur leur site :</p>
+          <p id="capLinks" class="cap-links"></p>
+        </div>
+        <!-- Doc search (lot C3): the search service's key, kept by the local
+             program (write-only, only `configured` comes back). Deep link:
+             options.html#search (the panel's search-not-configured remedy). -->
+        <div id="search" class="tab-block search-block">
+          <h3 id="h-search" class="block-title" data-i18n="options_search_title">Recherche dans la doc</h3>
+          <p class="help help--tight" data-i18n="options_search_help">Coati cherche dans la documentation officielle du site quand vous le lui demandez depuis le panneau. Il faut une clé d'un service de recherche ; les deux ont une offre gratuite.</p>
+          <div class="search-providers" role="radiogroup" aria-labelledby="h-search">
+            <label class="search-provider"><input type="radio" name="searchProvider" value="brave" /><span data-i18n="options_search_provider_brave">Brave Search</span></label>
+            <label class="search-provider"><input type="radio" name="searchProvider" value="tavily" /><span data-i18n="options_search_provider_tavily">Tavily</span></label>
+          </div>
+          <div id="searchKeySlot" class="search-key-slot"></div>
+          <div class="search-check-row">
+            <button id="searchTest" type="button" class="button-secondary button-small" data-i18n="options_search_test">Vérifier</button>
+            <span class="help search-check-note" data-i18n="options_search_test_paid_note">La vérification utilise une requête de votre quota gratuit.</span>
+          </div>
+          <details id="searchGuide" class="fold fold--inner">
+            <summary data-i18n="setup_search_title">Obtenir une clé gratuite</summary>
+            <div id="searchGuideBody" class="fold-body"></div>
+          </details>
+        </div>
+      </div>
+
+      <!-- Model name for the active provider: moved by options.js into the
+           active online service's settings, or under the installed list when
+           the local program cannot list the models (older version). -->
+      <div id="modelField" class="field" hidden>
+        <label for="modelSelect" id="modelLabel" data-i18n="options_model_name_label">Nom du modèle</label>
+        <select id="modelSelect" hidden></select>
+        <div class="inline-row">
+          <input id="modelInput" type="text" aria-labelledby="modelLabel" data-i18n-placeholder="options_model_name_placeholder" placeholder="ex : llama3.2 (facultatif)" hidden />
+          <button id="modelSave" type="button" class="button-secondary" hidden data-i18n="options_model_save">Enregistrer le modèle</button>
         </div>
       </div>
     </section>
@@ -86,6 +148,31 @@
       <p class="help help--under-check" data-i18n="options_attach_help">
         Réglage de départ de l'interrupteur « Lire la page » du panneau.
       </p>
+
+      <!-- "Montrer du doigt" highlight intensity (product-owner feedback
+           08/10: the thin caramel frame was too easy to miss). No "Essayer"
+           button here — there's no live page in the settings page to point
+           at; the panel is where it's actually seen. -->
+      <div class="field point-effect-field">
+        <span id="pointEffectLabel" class="field-label" data-i18n="options_point_effect_label">Montrer un élément</span>
+        <div id="pointEffectChoice" class="point-effect-choice" role="radiogroup" aria-labelledby="pointEffectLabel">
+          <label class="point-effect-option">
+            <input type="radio" name="pointEffect" value="subtle" />
+            <span data-i18n="options_point_effect_subtle">Discret</span>
+          </label>
+          <label class="point-effect-option">
+            <input type="radio" name="pointEffect" value="strong" />
+            <span data-i18n="options_point_effect_strong">Marqué</span>
+          </label>
+          <label class="point-effect-option">
+            <input type="radio" name="pointEffect" value="spectacular" />
+            <span data-i18n="options_point_effect_spectacular">Spectaculaire</span>
+          </label>
+        </div>
+        <p class="help help--tight" data-i18n="options_point_effect_help">
+          Comment Coati met un élément en évidence sur la page quand vous cliquez sur « Montrer ».
+        </p>
+      </div>
     </section>
 
     <!-- 3. Keyboard shortcut (read-only here; edited in the browser). -->
@@ -128,16 +215,6 @@
           <option value="never" data-i18n="options_retention_never">Sans limite</option>
         </select>
       </div>
-    </section>
-
-    <!-- 5b. Language (U1). -->
-    <section class="section" aria-labelledby="h-language">
-      <h2 id="h-language" data-i18n="options_language_title">Langue</h2>
-      <p class="help" data-i18n="options_language_help">
-        Langue de l'interface de Coati (panneau, réglages, Mes prompts) et
-        langue demandée au modèle pour ses réponses.
-      </p>
-      <div id="languageSelectorMount" class="lang-field"></div>
     </section>
 
     <!-- 6. About. -->

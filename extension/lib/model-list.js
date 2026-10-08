@@ -192,6 +192,11 @@ export function groupModels(reply) {
         : undefined,
     contextTokens:
       Number.isInteger(entry.contextTokens) && entry.contextTokens > 0 ? entry.contextTokens : undefined,
+    // Lot B3 (plan-montrer-voir-chercher-08-10.md §3B): true/false/undefined
+    // (unknown) — see ModelEntry.vision's own comment in protocol.ts. Kept
+    // as a real tri-state, never coerced to boolean: "unknown" and "false"
+    // get different UI treatment (checkbox active vs. greyed).
+    vision: entry.vision === true ? true : entry.vision === false ? false : undefined,
     current: entry.provider === current.provider && sameModel(entry.model, current.model),
   }));
   const sources = Array.isArray(reply?.sources) ? reply.sources : [];
@@ -212,6 +217,13 @@ export function groupModels(reply) {
 export function isCurrentLocal(grouped) {
   if (grouped.currentEntry) return grouped.currentEntry.local;
   return grouped.current.provider === "ollama";
+}
+
+/** Lot B3 — true/false/undefined (unknown) for the CURRENT model. No entry
+ * at all (older local program, no `models.list`) is also "unknown": the
+ * checkbox stays active rather than guessing it's unsupported. */
+export function currentModelVision(grouped) {
+  return grouped?.currentEntry ? grouped.currentEntry.vision : undefined;
 }
 
 function uiLocale() {

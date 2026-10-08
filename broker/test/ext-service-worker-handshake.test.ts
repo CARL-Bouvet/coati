@@ -596,7 +596,11 @@ describe("service-worker: invariants", () => {
     onMessageHandler!({ type: "coati:get-status" }, { id: "test-ext-id" }, (r: any) => {
       response = r;
     });
-    expect(Object.keys(response ?? {}).sort()).toEqual(["state", "workerInstanceId"].sort());
+    // "features" added lot A2/F review (08/10): hello-ok.features, relayed
+    // here too so a panel reopened after the connection already settled can
+    // learn it — never a secret, just the capability list (elements/vision/
+    // docsearch), same thing coati:status already broadcasts.
+    expect(Object.keys(response ?? {}).sort()).toEqual(["features", "state", "workerInstanceId"].sort());
   });
 
   test("storage.local is never touched by this file (no such API in the mock at all)", async () => {

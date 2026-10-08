@@ -1575,5 +1575,176 @@
       prompts: [],
       autoAction: { steps: [{ type: "focus", selector: "#helpButton", delayMs: 50 }] },
     },
+
+    // Lot F (plan-montrer-voir-chercher-08-10.md) — "Montrer : …" buttons in
+    // an assistant answer. `elementsSnapshot` is hand-authored directly on
+    // the stored message, same convention this file already uses for
+    // other runtime-only flags (authRequired, modelMissing…) that are
+    // normally computed live: it's the exact shape renderMessage()/
+    // renderElementRefs() (real, unmodified panel.js code) already know how
+    // to read, see element-refs.js.
+    "answer-with-point-buttons": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["elements"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "pt-u", role: "user", text: "Comment je lance la génération ?\n\n*avec le contenu de la page*" },
+          {
+            id: "pt1",
+            role: "assistant",
+            text: "Cliquez sur [[e1]] pour lancer la génération, ou sur [[e2]] pour en savoir plus avant.",
+            streaming: false,
+            elementsSnapshot: {
+              extractionId: "lab-x1",
+              elements: [
+                { ref: "e1", role: "button", label: "Générer" },
+                { ref: "e2", role: "link", label: "En savoir plus" },
+              ],
+            },
+          },
+        ],
+        "coati:attachPage": true,
+      },
+      prompts: [],
+    },
+
+    // Lot F — "Joindre l'écran", switch ON (clicked once at load) + the
+    // "reste sur cet ordinateur" destination line (current model local).
+    "attach-screen-on": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["vision"],
+      models: MODELS_LOCAL_AND_ONLINE,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": false },
+      prompts: [],
+      autoAction: { steps: [{ type: "click", selector: "#attachScreen", delayMs: 20 }] },
+    },
+
+    // Lot F — "Joindre l'écran", current model known NOT to see images:
+    // switch greyed, destination line replaced by the remedy text.
+    "attach-screen-no-vision": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["vision"],
+      models: {
+        current: { provider: "ollama", model: "llama3.2:latest" },
+        entries: [{ provider: "ollama", model: "llama3.2:latest", local: true, vision: false }],
+        sources: [{ provider: "ollama", state: "ok" }],
+      },
+      storageLocal: { "coati:conversation": [], "coati:attachPage": false },
+      prompts: [],
+    },
+
+    // Lot F — capture refused for lack of `activeTab` (B0 finding, 08/10):
+    // the system message captureScreenIfChecked() would show, hand-authored
+    // directly (same convention as the auth-required/quota states above —
+    // the LIVE failure path is a Chromium-only behavior, out of reach here).
+    "attach-screen-need-gesture": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["vision"],
+      models: MODELS_LOCAL_AND_ONLINE,
+      storageLocal: {
+        "coati:conversation": [
+          {
+            id: "sg-sys",
+            role: "system",
+            text: "Cliquez l'icône de Coati (ou son raccourci clavier) sur cet onglet pour autoriser la capture, puis renvoyez votre question.",
+          },
+        ],
+        "coati:attachPage": false,
+      },
+      prompts: [],
+    },
+
+    // Lot F — docsearch "en cours" (search.status, stage "searching", scope
+    // connu) — progress line under a still-streaming answer, no sources yet
+    // (docs/PROTOCOL.md §7: "sources seulement au stade reading").
+    "docsearch-progress": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["docsearch"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "dp-u", role: "user", text: "Comment configurer le rendu 4K ?" },
+          {
+            id: "dp1",
+            role: "assistant",
+            text: "",
+            streaming: true,
+            searchStatus: { stage: "searching", scope: "help.kling.ai", engine: "brave" },
+          },
+        ],
+        "coati:attachPage": false,
+      },
+      prompts: [],
+    },
+
+    // Lot F — docsearch terminé : stade "reading", bloc Sources (texte brut,
+    // non cliquable — question produit ouverte, voir buildSourcesBlock()).
+    "docsearch-sources": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["docsearch"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "ds-u", role: "user", text: "Comment configurer le rendu 4K ?" },
+          {
+            id: "ds1",
+            role: "assistant",
+            text: "Ouvrez Réglages → Rendu puis choisissez 4K [S1]. Le forfait Pro est requis pour ce mode [S2].",
+            streaming: false,
+            searchStatus: {
+              stage: "reading",
+              scope: "help.kling.ai",
+              engine: "brave",
+              sources: [
+                { n: 1, url: "https://help.kling.ai/fr/rendu/4k", title: "Configurer le rendu 4K" },
+                { n: 2, url: "https://help.kling.ai/fr/facturation/forfaits", title: "Forfaits et facturation" },
+              ],
+            },
+          },
+        ],
+        "coati:attachPage": false,
+      },
+      prompts: [],
+    },
+
+    // Lot F — "search-not-configured" : message + bouton « Ouvrir les
+    // réglages » (buildSearchNotConfiguredRecoveryBlock(), panel.js).
+    "docsearch-not-configured": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["docsearch"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "dn-u", role: "user", text: "Comment configurer le rendu 4K ?" },
+          {
+            id: "dn1",
+            role: "assistant",
+            text: "⚠ Aucun service de recherche n'est configuré — ajoutez une clé Brave ou Tavily dans les réglages.",
+            streaming: false,
+            searchNotConfigured: true,
+          },
+        ],
+        "coati:attachPage": false,
+      },
+      prompts: [],
+    },
   };
 })();

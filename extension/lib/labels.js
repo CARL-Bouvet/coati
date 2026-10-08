@@ -80,6 +80,13 @@ const ERROR_CODE_KEYS = {
   "quota-exceeded": "common_error_quota_exceeded",
   "rate-limited": "common_error_rate_limited",
   "context-too-large": "common_error_context_too_large",
+  // Lot B3 (plan-montrer-voir-chercher-08-10.md §3B). Admin brief named this
+  // "error_vision_unsupported" (the plan's own shorthand); kept under the
+  // `common_error_*` prefix instead, to match every other entry in THIS
+  // table literally rather than introduce a one-off naming scheme — flagged
+  // in the worker report for the admin to override if the literal name was
+  // actually wanted.
+  "vision-unsupported": "common_error_vision_unsupported",
   cancelled: "common_error_cancelled",
   internal: "common_error_internal",
 };

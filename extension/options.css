@@ -1,18 +1,43 @@
 /* Coati options page.
  *
- * Layout contract (one calm column, measured in the lab at 520 and 800 px):
- *   page      max 600 px, 40 px top / 24 px sides (≤ 560 px: 24 / 16)
- *   rhythm    section = 24 px padding, hairline between sections
- *   type      h1 22 px/650 · h2 16 px/600 · body 14 px · help 13 px muted
- *   controls  34 px tall (inputs, selects, buttons), 24 px indent under a
- *             radio/checkbox so help lines align with the label text
+ * Proportion contract (redesign 08/10, workflow-front phase 3) — every
+ * number below is a variable in :root, nowhere else:
+ *   column    one centred column at every width, max 640 px; sides 24 px
+ *             (≤ 560 px: 16 px). Wide windows (1000 px+) only grow the
+ *             margins — the model tabs are tabs at every width.
+ *   band      anthracite header band, full width, ≥ 56 px tall; its content
+ *             aligned on the column (title · status · FR/EN/中).
+ *   rhythm    section 28 px top/bottom (≤ 560 px: 20), hairline between
+ *             sections; inside « Modèle »: 16 px between current model, tabs
+ *             and tab panel, 20 px between blocks of a panel.
+ *   type      steps ≥ 1.2 apart: current model 22 / h2 18 / h3 15 / body 14;
+ *             help 13 and eyebrow 12 are split from body by tone, not size.
+ *             ≤ 480 px: current model 18 / h2 16 (the card and the weight
+ *             carry the rank), so a typical id (claude-sonnet-4-5,
+ *             llama-3.3-70b-instruct:free) holds on one line at 320 px; the
+ *             id never breaks at its hyphens unless it is wider than the line.
+ *   controls  34 px (inputs, selects, buttons), small buttons 30 px, tabs
+ *             40 px, choice rows (models, services) ≥ 44 px.
  * Colours come from lib/theme.css only; --divider is derived from them. */
 
 * { box-sizing: border-box; }
 
 :root {
-  --page-width: 600px;
+  --page-width: 640px;
+  --page-pad-x: 24px;
+  --head-min-height: 56px;
+  --section-pad: 28px;
+  --zone-gap: 16px;
+  --block-gap: 20px;
+  --fs-model: 22px;
+  --fs-h2: 18px;
+  --fs-h3: 15px;
+  --fs-small: 13px;
+  --fs-micro: 12px;
   --control-height: 34px;
+  --control-height-sm: 30px;
+  --tab-height: 40px;
+  --row-min-height: 44px;
   --check-indent: 24px;
   --divider: color-mix(in srgb, var(--border) 35%, var(--bg));
 }
@@ -29,51 +54,138 @@ body {
 .page {
   max-width: var(--page-width);
   margin: 0 auto;
-  padding: 40px 24px 64px;
+  padding: var(--space-2) var(--page-pad-x) 64px;
 }
 
-/* --- Header -------------------------------------------------------------- */
+/* --- Header band (zone Z1) ------------------------------------------------
+ * Anthracite in both themes (P24): the band re-scopes the shared tokens to
+ * their header values, as the panel's .topbar does, so the status dot, the
+ * language button and its menu stay readable whatever the page theme. */
 
 .page-head {
-  display: flex;
+  --bg: var(--header-bg);
+  --fg: var(--header-fg);
+  --muted: var(--header-muted);
+  --surface: var(--header-surface);
+  --accent: var(--header-accent);
+  --status-connected: var(--header-status-connected);
+  --status-connecting: var(--header-status-connecting);
+  --status-disconnected: var(--header-status-disconnected);
+  --status-idle: var(--header-status-idle);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.page-head-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "title status lang";
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  padding-bottom: var(--space-4);
+  gap: var(--space-2) var(--space-3);
+  max-width: var(--page-width);
+  min-height: var(--head-min-height);
+  margin: 0 auto;
+  padding: var(--space-2) var(--page-pad-x);
 }
 
 h1 {
+  grid-area: title;
   margin: 0;
-  font-size: 22px;
+  font-size: var(--fs-h2);
   line-height: 1.25;
   font-weight: 650;
 }
 
 .page-head .status {
+  grid-area: status;
   padding: 3px 10px;
   border-radius: 999px;
   background: var(--surface);
   color: var(--fg);
 }
 
+.page-head-lang { grid-area: lang; }
+
+/* Language selector (lib/language-selector.js, compact): same shape as the
+ * panel's header button. Overrides the page-wide primary <button>. */
+.lang-selector { position: relative; }
+
+.page-head .lang-button {
+  min-width: 2.6em;
+  min-height: var(--control-height-sm);
+  padding: 4px var(--space-2);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--surface);
+  border-radius: var(--radius);
+}
+
+.page-head .lang-button:hover,
+.page-head .lang-button:active {
+  background: var(--surface);
+  border-color: var(--surface);
+}
+
+.lang-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 12em;
+  padding: var(--space-1);
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--overlay-shadow);
+}
+
+.lang-menu .lang-menu-item {
+  min-height: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.95em;
+  font-weight: 400;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius);
+}
+
+.lang-menu .lang-menu-item:hover,
+.lang-menu .lang-menu-item:focus-visible {
+  background: var(--surface);
+}
+
+.lang-menu .lang-menu-item--active {
+  font-weight: 600;
+  color: var(--accent);
+}
+
 /* --- Sections ------------------------------------------------------------ */
 
 .section {
-  padding: 24px 0;
+  padding: var(--section-pad) 0;
   border-top: 1px solid var(--divider);
 }
 
+.page > .section:first-child { border-top: none; }
+
 h2 {
-  margin: 0 0 var(--space-1);
-  font-size: 16px;
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-h2);
   line-height: 1.3;
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .help {
   margin: 0 0 var(--space-3);
-  font-size: 13px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 
@@ -101,8 +213,49 @@ code {
   gap: var(--space-1);
 }
 
-.field > label {
+.field > label,
+.field-label {
   font-weight: 500;
+}
+
+/* "Montrer un élément" — 3-way segmented choice, same bordered-radio look
+ * as .search-provider (search-service choice) but narrower columns since
+ * the labels are one word each. */
+.point-effect-field { margin-top: var(--space-3); }
+
+.point-effect-choice {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  margin: var(--space-1) 0;
+}
+
+.point-effect-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--row-min-height);
+  padding: var(--space-2) var(--space-2);
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.point-effect-option:hover { border-color: var(--border); }
+
+.point-effect-option:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.point-effect-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
 }
 
 input[type="password"],
@@ -152,22 +305,31 @@ button:hover { background: var(--accent-hover); border-color: var(--accent-hover
 button:active { background: var(--accent-active); border-color: var(--accent-active); }
 
 .button-secondary,
-.test-button {
+.test-button,
+.service-use {
   color: var(--fg);
   background: var(--bg);
   border-color: var(--border);
 }
 
 .button-secondary:hover,
-.test-button:hover {
+.test-button:hover,
+.service-use:hover {
   background: var(--surface);
   border-color: var(--border);
 }
 
 .button-secondary:active,
-.test-button:active {
+.test-button:active,
+.service-use:active {
   background: var(--divider);
   border-color: var(--border);
+}
+
+.button-small {
+  min-height: var(--control-height-sm);
+  padding: 4px 10px;
+  font-size: var(--fs-small);
 }
 
 button:disabled {
@@ -179,7 +341,8 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 summary:focus-visible,
-a:focus-visible {
+a:focus-visible,
+code:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -200,8 +363,7 @@ a:focus-visible {
 }
 
 .check-row input[type="checkbox"],
-.site-toggle input[type="checkbox"],
-.provider-item input[type="radio"] {
+.site-toggle input[type="checkbox"] {
   width: 16px;
   height: 16px;
   margin: 0;
@@ -214,11 +376,12 @@ a:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 
 .status-dot {
+  flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -234,9 +397,201 @@ a:focus-visible {
 .status--no-host .status-dot,
 .status--broker-untrusted .status-dot { background: var(--status-disconnected); }
 
-/* --- 1. Model: one card per provider --------------------------------------- */
+/* --- 1. Model (zone Z2) ------------------------------------------------------ */
 
-.provider-list {
+.section--model > h2 { margin-bottom: var(--space-3); }
+
+/* Z2a — current model: the one fact the page is opened for. */
+.current-model {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.current-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: 14px var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: calc(var(--radius) + 2px);
+}
+
+.current-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.current-eyebrow {
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.current-name {
+  font-size: var(--fs-model);
+  line-height: 1.2;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+/* Set by options.js (fitCurrentName) only when the id is wider than the
+ * line: wrapping is the last resort. */
+.current-name--wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.current-where {
+  font-size: var(--fs-small);
+  color: var(--muted);
+}
+
+.current-state {
+  font-size: var(--fs-small);
+  font-weight: 500;
+}
+
+.current-state[data-tone="todo"],
+.service-state[data-tone="todo"] { color: var(--warning); }
+.current-state[data-tone="ok"],
+.service-state[data-tone="ok"] { color: var(--success); }
+
+.current-test-result { grid-column: 1 / -1; }
+.current-test-result:empty { display: none; }
+
+/* Z2b — tabs « Sur cet ordinateur » / « En ligne »: a segmented control,
+ * two equal halves at every width. Selected = page background, border and
+ * weight (never colour alone). */
+.model-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  margin-top: var(--zone-gap);
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: calc(var(--radius) + 2px);
+}
+
+.model-tabs .model-tab {
+  min-height: calc(var(--tab-height) - 8px);
+  padding: 4px var(--space-2);
+  font-weight: 500;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+}
+
+.model-tabs .model-tab:hover {
+  background: var(--bg);
+  border-color: var(--divider);
+}
+
+.model-tabs .model-tab[aria-selected="true"] {
+  font-weight: 650;
+  background: var(--bg);
+  border-color: var(--border);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.tab-panel { margin-top: var(--zone-gap); }
+
+.tab-lead { margin-bottom: var(--block-gap); }
+
+.tab-block + .tab-block,
+.tab-block + .tab-folds,
+.tab-folds + .tab-block { margin-top: var(--block-gap); }
+
+.block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+h3.block-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-h3);
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.block-head > h3.block-title { margin: 0; }
+
+.model-field-slot:empty { display: none; }
+.model-field-slot { margin-top: var(--space-3); }
+
+/* Folds (<details>): the guide, « Accélérer Ollama », LM Studio, « Ajouter
+ * un service » — a stack of hairline rows with one chevron style. Inner
+ * folds (« Autres services », « Autre adresse », a service's key and model)
+ * drop the rules. */
+.tab-folds > .fold {
+  border-top: 1px solid var(--divider);
+}
+
+.tab-folds > .fold:last-child {
+  border-bottom: 1px solid var(--divider);
+}
+
+.fold > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-min-height);
+  list-style: none;
+  cursor: pointer;
+  font-size: var(--fs-h3);
+  font-weight: 600;
+  border-radius: var(--radius);
+}
+
+.fold > summary::-webkit-details-marker { display: none; }
+
+.fold > summary::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 5px 0 3px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+
+.fold[open] > summary::before { transform: rotate(45deg); }
+.fold > summary:hover { color: var(--accent); }
+
+.fold-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+  padding: var(--space-1) 0 var(--space-4);
+}
+
+.fold--inner > summary {
+  min-height: var(--control-height);
+  font-size: var(--font-size);
+  font-weight: 500;
+}
+
+.fold--inner > .fold-body { padding-bottom: var(--space-1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fold > summary::before,
+  .advanced summary::before { transition: none; }
+}
+
+/* Z2d — configured online services: one row each. */
+.service-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -245,102 +600,165 @@ a:focus-visible {
   gap: var(--space-2);
 }
 
-.provider-item {
-  padding: var(--space-3) 14px;
+.service {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-height: var(--row-min-height);
+  padding: 10px 14px;
+  background: var(--bg);
   border: 1px solid var(--divider);
   border-radius: var(--radius);
 }
 
-.provider-item--selected {
+.service--active {
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
-.provider-item > label {
+.service-head {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-2);
+  min-width: 0;
+}
+
+.service-name {
   font-weight: 600;
-}
-
-.provider-item input[type="radio"]:disabled + span {
-  color: var(--muted);
-}
-
-.provider-configured {
-  margin-left: auto;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--success);
-}
-
-.provider-description {
-  margin: 2px 0 0 var(--check-indent);
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.provider-description:empty { display: none; }
-
-.provider-reason {
-  display: block;
-  margin: var(--space-1) 0 0 var(--check-indent);
-  font-size: 13px;
-  color: var(--danger);
-  white-space: pre-line;
-}
-
-.provider-reason-detail {
-  display: block;
-  margin: 2px 0 0 var(--check-indent);
-  font-size: 12.5px;
-  color: var(--muted);
-  white-space: pre-line;
   overflow-wrap: anywhere;
 }
 
-.provider-item > .field {
-  margin: var(--space-3) 0 0 var(--check-indent);
+.service-tag {
+  padding: 0 6px;
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
 }
 
-.apikey-field {
+.service-state { font-size: var(--fs-small); }
+
+.service-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.service-result,
+.service-details { grid-column: 1 / -1; }
+
+.service-result:empty { display: none; }
+
+/* « Retirer » replaces the key component's own « Supprimer la clé » in a
+ * row (same two-step confirm, one place to remove a service). */
+.service .key-input-delete { display: none; }
+
+.cap-links { margin: 0; }
+
+/* « Recherche dans la doc » (lot C3): service choice as two bordered radio
+ * choices (Brave first), the key component, then « Vérifier » + its quota
+ * note and the folded how-to. */
+.search-providers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.search-provider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-min-height);
+  padding: var(--space-2) var(--space-3);
+  font-weight: 600;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.search-provider:hover { border-color: var(--border); }
+
+.search-provider:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.search-provider input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+}
+
+.search-check-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.search-check-row .help { margin: 0; }
+
+.search-block .fold--inner { margin-top: var(--space-2); }
+
+.search-guide-steps li + li { margin-top: var(--space-1); }
+
+/* --- Key entry component (lib/key-input.js) ---------------------------------
+ * Shared by the active service's settings and the setup guide. */
+
+.key-input {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-2);
-  margin: var(--space-3) 0 0 var(--check-indent);
+  min-width: 0;
 }
 
-.apikey-field input[type="password"] {
-  flex: 1;
-  min-width: 180px;
+.key-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
-/* Same layout as .apikey-field above — baseUrl (goal G5) is not a secret, but
- * shares the preset-select + text-input + save-button shape. */
-.baseurl-field {
+.key-input-row > input {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+
+.key-input-status-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  margin: var(--space-3) 0 0 var(--check-indent);
+  gap: var(--space-2) var(--space-3);
 }
 
-.baseurl-field input[type="text"] {
-  flex: 1;
-  min-width: 180px;
+.key-input-status {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  flex: 1 1 14em;
+  font-size: var(--fs-small);
+  color: var(--muted);
 }
 
-.baseurl-error {
-  flex-basis: 100%;
-  font-size: 13px;
-  color: var(--danger);
+.key-input-status[data-tone="ok"] { color: var(--success); font-weight: 500; }
+.key-input-status[data-tone="error"] { color: var(--danger); }
+.key-input-mark:empty { display: none; }
+.key-input-mark { font-weight: 700; }
+
+.key-input-notes {
+  margin: 0;
+  padding-left: 1.1em;
+  font-size: 12.5px;
+  color: var(--muted);
 }
 
-.baseurl-error:empty {
-  display: none;
-}
+.key-input-notes li + li { margin-top: 2px; }
 
 .apikey-clear {
   color: var(--danger);
@@ -380,16 +798,34 @@ a:focus-visible {
   border-color: var(--danger-active);
 }
 
-.test-row {
+/* « Autre adresse compatible OpenAI » (goal G5): preset select + address +
+ * save. baseUrl is not a secret. */
+.baseurl-field {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1) var(--space-3);
-  margin: var(--space-3) 0 0 var(--check-indent);
+  gap: var(--space-2);
 }
 
+.baseurl-field input[type="text"] {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+
+.baseurl-error {
+  flex-basis: 100%;
+  font-size: var(--fs-small);
+  color: var(--danger);
+}
+
+.baseurl-error:empty {
+  display: none;
+}
+
+/* --- « Tester » results --------------------------------------------------------- */
+
 .test-result {
-  font-size: 13px;
+  font-size: var(--fs-small);
 }
 
 .test-result--ok { color: var(--success); }
@@ -402,7 +838,7 @@ a:focus-visible {
   display: block;
   margin-top: var(--space-1);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-micro);
 }
 .test-result-command {
   display: block;
@@ -411,11 +847,128 @@ a:focus-visible {
   background: var(--surface);
   border-radius: var(--radius);
   font-family: monospace;
-  font-size: 12px;
+  font-size: var(--fs-micro);
   cursor: text;
   user-select: all;
 }
 .test-result-copy { margin-top: var(--space-1); }
+
+/* --- Available models (lib/model-list.js) ---------------------------------------
+ * Same list as the panel's model menu, as toggle buttons (aria-pressed) that
+ * look like choices: bordered rows, ≥ 44 px, the current one outlined in
+ * caramel with its check. Overrides the page-wide primary <button>. */
+
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.model-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The tab already says « Sur cet ordinateur »: the list's own group heading
+ * stays for screen readers only. */
+.model-list-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.model-list .model-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--row-min-height);
+  padding: var(--space-2) var(--space-3);
+  font-weight: 400;
+  text-align: left;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+}
+
+.model-list .model-item:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.model-list .model-item:active {
+  background: var(--divider);
+  border-color: var(--border);
+}
+
+.model-list .model-item--current,
+.model-list .model-item--current:hover {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* Radio-like mark: an empty ring for every choice, filled (caramel ring and
+ * dot) for the model in use — the shape says it, not the colour alone. The
+ * ✓ glyph lib/model-list.js writes is kept for screen readers' sake only
+ * (aria-hidden anyway) and not drawn. */
+.model-item-check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  font-size: 0;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+
+.model-item--current .model-item-check {
+  border-color: var(--accent);
+  background: radial-gradient(circle, var(--accent) 0 3.5px, transparent 4px);
+}
+
+.model-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.model-item-name {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.model-item--current .model-item-name {
+  font-weight: 650;
+}
+
+.model-item-detail,
+.model-item-note {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* The fit note carries its meaning in words; the tone only supports it. */
+.model-item-fit[data-fit="gpu"] { color: var(--success); }
+.model-item-fit[data-fit="shared"] { color: var(--warning); }
+
+.model-list-note {
+  margin: 0;
+  padding: var(--space-1) 0;
+  font-size: var(--fs-small);
+  color: var(--muted);
+}
+
+/* Lot 4: too big for this machine — still selectable, only muted; the
+ * words « trop gros pour cet ordinateur » carry the meaning, not colour. */
+.model-item--too-big .model-item-name {
+  color: var(--muted);
+}
 
 /* --- 3. Shortcut ------------------------------------------------------------ */
 
@@ -438,7 +991,7 @@ kbd {
   min-width: 26px;
   padding: 1px 7px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-small);
   font-weight: 600;
   text-align: center;
   color: var(--fg);
@@ -450,7 +1003,7 @@ kbd {
 
 .shortcut-plus,
 .shortcut-none {
-  font-size: 13px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 
@@ -484,9 +1037,9 @@ kbd {
 }
 
 .about-list dt { color: var(--muted); }
-.about-list dd { margin: 0; }
+.about-list dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 
-/* --- 7. Advanced -------------------------------------------------------------- */
+/* --- 7. Advanced (Flatpak/Snap) ------------------------------------------------ */
 
 .advanced summary {
   display: flex;
@@ -501,6 +1054,7 @@ kbd {
 
 .advanced summary::before {
   content: "";
+  flex: none;
   width: 7px;
   height: 7px;
   margin: 0 4px;
@@ -530,137 +1084,11 @@ kbd {
   gap: var(--space-3);
 }
 
-/* --- Language selector (U1) — lib/language-selector.js, mounted full-width here. */
+/* --- Setup guide (options-setup.js), inside the tabs --------------------------
+ * Steps are a numbered rail (28 px mark + text). */
 
-.lang-field {
-  align-self: flex-start;
-}
-
-.lang-selector--full {
-  position: relative;
-  display: inline-block;
-}
-
-.lang-button--full {
-  min-height: var(--control-height);
-  padding: 6px 14px;
-  font-family: inherit;
-  font-size: var(--font-size);
-  color: var(--fg);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.lang-button--full:hover {
-  background: var(--surface);
-}
-
-.lang-menu {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  left: 0;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  min-width: 12em;
-  padding: var(--space-1);
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--overlay-shadow);
-}
-
-.lang-menu-item {
-  border: none;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius);
-  cursor: pointer;
-  font-size: 0.95em;
-}
-
-.lang-menu-item:hover,
-.lang-menu-item:focus-visible {
-  background: var(--surface);
-  outline: none;
-}
-
-.lang-menu-item--active {
-  font-weight: 600;
-  color: var(--accent);
-}
-
-/* --- Key entry component (lib/key-input.js) ---------------------------------
- * Shared by the selected provider card and the setup guide. */
-
-.key-input {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.provider-item > .key-input {
-  margin: var(--space-3) 0 0 var(--check-indent);
-}
-
-.key-input-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.key-input-row > input {
-  flex: 1 1 12em;
-  min-width: 0;
-}
-
-.key-input-status-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-}
-
-.key-input-status {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin: 0;
-  flex: 1 1 14em;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.key-input-status[data-tone="ok"] { color: var(--success); font-weight: 500; }
-.key-input-status[data-tone="error"] { color: var(--danger); }
-.key-input-mark:empty { display: none; }
-.key-input-mark { font-weight: 700; }
-
-.key-input-notes {
-  margin: 0;
-  padding-left: 1.1em;
-  font-size: 12.5px;
-  color: var(--muted);
-}
-
-.key-input-notes li + li { margin-top: 2px; }
-
-/* --- 0. Setup guide (options-setup.js) -----------------------------------------
- * Same calm column; steps are a numbered rail (28 px mark + text). */
-
-.setup-body {
-  margin-top: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
+/* The one-line « why » with the U2 coati icon (Kling, cut out and mirrored
+ * only), shown while no model answers yet (Romain, 01/10). */
 .setup-intro {
   display: flex;
   align-items: center;
@@ -670,65 +1098,11 @@ kbd {
 .setup-intro p { margin: 0; }
 .setup-intro .help { margin-top: var(--space-1); }
 
-/* U2 illustration (Kling, cut out and mirrored only): the resting coati,
- * shown as an icon beside the intro (Romain, 01/10). */
 .setup-illustration {
   flex: none;
-  width: 128px;
+  width: 112px;
   height: auto;
   align-self: center;
-}
-
-.setup-choose {
-  margin: 0;
-  font-weight: 600;
-}
-
-.setup-paths {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: var(--space-3);
-  margin-top: calc(-1 * var(--space-2));
-}
-
-.setup-path {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  padding: 14px 16px;
-  text-align: left;
-  color: var(--fg);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.setup-path:hover {
-  background: var(--surface);
-  border-color: var(--accent);
-}
-
-.setup-path:active {
-  background: var(--surface);
-  border-color: var(--accent-active);
-}
-
-.setup-path[aria-pressed="true"] {
-  background: var(--bg);
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-.setup-path-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.setup-path-text {
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--muted);
 }
 
 .setup-steps {
@@ -753,7 +1127,7 @@ kbd {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  font-size: 13px;
+  font-size: var(--fs-small);
   font-weight: 600;
   color: var(--fg);
   background: var(--surface);
@@ -784,7 +1158,7 @@ kbd {
 
 h3.setup-step-title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--font-size);
   line-height: 1.35;
   font-weight: 600;
 }
@@ -811,7 +1185,7 @@ h3.setup-step-title {
 }
 
 .setup-other-os {
-  font-size: 13px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 
@@ -837,7 +1211,7 @@ h3.setup-step-title {
 
 .setup-step-result {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 
@@ -859,7 +1233,7 @@ h3.setup-step-title {
   min-width: 0;
   padding: 6px 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
+  font-size: var(--fs-small);
   background: var(--surface);
   border: 1px solid var(--divider);
   border-radius: var(--radius);
@@ -881,7 +1255,7 @@ h3.setup-step-title {
 
 .setup-speedup-os-title {
   margin: var(--space-2) 0 0;
-  font-size: 14px;
+  font-size: var(--font-size);
   font-weight: 600;
 }
 
@@ -908,7 +1282,7 @@ h3.setup-step-title {
 }
 
 .setup-env-value {
-  font-size: 13px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 
@@ -920,7 +1294,7 @@ h3.setup-step-title {
 .setup-models {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-small);
 }
 
 .setup-models th {
@@ -964,17 +1338,38 @@ h3.setup-step-title {
 .setup-tag {
   display: inline-block;
   padding: 0 6px;
-  font-size: 12px;
+  font-size: var(--fs-micro);
   font-weight: 600;
   color: var(--fg);
   border: 1px solid var(--accent);
   border-radius: 999px;
 }
 
+.setup-tag--installed {
+  font-weight: 500;
+  border-color: var(--border);
+}
+
+/* Download suggestions filtered by the machine. */
+.setup-model-fit {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.setup-memory-hint:empty {
+  display: none;
+}
+
+h4.setup-subtitle {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size);
+  font-weight: 600;
+}
+
 .setup-warning {
   margin: 0;
   padding: 10px var(--space-3);
-  font-size: 13px;
+  font-size: var(--fs-small);
   color: var(--banner-fg, var(--fg));
   background: var(--banner-bg);
   border: 1px solid var(--banner-border);
@@ -992,6 +1387,7 @@ h3.setup-step-title {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
+  min-height: var(--row-min-height);
   padding: 10px var(--space-3);
   border: 1px solid var(--divider);
   border-radius: var(--radius);
@@ -999,6 +1395,8 @@ h3.setup-step-title {
 }
 
 .setup-service input { margin-top: 3px; }
+
+.setup-service:hover { border-color: var(--border); }
 
 .setup-service:has(input:checked) {
   border-color: var(--accent);
@@ -1014,213 +1412,65 @@ h3.setup-step-title {
 .setup-service-name { font-weight: 600; }
 
 .setup-service-detail {
-  font-size: 13px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
-
-/* « Avancé » / « Autres » folds inside the guide: same chevron as .advanced. */
-.setup-advanced {
-  width: 100%;
-}
-
-.setup-advanced > summary {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  list-style: none;
-  cursor: pointer;
-  font-weight: 500;
-  border-radius: var(--radius);
-}
-
-.setup-advanced > summary::-webkit-details-marker { display: none; }
-
-.setup-advanced > summary::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  margin: 0 4px;
-  border-right: 2px solid var(--muted);
-  border-bottom: 2px solid var(--muted);
-  transform: rotate(-45deg);
-  transition: transform 0.15s;
-}
-
-.setup-advanced[open] > summary::before { transform: rotate(45deg); }
-.setup-advanced > summary:hover { color: var(--accent); }
-
-.setup-advanced-body,
-.setup-others > .setup-services {
-  margin-top: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
-
-.setup-path-steps {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.setup-path-steps[hidden] { display: none; }
-
-.setup-open-row { margin: calc(-1 * var(--space-2)) 0 var(--space-3); }
 
 /* --- Narrow ----------------------------------------------------------------- */
 
 @media (max-width: 560px) {
-  .page { padding: 24px 16px 48px; }
-  .section { padding: 20px 0; }
+  :root {
+    --page-pad-x: 16px;
+    --section-pad: 20px;
+  }
   .setup-intro { gap: var(--space-3); }
-  .setup-illustration { width: 96px; }
-  .provider-item > .key-input { margin-left: 0; }
+  .setup-illustration { width: 88px; }
 }
 
-/* --- Available models (lib/model-list.js, amendement 2026-10-07) -----------
- * Same list as the panel's model menu, as plain toggle buttons
- * (aria-pressed) in the « Modèle » section and the tutorial step
- * « Télécharger un modèle ». Overrides the page-wide primary <button>. */
-.models-available {
-  margin: 0 0 var(--space-3);
-}
-
-.models-available[hidden],
-.setup-installed-models[hidden] {
-  display: none;
-}
-
-h3.models-available-title,
-h4.setup-subtitle {
-  margin: 0 0 var(--space-1);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-h4.setup-subtitle {
-  margin: var(--space-1) 0 0;
-}
-
-.model-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  width: 100%;
-  max-width: 32em;
-}
-
-.model-list-section {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.model-list-heading {
-  padding: 0 var(--space-2);
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.model-list .model-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  width: 100%;
-  min-height: 0;
-  padding: var(--space-1) var(--space-2);
-  font-weight: 400;
-  text-align: left;
-  color: var(--fg);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-}
-
-.model-list .model-item:hover {
-  background: var(--surface);
-  border-color: var(--divider);
-}
-
-.model-list .model-item:active {
-  background: var(--divider);
-  border-color: var(--divider);
-}
-
-.model-list .model-item--current {
-  border-color: var(--accent);
-}
-
-.model-item-check {
-  flex: none;
-  width: 1em;
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.model-item-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.model-item-name {
-  overflow-wrap: anywhere;
-}
-
-.model-item--current .model-item-name {
-  font-weight: 600;
-}
-
-.model-item-detail,
-.model-item-note {
-  font-size: 12.5px;
-  color: var(--muted);
-}
-
-.model-list-note {
-  margin: 0;
-  padding: var(--space-1) var(--space-2);
-  font-size: 13px;
-  color: var(--muted);
-}
-
-/* Lot 4: too big for this machine — still selectable, only muted; the
- * words « trop gros pour cet ordinateur » carry the meaning, not colour. */
-.model-item--too-big .model-item-name {
-  color: var(--muted);
-}
-
-/* Download suggestions filtered by the machine (options-setup.js). */
-.setup-model-fit {
-  font-size: 12.5px;
-  color: var(--muted);
-}
-
-.setup-tag--installed {
-  font-weight: 500;
-  border-color: var(--border);
-}
-
-/* Narrow (320 px panel-like windows): each suggestion row stacks into a
- * block — line 1: choice + tags, line 2: size · fit, aligned under the
- * name. Table roles are set explicitly in options-setup.js, so the display
- * change keeps the semantics. Wide widths keep the plain table. */
 @media (max-width: 480px) {
+  :root {
+    --fs-model: 18px;
+    --fs-h2: 16px;
+  }
+
+  /* Band: title + language on one line, status underneath. */
+  .page-head-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "title lang" "status status";
+  }
+  .page-head .status { justify-self: start; }
+
+  /* Current model: the id gets the full width, « Tester » goes under it. */
+  .current-line {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-3);
+  }
+  .current-test { justify-self: start; }
+
+  /* A service row stacks: name and state, then its buttons. */
+  .service { grid-template-columns: minmax(0, 1fr); }
+  .service-actions { justify-content: flex-start; }
+
+  /* Each suggestion row stacks into a block — line 1: choice + tags, line 2:
+   * size · fit, aligned under the name. Table roles are set explicitly in
+   * options-setup.js, so the display change keeps the semantics. */
   .setup-models--host,
   .setup-models--host tbody {
     display: block;
     width: 100%;
   }
 
-  .setup-models--host thead {
+  .setup-models--host thead,
+  .setup-models--host thead tr,
+  .setup-models--host thead th {
     position: absolute;
     width: 1px;
     height: 1px;
+    padding: 0;
     overflow: hidden;
     clip: rect(0 0 0 0);
     white-space: nowrap;
+    border: 0;
   }
 
   /* Left padding = 16 px radio + its gap: line 2 (and its wrapped lines)
@@ -1254,8 +1504,4 @@ h4.setup-subtitle {
     content: " \00b7\00a0";
     color: var(--muted);
   }
-}
-
-.setup-memory-hint:empty {
-  display: none;
 }

@@ -102,6 +102,40 @@
     ],
   };
 
+  // Redesign 08/10 — models with their machine fit (lot 4), Claude active.
+  var MODELS_FIT_CLAUDE_ACTIVE = {
+    current: { provider: "claude-api", model: "claude-sonnet-4-5" },
+    entries: [
+      { provider: "ollama", model: "qwen3:4b", local: true, sizeBytes: 2600000000, thinks: true, fit: "gpu" },
+      { provider: "ollama", model: "llama3.2:latest", local: true, sizeBytes: 2019393189, fit: "gpu" },
+      { provider: "ollama", model: "gemma3:12b", local: true, sizeBytes: 8149190253, fit: "shared" },
+      { provider: "claude-api", model: "claude-sonnet-4-5", local: false },
+    ],
+    sources: [OLLAMA_OK, { provider: "claude-api", state: "ok" }],
+    host: { ramGb: 16, vramGb: 6.4 },
+  };
+  var OLLAMA_ACTIVE_SETTINGS = {
+    provider: "ollama",
+    model: "qwen3:4b",
+    models: [],
+    available: [
+      { id: "ollama", available: true, configured: true, label: "Ollama" },
+      { id: "claude-api", available: true, configured: true, label: "Clé API Anthropic" },
+      { id: "openai-compat", available: false, configured: false, reason: "no base URL configured", label: "Compatible OpenAI" },
+    ],
+  };
+  var TWO_SERVICES_SETTINGS = {
+    provider: "openai-compat",
+    model: "meta-llama/llama-3.3-70b-instruct:free",
+    models: [],
+    baseUrl: "https://openrouter.ai/api/v1",
+    available: [
+      { id: "openai-compat", available: true, configured: true, label: "Compatible OpenAI" },
+      { id: "claude-api", available: true, configured: true, label: "Clé API Anthropic" },
+      { id: "ollama", available: true, configured: true, label: "Ollama" },
+    ],
+  };
+
   var GUIDE_STATES = {
     // First screen: one sentence on the local program, two cards.
     "setup-first": guide({}),
@@ -109,26 +143,22 @@
     // Same, local program not answering: notice + checks disabled.
     "setup-disconnected": guide({ status: "disconnected" }),
 
-    // Local path chosen, nothing checked yet (Windows, 8 GB row highlighted).
-    "setup-local": guide({ autoAction: steps(click("#setupPathLocal", 60)) }),
-
     // Linux, memory not reported: install + start commands, no highlighted row.
     "setup-local-linux": guide({
       labPlatform: "Linux",
       labDeviceMemory: undefined,
-      autoAction: steps(click("#setupPathLocal", 60)),
-    }),
+      }),
 
     // Step 2 failed: Ollama does not answer.
     "setup-local-unreachable": guide({
       providerStatus: OLLAMA_STATUS("ko", "ollama-unreachable"),
-      autoAction: steps(click("#setupPathLocal", 60), click(".setup-check-ollama", 90)),
+      autoAction: steps(click(".setup-check-ollama", 90)),
     }),
 
     // Steps 1-2 ticked, no model installed yet (step 3 explains).
     "setup-local-no-model": guide({
       providerStatus: OLLAMA_STATUS("ko", "no-model-installed"),
-      autoAction: steps(click("#setupPathLocal", 60), click(".setup-check-ollama", 90)),
+      autoAction: steps(click(".setup-check-ollama", 90)),
     }),
 
     // Step 3 failed: the chosen model (8 GB row, gemma3:4b) is not pulled
@@ -137,7 +167,7 @@
     "setup-local-model-missing": guide({
       providerStatus: OLLAMA_STATUS("ko", "model-missing"),
       models: MODELS_ONE_INSTALLED,
-      autoAction: steps(click("#setupPathLocal", 60), click(".setup-check-model", 90)),
+      autoAction: steps(click(".setup-check-model", 90)),
     }),
 
     // Steps 1-3 ticked: Ollama answers, model present and in use.
@@ -145,16 +175,9 @@
       providerStatus: OLLAMA_STATUS("ok", "ready"),
       settings: Object.assign({}, FRESH_SETTINGS, { model: "gemma3:4b" }),
       models: MODELS_SUGGESTED_IN_USE,
-      autoAction: steps(click("#setupPathLocal", 60), click(".setup-check-model", 90)),
+      autoAction: steps(click(".setup-check-model", 90)),
     }),
 
-    // « Vérifier les modèles disponibles »: installed models listed, a
-    // « thinking » one labelled, none chosen yet (Claude still answers).
-    "setup-local-installed": guide({
-      settings: CLAUDE_ACTIVE_SETTINGS,
-      models: MODELS_INSTALLED_CLAUDE_ACTIVE,
-      autoAction: steps(click("#setupPathLocal", 60), click(".setup-check-models", 90)),
-    }),
 
     // Lot 4 — suggestions filtered by the machine (`host`), read as soon as
     // the local path opens. Romain's machine: qwen3.5:4b « conseillé »,
@@ -164,36 +187,31 @@
       models: hostModels({ ramGb: 16, vramGb: 6.4 }, [
         { provider: "ollama", model: "qwen3:8b", local: true, sizeBytes: 5225387923, fit: "shared" },
       ]),
-      autoAction: steps(click("#setupPathLocal", 60)),
-    }),
+      }),
 
     // Mac, 16 GB unified memory: every row fits, gemma4:12b « conseillé ».
     "setup-local-host-mac": guide({
       labPlatform: "macOS",
       models: hostModels({ ramGb: 16, vramGb: null, unifiedMemory: true }, []),
-      autoAction: steps(click("#setupPathLocal", 60)),
-    }),
+      }),
 
     // Graphics memory unknown: CPU rule, three rows « partagé… », the
     // smallest « conseillé », the two biggest hidden.
     "setup-local-host-unknown-vram": guide({
       labPlatform: "Linux",
       models: hostModels({ ramGb: 16, vramGb: null }, []),
-      autoAction: steps(click("#setupPathLocal", 60)),
-    }),
+      }),
 
     // Same check, Ollama not answering: step 2 flagged, calm line in the list.
     "setup-local-installed-unreachable": guide({
       models: MODELS_OLLAMA_UNREACHABLE,
-      autoAction: steps(click("#setupPathLocal", 60), click(".setup-check-models", 90)),
     }),
 
     // « Avancé : LM Studio » open and checked OK.
     "setup-local-lmstudio": guide({
       testResults: { "openai-compat": { ok: true, message: "Connexion au serveur réussie." } },
       autoAction: steps(
-        click("#setupPathLocal", 60),
-        click(".setup-advanced > summary", 80),
+        click("#setupLmStudio > summary", 80),
         click(".setup-check-lmstudio", 100),
       ),
     }),
@@ -207,23 +225,23 @@
     }),
 
     // Online path chosen: the free-models warning comes before the choice.
-    "setup-online": guide({ autoAction: steps(click("#setupPathOnline", 60)) }),
+    "setup-online": guide({ autoAction: steps(click("#tabOnline", 60)) }),
 
     // OpenRouter picked: step 1 ticked, account + key steps filled in.
     "setup-online-openrouter": guide({
-      autoAction: steps(click("#setupPathOnline", 60), click('.setup-service[data-service="openrouter"] input', 90)),
+      autoAction: steps(click("#tabOnline", 60), click('.setup-service[data-service="openrouter"] input', 90)),
     }),
 
     // « Autres » open, DeepSeek picked (prepaid wording).
     "setup-online-deepseek": guide({
-      autoAction: steps(click("#setupPathOnline", 60), click('.setup-service[data-service="deepseek"] input', 90)),
+      autoAction: steps(click("#tabOnline", 60), click('.setup-service[data-service="deepseek"] input', 90)),
     }),
 
     // Claude: key pasted, saved, accepted (steps 1-3 ticked).
     "setup-online-key-accepted": guide({
       testResults: { "claude-api": { ok: true, message: "Connexion à l'API Anthropic réussie." } },
       autoAction: steps(
-        click("#setupPathOnline", 60),
+        click("#tabOnline", 60),
         click('.setup-service[data-service="claude"] input', 90),
         fill("#setupOnline .key-input-field", "sk-ant-lab-not-a-real-key", 130),
         click("#setupOnline .key-input-save", 150),
@@ -236,7 +254,7 @@
         "openai-compat": { ok: false, code: "auth-required", message: "Clé API refusée — vérifiez-la dans les réglages." },
       },
       autoAction: steps(
-        click("#setupPathOnline", 60),
+        click("#tabOnline", 60),
         click('.setup-service[data-service="openrouter"] input', 90),
         fill("#setupOnline .key-input-field", "sk-or-lab-not-a-real-key", 130),
         click("#setupOnline .key-input-save", 150),
@@ -249,7 +267,7 @@
         "openai-compat": { ok: false, code: "quota-exceeded", message: "Votre compte n'a plus de crédit." },
       },
       autoAction: steps(
-        click("#setupPathOnline", 60),
+        click("#tabOnline", 60),
         click('.setup-service[data-service="openai"] input', 90),
         fill("#setupOnline .key-input-field", "sk-lab-not-a-real-key", 130),
         click("#setupOnline .key-input-save", 150),
@@ -262,7 +280,7 @@
         "openai-compat": { ok: false, code: "rate-limited", message: "Trop de requêtes." },
       },
       autoAction: steps(
-        click("#setupPathOnline", 60),
+        click("#tabOnline", 60),
         click('.setup-service[data-service="openrouter"] input', 90),
         fill("#setupOnline .key-input-field", "sk-or-lab-not-a-real-key", 130),
         click("#setupOnline .key-input-save", 150),
@@ -291,8 +309,8 @@
       storageLocal: { "coati:retentionDays": 30 },
       permissions: ["https://www.youtube.com/*"],
       autoAction: steps(
-        fill(".provider-item .key-input-field", "sk-ant-lab-not-a-real-key", 60),
-        click(".provider-item .key-input-save", 80),
+        fill(".service--active .key-input-field", "sk-ant-lab-not-a-real-key", 60),
+        click(".service--active .key-input-save", 80),
       ),
     },
 
@@ -305,8 +323,8 @@
       storageLocal: { "coati:retentionDays": 30 },
       permissions: ["https://www.youtube.com/*"],
       autoAction: steps(
-        fill(".provider-item .key-input-field", "sk-ant-lab-not-a-real-key", 60),
-        click(".provider-item .key-input-save", 80),
+        fill(".service--active .key-input-field", "sk-ant-lab-not-a-real-key", 60),
+        click(".service--active .key-input-save", 80),
       ),
     },
 
@@ -317,8 +335,8 @@
       storageLocal: { "coati:retentionDays": 30 },
       permissions: ["https://www.youtube.com/*"],
       autoAction: steps(
-        fill(".provider-item .key-input-field", "sk-ant-lab-not-a-real-key", 60),
-        click(".provider-item .key-input-reveal", 80),
+        fill(".service--active .key-input-field", "sk-ant-lab-not-a-real-key", 60),
+        click(".service--active .key-input-reveal", 80),
       ),
     },
 
@@ -329,7 +347,7 @@
       echoSettingsSet: true,
       storageLocal: { "coati:retentionDays": 30 },
       permissions: ["https://www.youtube.com/*"],
-      autoAction: steps(click(".provider-item .key-input-delete", 60), click(".provider-item .key-input-delete", 90)),
+      autoAction: steps(click(".service--active .service-remove", 60), click(".service--active .service-remove", 90)),
     },
   };
 
@@ -355,7 +373,86 @@
       permissions: ["https://www.youtube.com/*"],
     },
 
-    // U1 — language selector (lib/language-selector.js), "Langue" section,
+    // Redesign 08/10 — tab « Sur cet ordinateur » while Claude answers: the
+    // installed models as bordered choices with their fit note.
+    "options-tab-local": {
+      status: "connected",
+      settings: CLAUDE_ACTIVE_SETTINGS,
+      models: MODELS_FIT_CLAUDE_ACTIVE,
+      echoSettingsSet: true,
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
+      autoAction: steps(click("#tabLocal", 60)),
+    },
+
+    // Ollama answers with qwen3:4b: the page opens on the local tab, current
+    // model « tient dans la carte graphique ».
+    "options-local-active": {
+      status: "connected",
+      settings: OLLAMA_ACTIVE_SETTINGS,
+      models: Object.assign({}, MODELS_FIT_CLAUDE_ACTIVE, { current: { provider: "ollama", model: "qwen3:4b" } }),
+      echoSettingsSet: true,
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
+    },
+
+    // Tab « En ligne » with two services: OpenRouter in use, Claude ready
+    // (Utiliser / Tester / Retirer); « Ajouter un service » folded.
+    "options-online-services": {
+      status: "connected",
+      settings: TWO_SERVICES_SETTINGS,
+      models: MODELS_FIT_CLAUDE_ACTIVE,
+      echoSettingsSet: true,
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
+    },
+
+    // Same, « Ajouter un service » opened: it warns that a new
+    // OpenAI-compatible service replaces OpenRouter.
+    "options-add-service-open": {
+      status: "connected",
+      settings: TWO_SERVICES_SETTINGS,
+      models: MODELS_FIT_CLAUDE_ACTIVE,
+      echoSettingsSet: true,
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
+      autoAction: steps(click("#addService > summary", 60)),
+    },
+
+    // Lot C3 — « Recherche dans la doc », opened by options.html#search (the
+    // panel's search-not-configured remedy): no service chosen, no key.
+    "options-search-empty": {
+      status: "connected",
+      settings: Object.assign({}, TWO_SERVICES_SETTINGS, { search: { provider: null, configured: false } }),
+      echoSettingsSet: true,
+      labHash: "search",
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
+    },
+
+    // Same block, Brave Search chosen with a key stored (only `configured`
+    // comes back), how-to fold opened.
+    "options-search-configured": {
+      status: "connected",
+      settings: Object.assign({}, TWO_SERVICES_SETTINGS, { search: { provider: "brave", configured: true } }),
+      echoSettingsSet: true,
+      labHash: "search",
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
+      autoAction: steps(click("#searchGuide > summary", 80)),
+    },
+
+    // « Retirer » armed on the Claude row (second click confirms).
+    "options-remove-armed": {
+      status: "connected",
+      settings: TWO_SERVICES_SETTINGS,
+      echoSettingsSet: true,
+      storageLocal: { "coati:retentionDays": 30 },
+      permissions: ["https://www.youtube.com/*"],
+      autoAction: steps(click("#provider-claude-api .service-remove", 60)),
+    },
+
+    // U1 — language selector (lib/language-selector.js), header band,
     // menu open — same ground state as "nominal".
     "lang-menu-open": {
       status: "connected",
@@ -363,7 +460,7 @@
       storageLocal: { "coati:retentionDays": 30 },
       permissions: ["https://www.youtube.com/*", "https://exemple-actu.fr/*"],
       autoAction: {
-        steps: [{ type: "click", selector: "#languageSelectorButton", delayMs: 0 }],
+        steps: [{ type: "click", selector: "#langSelectorButton", delayMs: 0 }],
       },
     },
 
@@ -399,7 +496,7 @@
       settings: NOMINAL_SETTINGS,
       storageLocal: { "coati:retentionDays": 7 },
       permissions: ["https://www.youtube.com/*"],
-      autoAction: { steps: [{ type: "click", selector: ".provider-item .apikey-clear", delayMs: 30 }] },
+      autoAction: { steps: [{ type: "click", selector: ".service--active .service-remove", delayMs: 30 }] },
     },
 
     // "Tester la connexion" réussit pour claude-api.

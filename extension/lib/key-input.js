@@ -54,11 +54,18 @@ function describeTestFailure(code, brokerMessage) {
  * @param {string} [opts.placeholder]   placeholder when no key is stored yet
  * @param {string} [opts.limitsUrl]     paid provider: page where a monthly cap is set
  * @param {(ok: boolean) => void} [opts.onVerified]  called after each verification
+ * @param {"model"|"search"} [opts.kind]  "search" (lot C3, docs/PROTOCOL.md
+ *   amendement 2026-10-08 §9): `provider` is "brave" | "tavily", the key goes
+ *   as `searchApiKey` with `searchProvider`, the check is `settings.test`
+ *   `target: "search"` — it spends one request of the free quota, so it only
+ *   runs on demand (`verify()`), never right after a save — and the delete
+ *   sends `clearKey`. `configured` is read from `settings.search`.
  * @returns {{ element: HTMLElement, update(entry: object|null): void,
  *   handleBrokerMessage(message: object): void, setConnected(connected: boolean): void,
  *   verify(): void }}
  */
-export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, onVerified }) {
+export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, onVerified, kind = "model" }) {
+  const search = kind === "search";
   let configured = false;
   let connected = true;
   // "idle" | "saving" | "verifying" | "accepted" | "failed" | "save-failed" | "deleting" | "deleted"
@@ -174,7 +181,11 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     saveId = newId();
     state = "saving";
     render();
-    send({ type: "settings.set", id: saveId, provider, apiKey: value });
+    send(
+      search
+        ? { type: "settings.set", id: saveId, searchProvider: provider, searchApiKey: value }
+        : { type: "settings.set", id: saveId, provider, apiKey: value },
+    );
   }
 
   function verify() {
@@ -182,7 +193,11 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     testId = newId();
     state = "verifying";
     render();
-    send({ type: "settings.test", id: testId, provider });
+    send(
+      search
+        ? { type: "settings.test", id: testId, target: "search", searchProvider: provider }
+        : { type: "settings.test", id: testId, provider },
+    );
   }
 
   function onDeleteClick() {
@@ -197,7 +212,13 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     saveId = newId();
     state = "deleting";
     render();
-    send({ type: "settings.set", id: saveId, provider, apiKey: "" });
+    // A search key is cleared with `clearKey` (amendement 2026-10-08 §9bis),
+    // which never touches the active provider.
+    send(
+      search
+        ? { type: "settings.set", id: saveId, clearKey: provider }
+        : { type: "settings.set", id: saveId, provider, apiKey: "" },
+    );
   }
 
   function resetDeleteConfirm() {
@@ -208,6 +229,9 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
   }
 
   function entryFrom(settings) {
+    if (search) {
+      return settings?.search?.provider === provider ? { configured: Boolean(settings.search.configured) } : null;
+    }
     return (settings?.available ?? []).find((p) => p.id === provider) ?? null;
   }
 
@@ -217,6 +241,12 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
       saveId = null;
       configured = Boolean(entryFrom(message)?.configured);
       if (state === "saving") {
+        if (configured && search) {
+          // No automatic check: it would spend a request of the quota.
+          state = "idle";
+          render();
+          return;
+        }
         if (configured) {
           verify();
           return;
