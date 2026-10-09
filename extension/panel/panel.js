@@ -364,8 +364,7 @@ function onRuntimeMessage(message) {
 }
 
 // Thin dispatcher: every case's actual body lives with the state it reads/
-// writes (chat-stream.js, model-status.js, site-card.js) — see
-// coati-interne/design/notes-split-f3-09-10.md, "Dispatch handleBrokerMessage".
+// writes (chat-stream.js, model-status.js, site-card.js).
 function handleBrokerMessage(message) {
   if (!message || typeof message !== "object") return;
   switch (message.type) {

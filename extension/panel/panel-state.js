@@ -2,8 +2,7 @@
 //
 // `panelState` groups every piece of state that is reassigned from MORE
 // THAN ONE of the panel's feature modules (verified by grepping every
-// reassignment site before the split — see
-// coati-interne/design/notes-split-f3-09-10.md). Mutating a property of
+// reassignment site before the split). Mutating a property of
 // this exported `const` object works from any importer; reassigning a
 // plain `export let` binding does not (ES modules give importers a
 // read-only view of it). Everything else below is owned by exactly one
