@@ -112,9 +112,9 @@ describe("context.elements — rendering in the prompt (lot A1)", () => {
         elements: [{ ref: "e12", role: "button", label: "Générer" }],
       },
     });
-    expect(built.prompt).toContain("Éléments interactifs visibles :");
+    expect(built.prompt).toContain("Interactive elements visible:");
     expect(built.prompt).toContain("[[e12]] button — Générer");
-    const elementsIdx = built.prompt.indexOf("Éléments interactifs visibles :");
+    const elementsIdx = built.prompt.indexOf("Interactive elements visible:");
     const textIdx = built.prompt.indexOf("Du texte de page.");
     expect(elementsIdx).toBeGreaterThan(-1);
     expect(textIdx).toBeGreaterThan(elementsIdx);
@@ -138,7 +138,7 @@ describe("context.elements — rendering in the prompt (lot A1)", () => {
 
   test("a client with no elements field gets byte-identical prompt shape (no regression)", () => {
     const built = buildPrompt({ kind: "chat", text: "hi", context: { kind: "page", text: "t" } });
-    expect(built.prompt).not.toContain("Éléments interactifs visibles");
+    expect(built.prompt).not.toContain("Interactive elements visible");
   });
 });
 

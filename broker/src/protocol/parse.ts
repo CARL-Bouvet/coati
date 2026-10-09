@@ -13,7 +13,14 @@ import {
   type ErrorCode,
 } from "./shared.ts";
 import { parseContext } from "./context.ts";
-import { parseChatImage, parseChatDocSearch, parseHistory, looksLikeChatWithImage } from "./chat.ts";
+import {
+  parseChatImage,
+  parseChatDocSearch,
+  parseHistory,
+  parsePageMeta,
+  looksLikeChatWithImage,
+  looksLikePageContent,
+} from "./chat.ts";
 import {
   isValidSiteKey,
   isValidOrderItem,
@@ -67,7 +74,10 @@ export function parseClientMessage(raw: string): ParseResult {
         error: { code: "bad-request", message: `message exceeds ${MAX_MESSAGE_BYTES} byte cap`, id: "oversized", oversized: true },
       };
     }
-    if (!looksLikeChatWithImage(parsed)) {
+    // Amendement 2026-10-09 (lot 7, docs/PROTOCOL.md "Page on demand"): a
+    // `page.content` carrying dev-level content gets the same raised
+    // allowance as a chat+image — see looksLikePageContent's own doc.
+    if (!looksLikeChatWithImage(parsed) && !looksLikePageContent(parsed)) {
       return {
         ok: false,
         error: { code: "bad-request", message: `message exceeds ${MAX_MESSAGE_BYTES} byte cap`, id: "oversized", oversized: true },
@@ -179,7 +189,11 @@ export function parseClientMessage(raw: string): ParseResult {
       // Amendement 2026-10-08 (bis, "historique"): same drop-not-reject
       // tolerance, per entry — see parseHistory's own doc.
       const history = parseHistory(parsed.history);
-      return { ok: true, message: { type: "chat", id, text: parsed.text, context, image, docSearch, history } };
+      // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md
+      // "Page on demand"): same drop-not-reject tolerance as image/docSearch.
+      const page = parsePageMeta(parsed.page);
+      const devMode = typeof parsed.devMode === "boolean" ? parsed.devMode : undefined;
+      return { ok: true, message: { type: "chat", id, text: parsed.text, context, image, docSearch, history, page, devMode } };
     }
     case "summarize": {
       const context = parseContext(parsed.context);
@@ -397,6 +411,51 @@ export function parseClientMessage(raw: string): ParseResult {
     }
     case "model.warmup": {
       return { ok: true, message: { type: "model.warmup", id } };
+    }
+    // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md
+    // "Page on demand"). Unlike image/docSearch/page (above), a malformed
+    // `page.content`/`page.decline` IS a bad-request — there is no
+    // "degrade gracefully, the request still goes through" fallback here:
+    // these messages carry no text of their own to fall back to, they only
+    // ever exist to answer a `page.request` the broker is actively waiting
+    // on (handlers/chat.ts) — a malformed answer must surface as an error,
+    // not vanish silently and leave that wait to run out the full
+    // PAGE_REQUEST_TIMEOUT_MS for nothing.
+    case "page.content": {
+      if (!isNonEmptyString(parsed.target)) {
+        return { ok: false, error: { code: "bad-request", message: "page.content: missing target", id } };
+      }
+      const level = parsed.level;
+      if (level !== "text" && level !== "dev") {
+        return { ok: false, error: { code: "bad-request", message: "page.content: invalid level", id } };
+      }
+      const context = parseContext(parsed.context);
+      if (!context) {
+        return { ok: false, error: { code: "bad-request", message: "page.content: missing context", id } };
+      }
+      // Security review (L6 pattern, same as chat+image): the raised 1.5 MiB
+      // allowance only exists to carry a VALID context — a frame that only
+      // got past the 256 KiB gate because it LOOKED like page.content, but
+      // whose context turned out unparsable, must still be held to the
+      // original cap.
+      if (byteLength > MAX_MESSAGE_BYTES && level !== "dev") {
+        return {
+          ok: false,
+          error: {
+            code: "bad-request",
+            message: `message exceeds ${MAX_MESSAGE_BYTES} byte cap`,
+            id: "oversized",
+            oversized: true,
+          },
+        };
+      }
+      return { ok: true, message: { type: "page.content", id, target: parsed.target, level, context } };
+    }
+    case "page.decline": {
+      if (!isNonEmptyString(parsed.target)) {
+        return { ok: false, error: { code: "bad-request", message: "page.decline: missing target", id } };
+      }
+      return { ok: true, message: { type: "page.decline", id, target: parsed.target } };
     }
     default:
       return { ok: false, error: { code: "bad-request", message: `unknown type: ${type}`, id } };

@@ -28,10 +28,11 @@ One line per decision still in force. A decision only reopens on new evidence, n
 | T54 | Point-to-element, screenshot-on-ask, and official-doc search are bounded so they never make Coati act on a page and never add a new permission. Click-after-consent (rule D) is explicitly NOT covered by this decision — it needs its own entry before any code. |
 | T55 | `<all_urls>` is optional-only, requested once when "See the screen" is turned on, never in `host_permissions`. |
 | T56 | To be replaced: search runs in the browser's default engine instead of Brave/Tavily (see `docs/ROADMAP.md`). Until then: a search only starts on an explicit request inside the user's own message text, detected server-side, never from a button. |
+| T57 | "Page on demand": a `chat` can offer page metadata only, letting the model ask for the real content (a literal marker in its streamed answer) only when it needs it, instead of sending page text on every question. Why: cost (most questions don't need the page) and latency; the marker-in-text approach works identically across every provider (no native tool-calling API required, no per-provider branching); detection lives in one shared place (`model/page-marker.ts`) rather than duplicated per provider. |
 
 ## Superseded, kept for the record
 - T54/T55 (permanent screen switch): to be replaced — the model proposes a screenshot, the user accepts in one click (`docs/ROADMAP.md` L4).
-- T56 (Brave/Tavily search): to be replaced — search runs in the browser's default engine (`docs/ROADMAP.md` L6).
+- T56 (Brave/Tavily search): to be replaced — search runs in the browser's default engine (`docs/ROADMAP.md` L3).
 
 ## Hard constraint — the gesture rule
 Coati accompanies a user's gesture, it never manufactures one. No background loop, no multi-page

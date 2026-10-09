@@ -1144,3 +1144,38 @@ textarea {
   text-align: center;
   user-select: text;
 }
+
+/* --- Dev mode look: strip decoration, keep colours -------------------------
+ * `mode-dev` is toggled on <html> by panel/dev-mode.js's updateDevModeUi()
+ * (no JS here beyond that). Overriding the two shared tokens instead of
+ * every consumer's own selector: --radius flattens every rounded corner in
+ * one place, --overlay-shadow removes every panel/card drop shadow the same
+ * way. Colour/contrast tokens (--bg, --fg, --accent, …) are untouched — the
+ * contrast sweep stays at 0 either way. */
+html.mode-dev {
+  --radius: 0px;
+  --overlay-shadow: none;
+}
+
+/* Background illustrations (.help-popover, .never-connected) are decor, not
+ * information — faded out rather than display:none so the fade below
+ * animates them like everything else. */
+html.mode-dev .help-popover::after,
+html.mode-dev .never-connected::after {
+  opacity: 0;
+}
+
+/* The answer area reads as "raw" in dev mode: system monospace, same stack
+ * already used for inline/code blocks a few rules up. */
+html.mode-dev .message--assistant {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+/* Animate the switch (~250 ms) on exactly the properties the rules above
+ * change. Zero-specificity :where() so any element's own `transition`
+ * declaration still wins. Skipped under prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(*, *::before, *::after) {
+    transition: border-radius 250ms ease, box-shadow 250ms ease, opacity 250ms ease, font-family 250ms ease;
+  }
+}

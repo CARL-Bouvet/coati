@@ -19,6 +19,10 @@ export {
   LANGUAGE_NAME,
   buildSystemPrompt,
   type PromptSource,
+  type PageMeta,
+  renderPageMeta,
+  pageOnDemandInstruction,
+  PAGE_READ_DECLINED_NOTE,
 } from "./model/render.ts";
 
 export {
@@ -57,3 +61,12 @@ export {
   type AnswerEvent,
   ThinkFilter,
 } from "./model/streaming.ts";
+
+export {
+  MARKER_TEXT,
+  MARKER_DEV,
+  type PageMarkerLevel,
+  type PageMarkerPosition,
+  type PageMarkerEvent,
+  PageMarkerDetector,
+} from "./model/page-marker.ts";

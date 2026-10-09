@@ -63,9 +63,9 @@
         <span id="readPageLabel" class="encart-read-label"></span>
       </button>
       <span id="siteCardLabel" class="site-card-label"></span>
-      <button id="attachPage" class="switch" type="button" role="switch" aria-checked="false" disabled>
+      <button id="devMode" class="switch" type="button" role="switch" aria-checked="false" hidden>
         <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-        <span class="switch-text" data-i18n="panel_read_the_page">Read the page</span>
+        <span class="switch-text" data-i18n="panel_dev_mode">Dev mode</span>
       </button>
     </div>
     <p id="readPageNote" class="encart-read-note" hidden></p>
@@ -100,13 +100,6 @@
     <div class="composer-bar">
       <span id="promptSavedNotice" class="prompt-saved-notice" aria-live="polite"></span>
       <button id="savePrompt" class="icon-button" type="button" data-i18n-title="panel_save_prompt" data-i18n-aria-label="panel_save_prompt" disabled>💾</button>
-    </div>
-    <div id="attachScreenRow" class="attach-screen-row" hidden>
-      <button id="attachScreen" class="switch" type="button" role="switch" aria-checked="false" data-i18n-title="panel_attach_screen_title">
-        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-        <span class="switch-text" data-i18n="panel_attach_screen">See the screen</span>
-      </button>
-      <span id="attachScreenDestination" class="attach-screen-destination"></span>
     </div>
     <p id="historyNotice" class="history-notice" aria-live="polite" hidden></p>
     <textarea id="input" class="composer-input" data-i18n-placeholder="panel_input_placeholder" placeholder="Write to Coati…" rows="1"></textarea>

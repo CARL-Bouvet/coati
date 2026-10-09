@@ -3,9 +3,16 @@
 // server.ts (lot F5).
 
 import { send } from "../ws-send.ts";
-import { logRequestReceived, logRequestCompleted, contextTooLarge, contextBudgetError } from "../logging.ts";
+import {
+  logRequestReceived,
+  logRequestCompleted,
+  contextTooLarge,
+  contextBudgetError,
+  MAX_CONTEXT_CHARS,
+  MAX_DEV_CONTEXT_CHARS,
+} from "../logging.ts";
 import { DEFAULT_OLLAMA_URL, resolveSearchApiKey } from "../config.ts";
-import { fetchPsEntries, matchesModel } from "../providers/ollama.ts";
+import { fetchPsEntries, matchesModel, listModelEntries as listOllamaModelEntries } from "../providers/ollama.ts";
 import type { ModelProvider, ProviderRuntimeOptions } from "../providers/types.ts";
 import {
   buildPrompt,
@@ -19,9 +26,10 @@ import {
   isVisionUnsupportedError,
   ModelTimeoutError,
   RateLimitedError,
+  PageMarkerDetector,
   type BuiltPrompt,
 } from "../model.ts";
-import type { Context, ChatImage, HistoryEntry } from "../protocol.ts";
+import type { Context, ChatImage, HistoryEntry, PageMeta, ErrorCode } from "../protocol.ts";
 import {
   runDocSearch,
   isSearchNotConfiguredError,
@@ -38,6 +46,115 @@ import type { SettingsCtx } from "./settings.ts";
 // spawns N provider calls with no limit. See docs/PROTOCOL.md "Limites".
 export const MAX_CONCURRENT_STREAMS = 3;
 
+/** Maps a thrown provider error to the wire error code / log outcome —
+ * factored out of runStream's own catch block so the page-on-demand loop
+ * (handleChatPageOnDemand below) classifies a provider failure the exact
+ * same way, for any provider, without duplicating the branching chain. */
+function classifyProviderError(err: unknown): { code: ErrorCode; retryAfterSec?: number; outcome: string; message: string } {
+  const message = err instanceof Error ? err.message : String(err);
+  const code: ErrorCode = isAuthRequiredError(err)
+    ? "auth-required"
+    : isQuotaExceededError(err)
+      ? "quota-exceeded"
+      : isRateLimitedError(err)
+        ? "rate-limited"
+        : isModelMissingError(err)
+          ? "model-missing"
+          : isProviderOverloadedError(err)
+            ? "provider-overloaded"
+            : isModelStalledError(err)
+              ? "model-stalled"
+              : isVisionUnsupportedError(err)
+                ? "vision-unsupported"
+                : isModelUnavailableError(err)
+                  ? "model-unavailable"
+                  : "internal";
+  const retryAfterSec = err instanceof RateLimitedError ? err.retryAfterSec : undefined;
+  const outcome = err instanceof ModelTimeoutError ? "timeout" : isModelStalledError(err) ? "stalled" : `error:${code}`;
+  return { code, retryAfterSec, outcome, message };
+}
+
+/** Handle a provider call's own in-flight `progress` notifications
+ * (Ollama-only, docs/PROTOCOL.md's `progress` message) — factored out of
+ * runStream so the page-on-demand loop (runOnDemandCall below) gets the
+ * exact same loading/reading/thinking behaviour for every provider call it
+ * makes, without duplicating the polling logic. A no-op shell (every method
+ * is a harmless no-op) for any non-Ollama provider. */
+interface ProgressTracker {
+  /** Call on the first real content event of the stream (before forwarding
+   * it) — stops the /api/ps poll. Idempotent. */
+  markFirstChunk(): void;
+  /** Call on a `thinking` event, before any content chunk — emits
+   * progress:thinking at most once, never after a content chunk. */
+  markThinking(): void;
+  /** Call once the stream is done/erroring/cancelled — stops the poll loop
+   * for good, whichever way the call ended. */
+  stop(): void;
+}
+
+/** Amendement 2026-10-07 (bis): progress notifications (Ollama only). Checks
+ * /api/ps before the stream starts, emits loading/reading, then polls every
+ * 1 s until the model appears in /api/ps or the caller reports the first
+ * chunk. Awaited before the stream loop starts, same as the inline version
+ * this replaces, so the initial loading/reading notification always
+ * precedes any chunk. */
+async function startProgressTracking(
+  ws: { send(data: string): unknown },
+  id: string,
+  provider: ModelProvider,
+  providerOpts: ProviderRuntimeOptions,
+  signal: AbortSignal,
+): Promise<ProgressTracker> {
+  let firstChunkSent = false;
+  let progressPollingDone = false;
+  // Amendement 2026-10-07 (bis): thinking stage — sent at most once, before
+  // any content, when the provider emits a thinking event (thinking-only model).
+  let thinkingProgressSent = false;
+
+  if (provider.id === "ollama") {
+    const ollamaUrl = providerOpts.ollamaUrl ?? DEFAULT_OLLAMA_URL;
+    const model = providerOpts.model ?? "";
+    const psEntries = await fetchPsEntries({ ollamaUrl, signal }).catch(() => [] as Awaited<ReturnType<typeof fetchPsEntries>>);
+    if (!signal.aborted) {
+      const alreadyLoaded = psEntries.some((e) => matchesModel(e.name, model));
+      send(ws, { type: "progress", id, stage: alreadyLoaded ? "reading" : "loading" });
+      if (alreadyLoaded) {
+        progressPollingDone = true;
+      } else {
+        // Poll /api/ps every 1 s in background; stop when model appears or stream ends.
+        void (async () => {
+          while (!progressPollingDone && !firstChunkSent) {
+            await new Promise<void>((r) => setTimeout(r, 1000));
+            if (progressPollingDone || firstChunkSent) break;
+            const ps = await fetchPsEntries({ ollamaUrl, signal }).catch(() => [] as Awaited<ReturnType<typeof fetchPsEntries>>);
+            if (ps.some((e) => matchesModel(e.name, model))) {
+              if (!firstChunkSent) send(ws, { type: "progress", id, stage: "reading" });
+              progressPollingDone = true;
+              break;
+            }
+          }
+        })();
+      }
+    }
+  }
+
+  return {
+    markFirstChunk() {
+      firstChunkSent = true;
+      progressPollingDone = true;
+    },
+    markThinking() {
+      if (!thinkingProgressSent && !firstChunkSent) {
+        thinkingProgressSent = true;
+        send(ws, { type: "progress", id, stage: "thinking" });
+      }
+    },
+    stop() {
+      progressPollingDone = true;
+    },
+  };
+}
+
 async function runStream(
   ws: { send(data: string): unknown },
   active: Map<string, AbortController>,
@@ -49,42 +166,7 @@ async function runStream(
 ): Promise<void> {
   const controller = new AbortController();
   active.set(id, controller);
-
-  // Amendement 2026-10-07 (bis): progress notifications (Ollama only).
-  // Check /api/ps before the stream starts, emit loading/reading, then poll
-  // every 1 s until the model appears in /api/ps or the first chunk arrives.
-  let firstChunkSent = false;
-  let progressPollingDone = false;
-  // Amendement 2026-10-07 (bis): thinking stage — sent at most once, before
-  // any content, when the provider emits a thinking event (thinking-only model).
-  let thinkingProgressSent = false;
-
-  if (provider.id === "ollama") {
-    const ollamaUrl = providerOpts.ollamaUrl ?? DEFAULT_OLLAMA_URL;
-    const model = providerOpts.model ?? "";
-    const psEntries = await fetchPsEntries({ ollamaUrl, signal: controller.signal }).catch(() => [] as Awaited<ReturnType<typeof fetchPsEntries>>);
-    if (!controller.signal.aborted) {
-      const alreadyLoaded = psEntries.some((e) => matchesModel(e.name, model));
-      send(ws, { type: "progress", id, stage: alreadyLoaded ? "reading" : "loading" });
-      if (alreadyLoaded) {
-        progressPollingDone = true;
-      } else {
-        // Poll /api/ps every 1 s in background; stop when model appears or stream ends.
-        void (async () => {
-          while (!progressPollingDone && !firstChunkSent) {
-            await new Promise<void>((r) => setTimeout(r, 1000));
-            if (progressPollingDone || firstChunkSent) break;
-            const ps = await fetchPsEntries({ ollamaUrl, signal: controller.signal }).catch(() => [] as Awaited<ReturnType<typeof fetchPsEntries>>);
-            if (ps.some((e) => matchesModel(e.name, model))) {
-              if (!firstChunkSent) send(ws, { type: "progress", id, stage: "reading" });
-              progressPollingDone = true;
-              break;
-            }
-          }
-        })();
-      }
-    }
-  }
+  const progress = await startProgressTracking(ws, id, provider, providerOpts, controller.signal);
 
   try {
     let usage = { inputTokens: 0, outputTokens: 0 };
@@ -102,16 +184,10 @@ async function runStream(
       // Amendement 2026-10-07 (bis): thinking event — emit progress:thinking
       // once (before any content chunk), never forward as text.
       if (event.kind === "thinking") {
-        if (!thinkingProgressSent && !firstChunkSent) {
-          thinkingProgressSent = true;
-          send(ws, { type: "progress", id, stage: "thinking" });
-        }
+        progress.markThinking();
         continue;
       }
-      if (!firstChunkSent) {
-        firstChunkSent = true;
-        progressPollingDone = true; // stop progress polling
-      }
+      progress.markFirstChunk();
       send(ws, { type: "chunk", id, delta: event.text });
     }
     if (controller.signal.aborted) {
@@ -122,43 +198,17 @@ async function runStream(
       logRequestCompleted(id, "ok", Date.now() - startedAt);
     }
   } catch (err) {
-    progressPollingDone = true;
+    progress.stop();
     if (controller.signal.aborted) {
       send(ws, { type: "error", id, code: "cancelled", message: "request cancelled" });
       logRequestCompleted(id, "cancelled", Date.now() - startedAt);
     } else {
-      const message = err instanceof Error ? err.message : String(err);
-      const code = isAuthRequiredError(err)
-        ? "auth-required"
-        : isQuotaExceededError(err)
-          ? "quota-exceeded"
-          : isRateLimitedError(err)
-            ? "rate-limited"
-            : isModelMissingError(err)
-              ? "model-missing"
-              : isProviderOverloadedError(err)
-                ? "provider-overloaded"
-                : isModelStalledError(err)
-                  ? "model-stalled"
-                  // Amendement 2026-10-08 (lot B1): checked ahead of the
-                  // generic model-unavailable heuristic, same rank as the
-                  // other typed errors above — docs/PROTOCOL.md §4.
-                  : isVisionUnsupportedError(err)
-                    ? "vision-unsupported"
-                    : isModelUnavailableError(err)
-                      ? "model-unavailable"
-                      : "internal";
-      const retryAfterSec = err instanceof RateLimitedError ? err.retryAfterSec : undefined;
+      const { code, retryAfterSec, outcome, message } = classifyProviderError(err);
       send(ws, { type: "error", id, code, message, ...(retryAfterSec !== undefined ? { retryAfterSec } : {}) });
-      const outcome = err instanceof ModelTimeoutError
-        ? "timeout"
-        : isModelStalledError(err)
-          ? "stalled"
-          : `error:${code}`;
       logRequestCompleted(id, outcome, Date.now() - startedAt, message);
     }
   } finally {
-    progressPollingDone = true;
+    progress.stop();
     active.delete(id);
   }
 }
@@ -524,4 +574,404 @@ export function handleChatDocSearch(
       if (active.get(message.id) === searchController) active.delete(message.id);
     }
   })();
+}
+
+// ---------------------------------------------------------------------------
+// Lot 7, "page on demand" — docs/PROTOCOL.md "Page on demand". A `chat` that
+// carries `page` and no `context` at all shows the model only the page's
+// metadata (title/url/kind/chars); if the model's own streamed answer
+// matches one of the two markers (model/page-marker.ts), the broker asks
+// the client for the real content (or accepts a decline), re-runs the exact
+// same question with it, and repeats — up to two round trips total, at most
+// one per level. See handleMessage's own "chat" case (handlers/dispatch.ts)
+// for the branch that only ever reaches this file when `context` is absent.
+// ---------------------------------------------------------------------------
+
+/** How long the broker waits for a `page.content`/`page.decline` after
+ * sending a `page.request`, before failing the request outright with
+ * `page-unavailable` (docs/PROTOCOL.md "Page on demand"). */
+export const PAGE_REQUEST_TIMEOUT_MS = 120_000;
+
+// Amendement 2026-10-09 (lot 7): fits dev-level content (already bounded to
+// MAX_DEV_CONTEXT_CHARS by the protocol) to the ACTIVE model's own context
+// window — "whatever models.ts/ollama.ts already know", i.e. Ollama's own
+// contextTokens tier when the active provider is ollama, else a per-provider
+// fixed fallback (no other provider reports a context size to this broker
+// today). ~3.5 chars/token is the same rough English-prose ratio used
+// nowhere else numerically in this codebase but is the standard rule of
+// thumb for Latin-script text; kept local to this one estimate, never
+// presented to a human as exact.
+const DEV_CHARS_PER_TOKEN = 3.5;
+const DEV_ANSWER_RESERVE_TOKENS = 2000;
+// Ollama-lookup-failure fallback only (daemon unreachable, model not found) —
+// distinct from the non-Ollama fallbacks below, which are per-provider.
+const DEV_DEFAULT_CONTEXT_TOKENS = 8192;
+const DEV_MIN_USABLE_TOKENS = 1000;
+// Amendement (lot 7 fix): claude-api/claude-cli both front large-context
+// Anthropic models — 200k tokens is Claude's own documented window, not a
+// guess. Every other non-Ollama provider (openai-compat, an external
+// module) reports no context size to this broker at all, so 32768 is a
+// conservative placeholder, well short of most modern remote models but far
+// above the old 8192 default dev mode is meant to exceed.
+const DEV_CLAUDE_CONTEXT_TOKENS = 200_000;
+const DEV_OTHER_PROVIDER_CONTEXT_TOKENS = 32_768;
+
+/** Exported for tests. Pure: the character budget dev-level content is fit
+ * to, given the active model's own context size in tokens (undefined when
+ * unknown — see resolveActiveContextTokens below). Always ≤
+ * MAX_DEV_CONTEXT_CHARS. */
+export function devContentCharBudget(contextTokens: number | undefined): number {
+  const tokens = contextTokens ?? DEV_DEFAULT_CONTEXT_TOKENS;
+  const usable = Math.max(tokens - DEV_ANSWER_RESERVE_TOKENS, DEV_MIN_USABLE_TOKENS);
+  return Math.min(Math.floor(usable * DEV_CHARS_PER_TOKEN), MAX_DEV_CONTEXT_CHARS);
+}
+
+/** The active model's own context window, in tokens, when this broker can
+ * tell — Ollama reports a real per-model figure (models.list/model.warmup
+ * use the same lookup), `undefined` on any lookup failure (daemon
+ * unreachable, model not found), in which case devContentCharBudget's own
+ * DEV_DEFAULT_CONTEXT_TOKENS fallback applies. Every other provider gets a
+ * fixed per-provider estimate (DEV_CLAUDE_CONTEXT_TOKENS/
+ * DEV_OTHER_PROVIDER_CONTEXT_TOKENS above) — never `undefined`, since none
+ * of them can fail this lookup (nothing is actually probed). Never throws.
+ * Exported for tests. */
+export async function resolveActiveContextTokens(
+  provider: ModelProvider,
+  providerOpts: ProviderRuntimeOptions,
+): Promise<number | undefined> {
+  if (provider.id !== "ollama") {
+    return provider.id === "claude-api" || provider.id === "claude-cli"
+      ? DEV_CLAUDE_CONTEXT_TOKENS
+      : DEV_OTHER_PROVIDER_CONTEXT_TOKENS;
+  }
+  try {
+    const ollamaUrl = providerOpts.ollamaUrl ?? DEFAULT_OLLAMA_URL;
+    const entries = await listOllamaModelEntries({ ollamaUrl });
+    const entry = entries.find((e) => matchesModel(e.name, providerOpts.model ?? ""));
+    return entry?.contextTokens;
+  } catch {
+    return undefined;
+  }
+}
+
+type PageAnswer = { kind: "content"; level: "text" | "dev"; context: Context } | { kind: "decline" };
+
+/** Per-connection state this module needs beyond `active` — a slice of
+ * handshake.ts's ConnData, kept narrow so tests can pass a bare object
+ * literal rather than a full connection. */
+export interface PageOnDemandConnState {
+  closed: boolean;
+  pageRequests: Map<string, (answer: PageAnswer) => void>;
+}
+
+/** Resolves once a `page.content`/`page.decline` naming `id` as its `target`
+ * arrives (dispatch.ts calls the resolver this registers), the wait times
+ * out (PAGE_REQUEST_TIMEOUT_MS), or `signal` aborts (connection closed, or a
+ * `cancel` for this id). Removes its own entry from `pageRequests` exactly
+ * once, however it resolves — never leaves a stale resolver behind. */
+function awaitPageAnswer(
+  connState: PageOnDemandConnState,
+  id: string,
+  signal: AbortSignal,
+): Promise<PageAnswer | "timeout" | "aborted"> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => finish("timeout"), PAGE_REQUEST_TIMEOUT_MS);
+    function finish(result: PageAnswer | "timeout" | "aborted"): void {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      connState.pageRequests.delete(id);
+      resolve(result);
+    }
+    function onAbort(): void {
+      finish("aborted");
+    }
+    signal.addEventListener("abort", onAbort);
+    connState.pageRequests.set(id, (answer) => finish(answer));
+  });
+}
+
+/** Validates and, for level "dev", fits the client-supplied page content
+ * before it is spliced into a re-run prompt. Returns an error message
+ * (never thrown) when the content breaches a size bound — "the broker
+ * refuses, it never truncates" for a protocol-level breach (level "text"'s
+ * existing MAX_CONTEXT_CHARS/contextBudgetError, or level "dev" past
+ * MAX_DEV_CONTEXT_CHARS) — distinct from the dev-only fit-to-model-context
+ * truncation below, which is expected/routine and always reported via
+ * `report.truncated`, never refused. */
+async function fitPageContent(
+  level: "text" | "dev",
+  context: Context,
+  provider: ModelProvider,
+  providerOpts: ProviderRuntimeOptions,
+): Promise<
+  | { error: string }
+  | { error?: undefined; context: Context; report: { level: "text" | "dev"; chars: number; sentChars: number; truncated: boolean } }
+> {
+  const chars = context.text?.length ?? 0;
+  if (level === "text") {
+    if (contextTooLarge(context.text)) return { error: `text exceeds ${MAX_CONTEXT_CHARS} characters` };
+    const budgetError = contextBudgetError(context);
+    if (budgetError) return { error: budgetError };
+    return { context, report: { level, chars, sentChars: chars, truncated: false } };
+  }
+  // level === "dev": the protocol's own hard cap first (a breach refuses,
+  // same stance as every other numeric wire bound in this codebase).
+  if (chars > MAX_DEV_CONTEXT_CHARS) {
+    return { error: `page content exceeds ${MAX_DEV_CONTEXT_CHARS} characters` };
+  }
+  const contextTokens = await resolveActiveContextTokens(provider, providerOpts);
+  const budget = devContentCharBudget(contextTokens);
+  if (chars <= budget) {
+    return { context, report: { level, chars, sentChars: chars, truncated: false } };
+  }
+  // Truncates from the end, reports it — never a refusal: fitting dev
+  // content to the model's own window is routine, not a client breach.
+  return {
+    context: { ...context, text: (context.text ?? "").slice(0, budget) },
+    report: { level, chars, sentChars: budget, truncated: true },
+  };
+}
+
+interface OnDemandCallResult {
+  outcome: "ok" | "cancelled" | "error" | "marker";
+  usage: { inputTokens: number; outputTokens: number };
+  historyKept?: number;
+  marker?: { level: "text" | "dev"; position: "start" | "mid" };
+  err?: unknown;
+}
+
+/**
+ * Runs exactly ONE provider call for the page-on-demand loop below, through
+ * the shared marker detector (model/page-marker.ts) — the ONE place a
+ * streamed answer is scanned for either marker, regardless of which
+ * provider is active (docs/PROTOCOL.md "Page on demand": "all providers,
+ * one shared place — not per provider"). Thinking/reasoning events are
+ * never fed to the detector (never scanned, per the same spec line) — same
+ * treatment as the plain chat path above. `canTrigger` is the caller's own
+ * read-cap policy (at most one read per level, two per question): a marker
+ * this returns false for is still never forwarded as text, but does NOT
+ * abort the stream — it is simply stripped, and the rest of the stream
+ * keeps flowing normally ("a marker beyond that is stripped and ignored").
+ * Amendement (lot 7 fix): Ollama's loading/reading/thinking `progress`
+ * notifications (startProgressTracking above) fire for THIS call exactly as
+ * they do in the plain chat path — every provider call the on-demand loop
+ * makes (the metadata-only call and any re-run) gets its own tracker.
+ */
+async function runOnDemandCall(
+  ws: { send(data: string): unknown },
+  active: Map<string, AbortController>,
+  id: string,
+  built: BuiltPrompt,
+  provider: ModelProvider,
+  providerOpts: ProviderRuntimeOptions,
+  allowDevMarker: boolean,
+  canTrigger: (level: "text" | "dev") => boolean,
+): Promise<OnDemandCallResult> {
+  const controller = new AbortController();
+  active.set(id, controller);
+  const progress = await startProgressTracking(ws, id, provider, providerOpts, controller.signal);
+  const detector = new PageMarkerDetector({ allowDev: allowDevMarker });
+  let usage = { inputTokens: 0, outputTokens: 0 };
+  let historyKept: number | undefined;
+  try {
+    for await (const event of provider.streamAnswer(built, { signal: controller.signal, ...providerOpts })) {
+      if (controller.signal.aborted) break;
+      if (event.kind === "usage") {
+        usage = event.usage;
+        historyKept = event.historyKept;
+        continue;
+      }
+      if (event.kind === "thinking") {
+        progress.markThinking();
+        continue; // never scanned, never forwarded
+      }
+      progress.markFirstChunk();
+      for (const ev of detector.feed(event.text)) {
+        if (ev.kind === "text") {
+          if (ev.text.length > 0) send(ws, { type: "chunk", id, delta: ev.text });
+          continue;
+        }
+        if (canTrigger(ev.level)) {
+          controller.abort();
+          return { outcome: "marker", usage, historyKept, marker: { level: ev.level, position: ev.position } };
+        }
+        // Beyond the read caps: stripped and ignored — keep consuming the
+        // rest of this same stream, never aborting, never requesting again.
+      }
+    }
+    if (controller.signal.aborted) return { outcome: "cancelled", usage, historyKept };
+    for (const ev of detector.flush()) {
+      if (ev.kind === "text" && ev.text.length > 0) send(ws, { type: "chunk", id, delta: ev.text });
+    }
+    return { outcome: "ok", usage, historyKept };
+  } catch (err) {
+    if (controller.signal.aborted) return { outcome: "cancelled", usage, historyKept };
+    return { outcome: "error", usage, historyKept, err };
+  } finally {
+    progress.stop();
+    if (active.get(id) === controller) active.delete(id);
+  }
+}
+
+function addUsage(
+  a: { inputTokens: number; outputTokens: number },
+  b: { inputTokens: number; outputTokens: number },
+): { inputTokens: number; outputTokens: number } {
+  return { inputTokens: a.inputTokens + b.inputTokens, outputTokens: a.outputTokens + b.outputTokens };
+}
+
+/**
+ * Entry point for a `chat` carrying `page` and no `context` — see
+ * handleMessage's "chat" case (handlers/dispatch.ts), the only caller. Gates
+ * exactly like any other chat/summarize/act (size, concurrency, provider),
+ * then hands off to the async loop below.
+ */
+export function handleChatPageOnDemand(
+  ws: { send(data: string): unknown },
+  message: { id: string; text: string; page: PageMeta; devMode?: boolean; history?: HistoryEntry[] },
+  active: Map<string, AbortController>,
+  settingsCtx: SettingsCtx,
+  lang: Lang,
+  connState: PageOnDemandConnState,
+): void {
+  const gated = gateStreamingRequest(ws, message, active, settingsCtx, {
+    logType: "chat",
+    logContextKind: "page",
+    logTextLength: message.text.length,
+    logPageKind: message.page.kind,
+    logFactsCount: 0,
+    logItemsCount: 0,
+    hasImage: false,
+    tooLargeText: message.text,
+  });
+  if (!gated) return;
+  const { provider, providerOpts, startedAt } = gated;
+  void runChatPageOnDemandLoop(ws, message, active, provider, providerOpts, lang, connState, startedAt);
+}
+
+async function runChatPageOnDemandLoop(
+  ws: { send(data: string): unknown },
+  message: { id: string; text: string; page: PageMeta; devMode?: boolean; history?: HistoryEntry[] },
+  active: Map<string, AbortController>,
+  provider: ModelProvider,
+  providerOpts: ProviderRuntimeOptions,
+  lang: Lang,
+  connState: PageOnDemandConnState,
+  startedAt: number,
+): Promise<void> {
+  const devMode = message.devMode === true;
+  let totalUsage = { inputTokens: 0, outputTokens: 0 };
+  let historyKept: number | undefined;
+  let reads = 0;
+  const usedLevels = new Set<"text" | "dev">();
+  const canTrigger = (level: "text" | "dev") => reads < 2 && !usedLevels.has(level);
+
+  let built = buildPrompt(
+    { kind: "chat", text: message.text, page: message.page, devMode, history: message.history },
+    lang,
+  );
+  let pageReport: { level: "text" | "dev"; chars: number; sentChars: number; truncated: boolean } | undefined;
+
+  // At most two round trips (reads<2 above already enforces this at the
+  // policy level) — this outer bound is belt-and-braces against a runaway
+  // loop should canTrigger ever be miscomputed.
+  for (let turn = 0; turn < 4; turn++) {
+    const result = await runOnDemandCall(ws, active, message.id, built, provider, providerOpts, devMode, canTrigger);
+    totalUsage = addUsage(totalUsage, result.usage);
+    if (result.historyKept !== undefined) historyKept = result.historyKept;
+
+    if (result.outcome === "cancelled") {
+      if (!connState.closed) send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
+      logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
+      return;
+    }
+    if (result.outcome === "error") {
+      const { code, retryAfterSec, outcome, message: msg } = classifyProviderError(result.err);
+      send(ws, { type: "error", id: message.id, code, message: msg, ...(retryAfterSec !== undefined ? { retryAfterSec } : {}) });
+      logRequestCompleted(message.id, outcome, Date.now() - startedAt, msg);
+      return;
+    }
+    if (result.outcome === "ok") {
+      send(ws, {
+        type: "done",
+        id: message.id,
+        usage: totalUsage,
+        ...(historyKept !== undefined ? { historyKept } : {}),
+        ...(pageReport ? { page: pageReport } : {}),
+      });
+      logRequestCompleted(message.id, "ok", Date.now() - startedAt);
+      return;
+    }
+
+    // result.outcome === "marker": ask the client for the page.
+    const marker = result.marker!;
+    reads++;
+    usedLevels.add(marker.level);
+    if (connState.closed) {
+      logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
+      return;
+    }
+    send(ws, { type: "page.request", id: message.id, level: marker.level, ...(marker.position === "mid" ? { discard: true as const } : {}) });
+
+    const waitController = new AbortController();
+    active.set(message.id, waitController);
+    const answer = await awaitPageAnswer(connState, message.id, waitController.signal);
+    if (active.get(message.id) === waitController) active.delete(message.id);
+
+    if (answer === "timeout") {
+      send(ws, { type: "error", id: message.id, code: "page-unavailable", message: "the client did not answer the page request in time" });
+      logRequestCompleted(message.id, "error:page-unavailable", Date.now() - startedAt);
+      return;
+    }
+    if (answer === "aborted" || connState.closed) {
+      if (!connState.closed) send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
+      logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
+      return;
+    }
+    if (answer.kind === "decline") {
+      built = buildPrompt({ kind: "chat", text: message.text, declinedPageRead: true, history: message.history }, lang);
+      continue;
+    }
+
+    // Protocol breach: the client answered with a level other than the one
+    // the broker actually requested (`marker.level`, sent in page.request
+    // above) — never silently accepted or coerced, same stance as every
+    // other wire-shape mismatch (docs/PROTOCOL.md "bad-request").
+    if (answer.level !== marker.level) {
+      send(ws, {
+        type: "error",
+        id: message.id,
+        code: "bad-request",
+        message: `page.content level "${answer.level}" does not match the requested level "${marker.level}"`,
+      });
+      logRequestCompleted(message.id, "error:bad-request", Date.now() - startedAt);
+      return;
+    }
+
+    const fit = await fitPageContent(answer.level, answer.context, provider, providerOpts);
+    if (fit.error) {
+      send(ws, { type: "error", id: message.id, code: "context-too-large", message: fit.error });
+      logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
+      return;
+    }
+    pageReport = fit.report;
+    // Amendement (lot 7 fix): after a TEXT read, still offer the dev marker
+    // when devMode allows it and dev hasn't been used yet — canTrigger("dev")
+    // already encodes both conditions (and naturally returns false right
+    // after a DEV read itself, since usedLevels now has "dev" — symmetric,
+    // no instruction offered at all in that case).
+    built = buildPrompt(
+      {
+        kind: "chat",
+        text: message.text,
+        context: fit.context,
+        history: message.history,
+        offerDevRead: devMode && canTrigger("dev"),
+      },
+      lang,
+    );
+  }
 }

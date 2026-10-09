@@ -17,7 +17,12 @@ import {
   renderSources,
   sourcesInstruction,
   ELEMENTS_INSTRUCTION,
+  renderPageMeta,
+  pageOnDemandInstruction,
+  pageDevEscalationInstruction,
+  PAGE_READ_DECLINED_NOTE,
   type PromptSource,
+  type PageMeta,
 } from "./render.ts";
 
 export type PromptInput =
@@ -45,6 +50,39 @@ export type PromptInput =
        * untrusted page content — security review) before handing it to
        * BuiltPrompt.history for a provider to render as real turns. */
       history?: HistoryEntry[];
+      /**
+       * Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md
+       * "Page on demand"). Mutually exclusive with `context` in practice —
+       * handlers/dispatch.ts only ever sets this when the wire `chat` carried
+       * `page` and no `context` at all (point 2 of the spec: "if chat.context
+       * is present, behaviour is unchanged"). When set, buildPrompt renders
+       * the page's metadata (not its content) plus the trusted on-demand
+       * instruction instead of a normal page-content block.
+       */
+      page?: PageMeta;
+      /** Only meaningful together with `page` above — offers the dev marker
+       * in the instruction when true (docs/PROTOCOL.md "Page on demand"). */
+      devMode?: boolean;
+      /**
+       * Amendement 2026-10-09 (lot 7). Set on the RE-RUN prompt after the
+       * user declined a `page.request` — splices in a trusted note instead
+       * of the page's content. Mutually exclusive with `page`/`context`
+       * carrying real content at the same time as this flag (handlers/chat.ts
+       * only ever sets one of the three for a given call).
+       */
+      declinedPageRead?: boolean;
+      /**
+       * Amendement 2026-10-09 (lot 7 fix). Set on the RE-RUN prompt after a
+       * TEXT-level `page.content` was spliced in via `context` above, when
+       * devMode is true AND the dev marker is still available for this
+       * question (handlers/chat.ts's own canTrigger("dev")) — offers
+       * `[[READ_PAGE_DEV]]` even though the model already has the page's
+       * text, so a question that turns out to need HTML structure can still
+       * escalate text→dev. Never set together with `page` (that case is
+       * covered by `pageOnDemandInstruction` itself) nor with
+       * `declinedPageRead`.
+       */
+      offerDevRead?: boolean;
     }
   | { kind: "summarize"; context: Context }
   | { kind: "act"; action: ActAction; text: string; params?: { targetLang?: string } };
@@ -186,7 +224,7 @@ function listingSummaryInstruction(lang: Lang): string {
   const checksRange = "4 à 6";
   const lines = [
     "Summarize the page content above — the page of a single listing (a property, product,",
-    'vehicle, or job offer). It shows facts under "Faits affichés par la page :" and usually a',
+    'vehicle, or job offer). It shows facts under "Facts shown by the page:" and usually a',
     `descriptive text written by the seller or agency. Write the summary IN`,
     `${LANGUAGE_NAME[lang].toUpperCase()}, whatever language the content is in.`,
     "",
@@ -300,6 +338,12 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
     case "chat": {
       const parts: string[] = [];
       if (input.context) parts.push(renderContext(input.context, nonce));
+      // Amendement 2026-10-09 (lot 7, "page on demand"): metadata-only block
+      // + trusted instruction, in place of a real page-content block — only
+      // ever reached when the caller sent `page` and no `context` at all.
+      if (!input.context && input.page) {
+        parts.push(renderPageMeta(input.page, nonce));
+      }
       // Amendement 2026-10-08 (lot C1): rendered in its own fence block,
       // same nonce, right after any page context and before the user's own
       // request — see renderSources's doc for why these are trusted no more
@@ -312,6 +356,23 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
       // fence, added only when elements survived validation non-empty.
       if (input.context?.elements && input.context.elements.length > 0) {
         parts.push(ELEMENTS_INSTRUCTION);
+      }
+      // Amendement 2026-10-09 (lot 7, "page on demand"): the instruction
+      // naming the marker(s) — only when this is the metadata-only, no-content
+      // call (never together with real `context`, never on the decline note
+      // below: the model already got its answer to "can I read it?" by then).
+      if (!input.context && input.page) {
+        parts.push(pageOnDemandInstruction(input.devMode === true));
+      }
+      if (input.declinedPageRead) {
+        parts.push(PAGE_READ_DECLINED_NOTE);
+      }
+      // Amendement 2026-10-09 (lot 7 fix): offers the dev marker on a re-run
+      // that already carries the page's TEXT content (see offerDevRead's
+      // own doc above) — the only place this instruction is used outside
+      // the metadata-only pageOnDemandInstruction block above.
+      if (input.offerDevRead) {
+        parts.push(pageDevEscalationInstruction());
       }
       const images = input.image ? [input.image] : undefined;
       // Amendement 2026-10-08 (bis, "historique"): sanitized the same way as

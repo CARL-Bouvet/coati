@@ -1,121 +1,352 @@
 {
-  "extName": { "message": "Coati" },
+  "extName": {
+    "message": "Coati"
+  },
   "extDescription": {
     "message": "本地 AI 助手：总结页面或视频，与模型对话，对所选内容执行操作，通过运行在本机的本地程序实现。"
   },
-  "extCommandOpen": { "message": "打开 Coati" },
-
-  "lang_name_en": { "message": "English" },
-  "lang_name_fr": { "message": "Français" },
-  "lang_name_zh_cn": { "message": "简体中文" },
-  "lang_name_auto": { "message": "浏览器语言" },
-  "lang_selector_label": { "message": "语言" },
-
-  "common_provider_claude_api": { "message": "Claude（API 密钥）" },
-  "common_provider_ollama": { "message": "Ollama（本地）" },
-  "common_provider_openai_compat": { "message": "OpenAI 兼容" },
-  "common_status_connected": { "message": "已连接" },
-  "common_status_connecting": { "message": "连接中…" },
-  "common_status_disconnected": { "message": "已断开" },
-  "common_status_no_token": { "message": "无令牌" },
-  "common_status_no_host": { "message": "未找到本地程序" },
-  "common_status_broker_untrusted": { "message": "本地程序未验证" },
-  "common_status_pairing_retry": { "message": "重试中…" },
-  "common_status_unknown": { "message": "…" },
-  "common_error_bad_request": { "message": "请求无效。" },
-  "common_error_unauthorized": { "message": "未授权。" },
-  "common_error_model_unavailable": { "message": "模型未响应。" },
-  "common_error_model_stalled": { "message": "模型已有一分钟没有发送文字，回答到此为止。您可以重试。" },
-  "common_error_model_timeout": { "message": "模型未能及时开始回答。请稍后重试。" },
-  "common_error_auth_required": { "message": "需要向模型提供商进行身份验证。" },
-  "common_error_context_too_large": { "message": "发送的内容对该模型而言过大。" },
-  "common_error_cancelled": { "message": "请求已取消。" },
-  "common_error_internal": { "message": "本地程序内部错误。" },
-  "common_error_generic": { "message": "发生错误。" },
-  "common_error_quota_exceeded": { "message": "您在该提供商的账户已没有余额。" },
-  "common_error_rate_limited": { "message": "该提供商目前收到的请求过多。" },
-  "common_error_provider_overloaded": { "message": "提供商过载，请稍后重试。" },
-  "common_error_model_missing": { "message": "此模型在您的账户中不可用。" },
+  "extCommandOpen": {
+    "message": "打开 Coati"
+  },
+  "lang_name_en": {
+    "message": "English"
+  },
+  "lang_name_fr": {
+    "message": "Français"
+  },
+  "lang_name_zh_cn": {
+    "message": "简体中文"
+  },
+  "lang_name_auto": {
+    "message": "浏览器语言"
+  },
+  "lang_selector_label": {
+    "message": "语言"
+  },
+  "common_provider_claude_api": {
+    "message": "Claude（API 密钥）"
+  },
+  "common_provider_ollama": {
+    "message": "Ollama（本地）"
+  },
+  "common_provider_openai_compat": {
+    "message": "OpenAI 兼容"
+  },
+  "common_status_connected": {
+    "message": "已连接"
+  },
+  "common_status_connecting": {
+    "message": "连接中…"
+  },
+  "common_status_disconnected": {
+    "message": "已断开"
+  },
+  "common_status_no_token": {
+    "message": "无令牌"
+  },
+  "common_status_no_host": {
+    "message": "未找到本地程序"
+  },
+  "common_status_broker_untrusted": {
+    "message": "本地程序未验证"
+  },
+  "common_status_pairing_retry": {
+    "message": "重试中…"
+  },
+  "common_status_unknown": {
+    "message": "…"
+  },
+  "common_error_bad_request": {
+    "message": "请求无效。"
+  },
+  "common_error_unauthorized": {
+    "message": "未授权。"
+  },
+  "common_error_model_unavailable": {
+    "message": "模型未响应。"
+  },
+  "common_error_model_stalled": {
+    "message": "模型已有一分钟没有发送文字，回答到此为止。您可以重试。"
+  },
+  "common_error_model_timeout": {
+    "message": "模型未能及时开始回答。请稍后重试。"
+  },
+  "common_error_auth_required": {
+    "message": "需要向模型提供商进行身份验证。"
+  },
+  "common_error_context_too_large": {
+    "message": "发送的内容对该模型而言过大。"
+  },
+  "common_error_cancelled": {
+    "message": "请求已取消。"
+  },
+  "common_error_internal": {
+    "message": "本地程序内部错误。"
+  },
+  "common_error_generic": {
+    "message": "发生错误。"
+  },
+  "common_error_quota_exceeded": {
+    "message": "您在该提供商的账户已没有余额。"
+  },
+  "common_error_rate_limited": {
+    "message": "该提供商目前收到的请求过多。"
+  },
+  "common_error_provider_overloaded": {
+    "message": "提供商过载，请稍后重试。"
+  },
+  "common_error_model_missing": {
+    "message": "此模型在您的账户中不可用。"
+  },
   "common_error_vision_unsupported": {
     "message": "当前模型无法识别图像。请选择支持图像的模型（如 qwen2.5vl、gemma3）后重新发送问题。"
   },
   "common_error_detail": {
     "message": "详情：$MESSAGE$",
-    "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "connection refused"
+      }
+    }
   },
-  "common_provider_unavailable": { "message": "不可用。" },
-  "common_extraction_timeout": { "message": "页面读取超时。" },
+  "common_provider_unavailable": {
+    "message": "不可用。"
+  },
+  "common_extraction_timeout": {
+    "message": "页面读取超时。"
+  },
   "common_access_denied_hint": {
     "message": "点击其图标，右键 → 「使用 Coati 阅读此页面」，或使用键盘快捷键。"
   },
-  "common_extraction_empty": { "message": "提取内容为空" },
-  "common_no_active_tab_internal": { "message": "无活动标签页" },
-  "common_all_sites": { "message": "所有网站" },
-  "common_this_page": { "message": "此页面" },
-  "common_this_page_lowercase": { "message": "此页面" },
-
-  "panel_settings_title": { "message": "设置" },
-  "panel_install_doc_link": { "message": "安装说明" },
-  "panel_open_settings": { "message": "打开设置" },
-  "panel_my_prompts": { "message": "我的提示词 ↗" },
-  "panel_read_the_page": { "message": "读取页面" },
-  "panel_save_prompt": { "message": "将当前文本保存为提示词" },
-  "panel_input_placeholder": { "message": "与 Coati 对话…" },
-  "panel_erase_conversation": { "message": "清除对话" },
-  "panel_history_long": { "message": "对话较长：模型可能会忘记前文。清除对话可以重新开始。" },
-  "panel_history_dropped": { "message": "最早的几轮对话已不再发送给模型。" },
-  "panel_cancel": { "message": "取消" },
-  "panel_send": { "message": "发送" },
-  "panel_confirm_erase": { "message": "确认清除？" },
-
-  "panel_summarize_video": { "message": "总结此视频" },
-  "panel_summarize_article": { "message": "总结此文章" },
-  "panel_summarize_page": { "message": "总结此页面" },
-  "panel_summarize_results": { "message": "总结这些结果" },
-  "panel_summarize_listing": { "message": "总结此列表" },
-  "panel_summarize_default": { "message": "总结" },
-
-  "panel_auth_session_expired": { "message": "⚠ Claude 会话已过期。" },
-  "panel_auth_key_refused": { "message": "⚠ 提供商拒绝了该密钥：请在设置中检查。" },
+  "common_extraction_empty": {
+    "message": "提取内容为空"
+  },
+  "common_no_active_tab_internal": {
+    "message": "无活动标签页"
+  },
+  "common_all_sites": {
+    "message": "所有网站"
+  },
+  "common_this_page": {
+    "message": "此页面"
+  },
+  "common_this_page_lowercase": {
+    "message": "此页面"
+  },
+  "panel_settings_title": {
+    "message": "设置"
+  },
+  "panel_install_doc_link": {
+    "message": "安装说明"
+  },
+  "panel_open_settings": {
+    "message": "打开设置"
+  },
+  "panel_my_prompts": {
+    "message": "我的提示词 ↗"
+  },
+  "panel_dev_mode": {
+    "message": "开发者模式"
+  },
+  "panel_page_reading_status": {
+    "message": "正在读取页面（约 $KTOKENS$ k tokens）…",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_page_mention_read_text": {
+    "message": "已读取页面 · $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_page_mention_read_dev": {
+    "message": "已读取页面代码 · $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_page_mention_not_read": {
+    "message": "未读取页面 · $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_page_mention_truncated_suffix": {
+    "message": "（已读 $PERCENT$%）",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "40"
+      }
+    }
+  },
+  "dev_mode_confirm_title": {
+    "message": "开启开发者模式？"
+  },
+  "dev_mode_confirm_text": {
+    "message": "开启后，模型可以读取页面完整的 HTML 结构，包括 id、class 和标签，不含脚本。这比普通文本阅读发送更多数据（成本更高），且可能暴露页面上的个人信息。请自行承担风险。"
+  },
+  "dev_mode_confirm_cancel": {
+    "message": "取消"
+  },
+  "dev_mode_confirm_turn_on": {
+    "message": "开启"
+  },
+  "options_dev_mode_title": {
+    "message": "开发者模式"
+  },
+  "options_dev_mode_checkbox": {
+    "message": "允许模型读取页面完整的 HTML 结构"
+  },
+  "options_dev_mode_help": {
+    "message": "面板中「开发者模式」开关的初始值。发送更多数据（成本更高），且可能暴露页面上的个人信息。"
+  },
+  "panel_save_prompt": {
+    "message": "将当前文本保存为提示词"
+  },
+  "panel_input_placeholder": {
+    "message": "与 Coati 对话…"
+  },
+  "panel_erase_conversation": {
+    "message": "清除对话"
+  },
+  "panel_history_long": {
+    "message": "对话较长：模型可能会忘记前文。清除对话可以重新开始。"
+  },
+  "panel_history_dropped": {
+    "message": "最早的几轮对话已不再发送给模型。"
+  },
+  "panel_cancel": {
+    "message": "取消"
+  },
+  "panel_send": {
+    "message": "发送"
+  },
+  "panel_confirm_erase": {
+    "message": "确认清除？"
+  },
+  "panel_summarize_video": {
+    "message": "总结此视频"
+  },
+  "panel_summarize_article": {
+    "message": "总结此文章"
+  },
+  "panel_summarize_page": {
+    "message": "总结此页面"
+  },
+  "panel_summarize_results": {
+    "message": "总结这些结果"
+  },
+  "panel_summarize_listing": {
+    "message": "总结此列表"
+  },
+  "panel_summarize_default": {
+    "message": "总结"
+  },
+  "panel_auth_session_expired": {
+    "message": "⚠ Claude 会话已过期。"
+  },
+  "panel_auth_key_refused": {
+    "message": "⚠ 提供商拒绝了该密钥：请在设置中检查。"
+  },
   "panel_auth_key_refused_named": {
     "message": "⚠ $NAME$ 拒绝了密钥。",
-    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenAI"
+      }
+    }
   },
   "panel_recharge_at": {
     "message": "在 $NAME$ 充值",
-    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenAI"
+      }
+    }
   },
   "panel_create_key_at": {
     "message": "在 $NAME$ 创建密钥",
-    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenAI"
+      }
+    }
   },
   "panel_auth_unknown": {
     "message": "⚠ 提供商拒绝了访问（会话已过期或密钥被拒）：请检查设置。"
   },
-  "panel_copy": { "message": "复制" },
-  "panel_copied": { "message": "已复制！" },
-  "panel_copy_failed": { "message": "复制失败" },
-  "panel_retry_session": { "message": "已重启，重试" },
-  "panel_retry_key": { "message": "已修复，重试" },
-  "panel_retry_now": { "message": "重试" },
+  "panel_copy": {
+    "message": "复制"
+  },
+  "panel_copied": {
+    "message": "已复制！"
+  },
+  "panel_copy_failed": {
+    "message": "复制失败"
+  },
+  "panel_retry_session": {
+    "message": "已重启，重试"
+  },
+  "panel_retry_key": {
+    "message": "已修复，重试"
+  },
+  "panel_retry_now": {
+    "message": "重试"
+  },
   "panel_retry_countdown": {
     "message": "$SECONDS$ 秒后可重试",
-    "placeholders": { "seconds": { "content": "$1", "example": "20" } }
+    "placeholders": {
+      "seconds": {
+        "content": "$1",
+        "example": "20"
+      }
+    }
   },
-
   "panel_error_oversized": {
     "message": "⚠ 发送的消息超过了本地程序接受的最大大小（256 KB）；连接已关闭。请缩短内容后重试。"
   },
   "panel_error_model_unavailable": {
     "message": "⚠ 模型未响应（$MESSAGE$）。本地程序运行正常；是模型出了问题。请稍后重试。",
-    "placeholders": { "message": { "content": "$1", "example": "timeout" } }
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "timeout"
+      }
+    }
   },
-  "panel_unavailable": { "message": "不可用" },
-  "panel_request_cancelled": { "message": "请求已取消。" },
-  "panel_error_context_too_large_warn": { "message": "⚠ 发送的内容对该模型而言过大。" },
-
-  "panel_status_no_token": { "message": "无令牌 — 请查看设置" },
-  "panel_status_pairing_retry": { "message": "重试中…" },
+  "panel_unavailable": {
+    "message": "不可用"
+  },
+  "panel_request_cancelled": {
+    "message": "请求已取消。"
+  },
+  "panel_error_context_too_large_warn": {
+    "message": "⚠ 发送的内容对该模型而言过大。"
+  },
+  "panel_status_no_token": {
+    "message": "无令牌 — 请查看设置"
+  },
+  "panel_status_pairing_retry": {
+    "message": "重试中…"
+  },
   "panel_banner_no_host": {
     "message": "Coati 在这台电脑上找不到本地程序。请安装它，或在使用 Flatpak/Snap 浏览器时改用手动配对。"
   },
@@ -131,55 +362,93 @@
   "panel_banner_disconnected": {
     "message": "Coati 本地程序无响应。请在电脑上打开它，然后点击「重试」。"
   },
-
-  "panel_provider_ready": { "message": "就绪" },
-  "panel_provider_logged_in": { "message": "会话已打开" },
-  "panel_provider_no_key": { "message": "未保存 API 密钥" },
-  "panel_provider_key_unverified": { "message": "API 密钥已保存，未验证" },
-  "panel_provider_cli_missing": { "message": "未找到可执行文件" },
-  "panel_provider_not_logged_in": { "message": "会话未认证" },
-  "panel_provider_probe_failed": { "message": "状态未知" },
-  "panel_provider_ollama_unreachable": { "message": "Ollama 无响应" },
-  "panel_provider_model_missing": { "message": "已配置的模型在 Ollama 中不存在" },
-  "panel_provider_no_model_installed": { "message": "Ollama 中未安装任何模型" },
-  "panel_provider_key_rejected": { "message": "API 密钥被拒" },
-  "panel_provider_unknown_state": { "message": "未知状态" },
-  "panel_provider_default_label": { "message": "模型" },
+  "panel_provider_ready": {
+    "message": "就绪"
+  },
+  "panel_provider_logged_in": {
+    "message": "会话已打开"
+  },
+  "panel_provider_no_key": {
+    "message": "未保存 API 密钥"
+  },
+  "panel_provider_key_unverified": {
+    "message": "API 密钥已保存，未验证"
+  },
+  "panel_provider_cli_missing": {
+    "message": "未找到可执行文件"
+  },
+  "panel_provider_not_logged_in": {
+    "message": "会话未认证"
+  },
+  "panel_provider_probe_failed": {
+    "message": "状态未知"
+  },
+  "panel_provider_ollama_unreachable": {
+    "message": "Ollama 无响应"
+  },
+  "panel_provider_model_missing": {
+    "message": "已配置的模型在 Ollama 中不存在"
+  },
+  "panel_provider_no_model_installed": {
+    "message": "Ollama 中未安装任何模型"
+  },
+  "panel_provider_key_rejected": {
+    "message": "API 密钥被拒"
+  },
+  "panel_provider_unknown_state": {
+    "message": "未知状态"
+  },
+  "panel_provider_default_label": {
+    "message": "模型"
+  },
   "panel_provider_status_line": {
     "message": "$LABEL$：$REASON$",
     "placeholders": {
-      "label": { "content": "$1", "example": "Ollama（本地）" },
-      "reason": { "content": "$2", "example": "就绪" }
+      "label": {
+        "content": "$1",
+        "example": "Ollama（本地）"
+      },
+      "reason": {
+        "content": "$2",
+        "example": "就绪"
+      }
     }
   },
-
-  "panel_with_page_content_marker": { "message": "*含页面内容*" },
-
-  "panel_access_denied_question": {
-    "message": "⚠ Coati 无法访问此页面，问题未发送。$HINT$",
-    "placeholders": { "hint": { "content": "$1" } }
-  },
-  "panel_read_error_question": {
-    "message": "⚠ 无法读取页面，问题未发送：$DETAIL$",
-    "placeholders": { "detail": { "content": "$1" } }
+  "panel_with_page_content_marker": {
+    "message": "*含页面内容*"
   },
   "panel_access_denied_generic": {
     "message": "⚠ Coati 无法访问此页面。$HINT$",
-    "placeholders": { "hint": { "content": "$1" } }
+    "placeholders": {
+      "hint": {
+        "content": "$1"
+      }
+    }
   },
   "panel_read_error_generic": {
     "message": "⚠ 无法读取页面：$DETAIL$",
-    "placeholders": { "detail": { "content": "$1" } }
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
   },
   "panel_access_denied_relaunch": {
     "message": "⚠ Coati 无法访问此页面，重试未发送。$HINT$",
-    "placeholders": { "hint": { "content": "$1" } }
+    "placeholders": {
+      "hint": {
+        "content": "$1"
+      }
+    }
   },
   "panel_read_error_relaunch": {
     "message": "⚠ 无法读取页面，重试未发送：$DETAIL$",
-    "placeholders": { "detail": { "content": "$1" } }
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
   },
-
   "panel_transcript_missing": {
     "message": "无法读取字幕。在视频下方：点击「…」→「显示字幕」，然后重试。若该按钮不存在，则视频没有字幕。"
   },
@@ -189,426 +458,920 @@
   "panel_no_response": {
     "message": "本地程序没有任何回应。请确认其正在运行，然后重试。"
   },
-  "panel_progress_loading": { "message": "正在加载模型…" },
-  "panel_progress_reading_page": { "message": "模型正在阅读页面…" },
-  "panel_progress_reading_request": { "message": "模型正在阅读您的请求…" },
-  "panel_progress_thinking": { "message": "模型正在思考…" },
-  "panel_progress_thinking_hint": { "message": "该模型会先思考再回答，因此耗时更长。" },
+  "panel_progress_loading": {
+    "message": "正在加载模型…"
+  },
+  "panel_progress_reading_page": {
+    "message": "模型正在阅读页面…"
+  },
+  "panel_progress_reading_request": {
+    "message": "模型正在阅读您的请求…"
+  },
+  "panel_progress_thinking": {
+    "message": "模型正在思考…"
+  },
+  "panel_progress_thinking_hint": {
+    "message": "该模型会先思考再回答，因此耗时更长。"
+  },
   "panel_shared_model_note": {
     "message": "$MODEL$ 无法完全放入显卡：速度会较慢。",
-    "placeholders": { "model": { "content": "$1", "example": "qwen3:8b" } }
+    "placeholders": {
+      "model": {
+        "content": "$1",
+        "example": "qwen3:8b"
+      }
+    }
   },
   "panel_shared_model_alt": {
     "message": "$MODEL$ 可以完全放入。",
-    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+    "placeholders": {
+      "model": {
+        "content": "$1",
+        "example": "qwen3:4b"
+      }
+    }
   },
   "panel_slow_tip_switch_text": {
     "message": "想要更快的回答，可以试试 $MODEL$：它能完全放入显卡。",
-    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+    "placeholders": {
+      "model": {
+        "content": "$1",
+        "example": "qwen3:4b"
+      }
+    }
   },
-  "panel_slow_tip_speedup_text": { "message": "Ollama 的两项设置可以让它回答得更快。" },
+  "panel_slow_tip_speedup_text": {
+    "message": "Ollama 的两项设置可以让它回答得更快。"
+  },
   "panel_slow_tip_switch_action": {
     "message": "切换到 $MODEL$",
-    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+    "placeholders": {
+      "model": {
+        "content": "$1",
+        "example": "qwen3:4b"
+      }
+    }
   },
-  "panel_slow_tip_speedup_action": { "message": "加速 Ollama" },
-  "panel_no_active_tab": { "message": "⚠ 没有活动的标签页可供读取。" },
+  "panel_slow_tip_speedup_action": {
+    "message": "加速 Ollama"
+  },
+  "panel_no_active_tab": {
+    "message": "⚠ 没有活动的标签页可供读取。"
+  },
   "panel_nothing_readable": {
     "message": "⚠ 此页面未找到可读内容。内容是否在后续加载，或仅供订阅者查看？"
   },
-  "panel_request_in_progress": { "message": "⚠ 已有请求正在进行中，请稍后重试。" },
-
+  "panel_request_in_progress": {
+    "message": "⚠ 已有请求正在进行中，请稍后重试。"
+  },
   "panel_prompt_saved_no_site": {
     "message": "已保存，无网站：Coati 无法获取此页面的地址。"
   },
   "panel_prompt_saved_for": {
     "message": "已为 $SITE$ 保存",
-    "placeholders": { "site": { "content": "$1", "example": "Reddit" } }
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "Reddit"
+      }
+    }
   },
-
-  "panel_relaunch": { "message": "重试" },
-  "panel_relaunch_title": { "message": "重新发送此问题" },
-  "panel_seek_timestamp_title": { "message": "跳转到视频中的此时刻" },
+  "panel_relaunch": {
+    "message": "重试"
+  },
+  "panel_relaunch_title": {
+    "message": "重新发送此问题"
+  },
+  "panel_seek_timestamp_title": {
+    "message": "跳转到视频中的此时刻"
+  },
   "panel_point_button": {
     "message": "显示：$LABEL$",
-    "placeholders": { "label": { "content": "$1", "example": "生成" } }
+    "placeholders": {
+      "label": {
+        "content": "$1",
+        "example": "生成"
+      }
+    }
   },
-  "panel_point_stale": { "message": "页面已更改：请重新提问。" },
-  "panel_point_failed": { "message": "无法显示该元素。" },
-  "panel_point_frame_limit": { "message": "框架（iframe）内的元素不会被标注。" },
-  "panel_attach_screen": { "message": "查看屏幕" },
-  "panel_attach_screen_title": { "message": "Coati 会在每次提问时查看该标签页" },
-  "panel_attach_screen_local": { "message": "保留在本机" },
-  "panel_attach_screen_online": {
-    "message": "发送到 $PROVIDER$（在线）",
-    "placeholders": { "provider": { "content": "$1", "example": "Claude" } }
+  "panel_point_stale": {
+    "message": "页面已更改：请重新提问。"
   },
-  "panel_screen_no_vision": { "message": "当前模型无法识别图像——请选择支持图像的模型（如 qwen2.5vl、gemma3）。" },
-  "panel_screen_attached": {
-    "message": "（已附加屏幕截图，$DIMENSIONS$）",
-    "placeholders": { "dimensions": { "content": "$1", "example": "1280×720" } }
+  "panel_point_failed": {
+    "message": "无法显示该元素。"
   },
-  "panel_screen_denied": { "message": "Coati 无法捕获此页面。" },
-  "panel_screen_too_big": { "message": "截图太大，无法发送。" },
-  "panel_screen_need_gesture": {
-    "message": "请打开“查看屏幕”开关以授权捕获，然后重新发送您的问题。"
+  "panel_point_frame_limit": {
+    "message": "框架（iframe）内的元素不会被标注。"
   },
   "panel_docsearch_query": {
     "message": "搜索：$QUERY$",
-    "placeholders": { "query": { "content": "$1", "example": "export video kling ai tutorial" } }
+    "placeholders": {
+      "query": {
+        "content": "$1",
+        "example": "export video kling ai tutorial"
+      }
+    }
   },
   "panel_docsearch_scope": {
     "message": "正在通过 $ENGINE$ 搜索 $SITE$",
     "placeholders": {
-      "site": { "content": "$1", "example": "help.kling.ai" },
-      "engine": { "content": "$2", "example": "Brave Search" }
+      "site": {
+        "content": "$1",
+        "example": "help.kling.ai"
+      },
+      "engine": {
+        "content": "$2",
+        "example": "Brave Search"
+      }
     }
   },
   "panel_docsearch_web": {
     "message": "通过 $ENGINE$ 在网络上搜索",
-    "placeholders": { "engine": { "content": "$1", "example": "Brave Search" } }
+    "placeholders": {
+      "engine": {
+        "content": "$1",
+        "example": "Brave Search"
+      }
+    }
   },
-  "panel_docsearch_reading": { "message": "正在阅读找到的页面…" },
-  "panel_sources_title": { "message": "来源" },
-  "error_search_not_configured": { "message": "未配置任何搜索服务——请在设置中添加 Brave 或 Tavily 密钥。" },
-  "error_search_unavailable_auth": { "message": "搜索密钥被服务拒绝。" },
-  "error_search_unavailable_quota": { "message": "搜索服务的免费额度已用完。" },
-  "error_search_unavailable_rate": { "message": "搜索服务目前收到的请求过多。" },
-  "error_search_unavailable_network": { "message": "无法访问搜索服务或文档页面。" },
-  "error_search_unavailable_no_result": { "message": "未找到相关内容。" },
+  "panel_docsearch_reading": {
+    "message": "正在阅读找到的页面…"
+  },
+  "panel_sources_title": {
+    "message": "来源"
+  },
+  "error_search_not_configured": {
+    "message": "未配置任何搜索服务——请在设置中添加 Brave 或 Tavily 密钥。"
+  },
+  "error_search_unavailable_auth": {
+    "message": "搜索密钥被服务拒绝。"
+  },
+  "error_search_unavailable_quota": {
+    "message": "搜索服务的免费额度已用完。"
+  },
+  "error_search_unavailable_rate": {
+    "message": "搜索服务目前收到的请求过多。"
+  },
+  "error_search_unavailable_network": {
+    "message": "无法访问搜索服务或文档页面。"
+  },
+  "error_search_unavailable_no_result": {
+    "message": "未找到相关内容。"
+  },
   "panel_build_fingerprint": {
     "message": "v$VERSION$ · $FINGERPRINT$",
     "placeholders": {
-      "version": { "content": "$1", "example": "0.1.0" },
-      "fingerprint": { "content": "$2", "example": "a1b2c3d4" }
+      "version": {
+        "content": "$1",
+        "example": "0.1.0"
+      },
+      "fingerprint": {
+        "content": "$2",
+        "example": "a1b2c3d4"
+      }
     }
   },
   "panel_build_fingerprint_unavailable": {
     "message": "v$VERSION$ · 指纹不可用",
-    "placeholders": { "version": { "content": "$1", "example": "0.1.0" } }
+    "placeholders": {
+      "version": {
+        "content": "$1",
+        "example": "0.1.0"
+      }
+    }
   },
-
-  "panel_read_button_invite": { "message": "读取此页面" },
-  "panel_read_button_reading": { "message": "读取中…" },
-  "panel_read_button_activate_site": { "message": "启用此网站" },
+  "panel_read_button_invite": {
+    "message": "读取此页面"
+  },
+  "panel_read_button_reading": {
+    "message": "读取中…"
+  },
+  "panel_read_button_activate_site": {
+    "message": "启用此网站"
+  },
   "panel_read_button_refused_note": {
     "message": "访问被拒绝。你可以仅启用此网站，或点击工具栏中的 Coati 图标单次读取页面。"
   },
   "panel_read_button_refused_note_unknown_site": {
     "message": "访问被拒绝。点击工具栏中的 Coati 图标单次读取页面，或重试。"
   },
-
-  "panel_first_run_title": { "message": "Coati 入门" },
-  "panel_first_run_program_ok": { "message": "本地程序已检测到" },
-  "panel_first_run_program_missing": { "message": "未找到本地程序" },
-  "panel_first_run_program_pending": { "message": "正在查找本地程序…" },
-  "panel_first_run_program_action": { "message": "下载程序" },
-  "panel_first_run_model_ok": { "message": "模型已连接" },
-  "panel_first_run_model_missing": { "message": "没有模型响应" },
-  "panel_first_run_model_pending": { "message": "正在检查模型…" },
-  "panel_first_run_model_waiting": { "message": "模型：等待本地程序" },
-  "panel_first_run_model_action": { "message": "连接一个模型" },
-  "panel_first_run_page_ok": { "message": "已获得页面访问权限" },
-  "panel_first_run_page_missing": { "message": "授予页面访问权限" },
+  "panel_first_run_title": {
+    "message": "Coati 入门"
+  },
+  "panel_first_run_program_ok": {
+    "message": "本地程序已检测到"
+  },
+  "panel_first_run_program_missing": {
+    "message": "未找到本地程序"
+  },
+  "panel_first_run_program_pending": {
+    "message": "正在查找本地程序…"
+  },
+  "panel_first_run_program_action": {
+    "message": "下载程序"
+  },
+  "panel_first_run_model_ok": {
+    "message": "模型已连接"
+  },
+  "panel_first_run_model_missing": {
+    "message": "没有模型响应"
+  },
+  "panel_first_run_model_pending": {
+    "message": "正在检查模型…"
+  },
+  "panel_first_run_model_waiting": {
+    "message": "模型：等待本地程序"
+  },
+  "panel_first_run_model_action": {
+    "message": "连接一个模型"
+  },
+  "panel_first_run_page_ok": {
+    "message": "已获得页面访问权限"
+  },
+  "panel_first_run_page_missing": {
+    "message": "授予页面访问权限"
+  },
   "panel_first_run_page_hint": {
     "message": "点击卡片顶部的「读取此页面」。浏览器将请求所有网站的访问权限；Coati 只在你点击时才会读取页面。"
   },
-  "panel_first_run_page_action": { "message": "显示按钮" },
-  "panel_first_run_mark_done": { "message": "已完成" },
-  "panel_first_run_mark_todo": { "message": "待完成" },
-  "panel_first_run_mark_pending": { "message": "进行中" },
+  "panel_first_run_page_action": {
+    "message": "显示按钮"
+  },
+  "panel_first_run_mark_done": {
+    "message": "已完成"
+  },
+  "panel_first_run_mark_todo": {
+    "message": "待完成"
+  },
+  "panel_first_run_mark_pending": {
+    "message": "进行中"
+  },
   "panel_first_run_lang": {
     "message": "语言：$LANG$",
-    "placeholders": { "lang": { "content": "$1", "example": "简体中文" } }
+    "placeholders": {
+      "lang": {
+        "content": "$1",
+        "example": "简体中文"
+      }
+    }
   },
-  "panel_first_run_lang_change": { "message": "更改" },
-
-  "neverConnectedTitle": { "message": "尚未连接 AI 模型" },
+  "panel_first_run_lang_change": {
+    "message": "更改"
+  },
+  "neverConnectedTitle": {
+    "message": "尚未连接 AI 模型"
+  },
   "neverConnectedBody": {
     "message": "Coati 通过 AI 模型来回答，模型可以装在您的电脑上，也可以在线使用。向导会帮您连接一个。"
   },
-  "neverConnectedAction": { "message": "连接一个模型" },
-  "panelHelpButtonLabel": { "message": "帮助：连接模型" },
+  "neverConnectedAction": {
+    "message": "连接一个模型"
+  },
+  "panelHelpButtonLabel": {
+    "message": "帮助：连接模型"
+  },
   "panelHelpPopoverText": {
     "message": "Coati 需要一个 AI 模型才能作答：本地运行（免费且私密）或在线使用（需创建密钥）。教程将逐步指导您。点击此按钮即可打开教程。"
   },
-
-  "panel_unreadable_hint": { "message": "取消勾选「读取页面」以提问一般问题。" },
-  "panel_unreadable_pdf": { "message": "⚠ Coati 无法读取浏览器显示的 PDF。" },
+  "panel_unreadable_hint": {
+    "message": "问题将在不附带页面的情况下发送。"
+  },
+  "panel_unreadable_pdf": {
+    "message": "⚠ Coati 无法读取浏览器显示的 PDF。"
+  },
   "panel_unreadable_canvas": {
     "message": "⚠ 此页面是绘制的（地图、编辑器）：Coati 找不到可读的文本。"
   },
-  "panel_unreadable_empty": { "message": "⚠ Coati 在此页面几乎找不到文本。" },
-
-  "options_page_title": { "message": "设置 — Coati" },
-  "options_heading": { "message": "Coati 设置" },
-  "options_model_title": { "message": "模型" },
+  "panel_unreadable_empty": {
+    "message": "⚠ Coati 在此页面几乎找不到文本。"
+  },
+  "options_page_title": {
+    "message": "设置 — Coati"
+  },
+  "options_heading": {
+    "message": "Coati 设置"
+  },
+  "options_model_title": {
+    "message": "模型"
+  },
   "options_model_help": {
     "message": "用于回答请求的模型。此选项由本地程序保存在本机上。"
   },
-  "options_model_disconnected": { "message": "本地程序无响应：请在电脑上打开它，然后回到此页面查看或更改模型。" },
-  "options_model_name_label": { "message": "模型名称" },
-  "options_model_name_placeholder": { "message": "例如：llama3.2（可选）" },
-  "options_model_save": { "message": "保存模型" },
-  "options_attach_title": { "message": "读取页面" },
-  "options_attach_checkbox": { "message": "将当前页面附加到我的问题中" },
-  "options_attach_help": { "message": "面板中「读取页面」开关的初始值。" },
-  "options_point_effect_label": { "message": "显示元素" },
-  "options_point_effect_subtle": { "message": "低调" },
-  "options_point_effect_strong": { "message": "明显" },
-  "options_point_effect_spectacular": { "message": "炫目" },
-  "options_point_effect_help": { "message": "点击「显示」时，Coati 在页面上突出元素的方式。" },
-  "options_shortcut_title": { "message": "键盘快捷键" },
-  "options_shortcut_edit": { "message": "修改快捷键" },
+  "options_model_disconnected": {
+    "message": "本地程序无响应：请在电脑上打开它，然后回到此页面查看或更改模型。"
+  },
+  "options_model_name_label": {
+    "message": "模型名称"
+  },
+  "options_model_name_placeholder": {
+    "message": "例如：llama3.2（可选）"
+  },
+  "options_model_save": {
+    "message": "保存模型"
+  },
+  "options_point_effect_label": {
+    "message": "显示元素"
+  },
+  "options_point_effect_subtle": {
+    "message": "低调"
+  },
+  "options_point_effect_strong": {
+    "message": "明显"
+  },
+  "options_point_effect_spectacular": {
+    "message": "炫目"
+  },
+  "options_point_effect_help": {
+    "message": "点击「显示」时，Coati 在页面上突出元素的方式。"
+  },
+  "options_shortcut_title": {
+    "message": "键盘快捷键"
+  },
+  "options_shortcut_edit": {
+    "message": "修改快捷键"
+  },
   "options_shortcut_help": {
     "message": "如需更改：打开 about:addons，点击齿轮图标，然后选择「管理扩展程序快捷键」。"
   },
-  "options_sites_title": { "message": "已启用的网站" },
-  "options_sites_link_intro": { "message": "每个网站的推荐提示词在" },
-  "options_sites_link_text": { "message": "我的提示词" },
-  "options_history_title": { "message": "历史记录" },
+  "options_sites_title": {
+    "message": "已启用的网站"
+  },
+  "options_sites_link_intro": {
+    "message": "每个网站的推荐提示词在"
+  },
+  "options_sites_link_text": {
+    "message": "我的提示词"
+  },
+  "options_history_title": {
+    "message": "历史记录"
+  },
   "options_history_help": {
     "message": "对话内容以未加密形式保存在本机，并在此时间后自动删除。"
   },
-  "options_retention_label": { "message": "保留" },
-  "options_retention_7d": { "message": "7 天" },
-  "options_retention_30d": { "message": "30 天" },
-  "options_retention_90d": { "message": "90 天" },
-  "options_retention_never": { "message": "无限制" },
-  "options_language_title": { "message": "语言" },
+  "options_retention_label": {
+    "message": "保留"
+  },
+  "options_retention_7d": {
+    "message": "7 天"
+  },
+  "options_retention_30d": {
+    "message": "30 天"
+  },
+  "options_retention_90d": {
+    "message": "90 天"
+  },
+  "options_retention_never": {
+    "message": "无限制"
+  },
+  "options_language_title": {
+    "message": "语言"
+  },
   "options_language_help": {
     "message": "Coati 界面的语言（面板、设置、我的提示）以及要求模型回复所用的语言。"
   },
-  "options_about_title": { "message": "关于" },
-  "options_about_version": { "message": "版本" },
-  "options_about_fingerprint": { "message": "代码指纹" },
-  "options_about_license": { "message": "许可证" },
-  "options_about_source": { "message": "源代码" },
-  "options_legacy_title": { "message": "无原生程序的浏览器（Flatpak、Snap）" },
-  "options_legacy_token_label": { "message": "配对密钥" },
+  "options_about_title": {
+    "message": "关于"
+  },
+  "options_about_version": {
+    "message": "版本"
+  },
+  "options_about_fingerprint": {
+    "message": "代码指纹"
+  },
+  "options_about_license": {
+    "message": "许可证"
+  },
+  "options_about_source": {
+    "message": "源代码"
+  },
+  "options_legacy_title": {
+    "message": "无原生程序的浏览器（Flatpak、Snap）"
+  },
+  "options_legacy_token_label": {
+    "message": "配对密钥"
+  },
   "options_legacy_token_help_before": {
     "message": "仅当您的浏览器（Flatpak、Snap）无法启动原生程序时使用。在终端中运行"
   },
-  "options_legacy_token_help_after": { "message": "，然后将密钥粘贴到此处。该密钥不会写入磁盘。" },
-  "options_legacy_token_placeholder": { "message": "在此处粘贴密钥" },
-  "options_legacy_save": { "message": "保存" },
-
+  "options_legacy_token_help_after": {
+    "message": "，然后将密钥粘贴到此处。该密钥不会写入磁盘。"
+  },
+  "options_legacy_token_placeholder": {
+    "message": "在此处粘贴密钥"
+  },
+  "options_legacy_save": {
+    "message": "保存"
+  },
   "options_sites_help_gecko": {
     "message": "在这些网站上，Firefox 允许 Coati 检测当前网站：面板将立即提供相应按钮。"
   },
   "options_sites_help_chrome": {
     "message": "在这些网站上，Chrome 允许 Coati 检测当前网站：面板将立即提供相应按钮。"
   },
-  "options_provider_desc_claude_api": { "message": "您自己的 Anthropic 密钥，费用计入您的账户。" },
-  "options_provider_desc_ollama": { "message": "在本机运行的模型：数据不离开本机。" },
+  "options_provider_desc_claude_api": {
+    "message": "您自己的 Anthropic 密钥，费用计入您的账户。"
+  },
+  "options_provider_desc_ollama": {
+    "message": "在本机运行的模型：数据不离开本机。"
+  },
   "options_provider_desc_openai_compat": {
     "message": "兼容 OpenAI 的服务器：LM Studio、Ollama、OpenAI、Mistral、OpenRouter、DeepSeek 或其他地址。"
   },
-  "options_invalid_secret": { "message": "密钥无效（需要 64 个十六进制字符）。" },
-  "options_test_in_progress": { "message": "测试中…" },
-  "options_test_connection": { "message": "测试连接" },
-  "options_test_connected": { "message": "已连接" },
-  "options_credit_unchecked": { "message": "此检查无法查看您剩余的额度。" },
-  "options_claude_cli_auth_required": { "message": "Claude 会话已过期或已断开。" },
-  "options_claude_cli_paste_hint": { "message": "粘贴到终端：" },
-  "options_copy_command": { "message": "复制" },
-  "options_test_ok": { "message": "连接成功。" },
-  "options_test_failed": { "message": "连接失败。" },
-  "options_key_saved": { "message": "密钥已保存" },
-  "options_configured": { "message": "已配置" },
-  "options_apikey_placeholder_optional": { "message": "API 密钥（可选，取决于服务器）" },
-  "options_apikey_placeholder_anthropic": { "message": "Anthropic API 密钥（sk-ant-…）" },
-  "options_save": { "message": "保存" },
-  "options_apikey_clear": { "message": "清除密钥" },
-  "options_apikey_clear_confirm": { "message": "确认清除" },
-  "options_other_address": { "message": "其他地址" },
-  "options_save_address": { "message": "保存地址" },
-  "options_address_refused": { "message": "地址被拒绝：仅支持 HTTPS，或 HTTP 到 localhost/127.0.0.1。" },
-  "options_choose_model": { "message": "选择模型…" },
-  "options_model_placeholder_claude": { "message": "例如：claude-sonnet-4-5（可选）" },
-  "options_model_placeholder_openai_compat": { "message": "服务器所需的精确名称" },
-  "options_shortcut_not_set": { "message": "未设置" },
-
-  "keyInput_label": { "message": "API 密钥" },
-  "keyInput_placeholder": { "message": "在此粘贴密钥" },
-  "keyInput_placeholder_replace": { "message": "粘贴新密钥以替换当前密钥" },
-  "keyInput_show": { "message": "显示" },
-  "keyInput_hide": { "message": "隐藏" },
-  "keyInput_save": { "message": "保存密钥" },
-  "keyInput_saving": { "message": "正在发送到本地程序…" },
-  "keyInput_saved": { "message": "密钥已保存" },
-  "keyInput_verifying": { "message": "密钥已保存，正在向服务验证…" },
-  "keyInput_accepted": { "message": "密钥已被接受" },
-  "keyInput_refused": { "message": "服务拒绝了此密钥：请确认已完整复制，或在其网站上新建一个。" },
-  "keyInput_remedy_credit": { "message": "请在该服务网站上充值，然后点击“重新验证”。" },
-  "keyInput_remedy_wait": { "message": "密钥已保存：请等待一分钟，然后点击“重新验证”。" },
-  "keyInput_test_failed": { "message": "密钥验证失败。" },
-  "keyInput_save_failed": { "message": "密钥未保存。" },
-  "keyInput_retry": { "message": "重新验证" },
-  "keyInput_delete": { "message": "删除密钥" },
-  "keyInput_delete_confirm": { "message": "确认删除" },
-  "keyInput_deleted": { "message": "密钥已从本电脑删除。" },
-  "keyInput_not_connected": { "message": "本地程序无响应：暂时无法保存密钥。" },
-  "keyInput_note_storage": { "message": "密钥以明文形式保存在本电脑上，存放在只有您的账户能读取的文件中。" },
-  "keyInput_note_never_share": { "message": "切勿把它粘贴到其他地方（聊天、Discord、电子邮件）：Coati 永远不会向您索要。" },
-  "keyInput_note_spending_cap": { "message": "付费服务：请在其网站上设置每月消费上限。" },
-  "keyInput_spending_cap_link": { "message": "设置上限" },
-  "setup_title": { "message": "连接 AI 模型" },
-  "setup_open_link": { "message": "需要帮助？按分步指南操作" },
-  "setup_intro_need": { "message": "Coati 需要一个 AI 模型才能回答您。" },
-  "setup_intro_local_program": { "message": "本地程序随 Coati 安装在本电脑上，负责连接您的浏览器和该模型。" },
-  "setup_not_connected": { "message": "本地程序无响应：启动后即可继续验证。" },
-  "setup_choose": { "message": "模型在哪里运行？" },
-  "setup_path_local_title": { "message": "在我的电脑上" },
-  "setup_path_local_text": { "message": "免费且私密：您的文本不会离开电脑。需要一台较新的电脑。" },
-  "setup_path_online_title": { "message": "在线" },
-  "setup_path_online_text": { "message": "更简单：在某个服务上创建一个密钥。免费或付费取决于服务。" },
-  "setup_checking": { "message": "正在检查…" },
-  "setup_check_unknown": { "message": "检查未完成。请稍后重试。" },
-  "setup_copy": { "message": "复制" },
-  "setup_copied": { "message": "已复制" },
-  "setup_copy_manual": { "message": "已选中：按 Ctrl+C 复制" },
-  "setup_try_title": { "message": "在网页上试用" },
-  "setup_try_text": { "message": "打开任意网页，然后点击浏览器工具栏中的 Coati 图标。如果看不到它，请点击拼图形状的图标并固定 Coati。" },
-  "setup_local_install_title": { "message": "安装 Ollama" },
-  "setup_local_install_text": { "message": "Ollama 是一款免费软件，可在您的电脑上运行模型。" },
+  "options_invalid_secret": {
+    "message": "密钥无效（需要 64 个十六进制字符）。"
+  },
+  "options_test_in_progress": {
+    "message": "测试中…"
+  },
+  "options_test_connection": {
+    "message": "测试连接"
+  },
+  "options_test_connected": {
+    "message": "已连接"
+  },
+  "options_credit_unchecked": {
+    "message": "此检查无法查看您剩余的额度。"
+  },
+  "options_claude_cli_auth_required": {
+    "message": "Claude 会话已过期或已断开。"
+  },
+  "options_claude_cli_paste_hint": {
+    "message": "粘贴到终端："
+  },
+  "options_copy_command": {
+    "message": "复制"
+  },
+  "options_test_ok": {
+    "message": "连接成功。"
+  },
+  "options_test_failed": {
+    "message": "连接失败。"
+  },
+  "options_key_saved": {
+    "message": "密钥已保存"
+  },
+  "options_configured": {
+    "message": "已配置"
+  },
+  "options_apikey_placeholder_optional": {
+    "message": "API 密钥（可选，取决于服务器）"
+  },
+  "options_apikey_placeholder_anthropic": {
+    "message": "Anthropic API 密钥（sk-ant-…）"
+  },
+  "options_save": {
+    "message": "保存"
+  },
+  "options_apikey_clear": {
+    "message": "清除密钥"
+  },
+  "options_apikey_clear_confirm": {
+    "message": "确认清除"
+  },
+  "options_other_address": {
+    "message": "其他地址"
+  },
+  "options_save_address": {
+    "message": "保存地址"
+  },
+  "options_address_refused": {
+    "message": "地址被拒绝：仅支持 HTTPS，或 HTTP 到 localhost/127.0.0.1。"
+  },
+  "options_choose_model": {
+    "message": "选择模型…"
+  },
+  "options_model_placeholder_claude": {
+    "message": "例如：claude-sonnet-4-5（可选）"
+  },
+  "options_model_placeholder_openai_compat": {
+    "message": "服务器所需的精确名称"
+  },
+  "options_shortcut_not_set": {
+    "message": "未设置"
+  },
+  "keyInput_label": {
+    "message": "API 密钥"
+  },
+  "keyInput_placeholder": {
+    "message": "在此粘贴密钥"
+  },
+  "keyInput_placeholder_replace": {
+    "message": "粘贴新密钥以替换当前密钥"
+  },
+  "keyInput_show": {
+    "message": "显示"
+  },
+  "keyInput_hide": {
+    "message": "隐藏"
+  },
+  "keyInput_save": {
+    "message": "保存密钥"
+  },
+  "keyInput_saving": {
+    "message": "正在发送到本地程序…"
+  },
+  "keyInput_saved": {
+    "message": "密钥已保存"
+  },
+  "keyInput_verifying": {
+    "message": "密钥已保存，正在向服务验证…"
+  },
+  "keyInput_accepted": {
+    "message": "密钥已被接受"
+  },
+  "keyInput_refused": {
+    "message": "服务拒绝了此密钥：请确认已完整复制，或在其网站上新建一个。"
+  },
+  "keyInput_remedy_credit": {
+    "message": "请在该服务网站上充值，然后点击“重新验证”。"
+  },
+  "keyInput_remedy_wait": {
+    "message": "密钥已保存：请等待一分钟，然后点击“重新验证”。"
+  },
+  "keyInput_test_failed": {
+    "message": "密钥验证失败。"
+  },
+  "keyInput_save_failed": {
+    "message": "密钥未保存。"
+  },
+  "keyInput_retry": {
+    "message": "重新验证"
+  },
+  "keyInput_delete": {
+    "message": "删除密钥"
+  },
+  "keyInput_delete_confirm": {
+    "message": "确认删除"
+  },
+  "keyInput_deleted": {
+    "message": "密钥已从本电脑删除。"
+  },
+  "keyInput_not_connected": {
+    "message": "本地程序无响应：暂时无法保存密钥。"
+  },
+  "keyInput_note_storage": {
+    "message": "密钥以明文形式保存在本电脑上，存放在只有您的账户能读取的文件中。"
+  },
+  "keyInput_note_never_share": {
+    "message": "切勿把它粘贴到其他地方（聊天、Discord、电子邮件）：Coati 永远不会向您索要。"
+  },
+  "keyInput_note_spending_cap": {
+    "message": "付费服务：请在其网站上设置每月消费上限。"
+  },
+  "keyInput_spending_cap_link": {
+    "message": "设置上限"
+  },
+  "setup_title": {
+    "message": "连接 AI 模型"
+  },
+  "setup_open_link": {
+    "message": "需要帮助？按分步指南操作"
+  },
+  "setup_intro_need": {
+    "message": "Coati 需要一个 AI 模型才能回答您。"
+  },
+  "setup_intro_local_program": {
+    "message": "本地程序随 Coati 安装在本电脑上，负责连接您的浏览器和该模型。"
+  },
+  "setup_not_connected": {
+    "message": "本地程序无响应：启动后即可继续验证。"
+  },
+  "setup_choose": {
+    "message": "模型在哪里运行？"
+  },
+  "setup_path_local_title": {
+    "message": "在我的电脑上"
+  },
+  "setup_path_local_text": {
+    "message": "免费且私密：您的文本不会离开电脑。需要一台较新的电脑。"
+  },
+  "setup_path_online_title": {
+    "message": "在线"
+  },
+  "setup_path_online_text": {
+    "message": "更简单：在某个服务上创建一个密钥。免费或付费取决于服务。"
+  },
+  "setup_checking": {
+    "message": "正在检查…"
+  },
+  "setup_check_unknown": {
+    "message": "检查未完成。请稍后重试。"
+  },
+  "setup_copy": {
+    "message": "复制"
+  },
+  "setup_copied": {
+    "message": "已复制"
+  },
+  "setup_copy_manual": {
+    "message": "已选中：按 Ctrl+C 复制"
+  },
+  "setup_try_title": {
+    "message": "在网页上试用"
+  },
+  "setup_try_text": {
+    "message": "打开任意网页，然后点击浏览器工具栏中的 Coati 图标。如果看不到它，请点击拼图形状的图标并固定 Coati。"
+  },
+  "setup_local_install_title": {
+    "message": "安装 Ollama"
+  },
+  "setup_local_install_text": {
+    "message": "Ollama 是一款免费软件，可在您的电脑上运行模型。"
+  },
   "setup_local_download_for": {
     "message": "下载适用于 $OS$ 的 Ollama",
     "placeholders": {
-      "os": { "content": "$1", "example": "Windows" }
+      "os": {
+        "content": "$1",
+        "example": "Windows"
+      }
     }
   },
-  "setup_local_other_os": { "message": "其他系统：" },
-  "setup_local_download": { "message": "下载 Ollama：" },
-  "setup_local_linux_install": { "message": "在 Linux 上，也可以通过终端安装：" },
-  "setup_local_start_intro": { "message": "然后启动它：" },
-  "setup_local_start_windows": { "message": "从“开始”菜单打开 Ollama；其图标会出现在时钟旁边。" },
-  "setup_local_start_mac": { "message": "从“应用程序”文件夹打开 Ollama；其图标会出现在菜单栏中。" },
-  "setup_local_start_linux": { "message": "安装程序会自动启动它。如果未运行，请在终端中运行以下命令：" },
-  "setup_local_running_title": { "message": "检查 Ollama 是否响应" },
-  "setup_local_running_text": { "message": "Coati 将切换到 Ollama，并检查它在本电脑上是否响应。" },
-  "setup_local_running_check": { "message": "使用 Ollama 并检查" },
-  "setup_local_running_ok": { "message": "Ollama 已响应。" },
-  "setup_local_unreachable": { "message": "Ollama 无响应。请确认它已启动（第 1 步），然后重试。" },
-  "setup_local_model_title": { "message": "下载模型" },
-  "setup_local_model_text": { "message": "请选择与您电脑内存（RAM）相符的一行。内存越大，可用的模型越强，但下载也越大。" },
+  "setup_local_other_os": {
+    "message": "其他系统："
+  },
+  "setup_local_download": {
+    "message": "下载 Ollama："
+  },
+  "setup_local_linux_install": {
+    "message": "在 Linux 上，也可以通过终端安装："
+  },
+  "setup_local_start_intro": {
+    "message": "然后启动它："
+  },
+  "setup_local_start_windows": {
+    "message": "从“开始”菜单打开 Ollama；其图标会出现在时钟旁边。"
+  },
+  "setup_local_start_mac": {
+    "message": "从“应用程序”文件夹打开 Ollama；其图标会出现在菜单栏中。"
+  },
+  "setup_local_start_linux": {
+    "message": "安装程序会自动启动它。如果未运行，请在终端中运行以下命令："
+  },
+  "setup_local_running_title": {
+    "message": "检查 Ollama 是否响应"
+  },
+  "setup_local_running_text": {
+    "message": "Coati 将切换到 Ollama，并检查它在本电脑上是否响应。"
+  },
+  "setup_local_running_check": {
+    "message": "使用 Ollama 并检查"
+  },
+  "setup_local_running_ok": {
+    "message": "Ollama 已响应。"
+  },
+  "setup_local_unreachable": {
+    "message": "Ollama 无响应。请确认它已启动（第 1 步），然后重试。"
+  },
+  "setup_local_model_title": {
+    "message": "下载模型"
+  },
+  "setup_local_model_text": {
+    "message": "请选择与您电脑内存（RAM）相符的一行。内存越大，可用的模型越强，但下载也越大。"
+  },
   "setup_local_memory_known": {
     "message": "根据浏览器信息，本电脑至少有 $GB$ GB 内存（浏览器最多只报告 8 GB）。",
     "placeholders": {
-      "gb": { "content": "$1", "example": "8" }
+      "gb": {
+        "content": "$1",
+        "example": "8"
+      }
     }
   },
-  "setup_local_memory_unknown": { "message": "浏览器未提供本电脑的内存信息：请在系统信息中查看。" },
-  "setup_local_col_memory": { "message": "电脑内存" },
-  "setup_local_col_model": { "message": "模型" },
-  "setup_local_col_size": { "message": "下载大小" },
+  "setup_local_memory_unknown": {
+    "message": "浏览器未提供本电脑的内存信息：请在系统信息中查看。"
+  },
+  "setup_local_col_memory": {
+    "message": "电脑内存"
+  },
+  "setup_local_col_model": {
+    "message": "模型"
+  },
+  "setup_local_col_size": {
+    "message": "下载大小"
+  },
   "setup_local_memory_row": {
     "message": "$GB$ GB 或以上",
     "placeholders": {
-      "gb": { "content": "$1", "example": "8" }
+      "gb": {
+        "content": "$1",
+        "example": "8"
+      }
     }
   },
-  "setup_local_suggested": { "message": "推荐" },
+  "setup_local_suggested": {
+    "message": "推荐"
+  },
   "setup_size_gb": {
     "message": "$GB$ GB",
     "placeholders": {
-      "gb": { "content": "$1", "example": "3,3" }
+      "gb": {
+        "content": "$1",
+        "example": "3,3"
+      }
     }
   },
-  "setup_local_pull_text": { "message": "打开终端（Windows：PowerShell；macOS：终端），粘贴以下命令，然后等待下载完成。" },
-  "setup_local_model_check": { "message": "检查模型" },
-  "setup_local_model_ok": { "message": "模型已就绪。" },
+  "setup_local_pull_text": {
+    "message": "打开终端（Windows：PowerShell；macOS：终端），粘贴以下命令，然后等待下载完成。"
+  },
+  "setup_local_model_check": {
+    "message": "检查模型"
+  },
+  "setup_local_model_ok": {
+    "message": "模型已就绪。"
+  },
   "setup_local_model_missing": {
     "message": "模型 $MODEL$ 尚未在 Ollama 中：请运行上面的命令并等待下载完成。",
     "placeholders": {
-      "model": { "content": "$1", "example": "gemma3:4b" }
+      "model": {
+        "content": "$1",
+        "example": "gemma3:4b"
+      }
     }
   },
-  "setup_local_no_model": { "message": "Ollama 中尚未安装任何模型：请运行上面的命令。" },
-  "setup_lmstudio_title": { "message": "高级：LM Studio" },
-  "setup_lmstudio_text": { "message": "LM Studio 是另一款在您电脑上运行模型的应用。安装后，在应用内下载一个模型，然后启动其本地服务器（“Developer”标签页，“Start Server”按钮）。" },
-  "setup_lmstudio_download": { "message": "下载 LM Studio" },
-  "setup_lmstudio_use": { "message": "使用 LM Studio 并检查" },
-  "setup_lmstudio_ok": { "message": "LM Studio 已响应。请在下方“模型”部分选择其模型。" },
-  "setup_speedup_title": { "message": "加速 Ollama" },
-  "setup_speedup_intro": { "message": "Ollama 的两项设置可将所读页面占用的内存减少约一半，质量损失很小：更节省的计算方式（“flash attention”）和压缩的工作内存。这样模型更常能完全放入显卡，回答也更快。" },
-  "setup_speedup_linux_edit": { "message": "打开 Ollama 服务的设置（标准安装，使用 systemd）：" },
-  "setup_speedup_linux_add": { "message": "在打开的编辑器中，将这三行粘贴到顶部的空白区域，然后保存并关闭：" },
-  "setup_speedup_linux_restart": { "message": "重启 Ollama：" },
-  "setup_speedup_mac_set": { "message": "在“终端”中运行以下两条命令：" },
-  "setup_speedup_mac_restart": { "message": "退出 Ollama（菜单栏中的图标，“Quit Ollama”），然后重新打开该应用。" },
-  "setup_speedup_win_open": { "message": "打开“设置”，搜索“编辑帐户的环境变量”。" },
-  "setup_speedup_win_add": { "message": "在“用户变量”下点击“新建…”，添加以下两个变量（先填名称，再填值）：" },
+  "setup_local_no_model": {
+    "message": "Ollama 中尚未安装任何模型：请运行上面的命令。"
+  },
+  "setup_lmstudio_title": {
+    "message": "高级：LM Studio"
+  },
+  "setup_lmstudio_text": {
+    "message": "LM Studio 是另一款在您电脑上运行模型的应用。安装后，在应用内下载一个模型，然后启动其本地服务器（“Developer”标签页，“Start Server”按钮）。"
+  },
+  "setup_lmstudio_download": {
+    "message": "下载 LM Studio"
+  },
+  "setup_lmstudio_use": {
+    "message": "使用 LM Studio 并检查"
+  },
+  "setup_lmstudio_ok": {
+    "message": "LM Studio 已响应。请在下方“模型”部分选择其模型。"
+  },
+  "setup_speedup_title": {
+    "message": "加速 Ollama"
+  },
+  "setup_speedup_intro": {
+    "message": "Ollama 的两项设置可将所读页面占用的内存减少约一半，质量损失很小：更节省的计算方式（“flash attention”）和压缩的工作内存。这样模型更常能完全放入显卡，回答也更快。"
+  },
+  "setup_speedup_linux_edit": {
+    "message": "打开 Ollama 服务的设置（标准安装，使用 systemd）："
+  },
+  "setup_speedup_linux_add": {
+    "message": "在打开的编辑器中，将这三行粘贴到顶部的空白区域，然后保存并关闭："
+  },
+  "setup_speedup_linux_restart": {
+    "message": "重启 Ollama："
+  },
+  "setup_speedup_mac_set": {
+    "message": "在“终端”中运行以下两条命令："
+  },
+  "setup_speedup_mac_restart": {
+    "message": "退出 Ollama（菜单栏中的图标，“Quit Ollama”），然后重新打开该应用。"
+  },
+  "setup_speedup_win_open": {
+    "message": "打开“设置”，搜索“编辑帐户的环境变量”。"
+  },
+  "setup_speedup_win_add": {
+    "message": "在“用户变量”下点击“新建…”，添加以下两个变量（先填名称，再填值）："
+  },
   "setup_speedup_win_value": {
     "message": "值：$VALUE$",
-    "placeholders": { "value": { "content": "$1", "example": "q8_0" } }
+    "placeholders": {
+      "value": {
+        "content": "$1",
+        "example": "q8_0"
+      }
+    }
   },
-  "setup_speedup_win_restart": { "message": "在时钟附近的 Ollama 图标上右键，选择“Quit Ollama”退出，然后重新启动它。" },
-  "setup_speedup_faq": { "message": "Ollama 文档（常见问题）" },
-  "setup_online_service_title": { "message": "选择服务" },
-  "setup_online_free_warning": { "message": "选择之前请注意：OpenRouter 的免费模型可能会保留并使用您发送的文本。请勿发送任何机密内容。" },
+  "setup_speedup_win_restart": {
+    "message": "在时钟附近的 Ollama 图标上右键，选择“Quit Ollama”退出，然后重新启动它。"
+  },
+  "setup_speedup_faq": {
+    "message": "Ollama 文档（常见问题）"
+  },
+  "setup_online_service_title": {
+    "message": "选择服务"
+  },
+  "setup_online_free_warning": {
+    "message": "选择之前请注意：OpenRouter 的免费模型可能会保留并使用您发送的文本。请勿发送任何机密内容。"
+  },
   "setup_online_free_detail": {
     "message": "免费模型：每天最多 $PERDAY$ 次提问（每天 $WITHCREDIT$ 次，需购买至少 $CREDIT$ 额度）。",
     "placeholders": {
-      "perday": { "content": "$1", "example": "50" },
-      "withcredit": { "content": "$2", "example": "1000" },
-      "credit": { "content": "$3", "example": "10 $US" }
+      "perday": {
+        "content": "$1",
+        "example": "50"
+      },
+      "withcredit": {
+        "content": "$2",
+        "example": "1000"
+      },
+      "credit": {
+        "content": "$3",
+        "example": "10 $US"
+      }
     }
   },
   "setup_online_paid_detail": {
     "message": "付费：每次提问约 $COST$（按约 $WORDS$ 字的网页计算）。",
     "placeholders": {
-      "cost": { "content": "$1", "example": "0,006 $US" },
-      "words": { "content": "$2", "example": "2000" }
+      "cost": {
+        "content": "$1",
+        "example": "0,006 $US"
+      },
+      "words": {
+        "content": "$2",
+        "example": "2000"
+      }
     }
   },
-  "setup_online_others": { "message": "其他服务" },
+  "setup_online_others": {
+    "message": "其他服务"
+  },
   "setup_online_service_ok": {
     "message": "已选择 $NAME$。",
     "placeholders": {
-      "name": { "content": "$1", "example": "OpenRouter" }
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
     }
   },
-  "setup_online_pick_first": { "message": "请先选择服务（第 1 步）。" },
-  "setup_online_account_title": { "message": "创建账户和密钥" },
-  "setup_online_account_text": { "message": "创建账户（或登录），打开 API 密钥页面，创建一个密钥，然后复制它。" },
+  "setup_online_pick_first": {
+    "message": "请先选择服务（第 1 步）。"
+  },
+  "setup_online_account_title": {
+    "message": "创建账户和密钥"
+  },
+  "setup_online_account_text": {
+    "message": "创建账户（或登录），打开 API 密钥页面，创建一个密钥，然后复制它。"
+  },
   "setup_online_signup": {
     "message": "打开 $NAME$",
     "placeholders": {
-      "name": { "content": "$1", "example": "OpenRouter" }
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
     }
   },
-  "setup_online_keys_page": { "message": "API 密钥页面" },
-  "setup_online_openrouter_privacy": { "message": "如果免费模型拒绝回答，请在 OpenRouter 的隐私设置中允许使用免费模型。" },
-  "setup_online_privacy_link": { "message": "隐私设置" },
+  "setup_online_keys_page": {
+    "message": "API 密钥页面"
+  },
+  "setup_online_openrouter_privacy": {
+    "message": "如果免费模型拒绝回答，请在 OpenRouter 的隐私设置中允许使用免费模型。"
+  },
+  "setup_online_privacy_link": {
+    "message": "隐私设置"
+  },
   "setup_online_openrouter_quota": {
     "message": "免费模型限制：每分钟 $PERMIN$ 次提问。",
     "placeholders": {
-      "permin": { "content": "$1", "example": "20" }
+      "permin": {
+        "content": "$1",
+        "example": "20"
+      }
     }
   },
-  "setup_online_paid_billing": { "message": "付费服务：添加付款方式或充值，然后设置每月消费上限（下一步会再次提醒）。" },
-  "setup_online_prepaid": { "message": "预付费服务：您预先购买额度，花费永远不会超过该额度。" },
-  "setup_online_key_title": { "message": "粘贴密钥" },
+  "setup_online_paid_billing": {
+    "message": "付费服务：添加付款方式或充值，然后设置每月消费上限（下一步会再次提醒）。"
+  },
+  "setup_online_prepaid": {
+    "message": "预付费服务：您预先购买额度，花费永远不会超过该额度。"
+  },
+  "setup_online_key_title": {
+    "message": "粘贴密钥"
+  },
   "setup_online_key_text": {
     "message": "该服务的密钥通常以“$PREFIX$”开头。",
     "placeholders": {
-      "prefix": { "content": "$1", "example": "sk-or-" }
+      "prefix": {
+        "content": "$1",
+        "example": "sk-or-"
+      }
     }
   },
-
-
-  "welcome_title": { "message": "欢迎使用 Coati" },
+  "welcome_title": {
+    "message": "欢迎使用 Coati"
+  },
   "welcome_lead": {
     "message": "Coati 能总结页面或视频，并回答您关于所阅读内容的问题，使用您选择的模型，通过运行在本机的程序实现。"
   },
-  "welcome_pin_title": { "message": "固定图标" },
-  "welcome_pin_browser_chromium": { "message": "Chrome、Brave、Edge" },
-  "welcome_pin_browser_gecko": { "message": "Firefox" },
+  "welcome_pin_title": {
+    "message": "固定图标"
+  },
+  "welcome_pin_browser_chromium": {
+    "message": "Chrome、Brave、Edge"
+  },
+  "welcome_pin_browser_gecko": {
+    "message": "Firefox"
+  },
   "welcome_pin_step1_chromium": {
     "message": "点击地址栏右侧的扩展程序图标（拼图形状）。"
   },
-  "welcome_pin_step2_chromium": { "message": "点击「Coati」旁边的固定图标。" },
+  "welcome_pin_step2_chromium": {
+    "message": "点击「Coati」旁边的固定图标。"
+  },
   "welcome_pin_step3_chromium": {
     "message": "Coati 图标将保留在工具栏中：单击即可打开面板。"
   },
@@ -621,17 +1384,27 @@
   "welcome_pin_step3_gecko": {
     "message": "Coati 图标将保留在工具栏中：单击即可打开侧边栏。"
   },
-  "welcome_steps_title": { "message": "三个步骤" },
-  "welcome_program_title": { "message": "安装本地程序" },
+  "welcome_steps_title": {
+    "message": "三个步骤"
+  },
+  "welcome_program_title": {
+    "message": "安装本地程序"
+  },
   "welcome_program_text": {
     "message": "Coati 通过安装在本机的小程序运行：由它与模型通信并保管密钥，而不是扩展程序。"
   },
-  "welcome_program_link": { "message": "下载程序" },
-  "welcome_model_title": { "message": "选择模型" },
+  "welcome_program_link": {
+    "message": "下载程序"
+  },
+  "welcome_model_title": {
+    "message": "选择模型"
+  },
   "welcome_model_text": {
     "message": "在设置中：选择在本机运行的模型（Ollama），或使用您自己密钥的在线服务。"
   },
-  "welcome_page_title": { "message": "在页面上打开 Coati" },
+  "welcome_page_title": {
+    "message": "在页面上打开 Coati"
+  },
   "welcome_page_text_chromium": {
     "message": "点击 Coati 图标，然后点击面板顶部的「读取此页面」。浏览器将请求一次对所有网站的访问权限。"
   },
@@ -641,247 +1414,524 @@
   "welcome_gesture": {
     "message": "Coati 只在您点击时才读取页面：不在后台运行，不在切换标签页时运行。"
   },
-
-  "prompts_page_title": { "message": "我的提示词 — Coati" },
-  "prompts_heading": { "message": "我的提示词" },
+  "prompts_page_title": {
+    "message": "我的提示词 — Coati"
+  },
+  "prompts_heading": {
+    "message": "我的提示词"
+  },
   "prompts_intro": {
     "message": "每个网站对应一个分组，存放其提示词：包含 Coati 的建议和您自己的提示词，按您选择的顺序排列。"
   },
   "prompts_all_sites_line": {
     "message": "Coati 可访问所有网站，仅在您点击时才读取页面。"
   },
-  "prompts_all_sites_revoke": { "message": "恢复按网站设置" },
+  "prompts_all_sites_revoke": {
+    "message": "恢复按网站设置"
+  },
   "prompts_banner_no_token": {
     "message": "本地程序未连接 — 请打开扩展程序设置进行配对。"
   },
   "prompts_banner_disconnected": {
     "message": "本地程序无响应 — 请在电脑上打开它，然后回到此页面查看或编辑提示词。"
   },
-  "prompts_all_sites_heading": { "message": "在所有网站上" },
-  "prompts_empty": { "message": "暂无提示词。" },
-  "prompts_restore_suggestions": { "message": "恢复 Coati 的建议" },
-  "prompts_active_switch": { "message": "启用" },
-  "prompts_action_title": { "message": "内置操作：读取视频字幕" },
+  "prompts_all_sites_heading": {
+    "message": "在所有网站上"
+  },
+  "prompts_empty": {
+    "message": "暂无提示词。"
+  },
+  "prompts_restore_suggestions": {
+    "message": "恢复 Coati 的建议"
+  },
+  "prompts_active_switch": {
+    "message": "启用"
+  },
+  "prompts_action_title": {
+    "message": "内置操作：读取视频字幕"
+  },
   "prompts_move_up_aria": {
     "message": "上移「$LABEL$」",
-    "placeholders": { "label": { "content": "$1", "example": "总结此视频" } }
+    "placeholders": {
+      "label": {
+        "content": "$1",
+        "example": "总结此视频"
+      }
+    }
   },
   "prompts_move_down_aria": {
     "message": "下移「$LABEL$」",
-    "placeholders": { "label": { "content": "$1", "example": "总结此视频" } }
+    "placeholders": {
+      "label": {
+        "content": "$1",
+        "example": "总结此视频"
+      }
+    }
   },
-  "prompts_delete_confirm": { "message": "确认？" },
+  "prompts_delete_confirm": {
+    "message": "确认？"
+  },
   "prompts_delete_confirm_aria": {
     "message": "确认删除「$LABEL$」",
-    "placeholders": { "label": { "content": "$1", "example": "总结此视频" } }
+    "placeholders": {
+      "label": {
+        "content": "$1",
+        "example": "总结此视频"
+      }
+    }
   },
   "prompts_delete_aria": {
     "message": "删除「$LABEL$」",
-    "placeholders": { "label": { "content": "$1", "example": "总结此视频" } }
+    "placeholders": {
+      "label": {
+        "content": "$1",
+        "example": "总结此视频"
+      }
+    }
   },
-  "prompts_editor_title_label": { "message": "标题（可选）" },
-  "prompts_editor_body_label": { "message": "文本" },
-
+  "prompts_editor_title_label": {
+    "message": "标题（可选）"
+  },
+  "prompts_editor_body_label": {
+    "message": "文本"
+  },
   "sw_request_superseded": {
     "message": "更新的请求已取代此请求；本次请求已丢弃。"
   },
   "sw_broker_silent_15s": {
     "message": "本地程序已 15 秒无响应。请确认其在本机上运行，然后重试。"
   },
-
-  "ctx_read_page": { "message": "用 Coati 阅读此页面" },
-  "ctx_rewrite": { "message": "重写" },
-  "ctx_shorten": { "message": "缩短" },
-  "ctx_explain": { "message": "解释" },
-  "ctx_translate": { "message": "翻译" },
-
-  "sugg_wikipedia_name": { "message": "维基百科" },
-
-  "sugg_youtube_key_points_label": { "message": "带时间戳的要点" },
+  "ctx_read_page": {
+    "message": "用 Coati 阅读此页面"
+  },
+  "ctx_rewrite": {
+    "message": "重写"
+  },
+  "ctx_shorten": {
+    "message": "缩短"
+  },
+  "ctx_explain": {
+    "message": "解释"
+  },
+  "ctx_translate": {
+    "message": "翻译"
+  },
+  "sugg_wikipedia_name": {
+    "message": "维基百科"
+  },
+  "sugg_youtube_key_points_label": {
+    "message": "带时间戳的要点"
+  },
   "sugg_youtube_key_points_prompt": {
     "message": "列出视频的要点，每条附上对应时间戳。"
   },
-  "sugg_youtube_fact_check_label": { "message": "值得核查的内容" },
+  "sugg_youtube_fact_check_label": {
+    "message": "值得核查的内容"
+  },
   "sugg_youtube_fact_check_prompt": {
     "message": "指出视频中值得核查的说法，并说明原因。"
   },
-
-  "sugg_google_refine_label": { "message": "优化我的搜索" },
+  "sugg_google_refine_label": {
+    "message": "优化我的搜索"
+  },
   "sugg_google_refine_prompt": {
     "message": "将此页面上显示的搜索词转换为高级搜索：使用引号表示精确短语，使用 site:、filetype:、用 - 排除词，以及在时间范围相关时添加 before:/after: 限定。"
   },
-  "sugg_google_compare_label": { "message": "对比这些结果" },
+  "sugg_google_compare_label": {
+    "message": "对比这些结果"
+  },
   "sugg_google_compare_prompt": {
     "message": "对比此页面上的搜索结果：共同点、差异点，以及哪个最能回答我的搜索需求。"
   },
-  "sugg_google_sources_label": { "message": "这些来源是谁？" },
+  "sugg_google_sources_label": {
+    "message": "这些来源是谁？"
+  },
   "sugg_google_sources_prompt": {
     "message": "对此页面上的每个结果，说明来源是谁，以及其在该主题上是否可靠。"
   },
-
-  "sugg_wikipedia_essentials_label": { "message": "5 个要点" },
+  "sugg_wikipedia_essentials_label": {
+    "message": "5 个要点"
+  },
   "sugg_wikipedia_essentials_prompt": {
     "message": "按重要性顺序将本文总结为 5 个要点。"
   },
-  "sugg_wikipedia_explain_label": { "message": "简单解释" },
+  "sugg_wikipedia_explain_label": {
+    "message": "简单解释"
+  },
   "sugg_wikipedia_explain_prompt": {
     "message": "简单解释本文的主题，如同向初次接触的人介绍一样。"
   },
-  "sugg_wikipedia_dates_label": { "message": "重要日期" },
+  "sugg_wikipedia_dates_label": {
+    "message": "重要日期"
+  },
   "sugg_wikipedia_dates_prompt": {
     "message": "列出本文提到的重要日期，以及每个日期发生的事情。"
   },
-
-  "sugg_reddit_thread_gist_label": { "message": "帖子的主要观点" },
+  "sugg_reddit_thread_gist_label": {
+    "message": "帖子的主要观点"
+  },
   "sugg_reddit_thread_gist_prompt": {
     "message": "总结此帖子的内容：主流观点和讨论最多的话题。"
   },
-  "sugg_reddit_opposing_label": { "message": "对立观点" },
+  "sugg_reddit_opposing_label": {
+    "message": "对立观点"
+  },
   "sugg_reddit_opposing_prompt": {
     "message": "指出此帖子中的对立观点，以及各方的主要论据。"
   },
-
-  "sugg_amazon_reviews_label": { "message": "评论说了什么" },
+  "sugg_amazon_reviews_label": {
+    "message": "评论说了什么"
+  },
   "sugg_amazon_reviews_prompt": {
     "message": "总结此产品的评论：优点和最常提及的缺点。"
   },
-  "sugg_amazon_weaknesses_label": { "message": "已报告的缺点" },
+  "sugg_amazon_weaknesses_label": {
+    "message": "已报告的缺点"
+  },
   "sugg_amazon_weaknesses_prompt": {
     "message": "指出此产品评论中报告的缺点，即使是少数意见。"
   },
-  "model_list_title": { "message": "可用模型" },
-  "model_list_local": { "message": "在这台电脑上" },
-  "model_list_online": { "message": "在线" },
+  "model_list_title": {
+    "message": "可用模型"
+  },
+  "model_list_local": {
+    "message": "在这台电脑上"
+  },
+  "model_list_online": {
+    "message": "在线"
+  },
   "model_list_size_gb": {
     "message": "$GB$ GB",
     "placeholders": {
-      "gb": { "content": "$1", "example": "2.6" }
+      "gb": {
+        "content": "$1",
+        "example": "2.6"
+      }
     }
   },
-  "model_list_thinks": { "message": "回答前会先思考，速度较慢" },
-  "model_list_ollama_unreachable": { "message": "Ollama 没有响应" },
-  "model_list_no_local": { "message": "尚未安装任何模型" },
-  "model_list_add": { "message": "添加模型…" },
-  "model_list_loading": { "message": "正在查找模型…" },
-  "model_list_unavailable": { "message": "本地程序无法列出模型。" },
-  "model_pill_local": { "message": "本地" },
-  "model_pill_online": { "message": "在线" },
-  "model_pill_none": { "message": "未选择模型" },
-  "model_pill_stale_broker": { "message": "需重启本地程序" },
+  "model_list_thinks": {
+    "message": "回答前会先思考，速度较慢"
+  },
+  "model_list_ollama_unreachable": {
+    "message": "Ollama 没有响应"
+  },
+  "model_list_no_local": {
+    "message": "尚未安装任何模型"
+  },
+  "model_list_add": {
+    "message": "添加模型…"
+  },
+  "model_list_loading": {
+    "message": "正在查找模型…"
+  },
+  "model_list_unavailable": {
+    "message": "本地程序无法列出模型。"
+  },
+  "model_pill_local": {
+    "message": "本地"
+  },
+  "model_pill_online": {
+    "message": "在线"
+  },
+  "model_pill_none": {
+    "message": "未选择模型"
+  },
+  "model_pill_stale_broker": {
+    "message": "需重启本地程序"
+  },
   "model_pill_stale_broker_label": {
     "message": "本地程序比扩展版本更旧。打开菜单。"
   },
   "model_menu_stale_broker_line": {
     "message": "本地程序比扩展版本更旧：请重启它以查看和更改模型。"
   },
-  "panel_status_action_hint": { "message": "点击以更改模型。" },
+  "panel_status_action_hint": {
+    "message": "点击以更改模型。"
+  },
   "model_pill_label": {
     "message": "模型：$MODEL$，$WHERE$。更换模型",
     "placeholders": {
-      "model": { "content": "$1", "example": "qwen3:4b" },
-      "where": { "content": "$2", "example": "本地" }
+      "model": {
+        "content": "$1",
+        "example": "qwen3:4b"
+      },
+      "where": {
+        "content": "$2",
+        "example": "本地"
+      }
     }
   },
-  "setup_local_models_check": { "message": "检查可用模型" },
-  "setup_local_models_text": { "message": "Ollama 里已经有模型了？Coati 会在这里列出它们，点一下即可选择用哪一个来回答。" },
-  "setup_local_suggestions_title": { "message": "可下载的模型" },
+  "setup_local_models_check": {
+    "message": "检查可用模型"
+  },
+  "setup_local_models_text": {
+    "message": "Ollama 里已经有模型了？Coati 会在这里列出它们，点一下即可选择用哪一个来回答。"
+  },
+  "setup_local_suggestions_title": {
+    "message": "可下载的模型"
+  },
   "setup_local_model_installed": {
     "message": "$MODEL$ 已安装。请在下方的可用模型列表中选择它。",
     "placeholders": {
-      "model": { "content": "$1", "example": "gemma3:4b" }
+      "model": {
+        "content": "$1",
+        "example": "gemma3:4b"
+      }
     }
   },
   "setup_local_model_chosen": {
     "message": "Coati 现在使用 $MODEL$。",
     "placeholders": {
-      "model": { "content": "$1", "example": "qwen3:4b" }
+      "model": {
+        "content": "$1",
+        "example": "qwen3:4b"
+      }
     }
   },
-  "model_fit_gpu": { "message": "可完全放入显卡" },
-  "model_fit_shared": { "message": "与处理器共用内存，速度较慢" },
-  "model_fit_too_big": { "message": "对这台电脑来说太大" },
+  "model_fit_gpu": {
+    "message": "可完全放入显卡"
+  },
+  "model_fit_shared": {
+    "message": "与处理器共用内存，速度较慢"
+  },
+  "model_fit_too_big": {
+    "message": "对这台电脑来说太大"
+  },
   "model_fit_loaded_percent": {
     "message": "已有 $PERCENT$% 加载到显卡中",
     "placeholders": {
-      "percent": { "content": "$1", "example": "100" }
+      "percent": {
+        "content": "$1",
+        "example": "100"
+      }
     }
   },
-  "setup_local_model_text_host": { "message": "根据这台电脑的内存，以下模型可以在本机运行。模型越大，回答越好，但速度越慢。" },
+  "setup_local_model_text_host": {
+    "message": "根据这台电脑的内存，以下模型可以在本机运行。模型越大，回答越好，但速度越慢。"
+  },
   "setup_local_host_vram": {
     "message": "这台电脑：$RAM$ GB 内存，$VRAM$ GB 显存。",
     "placeholders": {
-      "ram": { "content": "$1", "example": "16" },
-      "vram": { "content": "$2", "example": "6.4" }
+      "ram": {
+        "content": "$1",
+        "example": "16"
+      },
+      "vram": {
+        "content": "$2",
+        "example": "6.4"
+      }
     }
   },
   "setup_local_host_vram_unknown": {
     "message": "这台电脑：$RAM$ GB 内存，显存未知。",
     "placeholders": {
-      "ram": { "content": "$1", "example": "16" }
+      "ram": {
+        "content": "$1",
+        "example": "16"
+      }
     }
   },
   "setup_local_host_unified": {
     "message": "这台电脑：$RAM$ GB 内存，统一内存（Mac）。",
     "placeholders": {
-      "ram": { "content": "$1", "example": "16" }
+      "ram": {
+        "content": "$1",
+        "example": "16"
+      }
     }
   },
-  "setup_local_col_fit": { "message": "在这台电脑上" },
-  "setup_local_none_fit": { "message": "列表中没有适合这台电脑的模型。使用在线服务会更顺畅。" },
-  "setup_local_installed_tag": { "message": "已安装" },
+  "setup_local_col_fit": {
+    "message": "在这台电脑上"
+  },
+  "setup_local_none_fit": {
+    "message": "列表中没有适合这台电脑的模型。使用在线服务会更顺畅。"
+  },
+  "setup_local_installed_tag": {
+    "message": "已安装"
+  },
   "setup_local_installed_no_pull": {
     "message": "$MODEL$ 已安装，无需下载。",
     "placeholders": {
-      "model": { "content": "$1", "example": "qwen3.5:4b" }
+      "model": {
+        "content": "$1",
+        "example": "qwen3.5:4b"
+      }
     }
   },
-  "model_list_provider_local": { "message": "在这台电脑上" },
-  "model_list_provider_online": { "message": "在线服务" },
-  "options_current_label": { "message": "当前模型" },
-  "options_current_no_model": { "message": "尚未选择模型" },
-  "options_test_short": { "message": "测试" },
-  "options_installed_title": { "message": "已安装的模型" },
-  "options_refresh": { "message": "刷新" },
-  "options_services_title": { "message": "已配置的服务" },
-  "options_services_empty": { "message": "还没有在线服务。" },
-  "options_add_service": { "message": "添加服务" },
-  "options_other_address_title": { "message": "其他兼容 OpenAI 的地址" },
-  "options_cap_title": { "message": "支出上限" },
-  "options_cap_text": { "message": "付费服务按用量计费。请在其网站上设置每月上限：" },
-  "options_state_key_missing": { "message": "需要密钥" },
-  "options_state_address_missing": { "message": "需要地址" },
-  "options_state_check": { "message": "需要检查：请点击“测试”" },
-  "options_state_key_saved": { "message": "密钥已保存" },
-  "options_state_ready": { "message": "就绪" },
-  "options_service_active": { "message": "使用中" },
-  "options_service_use": { "message": "使用" },
-  "options_service_remove": { "message": "移除" },
-  "options_service_remove_confirm": { "message": "确认移除" },
-  "options_service_settings": { "message": "密钥和模型" },
-  "options_local_guide_title": { "message": "分步安装 Ollama 和推荐模型" },
+  "model_list_provider_local": {
+    "message": "在这台电脑上"
+  },
+  "model_list_provider_online": {
+    "message": "在线服务"
+  },
+  "options_current_label": {
+    "message": "当前模型"
+  },
+  "options_current_no_model": {
+    "message": "尚未选择模型"
+  },
+  "options_test_short": {
+    "message": "测试"
+  },
+  "options_installed_title": {
+    "message": "已安装的模型"
+  },
+  "options_refresh": {
+    "message": "刷新"
+  },
+  "options_services_title": {
+    "message": "已配置的服务"
+  },
+  "options_services_empty": {
+    "message": "还没有在线服务。"
+  },
+  "options_add_service": {
+    "message": "添加服务"
+  },
+  "options_other_address_title": {
+    "message": "其他兼容 OpenAI 的地址"
+  },
+  "options_cap_title": {
+    "message": "支出上限"
+  },
+  "options_cap_text": {
+    "message": "付费服务按用量计费。请在其网站上设置每月上限："
+  },
+  "options_state_key_missing": {
+    "message": "需要密钥"
+  },
+  "options_state_address_missing": {
+    "message": "需要地址"
+  },
+  "options_state_check": {
+    "message": "需要检查：请点击“测试”"
+  },
+  "options_state_key_saved": {
+    "message": "密钥已保存"
+  },
+  "options_state_ready": {
+    "message": "就绪"
+  },
+  "options_service_active": {
+    "message": "使用中"
+  },
+  "options_service_use": {
+    "message": "使用"
+  },
+  "options_service_remove": {
+    "message": "移除"
+  },
+  "options_service_remove_confirm": {
+    "message": "确认移除"
+  },
+  "options_service_settings": {
+    "message": "密钥和模型"
+  },
+  "options_local_guide_title": {
+    "message": "分步安装 Ollama 和推荐模型"
+  },
   "options_add_service_replaces": {
     "message": "此类服务一次只能有一个（OpenRouter、OpenAI、Mistral、DeepSeek 或其他地址）：添加新的服务会替换 $SERVICE$ 及其密钥。",
     "placeholders": {
-      "service": { "content": "$1", "example": "OpenRouter" }
+      "service": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
     }
   },
-  "options_current_default_model": { "message": "服务的默认模型" },
-  "options_search_title": { "message": "在文档中搜索" },
-  "options_search_help": { "message": "当您在面板中提出请求时，Coati 会在网站的官方文档中搜索。这需要一个搜索服务的密钥；两者都有免费额度。" },
-  "options_search_provider_brave": { "message": "Brave Search" },
-  "options_search_provider_tavily": { "message": "Tavily" },
-  "options_search_test": { "message": "检查" },
-  "options_search_test_paid_note": { "message": "检查会消耗免费额度中的一次请求。" },
-  "setup_search_title": { "message": "获取免费密钥" },
-  "setup_search_intro": { "message": "两个服务都有足以满足个人使用的免费额度：" },
-  "setup_search_brave": { "message": "Brave Search：每月约 1,000 次免费搜索（每月赠送 5 美元额度）。请在 API 控制台创建账户和密钥。" },
-  "setup_search_brave_link": { "message": "Brave Search API 控制台" },
-  "setup_search_tavily": { "message": "Tavily：每月 1,000 个免费额度。请在 Tavily 网站创建账户，然后创建密钥。" },
-  "setup_search_paste": { "message": "在上方选择服务，粘贴密钥并保存，然后点击“检查”。" },
+  "options_current_default_model": {
+    "message": "服务的默认模型"
+  },
+  "options_search_title": {
+    "message": "在文档中搜索"
+  },
+  "options_search_help": {
+    "message": "当您在面板中提出请求时，Coati 会在网站的官方文档中搜索。这需要一个搜索服务的密钥；两者都有免费额度。"
+  },
+  "options_search_provider_brave": {
+    "message": "Brave Search"
+  },
+  "options_search_provider_tavily": {
+    "message": "Tavily"
+  },
+  "options_search_test": {
+    "message": "检查"
+  },
+  "options_search_test_paid_note": {
+    "message": "检查会消耗免费额度中的一次请求。"
+  },
+  "setup_search_title": {
+    "message": "获取免费密钥"
+  },
+  "setup_search_intro": {
+    "message": "两个服务都有足以满足个人使用的免费额度："
+  },
+  "setup_search_brave": {
+    "message": "Brave Search：每月约 1,000 次免费搜索（每月赠送 5 美元额度）。请在 API 控制台创建账户和密钥。"
+  },
+  "setup_search_brave_link": {
+    "message": "Brave Search API 控制台"
+  },
+  "setup_search_tavily": {
+    "message": "Tavily：每月 1,000 个免费额度。请在 Tavily 网站创建账户，然后创建密钥。"
+  },
+  "setup_search_paste": {
+    "message": "在上方选择服务，粘贴密钥并保存，然后点击“检查”。"
+  },
   "options_search_placeholder": {
     "message": "$SERVICE$ API 密钥",
     "placeholders": {
-      "service": { "content": "$1", "example": "Brave Search" }
+      "service": {
+        "content": "$1",
+        "example": "Brave Search"
+      }
     }
+  },
+  "panel_access_denied_sent": {
+    "message": "⚠ Coati 无法访问此页面，问题将在不附带页面的情况下发送。$HINT$",
+    "placeholders": {
+      "hint": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_read_error_sent": {
+    "message": "⚠ 无法读取此页面，问题将在不附带页面的情况下发送：$DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "sensitive_dialog_title": {
+    "message": "可能包含敏感数据？"
+  },
+  "sensitive_dialog_text": {
+    "message": "此页面可能包含敏感数据（检测到的类型：$KINDS$）。在线模型将原样收到该页面的代码。预估大小：约 $KTOKENS$ k tokens。",
+    "placeholders": {
+      "kinds": {
+        "content": "$1",
+        "example": "API 密钥、银行卡、IBAN"
+      },
+      "ktokens": {
+        "content": "$2",
+        "example": "3.2"
+      }
+    }
+  },
+  "sensitive_dialog_send": {
+    "message": "仍然发送"
+  },
+  "sensitive_dialog_cancel": {
+    "message": "取消"
+  },
+  "sensitive_kind_api_key": {
+    "message": "API 密钥"
+  },
+  "sensitive_kind_card": {
+    "message": "银行卡"
+  },
+  "sensitive_kind_iban": {
+    "message": "IBAN"
   }
 }

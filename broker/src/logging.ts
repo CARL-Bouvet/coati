@@ -21,6 +21,15 @@ import {
 // The broker enforces the same cap server-side as a safety net.
 export const MAX_CONTEXT_CHARS = 40_000;
 
+// Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
+// on demand"): the dev level's own, much larger cap — a client answering
+// `page.request { level: "dev" }` with cleaned HTML may send up to this many
+// characters of `page.content.context.text` (further fit to the active
+// model's own context window, see handlers/chat.ts's devContentCharBudget —
+// that fit is usually the SMALLER of the two, truncating from the end and
+// reporting it in `done.page`, never a refusal).
+export const MAX_DEV_CONTEXT_CHARS = 400_000;
+
 // Amendement 2026-10-08 (lot 0/A1/B1/C1): open-ended wire capabilities this
 // broker build understands — docs/PROTOCOL.md "Amendement 2026-10-08" §1.
 // "elements" (context.elements, lot A1), "vision" (chat.image, lot B1) and
@@ -29,8 +38,11 @@ export const MAX_CONTEXT_CHARS = 40_000;
 // model/provider or of whether a search key is actually configured yet
 // (whether a GIVEN model sees, or search is actually usable right now, are
 // separate questions — see ModelEntry.vision/supportsVision and the
-// search-not-configured error code respectively).
-export const BROKER_FEATURES: string[] = ["elements", "vision", "docsearch", "history"];
+// search-not-configured error code respectively). Amendement 2026-10-09
+// (lot 7): "pageOnDemand" (chat.page/devMode, page.request/page.content/
+// page.decline — docs/PROTOCOL.md "Page on demand"), same unconditional
+// stance.
+export const BROKER_FEATURES: string[] = ["elements", "vision", "docsearch", "history", "pageOnDemand"];
 
 export function contextTooLarge(text: string | undefined): boolean {
   return typeof text === "string" && text.length > MAX_CONTEXT_CHARS;

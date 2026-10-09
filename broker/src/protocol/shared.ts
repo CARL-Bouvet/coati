@@ -32,6 +32,10 @@ export type ErrorCode =
   // configured, vs. configured-but-failed (see ErrorMessage.reason below).
   | "search-not-configured"
   | "search-unavailable"
+  // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
+  // on demand"): the client never answered a `page.request` (with
+  // `page.content` or `page.decline`) within PAGE_REQUEST_TIMEOUT_MS.
+  | "page-unavailable"
   | "internal";
 
 export function isRecord(v: unknown): v is Record<string, unknown> {

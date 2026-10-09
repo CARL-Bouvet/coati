@@ -15,6 +15,13 @@
 import { api, IS_GECKO } from "./lib/browser-compat.js";
 import { RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./panel/retention.js";
 import { POINT_EFFECT_KEY, parseStoredPointEffect } from "./panel/point-effect.js";
+import {
+  DEV_MODE_KEY,
+  DEV_MODE_ACKNOWLEDGED_KEY,
+  parseStoredDevMode,
+  parseStoredDevModeAcknowledged,
+  confirmDevModeActivation,
+} from "./lib/dev-mode-pref.js";
 import { t, applyI18n, reloadOnLanguageChange } from "./lib/i18n-page.js";
 import { mountLanguageSelector } from "./lib/language-selector.js";
 import { els } from "./options/dom-refs.js";
@@ -32,11 +39,6 @@ mountLanguageSelector(document.getElementById("languageSelectorMount"), { compac
 // a reload re-runs them all with the new catalog already loaded (see
 // lib/i18n.js's top-level await), simpler than repainting each in place.
 reloadOnLanguageChange();
-
-// Same key and value semantics as extension/panel/panel.js (ATTACH_PAGE_KEY,
-// attachPagePreference): a boolean once the user chose, null/absent = never
-// chosen, which the panel treats as "on".
-const ATTACH_PAGE_KEY = "coati:attachPage";
 
 // Theme variant hook, screenshots only — inert unless the page is opened with
 // e.g. "?variant=b". See notes/PLAN_goal_panneau_v2.md, "Contrat commun".
@@ -57,13 +59,42 @@ async function init() {
     ? t("options_sites_help_gecko")
     : t("options_sites_help_chrome");
 
-  const data = await api.storage.local.get([RETENTION_DAYS_KEY, ATTACH_PAGE_KEY, POINT_EFFECT_KEY]);
+  const data = await api.storage.local.get([RETENTION_DAYS_KEY, DEV_MODE_KEY, POINT_EFFECT_KEY]);
   const retentionDays = parseStoredRetentionDays(data[RETENTION_DAYS_KEY]);
   els.retention.value = retentionDays === null ? "never" : String(retentionDays);
-  // Same default as the panel: never chosen (null/absent) reads as "on".
-  els.attachPage.checked = typeof data[ATTACH_PAGE_KEY] === "boolean" ? data[ATTACH_PAGE_KEY] : true;
-  els.attachPage.addEventListener("change", () => {
-    api.storage.local.set({ [ATTACH_PAGE_KEY]: els.attachPage.checked });
+  // Same storage key as the panel's "Dev mode" switch (lib/dev-mode-pref.js) —
+  // ONE preference. Default off (unlike the former attachPage default of
+  // "on"): dev mode sends more data and may expose personal data, so it
+  // never turns itself on silently.
+  els.devMode.checked = parseStoredDevMode(data[DEV_MODE_KEY]);
+  // First-ever activation goes through the same risk/cost confirmation
+  // dialog as the panel's switch (reused from lib/dev-mode-pref.js, not duplicated).
+  // Declined: the checkbox reverts, nothing is written.
+  els.devMode.addEventListener("change", async () => {
+    if (!els.devMode.checked) {
+      api.storage.local.set({ [DEV_MODE_KEY]: false });
+      return;
+    }
+    const acknowledged = await api.storage.local
+      .get(DEV_MODE_ACKNOWLEDGED_KEY)
+      .then((d) => parseStoredDevModeAcknowledged(d[DEV_MODE_ACKNOWLEDGED_KEY]))
+      .catch(() => false);
+    if (!acknowledged) {
+      const confirmed = await confirmDevModeActivation(document);
+      if (!confirmed) {
+        els.devMode.checked = false;
+        return;
+      }
+      await api.storage.local.set({ [DEV_MODE_ACKNOWLEDGED_KEY]: true }).catch(() => {});
+    }
+    api.storage.local.set({ [DEV_MODE_KEY]: true });
+  });
+  // The panel writes the same key too: adopt its value if changed while
+  // this page is open.
+  api.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && DEV_MODE_KEY in changes) {
+      els.devMode.checked = parseStoredDevMode(changes[DEV_MODE_KEY].newValue);
+    }
   });
 
   const pointEffect = parseStoredPointEffect(data[POINT_EFFECT_KEY]);

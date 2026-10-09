@@ -10,7 +10,7 @@ export const els = {
   headerStatus: document.getElementById("headerStatus"),
   headerStatusLabel: document.querySelector("#headerStatus .status-label"),
   legacyPairing: document.getElementById("legacyPairing"),
-  attachPage: document.getElementById("attachPage"),
+  devMode: document.getElementById("devMode"),
   shortcutKeys: document.getElementById("shortcutKeys"),
   shortcutEdit: document.getElementById("shortcutEdit"),
   shortcutHelp: document.getElementById("shortcutHelp"),

@@ -3,6 +3,7 @@
 // "history"). Split out of protocol.ts (lot F5).
 
 import { isRecord, isValidOrigin } from "./shared.ts";
+import type { PageKind } from "./context.ts";
 
 // Amendement 2026-10-08 (lot B1, "View screen" — docs/PROTOCOL.md §3).
 // Closed media type list, checked against the decoded bytes' own magic
@@ -162,6 +163,59 @@ export function parseHistory(v: unknown): HistoryEntry[] | undefined {
   }
   if (entries.length === 0) return undefined;
   return entries.length > HISTORY_MAX_ENTRIES ? entries.slice(entries.length - HISTORY_MAX_ENTRIES) : entries;
+}
+
+// Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
+// on demand"). Metadata about a page the model may ask to read later, on a
+// `chat` that carries no `context` at all (see parse.ts: the two are never
+// both honoured on the same message). `title`/`url` are page-controlled —
+// same trust level as Context.title/url (CLAUDE.md rule #3) — bounded the
+// same way (PAGE_META_TITLE_MAX/PAGE_META_URL_MAX) rather than left
+// unbounded like Context's own url/title, since there is no existing
+// numeric-budget check (server.ts's contextBudgetError) this field goes
+// through on its own path. `chars` is the page's own extracted length, as
+// computed by the extension — an informational number shown to the model,
+// never re-derived or verified broker-side.
+export const PAGE_META_TITLE_MAX = 300;
+export const PAGE_META_URL_MAX = 300;
+
+export interface PageMeta {
+  title: string;
+  url: string;
+  kind?: PageKind;
+  chars: number;
+}
+
+function isPageMetaKind(v: unknown): v is PageKind {
+  return v === "list" || v === "listing" || v === "article" || v === "other";
+}
+
+/**
+ * Validates `chat.page` (docs/PROTOCOL.md "Page on demand"). Same
+ * drop-not-reject tolerance as `image`/`docSearch`: a malformed value is
+ * dropped whole — the chat still goes through as a normal (no-page) request,
+ * never a bad-request.
+ */
+export function parsePageMeta(v: unknown): PageMeta | undefined {
+  if (!isRecord(v)) return undefined;
+  if (typeof v.title !== "string" || v.title.length === 0 || v.title.length > PAGE_META_TITLE_MAX) return undefined;
+  if (typeof v.url !== "string" || v.url.length === 0 || v.url.length > PAGE_META_URL_MAX) return undefined;
+  if (typeof v.chars !== "number" || !Number.isFinite(v.chars) || v.chars < 0) return undefined;
+  const meta: PageMeta = { title: v.title, url: v.url, chars: v.chars };
+  if (isPageMetaKind(v.kind)) meta.kind = v.kind;
+  return meta;
+}
+
+/**
+ * Cheap shape test for "does this JSON object look like a `page.content`
+ * carrying real context?" — used by the oversized-message gate
+ * (parseClientMessage) the same way as looksLikeChatWithImage below: a
+ * `page.content` can legitimately carry up to MAX_IMAGE_MESSAGE_BYTES (dev
+ * level's cleaned HTML, docs/PROTOCOL.md "Page on demand"), same allowance
+ * as chat+image.
+ */
+export function looksLikePageContent(parsed: unknown): boolean {
+  return isRecord(parsed) && parsed.type === "page.content" && isRecord(parsed.context);
 }
 
 /**

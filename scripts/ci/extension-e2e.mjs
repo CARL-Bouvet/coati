@@ -162,25 +162,9 @@ try {
   });
   pass("panel reached status--connected (Native Messaging handshake succeeded)");
 
-  // The panel is opened as a plain tab, so there is no page Coati may read;
-  // with "Lire la page" on (the default) the question would be held back
-  // ("Coati n'a pas accès à cette page"). Turn it off: this test is about the
-  // pairing and the round trip, not page reading.
-  // The switch settles asynchronously after "connected" (stored preference,
-  // first-run flags): wait for it to turn on before turning it off, otherwise
-  // a late render switches it back on after our check (flaky, seen in U2).
-  const attachOn = await waitFor(
-    async () => (await page.locator("#attachPage").getAttribute("aria-checked")) === "true",
-    5000,
-    "attachPage on",
-  ).then(() => true, () => false);
-  if (attachOn) {
-    await page.locator("#attachPage").click();
-  }
-  await page.waitForTimeout(300);
-  if ((await page.locator("#attachPage").getAttribute("aria-checked")) === "true") {
-    await page.locator("#attachPage").click();
-  }
+  // The panel is opened as a plain tab, so there is no page Coati may read:
+  // the question must still go out, without the page (no switch to turn page
+  // reading off any more — an unreadable tab never blocks a question).
   const question = `coati extension e2e ${Date.now()}`;
   await page.locator("#input").fill(question);
   await page.locator("#send").click();

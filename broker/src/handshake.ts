@@ -8,7 +8,7 @@ import {
   isHex64,
   safeEqualHex,
 } from "./broker-key.ts";
-import { parseClientMessage } from "./protocol.ts";
+import { parseClientMessage, type Context } from "./protocol.ts";
 import { normalizeLang, type Lang } from "./messages.ts";
 import { send } from "./ws-send.ts";
 import { sanitizeLogValue, BROKER_FEATURES } from "./logging.ts";
@@ -84,6 +84,19 @@ export interface ConnData {
    * connection that closed mid-search never gets written to, and never
    * starts a model stream nobody is listening to anymore. */
   closed: boolean;
+  /**
+   * Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
+   * on demand"). Pending `page.request`s this connection is waiting an
+   * answer for, keyed by the originating chat's own id (PageRequestMessage.id
+   * — never a fresh id). handlers/chat.ts registers a resolver here right
+   * before sending the request, and removes it the moment a `page.content`/
+   * `page.decline` naming that same id as its `target` arrives (dispatch.ts),
+   * or the wait times out/aborts on its own. A `page.content`/`page.decline`
+   * whose `target` has no entry here (late arrival after timeout, or one
+   * that never had a matching request) is simply ignored — never an error,
+   * same tolerance as `cancel` naming an unknown id.
+   */
+  pageRequests: Map<string, (answer: { kind: "content"; level: "text" | "dev"; context: Context } | { kind: "decline" }) => void>;
 }
 
 // Client-controlled values (Host, Origin) are logged sanitized — control

@@ -504,7 +504,7 @@
       status: "connected",
       settings: NOMINAL_SETTINGS,
       testResults: { "claude-api": { ok: true, message: "Connexion à l'API Anthropic réussie." } },
-      storageLocal: { "coati:retentionDays": 30, "coati:attachPage": false },
+      storageLocal: { "coati:retentionDays": 30, "coati:devMode": false },
       permissions: ["https://www.youtube.com/*"],
       autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
     },
@@ -614,6 +614,35 @@
       storageLocal: { "coati:retentionDays": 30 },
       permissions: [],
       autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
+    },
+
+    // docs/PROTOCOL.md "Page on demand" — options page "Dev mode" section
+    // (shares the panel's storage key, dev-mode.js), off.
+    "dev-mode-off": {
+      status: "connected",
+      settings: NOMINAL_SETTINGS,
+      storageLocal: { "coati:retentionDays": 30, "coati:devMode": false },
+      permissions: ["https://www.youtube.com/*"],
+    },
+
+    // Same section, on (already acknowledged — the panel and this page
+    // share coati:devModeAcknowledged too).
+    "dev-mode-on": {
+      status: "connected",
+      settings: NOMINAL_SETTINGS,
+      storageLocal: { "coati:retentionDays": 30, "coati:devMode": true, "coati:devModeAcknowledged": true },
+      permissions: ["https://www.youtube.com/*"],
+    },
+
+    // First-ever activation from the options page: same confirmation
+    // dialog as the panel's switch (confirmDevModeActivation(), reused —
+    // not duplicated), reached the same way a user reaches it.
+    "dev-mode-confirm": {
+      status: "connected",
+      settings: NOMINAL_SETTINGS,
+      storageLocal: { "coati:retentionDays": 30, "coati:devMode": false },
+      permissions: ["https://www.youtube.com/*"],
+      autoAction: { steps: [{ type: "click", selector: "#devMode", delayMs: 30 }] },
     },
   };
 

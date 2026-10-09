@@ -6,7 +6,6 @@
 import { classifyPageType, classifyPageTypeFromMetadata } from "../content/detect.js";
 import { api, IS_GECKO } from "../lib/browser-compat.js";
 import { faviconSrc } from "./card-state.js";
-import { updateAttachToggle } from "./attach-toggle.js";
 import { updateSiteCard, beginCardDetection, endCardDetection } from "./site-card.js";
 import { refreshReadButton, renderReadButton } from "./first-run-wiring.js";
 import { extractFromTab } from "./page-extract.js";
@@ -37,7 +36,6 @@ export function resetPageState() {
   pageKind = null;
   currentPageUrl = null;
   currentFavIconUrl = null;
-  updateAttachToggle();
   updateSiteCard();
 }
 
@@ -66,7 +64,6 @@ export function applyDetectedContext(context) {
   // needing to special-case it here.
   pageKind =
     context.kind === "page" && typeof context.pageKind === "string" ? context.pageKind : null;
-  updateAttachToggle();
   refreshReadButton();
   updateSiteCard();
   // extract.js reads page content, never tab metadata — the favicon comes
@@ -169,8 +166,7 @@ export async function redetectTabFromMetadata(tabId) {
     currentPageUrl = tab.url;
     currentFavIconUrl = iconFor(tab);
     pageType = classifyPageTypeFromMetadata({ url: tab.url, title: tab.title });
-    updateAttachToggle();
-    refreshReadButton();
+      refreshReadButton();
     updateSiteCard();
   } finally {
     endCardDetection();

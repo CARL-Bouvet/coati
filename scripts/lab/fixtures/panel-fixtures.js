@@ -1746,5 +1746,143 @@
       },
       prompts: [],
     },
+
+    // docs/PROTOCOL.md "Page on demand" — "Dev mode" switch, off, visible
+    // (broker offers the "pageOnDemand" feature). Ground state for the
+    // three states below.
+    "dev-mode-off": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand"],
+      storageLocal: { "coati:conversation": [], "coati:devMode": false },
+      prompts: [],
+    },
+
+    // Same ground state, switch on (already acknowledged once before —
+    // coati:devModeAcknowledged true — so the click below doesn't reopen
+    // the confirmation dialog).
+    "dev-mode-on": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand"],
+      storageLocal: { "coati:conversation": [], "coati:devMode": true, "coati:devModeAcknowledged": true },
+      prompts: [],
+    },
+
+    // First-ever activation: the risk/cost confirmation dialog (dev-
+    // mode.js's confirmDevModeActivation()), reached the same way a user
+    // reaches it — a scripted click on the still-off switch, no
+    // coati:devModeAcknowledged preloaded.
+    "dev-mode-confirm": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand"],
+      storageLocal: { "coati:conversation": [], "coati:devMode": false },
+      prompts: [],
+      autoAction: {
+        steps: [{ type: "click", selector: "#devMode", delayMs: 60 }],
+      },
+    },
+
+    // Transient status line while the metadata-path extraction is read back
+    // ("Reading the page (~N k tokens)…", message-render.js) — a streaming
+    // assistant message with no text yet and msg.pageReading set.
+    "page-reading-status": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "pr-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          { id: "pr1", role: "assistant", text: "", streaming: true, pageReading: { kTokens: "3.2" } },
+        ],
+        "coati:devMode": false,
+        "coati:devModeAcknowledged": true,
+      },
+      prompts: [],
+    },
+
+    // The three mention-line variants under a finished answer
+    // (buildPageMention(), chat-stream.js) — read at text level, read at
+    // dev level, and declined/not read.
+    "page-mention-read-text": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "pmt-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          {
+            id: "pmt1",
+            role: "assistant",
+            text: CONVERSATION_ANSWER,
+            streaming: false,
+            pageOnDemand: true,
+            pageMention: "A lu la page · 3.2 k tokens",
+          },
+        ],
+        "coati:devMode": false,
+        "coati:devModeAcknowledged": true,
+      },
+      prompts: [],
+    },
+
+    "page-mention-read-dev": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "pmd-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          {
+            id: "pmd1",
+            role: "assistant",
+            text: CONVERSATION_ANSWER,
+            streaming: false,
+            pageOnDemand: true,
+            pageMention: "A lu le code de la page · 4.1 k tokens",
+          },
+        ],
+        "coati:devMode": true,
+        "coati:devModeAcknowledged": true,
+      },
+      prompts: [],
+    },
+
+    "page-mention-not-read": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "pmn-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          {
+            id: "pmn1",
+            role: "assistant",
+            text: "Je n'ai pas eu besoin de relire la page pour répondre.",
+            streaming: false,
+            pageOnDemand: true,
+            pageMention: "N'a pas lu la page · 0.4 k tokens",
+          },
+        ],
+        "coati:devMode": false,
+        "coati:devModeAcknowledged": true,
+      },
+      prompts: [],
+    },
   };
 })();

@@ -136,3 +136,26 @@ export function describeProviderUnavailable(reason) {
   const label = t("common_provider_unavailable");
   return reason ? `${label}\n${t("common_error_detail", [reason])}` : label;
 }
+
+// Shared by panel/page-request.js's transient "Reading the page (~N k
+// tokens)…" status line and chat-stream.js's done.page mention line
+// (docs/PROTOCOL.md "Page on demand") — one token-count estimate/format
+// pair, used in both places so the two numbers read the same way.
+
+/** A page's character count has no token count attached client-side (only
+ * the broker's `done.usage` does) — ~4 chars/token is the same rough ratio
+ * docs/PROTOCOL.md already uses for its own dev-level context-fit maths.
+ * @param {number} chars @returns {number} */
+export function estimateTokensFromChars(chars) {
+  return Math.round((chars || 0) / 4);
+}
+
+/** @param {number} tokens @returns {string} e.g. "3.2" for 3200, "12" for 12000. */
+export function formatTokensK(tokens) {
+  const k = (tokens || 0) / 1000;
+  // Decimal separator of the page's own language ("0,8" in French).
+  const lang = (typeof document !== "undefined" && document.documentElement.lang) || undefined;
+  return k < 10
+    ? k.toLocaleString(lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+    : Math.round(k).toLocaleString(lang);
+}

@@ -18,10 +18,10 @@ import { isNearBottom } from "./scroll.js";
 import { parseTimestamps } from "./timestamps.js";
 import { parseElementRefs, resolveElementClick } from "./element-refs.js";
 import { buildHistoryForWire, historyAlertState } from "./history.js";
-import { extractIfAttaching, sendChatMessage } from "./composer-send.js";
+import { extractForChat, sendChatMessage } from "./composer-send.js";
 import { summarize, reportExtractionError } from "./page-extract.js";
 import { pendingRetries, lastHistoryKept } from "./chat-stream.js";
-import { currentConnState, modelsReply, switchFromTip, openOllamaSpeedup } from "./model-status.js";
+import { currentConnState, modelsReply, switchFromTip, openOllamaSpeedup, hasFeature } from "./model-status.js";
 import { buildAuthRecoveryBlock } from "./request-watch.js";
 import {
   buildQuotaRecoveryBlock,
@@ -55,7 +55,7 @@ async function relaunchMessage(msg) {
 
   let context;
   try {
-    context = await extractIfAttaching();
+    context = await extractForChat();
   } catch (err) {
     reportExtractionError(err, {
       accessDenied: t("panel_access_denied_relaunch", [ACCESS_DENIED_HINT]),
@@ -63,7 +63,14 @@ async function relaunchMessage(msg) {
     });
     return;
   }
-  await sendChatMessage(relaunch.text, context);
+  // Same page-on-demand branch as sendChat() (composer-send.js) — a relaunch
+  // reads the CURRENT page fresh and re-decides, never replays whatever the
+  // original send happened to use.
+  if (context && hasFeature("pageOnDemand")) {
+    await sendChatMessage(relaunch.text, undefined, context);
+  } else {
+    await sendChatMessage(relaunch.text, context);
+  }
 }
 
 /** Real DOM node, no innerHTML (CLAUDE.md rule #3). Sits below the bubble
@@ -135,8 +142,12 @@ export function renderMessage(msg, { append = false } = {}) {
     node.id = `msg-${msg.id}`;
     els.messages.appendChild(node);
   }
-  const waiting = msg.streaming && !msg.text && !!msg.progress;
-  node.className = `message message--${msg.role}${msg.streaming ? " message--streaming" : ""}${waiting ? " message--progress" : ""}`;
+  // "Reading the page…" (page-request.js) takes priority over the ordinary
+  // progress stage while both could apply — it's a MORE specific thing
+  // Coati is doing right now than "thinking"/"loading".
+  const reading = msg.streaming && !msg.text && !!msg.pageReading;
+  const waiting = !reading && msg.streaming && !msg.text && !!msg.progress;
+  node.className = `message message--${msg.role}${msg.streaming ? " message--streaming" : ""}${waiting || reading ? " message--progress" : ""}`;
 
   if (msg.role === "notice") {
     // A calm line from Coati itself ("shared" model picked): plain text,
@@ -156,6 +167,12 @@ export function renderMessage(msg, { append = false } = {}) {
     node.appendChild(buildRelaunchButton(msg));
   } else {
     node.replaceChildren(renderMarkdown(document, msg.text));
+    if (reading) {
+      const line = document.createElement("p");
+      line.className = "search-status-line message-page-reading";
+      line.textContent = t("panel_page_reading_status", [msg.pageReading.kTokens]);
+      node.appendChild(line);
+    }
     if (waiting) {
       node.appendChild(
         buildProgress(document, {
@@ -210,6 +227,15 @@ export function renderMessage(msg, { append = false } = {}) {
       node.appendChild(notice);
     }
     if (msg.modelStalled && pendingRetries.has(msg.id)) node.appendChild(buildRateLimitRecoveryBlock(msg));
+    // docs/PROTOCOL.md "Page on demand", task brief point 5 — discreet, one
+    // line, only on a finished metadata-path chat answer (buildPageMention(),
+    // chat-stream.js's onDone, gates this to msg.pageOnDemand already).
+    if (msg.pageMention && !msg.streaming) {
+      const mention = document.createElement("p");
+      mention.className = "search-status-line message-page-mention";
+      mention.textContent = msg.pageMention;
+      node.appendChild(mention);
+    }
     if (msg.slowTip && !msg.streaming) {
       node.appendChild(
         buildSlowTip(document, msg.slowTip, {

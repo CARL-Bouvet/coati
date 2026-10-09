@@ -11,11 +11,11 @@ export const panelState = {
   /** @type {Array<{id: string, role: 'user'|'assistant'|'system', text: string}>} */
   conversation: [],
   activeRequestId: null,
-  // "Coati reads this page" toggle (deliverable 3). null = no stored
-  // preference yet, so default to true once a page type is known.
-  attachPagePreference: null,
-  // "See the screen" toggle (sticky). null/false = off by default.
-  attachScreenPreference: false,
+  // "Dev mode" switch (replaces the former "Read the page"/"See the
+  // screen" toggles) — same single-key, options-page-shared preference as
+  // DEV_MODE_KEY (dev-mode.js). Off by default; the panel switch and the
+  // options checkbox are the SAME preference, never two.
+  devModePreference: false,
   // Set once any assistant answer completes this panel session
   // (handleBrokerMessage's "done" case) — read by model-status.js
   // (maybeRecheckProviderForFirstRun) and first-run-wiring.js (renderFirstRun).
@@ -32,7 +32,5 @@ export function newId() {
 }
 
 export const STORAGE_KEY = "coati:conversation";
-export const ATTACH_PAGE_KEY = "coati:attachPage";
-export const ATTACH_SCREEN_KEY = "coati:attachScreen";
 export const PENDING_ACTION_KEY = "coati:pendingAction";
 export const MAX_PERSISTED_MESSAGES = 200;

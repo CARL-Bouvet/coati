@@ -19,21 +19,20 @@ User-facing text is never hard-coded: it goes through `extension/_locales/{en,fr
 Rules marked **(planned)** are not implemented yet (see `docs/ROADMAP.md`).
 
 **Principles**
-1. Coati reads the page; the reading level decides what the model gets. Today: visible text and
-   clickable elements only. **(source and dev levels planned)**
-2. The user always sees how much data the model reads: an estimate before sending, the real
-   count during and after. **(planned)**
+1. The model reads the page only when the question needs it: it asks, Coati sends it. What it
+   gets depends on the reading level.
+2. The user always sees how much data the model reads: an estimate while the page is sent, the
+   real count under every answer ("read the page" / "did not read the page").
 3. Bring your own model. Coati ships no AI, and nothing goes through our servers.
 4. Open source (AGPL-3.0). Reading pages is free at every level.
 
 **Reading**
-5. Three reading levels next to "Read page": **text** (default: visible text and clickable
-   elements), **source** (HTML structure, ids, classes, styles; no script content, no field
-   values; size capped), **dev** (everything, several pages, local addresses; at the user's
-   own risk). **(planned)**
+5. Two reading levels: **text** (default: visible text and clickable elements) and **dev**
+   (the page's cleaned HTML — no scripts, styles or field values; behind the "Dev mode" switch,
+   confirmed once, at the user's own risk). A structure level between the two may come later.
 6. Never a password field's value, at any level.
 7. Screenshot: the model asks for one, the user accepts in one click. **(planned)**
-8. Sensitive data: warn, never mask. **(planned)**
+8. Sensitive data: warn, never mask (dev level sent to an online model).
 
 **Acting**
 9. Show: Coati points at an element, the user clicks it.
@@ -71,3 +70,5 @@ Rules marked **(planned)** are not implemented yet (see `docs/ROADMAP.md`).
 ## Everything in this repo is public
 
 Commit messages included: never a price, a strategy, legal content, or personal information.
+Never point to notes or files that live outside this repository: a comment must make sense to
+someone who only has this repo (`broker/test/public-repo-hygiene.test.ts` fails otherwise).

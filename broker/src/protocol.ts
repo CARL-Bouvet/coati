@@ -71,6 +71,9 @@ export {
   type HistoryEntry,
   HISTORY_MAX_ENTRIES,
   HISTORY_ENTRY_TEXT_MAX,
+  type PageMeta,
+  PAGE_META_TITLE_MAX,
+  PAGE_META_URL_MAX,
 } from "./protocol/chat.ts";
 
 export {
@@ -93,6 +96,8 @@ export {
   type ProviderStatusMessage,
   type ModelsListMessage,
   type ModelWarmupMessage,
+  type PageContentMessage,
+  type PageDeclineMessage,
   type ClientMessage,
 } from "./protocol/client-messages.ts";
 
@@ -117,6 +122,7 @@ export {
   type ProgressMessage,
   type SearchStatusMessage,
   type ChallengeMessage,
+  type PageRequestMessage,
   type ServerMessage,
 } from "./protocol/server-messages.ts";
 

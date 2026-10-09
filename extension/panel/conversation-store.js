@@ -4,12 +4,12 @@
 // killed and restarted at any time (see background/service-worker.js).
 import { api } from "../lib/browser-compat.js";
 import { applyRetention, RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./retention.js";
-import { panelState, STORAGE_KEY, ATTACH_PAGE_KEY, ATTACH_SCREEN_KEY } from "./panel-state.js";
+import { panelState, STORAGE_KEY } from "./panel-state.js";
+import { DEV_MODE_KEY, parseStoredDevMode } from "./dev-mode.js";
 
 export async function loadConversation() {
-  const data = await api.storage.local.get([STORAGE_KEY, ATTACH_PAGE_KEY, ATTACH_SCREEN_KEY, RETENTION_DAYS_KEY]);
-  panelState.attachPagePreference = typeof data[ATTACH_PAGE_KEY] === "boolean" ? data[ATTACH_PAGE_KEY] : null;
-  panelState.attachScreenPreference = data[ATTACH_SCREEN_KEY] === true;
+  const data = await api.storage.local.get([STORAGE_KEY, DEV_MODE_KEY, RETENTION_DAYS_KEY]);
+  panelState.devModePreference = parseStoredDevMode(data[DEV_MODE_KEY]);
   const retentionDays = parseStoredRetentionDays(data[RETENTION_DAYS_KEY]);
   const raw = Array.isArray(data[STORAGE_KEY]) ? data[STORAGE_KEY] : [];
   const filtered = applyRetention(raw, retentionDays);
@@ -28,14 +28,16 @@ export function persistConversation() {
   // same reasoning as `context`/`pendingRetries` (CLAUDE.md rule #1). Strip
   // it from the COPY written to chrome.storage.local; the in-memory
   // `conversation` objects (and their buttons, already rendered) keep it.
+  // `pageReading` (page-request.js's transient "Reading the page…" status)
+  // is mid-request-only, meaningless after a reload (activeRequestId itself
+  // isn't persisted either) — stripped same as elementsSnapshot.
   const toStore = panelState.conversation.map((msg) => {
-    if (!msg.elementsSnapshot) return msg;
-    const { elementsSnapshot, ...rest } = msg;
+    if (!msg.elementsSnapshot && !msg.pageReading) return msg;
+    const { elementsSnapshot, pageReading, ...rest } = msg;
     return rest;
   });
   api.storage.local.set({
     [STORAGE_KEY]: toStore,
-    [ATTACH_PAGE_KEY]: panelState.attachPagePreference,
-    [ATTACH_SCREEN_KEY]: panelState.attachScreenPreference,
+    [DEV_MODE_KEY]: panelState.devModePreference,
   });
 }

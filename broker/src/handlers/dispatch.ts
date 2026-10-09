@@ -11,7 +11,7 @@ import { DEFAULT_OLLAMA_URL } from "../config.ts";
 import { listModelEntries as listOllamaModelEntries, matchesModel, warmupModel } from "../providers/ollama.ts";
 import { detectSearchIntent } from "../search/intent.ts";
 import type { Lang } from "../messages.ts";
-import { handleStreamingRequest, handleChatDocSearch } from "./chat.ts";
+import { handleStreamingRequest, handleChatDocSearch, handleChatPageOnDemand, type PageOnDemandConnState } from "./chat.ts";
 import { buildSettingsPayload, testProviderConnection, testSearchConnection, type SettingsCtx } from "./settings.ts";
 import { buildModelsPayload } from "./models.ts";
 
@@ -27,7 +27,7 @@ export function handleMessage(
   // search in flight per connection" rule (R5). Every other message type
   // ignores both.
   dataDir: string,
-  connState: { docSearching: boolean; closed: boolean },
+  connState: { docSearching: boolean; closed: boolean } & PageOnDemandConnState,
 ): void {
   switch (message.type) {
     case "hello":
@@ -56,6 +56,15 @@ export function handleMessage(
         );
         return;
       }
+      // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md
+      // "Page on demand", point 2): `page` only ever takes effect when
+      // `context` is ABSENT — a `chat` carrying both behaves exactly as
+      // before this amendment (byte-identical: `context` wins, `page` is
+      // simply never looked at).
+      if (message.page && !message.context) {
+        handleChatPageOnDemand(ws, { ...message, page: message.page }, active, settingsCtx, lang, connState);
+        return;
+      }
       handleStreamingRequest(ws, message, active, settingsCtx, {
         logType: "chat",
         logContextKind: message.context?.kind,
@@ -75,6 +84,19 @@ export function handleMessage(
             lang,
           ),
       });
+      return;
+    }
+    case "page.content": {
+      // Amendement 2026-10-09 (lot 7): resolves the pending `page.request`
+      // this answers, if any — a `target` with no matching entry (late
+      // arrival after PAGE_REQUEST_TIMEOUT_MS, or one that never had a
+      // matching request) is silently ignored, same tolerance as `cancel`
+      // naming an unknown id.
+      connState.pageRequests.get(message.target)?.({ kind: "content", level: message.level, context: message.context });
+      return;
+    }
+    case "page.decline": {
+      connState.pageRequests.get(message.target)?.({ kind: "decline" });
       return;
     }
     case "summarize": {

@@ -165,7 +165,7 @@ function sanitizeAndFlatten(value: string): string {
 // Amendement 2026-09-25 (types de page) — "Facts and entries in the prompt".
 // One line per fact, fixed shape: `- <label> : <value>`.
 function renderFactLines(facts: Fact[]): string[] {
-  const lines = ["Faits affichés par la page :"];
+  const lines = ["Facts shown by the page:"];
   for (const fact of facts) {
     lines.push(`- ${sanitizeAndFlatten(fact.label)} : ${sanitizeAndFlatten(fact.value)}`);
   }
@@ -177,7 +177,7 @@ function renderFactLines(facts: Fact[]): string[] {
 // omitted with their separator". `<n>` and the count in the header are
 // computed by the broker, never read from the page.
 function renderItemLines(items: Item[]): string[] {
-  const lines = [`Entrées affichées par la page (${items.length} lues) :`];
+  const lines = [`Entries shown by the page (${items.length} read):`];
   items.forEach((item, index) => {
     const fields = [item.title, item.price, item.location, item.detail]
       .filter((v): v is string => v !== undefined && v !== "")
@@ -195,7 +195,7 @@ function renderItemLines(items: Item[]): string[] {
 // neither can legally contain anything that needs neutralising (ref matches
 // ELEMENT_REF_RE, role is one of ELEMENT_ROLES, both closed/short ASCII).
 function renderElementLines(elements: Element[]): string[] {
-  const lines = ["Éléments interactifs visibles :"];
+  const lines = ["Interactive elements visible:"];
   for (const el of elements) {
     lines.push(`[[${el.ref}]] ${el.role} — ${stripReferenceTokens(sanitizeAndFlatten(el.label))}`);
   }
@@ -207,7 +207,7 @@ function renderElementLines(elements: Element[]): string[] {
 // validation: an empty or fully-invalid array adds nothing, so a model never
 // sees instructions about a list that isn't actually there.
 export const ELEMENTS_INSTRUCTION = [
-  "The page content above lists interactive elements under \"Éléments interactifs visibles :\".",
+  "The page content above lists interactive elements under \"Interactive elements visible:\".",
   "To point at one of them, write its reference inside double square brackets exactly as given,",
   "e.g. [[e12]] — and ONLY ever one of the references listed there, never one you invent. You",
   "never click, focus, or type into anything yourself: writing a reference only lets the user",
@@ -256,6 +256,82 @@ export function sourcesInstruction(scoped: boolean): string {
   ].join("\n");
 }
 
+// Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
+// on demand"). `page` metadata (title/url/kind/chars) is page-controlled —
+// same trust level as `text` (CLAUDE.md rule #3) — fenced exactly like
+// renderContext, own header, own copy of the nonce. `chars` is a number the
+// extension computed client-side (the page's own extracted length), not
+// re-derived here; rendered as-is, it carries no sanitizable string content.
+export interface PageMeta {
+  title: string;
+  url: string;
+  kind?: string;
+  chars: number;
+}
+
+export function renderPageMeta(page: PageMeta, nonce: string): string {
+  const title = flattenAndCap(sanitizeUntrusted(page.title), 300);
+  const url = flattenAndCap(sanitizeUntrusted(page.url), 300);
+  const lines = [
+    page.kind ? `Page available (not yet read) — kind: ${page.kind}` : "Page available (not yet read)",
+    delimiterOpen(nonce),
+    `Title: ${title}`,
+    `URL: ${url}`,
+    `Length: ${page.chars} characters`,
+    delimiterClose(nonce),
+  ];
+  return lines.join("\n");
+}
+
+// Trusted scaffolding (outside the fence) — the only place the two literal
+// markers (model/page-marker.ts's MARKER_TEXT/MARKER_DEV) are ever written
+// into a prompt. `devMode` gates offering the dev marker at all: a model
+// that was never told about it, and therefore has no reason to produce it,
+// is one less thing handlers/chat.ts's shared detector needs to treat as a
+// live trigger for THIS request (docs/PROTOCOL.md "Page on demand" — "the
+// dev marker is offered only when devMode is true").
+export function pageOnDemandInstruction(devMode: boolean): string {
+  const lines = [
+    "The open page has not been read yet; only its title, URL and length are shown above.",
+    "If the user's request is about this page or about something it shows (its content, results,",
+    "prices, reviews, buttons, where to click), reply with EXACTLY [[READ_PAGE]] and nothing else.",
+  ];
+  if (devMode) {
+    lines.push(
+      "If you need the page's HTML structure (tags, ids, classes, attributes) rather than its",
+      "visible text, reply with EXACTLY [[READ_PAGE_DEV]] and nothing else.",
+    );
+  }
+  lines.push(
+    "Answer directly only when the request clearly does not depend on this page (general question,",
+    "translation, writing, arithmetic).",
+  );
+  return lines.join("\n");
+}
+
+// Amendement 2026-10-09 (lot 7 fix): offered on the RE-RUN prompt after a
+// TEXT-level read, when devMode allows escalating to dev and dev hasn't
+// been used yet (build.ts's `offerDevRead`) — unlike pageOnDemandInstruction
+// above, [[READ_PAGE]] is never offered here: the page's text is already in
+// the prompt, so only the dev marker (HTML structure) can still add
+// anything.
+export function pageDevEscalationInstruction(): string {
+  return [
+    "The page's visible text is shown above, already read. If you need the page's HTML structure",
+    "(tags, ids, classes, attributes) instead, reply with EXACTLY [[READ_PAGE_DEV]] and nothing else.",
+    "Otherwise, answer the user's request from the text above.",
+  ].join("\n");
+}
+
+// Trusted scaffolding (outside the fence) — spliced into the re-run prompt
+// in place of the page's own content when the user declined to share it
+// (docs/PROTOCOL.md "Page on demand"). Never phrased as the user's own
+// words (it is the broker reporting an event, not the user talking).
+export const PAGE_READ_DECLINED_NOTE =
+  "The user declined to share the page content for this request. Answer without it if you can, " +
+  "or say plainly that you need the page content and cannot answer without it — never pretend to " +
+  "have read it.";
+
 /** Everything page-controlled (title, url, videoId, text, facts, items) lives
  * INSIDE the fence. Nothing page-controlled may appear above/outside it — a
  * title placed above the fence would sit in the zone the system prompt
@@ -296,7 +372,7 @@ export function renderContext(context: Context, nonce: string): string {
     // Amendement 2026-10-08 (lot A1): after facts/items, before the text —
     // docs/PROTOCOL.md §2.
     ...(elements ? renderElementLines(elements) : []),
-    hasStructuredData ? "Texte de la page :" : undefined,
+    hasStructuredData ? "Page text:" : undefined,
     text !== undefined ? text : undefined,
     delimiterClose(nonce),
   ];

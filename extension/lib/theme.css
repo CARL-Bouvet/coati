@@ -198,3 +198,55 @@
    * not the browser's default blue. Inherited, so set once here. */
   accent-color: var(--accent);
 }
+
+/* Confirmation dialogs (dev mode, sensitive data) — panel and options page. */
+.dev-mode-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--fg) 40%, transparent);
+}
+.dev-mode-dialog {
+  max-width: 420px;
+  width: 100%;
+  padding: 16px 18px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--overlay-shadow);
+}
+.dev-mode-dialog-title {
+  margin: 0 0 8px;
+  font-size: 1.05em;
+}
+.dev-mode-dialog-text {
+  margin: 0 0 14px;
+  line-height: var(--line-height);
+}
+.dev-mode-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.dev-mode-dialog-actions button {
+  font: inherit;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+}
+.dev-mode-dialog-actions .dev-mode-dialog-confirm {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+.dev-mode-dialog-actions .dev-mode-dialog-confirm:hover {
+  background: var(--accent-hover);
+}

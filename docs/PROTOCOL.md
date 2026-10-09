@@ -61,7 +61,8 @@ followed by WebSocket close code **4401**. The real reason goes only to the brok
 
 On success: `{ type: "hello-ok", v: 2, features: string[] }`. `features` is an open-ended list
 of capability words this broker build understands (currently `"elements"`, `"vision"`,
-`"docsearch"`) — the extension only offers a capability's UI when its word is present.
+`"docsearch"`, `"history"`, `"pageOnDemand"`) — the extension only offers a capability's UI when
+its word is present.
 
 ## Client → broker messages
 
@@ -69,7 +70,9 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 
 | Type | Key fields | Purpose |
 |---|---|---|
-| `chat` | `text`, `context?`, `image?`, `docSearch?`, `history?` | Ask the model a question, with page/selection context, an optional attached screenshot, an optional doc-search request, and optional prior turns. |
+| `chat` | `text`, `context?`, `image?`, `docSearch?`, `history?`, `page?`, `devMode?` | Ask the model a question. `context` carries page/selection content up front; `page` (title/url/kind?/chars), sent only when `context` is absent, offers the page's metadata only — see "Page on demand" below. |
+| `page.content` | `target` (the `chat`'s own id), `level` (`"text"`\|`"dev"`), `context` | Answers a `page.request`: the page's content, same `Context` shape a `chat` would have carried up front (for `level: "dev"`, `context.text` holds cleaned HTML). |
+| `page.decline` | `target` | Answers a `page.request`: the user declined to share the page. |
 | `summarize` | `context` | Summarize a page/selection. |
 | `act` | `action` (`translate`\|`rewrite`\|`explain`\|`shorten`), `text`, `params?` | Transform a piece of text. |
 | `prompts.list` | — | List saved prompts. |
@@ -91,7 +94,8 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | Type | Key fields | Purpose |
 |---|---|---|
 | `chunk` | `id`, `delta` | One streamed fragment of a model answer. |
-| `done` | `id`, `usage: { inputTokens, outputTokens }`, `historyKept?` | End of stream; token usage; how many `history` entries were actually used. |
+| `done` | `id`, `usage: { inputTokens, outputTokens }`, `historyKept?`, `page?` | End of stream; token usage (summed over every provider call this request made, see "Page on demand"); how many `history` entries were actually used; `page: { level, chars, sentChars, truncated }` present only when the page was actually read. |
+| `page.request` | `id` (the `chat`'s own id), `level` (`"text"`\|`"dev"`), `discard?` | The model asked to read the page — see "Page on demand" below. |
 | `error` | `id`, `code`, `message`, `retryAfterSec?`, `reason?` | A request failed — see error codes below. |
 | `prompts` | `id`, `items`, `prefs?` | Reply to `prompts.list`/`prompts.save`/`prompts.delete`/`prompts.move`. |
 | `prefs` | `id`, `sites` | Reply to `prefs.get`/`prefs.set`. |
@@ -109,7 +113,11 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 
 `bad-request`, `unauthorized`, `model-unavailable`, `auth-required`, `quota-exceeded`,
 `rate-limited`, `model-missing`, `provider-overloaded`, `context-too-large`, `cancelled`,
-`model-stalled`, `vision-unsupported`, `search-not-configured`, `search-unavailable`, `internal`.
+`model-stalled`, `vision-unsupported`, `search-not-configured`, `search-unavailable`,
+`page-unavailable`, `internal`.
+
+`page-unavailable`: the client never answered a `page.request` (with `page.content` or
+`page.decline`) within `PAGE_REQUEST_TIMEOUT_MS`.
 
 `search-unavailable` carries an extra `reason`: `"auth"`, `"quota"`, `"rate"`, `"network"`, or
 `"no-result"` — a stable code for the UI, not shown to a human verbatim.
@@ -122,7 +130,9 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `MAX_IMAGE_MESSAGE_BYTES` | 1.5 MiB | Largest `chat` message when it carries an `image`. |
 | `IMAGE_MAX_DECODED_BYTES` | 1 MiB | Largest decoded image. |
 | `IMAGE_MAX_SIDE` | 2000 px | Largest image dimension. |
-| `MAX_CONTEXT_CHARS` | 40,000 | Largest page/selection text accepted. |
+| `MAX_CONTEXT_CHARS` | 40,000 | Largest page/selection text accepted; also the cap for a `page.content` at `level: "text"`. |
+| `MAX_DEV_CONTEXT_CHARS` | 400,000 | Largest `page.content` at `level: "dev"` (cleaned HTML) accepted — further fit to the active model's own context window, see "Page on demand". |
+| `PAGE_REQUEST_TIMEOUT_MS` | 120,000 | Time the broker waits for `page.content`/`page.decline` after a `page.request`. |
 | `HISTORY_MAX_ENTRIES` | 20 | Largest `history` array accepted. |
 | `MAX_CONCURRENT_STREAMS` | 3 | Concurrent `chat`/`summarize`/`act` per connection. |
 | `FIRST_TOKEN_TIMEOUT_LOCAL_MS` | 300,000 | Time to first activity, local provider (Ollama). |
@@ -137,6 +147,44 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `SAFE_FETCH_MAX_REDIRECTS` | 3 | Redirects followed per doc-search fetch (re-validated each hop — SSRF guard). |
 | `HOST_FRAME_TIMEOUT_MS` | 5000 | Native-host stdin read timeout. |
 | `MAX_FRAME_BYTES` | 4096 | Native Messaging frame length cap. |
+
+## Page on demand
+
+A `chat` that carries `page` (title/url/kind?/chars) and no `context` at all shows the model only
+that metadata, plus a trusted instruction: if the request is about this page or something it
+shows, reply with exactly `[[READ_PAGE]]` and nothing else; `[[READ_PAGE_DEV]]` (the page's full
+cleaned HTML) is offered only when `devMode: true`. Otherwise the model answers directly, without
+ever reading the page — this is the cost/latency win over sending page content on every `chat`.
+After a `text`-level read, when `devMode` is true and the dev marker hasn't been used yet for this
+question, the re-run prompt still offers `[[READ_PAGE_DEV]]` alongside the page's text — a
+question can escalate text→dev, never the other way, and nothing is offered at all after a `dev`
+read.
+
+The broker scans the streamed answer for either marker in one shared place (`model/page-marker.ts`
++ `handlers/chat.ts`), regardless of which provider is active — never per provider. Text is held
+back only for as long as it could still be forming a marker; once decided, it is forwarded (or,
+for a marker, never forwarded at all):
+
+- Marker at the very start of the answer: the provider stream is aborted, nothing was shown, the
+  broker sends `page.request { id: <chat id>, level }`.
+- Marker appearing later, mid-answer: same abort, but `page.request` also carries `discard: true`
+  — the client must clear whatever of that answer it already displayed.
+- The client answers with `page.content` (content merged into a fresh prompt, same question
+  re-run) or `page.decline` (a trusted note replaces the content: "the user declined..."). No
+  answer within `PAGE_REQUEST_TIMEOUT_MS` fails the request with `page-unavailable`. A
+  `page.content.level` other than the one `page.request` actually asked for is a protocol
+  breach — `bad-request`, the request stops, nothing is re-run.
+- At most one read per level and two reads per question. A marker beyond that cap is stripped
+  from the forwarded text and otherwise ignored — no further `page.request`, no abort.
+- Thinking/reasoning content is never scanned for a marker.
+
+`done.usage` on a page-on-demand request is the sum of every provider call the question made
+(the initial metadata-only call, plus one per `page.request` round trip). `done.page` is present
+only when the page was actually read, reporting the level, the content's own length, how much of
+it actually reached the model (`sentChars`), and whether it was truncated (dev level only, fit to
+the active model's context window — Ollama's own `contextTokens` tier when known, else a fixed
+8192-token fallback on lookup failure; 200,000 tokens for `claude-api`/`claude-cli`, 32,768 for
+any other provider; ~3.5 chars/token, 2000 tokens reserved for the answer).
 
 ## Prompt construction
 

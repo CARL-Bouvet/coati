@@ -1,121 +1,352 @@
 {
-  "extName": { "message": "Coati" },
+  "extName": {
+    "message": "Coati"
+  },
   "extDescription": {
     "message": "Local AI assistant: summarize a page or a video, chat with a model, act on a selection, through a local program that runs on your machine."
   },
-  "extCommandOpen": { "message": "Open Coati" },
-
-  "lang_name_en": { "message": "English" },
-  "lang_name_fr": { "message": "Français" },
-  "lang_name_zh_cn": { "message": "简体中文" },
-  "lang_name_auto": { "message": "Browser language" },
-  "lang_selector_label": { "message": "Language" },
-
-  "common_provider_claude_api": { "message": "Claude (API key)" },
-  "common_provider_ollama": { "message": "Ollama (local)" },
-  "common_provider_openai_compat": { "message": "OpenAI-compatible" },
-  "common_status_connected": { "message": "Connected" },
-  "common_status_connecting": { "message": "Connecting…" },
-  "common_status_disconnected": { "message": "Disconnected" },
-  "common_status_no_token": { "message": "No token" },
-  "common_status_no_host": { "message": "Local program not found" },
-  "common_status_broker_untrusted": { "message": "Local program not verified" },
-  "common_status_pairing_retry": { "message": "Retrying…" },
-  "common_status_unknown": { "message": "…" },
-  "common_error_bad_request": { "message": "Invalid request." },
-  "common_error_unauthorized": { "message": "Unauthorized." },
-  "common_error_model_unavailable": { "message": "The model isn't responding." },
-  "common_error_model_stalled": { "message": "The model sent no text for a minute, so the answer stops here. You can try again." },
-  "common_error_model_timeout": { "message": "The model didn't start answering in time. Try again in a moment." },
-  "common_error_auth_required": { "message": "Authentication required with the model provider." },
-  "common_error_context_too_large": { "message": "The content sent is too large for the model." },
-  "common_error_cancelled": { "message": "Request cancelled." },
-  "common_error_internal": { "message": "Internal error in the local program." },
-  "common_error_generic": { "message": "An error occurred." },
-  "common_error_quota_exceeded": { "message": "Your account with the provider has no credit left." },
-  "common_error_rate_limited": { "message": "The provider is getting too many requests right now." },
-  "common_error_provider_overloaded": { "message": "The provider is overloaded, try again in a moment." },
-  "common_error_model_missing": { "message": "This model is not available on your account." },
+  "extCommandOpen": {
+    "message": "Open Coati"
+  },
+  "lang_name_en": {
+    "message": "English"
+  },
+  "lang_name_fr": {
+    "message": "Français"
+  },
+  "lang_name_zh_cn": {
+    "message": "简体中文"
+  },
+  "lang_name_auto": {
+    "message": "Browser language"
+  },
+  "lang_selector_label": {
+    "message": "Language"
+  },
+  "common_provider_claude_api": {
+    "message": "Claude (API key)"
+  },
+  "common_provider_ollama": {
+    "message": "Ollama (local)"
+  },
+  "common_provider_openai_compat": {
+    "message": "OpenAI-compatible"
+  },
+  "common_status_connected": {
+    "message": "Connected"
+  },
+  "common_status_connecting": {
+    "message": "Connecting…"
+  },
+  "common_status_disconnected": {
+    "message": "Disconnected"
+  },
+  "common_status_no_token": {
+    "message": "No token"
+  },
+  "common_status_no_host": {
+    "message": "Local program not found"
+  },
+  "common_status_broker_untrusted": {
+    "message": "Local program not verified"
+  },
+  "common_status_pairing_retry": {
+    "message": "Retrying…"
+  },
+  "common_status_unknown": {
+    "message": "…"
+  },
+  "common_error_bad_request": {
+    "message": "Invalid request."
+  },
+  "common_error_unauthorized": {
+    "message": "Unauthorized."
+  },
+  "common_error_model_unavailable": {
+    "message": "The model isn't responding."
+  },
+  "common_error_model_stalled": {
+    "message": "The model sent no text for a minute, so the answer stops here. You can try again."
+  },
+  "common_error_model_timeout": {
+    "message": "The model didn't start answering in time. Try again in a moment."
+  },
+  "common_error_auth_required": {
+    "message": "Authentication required with the model provider."
+  },
+  "common_error_context_too_large": {
+    "message": "The content sent is too large for the model."
+  },
+  "common_error_cancelled": {
+    "message": "Request cancelled."
+  },
+  "common_error_internal": {
+    "message": "Internal error in the local program."
+  },
+  "common_error_generic": {
+    "message": "An error occurred."
+  },
+  "common_error_quota_exceeded": {
+    "message": "Your account with the provider has no credit left."
+  },
+  "common_error_rate_limited": {
+    "message": "The provider is getting too many requests right now."
+  },
+  "common_error_provider_overloaded": {
+    "message": "The provider is overloaded, try again in a moment."
+  },
+  "common_error_model_missing": {
+    "message": "This model is not available on your account."
+  },
   "common_error_vision_unsupported": {
     "message": "The active model can't see images. Choose one that does (e.g. qwen2.5vl, gemma3) and send your question again."
   },
   "common_error_detail": {
     "message": "Detail: $MESSAGE$",
-    "placeholders": { "message": { "content": "$1", "example": "connection refused" } }
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "connection refused"
+      }
+    }
   },
-  "common_provider_unavailable": { "message": "Unavailable." },
-  "common_extraction_timeout": { "message": "The page is taking too long to read." },
+  "common_provider_unavailable": {
+    "message": "Unavailable."
+  },
+  "common_extraction_timeout": {
+    "message": "The page is taking too long to read."
+  },
   "common_access_denied_hint": {
     "message": "Click its icon, right-click → \"Read this page with Coati\", or use the keyboard shortcut."
   },
-  "common_extraction_empty": { "message": "empty extraction" },
-  "common_no_active_tab_internal": { "message": "no active tab" },
-  "common_all_sites": { "message": "All sites" },
-  "common_this_page": { "message": "This page" },
-  "common_this_page_lowercase": { "message": "this page" },
-
-  "panel_settings_title": { "message": "Settings" },
-  "panel_install_doc_link": { "message": "How to install it" },
-  "panel_open_settings": { "message": "Open settings" },
-  "panel_my_prompts": { "message": "My prompts ↗" },
-  "panel_read_the_page": { "message": "Read the page" },
-  "panel_save_prompt": { "message": "Save the typed text as a prompt" },
-  "panel_input_placeholder": { "message": "Write to Coati…" },
-  "panel_erase_conversation": { "message": "Clear the conversation" },
-  "panel_history_long": { "message": "Long conversation: the model may start losing track. Clear it to start fresh." },
-  "panel_history_dropped": { "message": "The earliest exchanges are no longer sent to the model." },
-  "panel_cancel": { "message": "Cancel" },
-  "panel_send": { "message": "Send" },
-  "panel_confirm_erase": { "message": "Confirm erase?" },
-
-  "panel_summarize_video": { "message": "Summarize this video" },
-  "panel_summarize_article": { "message": "Summarize this article" },
-  "panel_summarize_page": { "message": "Summarize this page" },
-  "panel_summarize_results": { "message": "Summarize these results" },
-  "panel_summarize_listing": { "message": "Summarize this listing" },
-  "panel_summarize_default": { "message": "Summarize" },
-
-  "panel_auth_session_expired": { "message": "⚠ The Claude session has expired." },
-  "panel_auth_key_refused": { "message": "⚠ Key refused by the provider: check it in settings." },
+  "common_extraction_empty": {
+    "message": "empty extraction"
+  },
+  "common_no_active_tab_internal": {
+    "message": "no active tab"
+  },
+  "common_all_sites": {
+    "message": "All sites"
+  },
+  "common_this_page": {
+    "message": "This page"
+  },
+  "common_this_page_lowercase": {
+    "message": "this page"
+  },
+  "panel_settings_title": {
+    "message": "Settings"
+  },
+  "panel_install_doc_link": {
+    "message": "How to install it"
+  },
+  "panel_open_settings": {
+    "message": "Open settings"
+  },
+  "panel_my_prompts": {
+    "message": "My prompts ↗"
+  },
+  "panel_dev_mode": {
+    "message": "Dev mode"
+  },
+  "panel_page_reading_status": {
+    "message": "Reading the page (~$KTOKENS$ k tokens)…",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_page_mention_read_text": {
+    "message": "Read the page · $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_page_mention_read_dev": {
+    "message": "Read the page's code · $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_page_mention_not_read": {
+    "message": "Did not read the page · $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_page_mention_truncated_suffix": {
+    "message": " ($PERCENT$% read)",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "40"
+      }
+    }
+  },
+  "dev_mode_confirm_title": {
+    "message": "Turn on dev mode?"
+  },
+  "dev_mode_confirm_text": {
+    "message": "The model may then read the page's full HTML structure: ids, classes and markup, without scripts. This sends more data than the usual text view (higher cost) and may expose personal data present on the page. Use at your own risk."
+  },
+  "dev_mode_confirm_cancel": {
+    "message": "Cancel"
+  },
+  "dev_mode_confirm_turn_on": {
+    "message": "Turn on"
+  },
+  "options_dev_mode_title": {
+    "message": "Dev mode"
+  },
+  "options_dev_mode_checkbox": {
+    "message": "Let the model read the page's full HTML structure"
+  },
+  "options_dev_mode_help": {
+    "message": "Starting value of the panel's \"Dev mode\" switch. Sends more data (higher cost) and may expose personal data present on the page."
+  },
+  "panel_save_prompt": {
+    "message": "Save the typed text as a prompt"
+  },
+  "panel_input_placeholder": {
+    "message": "Write to Coati…"
+  },
+  "panel_erase_conversation": {
+    "message": "Clear the conversation"
+  },
+  "panel_history_long": {
+    "message": "Long conversation: the model may start losing track. Clear it to start fresh."
+  },
+  "panel_history_dropped": {
+    "message": "The earliest exchanges are no longer sent to the model."
+  },
+  "panel_cancel": {
+    "message": "Cancel"
+  },
+  "panel_send": {
+    "message": "Send"
+  },
+  "panel_confirm_erase": {
+    "message": "Confirm erase?"
+  },
+  "panel_summarize_video": {
+    "message": "Summarize this video"
+  },
+  "panel_summarize_article": {
+    "message": "Summarize this article"
+  },
+  "panel_summarize_page": {
+    "message": "Summarize this page"
+  },
+  "panel_summarize_results": {
+    "message": "Summarize these results"
+  },
+  "panel_summarize_listing": {
+    "message": "Summarize this listing"
+  },
+  "panel_summarize_default": {
+    "message": "Summarize"
+  },
+  "panel_auth_session_expired": {
+    "message": "⚠ The Claude session has expired."
+  },
+  "panel_auth_key_refused": {
+    "message": "⚠ Key refused by the provider: check it in settings."
+  },
   "panel_auth_key_refused_named": {
     "message": "⚠ $NAME$ refused the key.",
-    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenAI"
+      }
+    }
   },
   "panel_recharge_at": {
     "message": "Add credit at $NAME$",
-    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenAI"
+      }
+    }
   },
   "panel_create_key_at": {
     "message": "Create a key at $NAME$",
-    "placeholders": { "name": { "content": "$1", "example": "OpenAI" } }
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenAI"
+      }
+    }
   },
   "panel_auth_unknown": {
     "message": "⚠ The provider refused access (expired session or refused key): check settings."
   },
-  "panel_copy": { "message": "Copy" },
-  "panel_copied": { "message": "Copied!" },
-  "panel_copy_failed": { "message": "Copy failed" },
-  "panel_retry_session": { "message": "I restarted it, retry" },
-  "panel_retry_key": { "message": "I fixed it, retry" },
-  "panel_retry_now": { "message": "Retry" },
+  "panel_copy": {
+    "message": "Copy"
+  },
+  "panel_copied": {
+    "message": "Copied!"
+  },
+  "panel_copy_failed": {
+    "message": "Copy failed"
+  },
+  "panel_retry_session": {
+    "message": "I restarted it, retry"
+  },
+  "panel_retry_key": {
+    "message": "I fixed it, retry"
+  },
+  "panel_retry_now": {
+    "message": "Retry"
+  },
   "panel_retry_countdown": {
     "message": "Retry in $SECONDS$ s",
-    "placeholders": { "seconds": { "content": "$1", "example": "20" } }
+    "placeholders": {
+      "seconds": {
+        "content": "$1",
+        "example": "20"
+      }
+    }
   },
-
   "panel_error_oversized": {
     "message": "⚠ The message sent exceeded the maximum size accepted by the local program (256 KB); the connection was closed. Try again with shorter content."
   },
   "panel_error_model_unavailable": {
     "message": "⚠ The model isn't responding ($MESSAGE$). Coati's local program is working fine; the model is the problem. Try again in a moment.",
-    "placeholders": { "message": { "content": "$1", "example": "timeout" } }
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "timeout"
+      }
+    }
   },
-  "panel_unavailable": { "message": "unavailable" },
-  "panel_request_cancelled": { "message": "Request cancelled." },
-  "panel_error_context_too_large_warn": { "message": "⚠ The content sent is too large for the model." },
-
-  "panel_status_no_token": { "message": "No token — see settings" },
-  "panel_status_pairing_retry": { "message": "Retrying…" },
+  "panel_unavailable": {
+    "message": "unavailable"
+  },
+  "panel_request_cancelled": {
+    "message": "Request cancelled."
+  },
+  "panel_error_context_too_large_warn": {
+    "message": "⚠ The content sent is too large for the model."
+  },
+  "panel_status_no_token": {
+    "message": "No token — see settings"
+  },
+  "panel_status_pairing_retry": {
+    "message": "Retrying…"
+  },
   "panel_banner_no_host": {
     "message": "Coati can't find its local program on this computer. Install it, or use manual pairing if your browser is a Flatpak or a Snap."
   },
@@ -131,55 +362,93 @@
   "panel_banner_disconnected": {
     "message": "Coati's local program isn't responding. Open it on your computer, then click Retry."
   },
-
-  "panel_provider_ready": { "message": "ready" },
-  "panel_provider_logged_in": { "message": "session open" },
-  "panel_provider_no_key": { "message": "no API key saved" },
-  "panel_provider_key_unverified": { "message": "API key saved, not verified" },
-  "panel_provider_cli_missing": { "message": "executable not found" },
-  "panel_provider_not_logged_in": { "message": "session not authenticated" },
-  "panel_provider_probe_failed": { "message": "state undetermined" },
-  "panel_provider_ollama_unreachable": { "message": "Ollama isn't responding" },
-  "panel_provider_model_missing": { "message": "configured model missing from Ollama" },
-  "panel_provider_no_model_installed": { "message": "no model installed in Ollama" },
-  "panel_provider_key_rejected": { "message": "API key rejected" },
-  "panel_provider_unknown_state": { "message": "unknown state" },
-  "panel_provider_default_label": { "message": "Model" },
+  "panel_provider_ready": {
+    "message": "ready"
+  },
+  "panel_provider_logged_in": {
+    "message": "session open"
+  },
+  "panel_provider_no_key": {
+    "message": "no API key saved"
+  },
+  "panel_provider_key_unverified": {
+    "message": "API key saved, not verified"
+  },
+  "panel_provider_cli_missing": {
+    "message": "executable not found"
+  },
+  "panel_provider_not_logged_in": {
+    "message": "session not authenticated"
+  },
+  "panel_provider_probe_failed": {
+    "message": "state undetermined"
+  },
+  "panel_provider_ollama_unreachable": {
+    "message": "Ollama isn't responding"
+  },
+  "panel_provider_model_missing": {
+    "message": "configured model missing from Ollama"
+  },
+  "panel_provider_no_model_installed": {
+    "message": "no model installed in Ollama"
+  },
+  "panel_provider_key_rejected": {
+    "message": "API key rejected"
+  },
+  "panel_provider_unknown_state": {
+    "message": "unknown state"
+  },
+  "panel_provider_default_label": {
+    "message": "Model"
+  },
   "panel_provider_status_line": {
     "message": "$LABEL$: $REASON$",
     "placeholders": {
-      "label": { "content": "$1", "example": "Ollama (local)" },
-      "reason": { "content": "$2", "example": "ready" }
+      "label": {
+        "content": "$1",
+        "example": "Ollama (local)"
+      },
+      "reason": {
+        "content": "$2",
+        "example": "ready"
+      }
     }
   },
-
-  "panel_with_page_content_marker": { "message": "*with the page content*" },
-
-  "panel_access_denied_question": {
-    "message": "⚠ Coati doesn't have access to this page, the question wasn't sent. $HINT$",
-    "placeholders": { "hint": { "content": "$1" } }
-  },
-  "panel_read_error_question": {
-    "message": "⚠ Couldn't read the page, the question wasn't sent: $DETAIL$",
-    "placeholders": { "detail": { "content": "$1" } }
+  "panel_with_page_content_marker": {
+    "message": "*with the page content*"
   },
   "panel_access_denied_generic": {
     "message": "⚠ Coati doesn't have access to this page. $HINT$",
-    "placeholders": { "hint": { "content": "$1" } }
+    "placeholders": {
+      "hint": {
+        "content": "$1"
+      }
+    }
   },
   "panel_read_error_generic": {
     "message": "⚠ Couldn't read the page: $DETAIL$",
-    "placeholders": { "detail": { "content": "$1" } }
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
   },
   "panel_access_denied_relaunch": {
     "message": "⚠ Coati doesn't have access to this page, the retry wasn't sent. $HINT$",
-    "placeholders": { "hint": { "content": "$1" } }
+    "placeholders": {
+      "hint": {
+        "content": "$1"
+      }
+    }
   },
   "panel_read_error_relaunch": {
     "message": "⚠ Couldn't read the page, the retry wasn't sent: $DETAIL$",
-    "placeholders": { "detail": { "content": "$1" } }
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
   },
-
   "panel_transcript_missing": {
     "message": "The transcript couldn't be read. Under the video: \"…\" → \"Show transcript\", then try again. If the button is absent, the video has no captions."
   },
@@ -189,430 +458,920 @@
   "panel_no_response": {
     "message": "No news from the local program. Check that it's running, then try again."
   },
-  "panel_progress_loading": { "message": "Loading the model…" },
-  "panel_progress_reading_page": { "message": "The model is reading the page…" },
-  "panel_progress_reading_request": { "message": "The model is reading your request…" },
-  "panel_progress_thinking": { "message": "The model is thinking…" },
-  "panel_progress_thinking_hint": { "message": "This model thinks before answering, so it takes longer." },
+  "panel_progress_loading": {
+    "message": "Loading the model…"
+  },
+  "panel_progress_reading_page": {
+    "message": "The model is reading the page…"
+  },
+  "panel_progress_reading_request": {
+    "message": "The model is reading your request…"
+  },
+  "panel_progress_thinking": {
+    "message": "The model is thinking…"
+  },
+  "panel_progress_thinking_hint": {
+    "message": "This model thinks before answering, so it takes longer."
+  },
   "panel_shared_model_note": {
     "message": "$MODEL$ doesn't fully fit in the graphics card: it will be slow.",
-    "placeholders": { "model": { "content": "$1", "example": "qwen3:8b" } }
+    "placeholders": {
+      "model": {
+        "content": "$1",
+        "example": "qwen3:8b"
+      }
+    }
   },
   "panel_shared_model_alt": {
     "message": "$MODEL$ fits.",
-    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+    "placeholders": {
+      "model": {
+        "content": "$1",
+        "example": "qwen3:4b"
+      }
+    }
   },
   "panel_slow_tip_switch_text": {
     "message": "For faster answers, try $MODEL$: it fits entirely in the graphics card.",
-    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+    "placeholders": {
+      "model": {
+        "content": "$1",
+        "example": "qwen3:4b"
+      }
+    }
   },
-  "panel_slow_tip_speedup_text": { "message": "Two Ollama settings can make its answers faster." },
+  "panel_slow_tip_speedup_text": {
+    "message": "Two Ollama settings can make its answers faster."
+  },
   "panel_slow_tip_switch_action": {
     "message": "Switch to $MODEL$",
-    "placeholders": { "model": { "content": "$1", "example": "qwen3:4b" } }
+    "placeholders": {
+      "model": {
+        "content": "$1",
+        "example": "qwen3:4b"
+      }
+    }
   },
-  "panel_slow_tip_speedup_action": { "message": "Speed up Ollama" },
-  "panel_no_active_tab": { "message": "⚠ No active tab to read." },
+  "panel_slow_tip_speedup_action": {
+    "message": "Speed up Ollama"
+  },
+  "panel_no_active_tab": {
+    "message": "⚠ No active tab to read."
+  },
   "panel_nothing_readable": {
     "message": "⚠ Nothing readable was found on this page. Content loaded later, or subscriber-only?"
   },
-  "panel_request_in_progress": { "message": "⚠ A request is already in progress; try again after." },
-
+  "panel_request_in_progress": {
+    "message": "⚠ A request is already in progress; try again after."
+  },
   "panel_prompt_saved_no_site": {
     "message": "Saved, no site: Coati can't see this page's address."
   },
   "panel_prompt_saved_for": {
     "message": "Saved for $SITE$",
-    "placeholders": { "site": { "content": "$1", "example": "Reddit" } }
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "Reddit"
+      }
+    }
   },
-
-  "panel_relaunch": { "message": "Retry" },
-  "panel_relaunch_title": { "message": "Resend this question" },
-  "panel_seek_timestamp_title": { "message": "Jump to this moment in the video" },
+  "panel_relaunch": {
+    "message": "Retry"
+  },
+  "panel_relaunch_title": {
+    "message": "Resend this question"
+  },
+  "panel_seek_timestamp_title": {
+    "message": "Jump to this moment in the video"
+  },
   "panel_point_button": {
     "message": "Show: $LABEL$",
-    "placeholders": { "label": { "content": "$1", "example": "Generate" } }
+    "placeholders": {
+      "label": {
+        "content": "$1",
+        "example": "Generate"
+      }
+    }
   },
-  "panel_point_stale": { "message": "The page has changed: ask again." },
-  "panel_point_failed": { "message": "Couldn't show this element." },
-  "panel_point_frame_limit": { "message": "Elements inside a frame (iframe) aren't tracked." },
-  "panel_attach_screen": { "message": "See the screen" },
-  "panel_attach_screen_title": { "message": "Coati looks at the tab with every question" },
-  "panel_attach_screen_local": { "message": "Stays on this computer" },
-  "panel_attach_screen_online": {
-    "message": "Goes to $PROVIDER$ (online)",
-    "placeholders": { "provider": { "content": "$1", "example": "Claude" } }
+  "panel_point_stale": {
+    "message": "The page has changed: ask again."
   },
-  "panel_screen_no_vision": { "message": "The active model can't see images — choose one that does (e.g. qwen2.5vl, gemma3)." },
-  "panel_screen_attached": {
-    "message": "(screen capture attached, $DIMENSIONS$)",
-    "placeholders": { "dimensions": { "content": "$1", "example": "1280×720" } }
+  "panel_point_failed": {
+    "message": "Couldn't show this element."
   },
-  "panel_screen_denied": { "message": "Coati can't capture this page." },
-  "panel_screen_too_big": { "message": "The capture is too large to send." },
-  "panel_screen_need_gesture": {
-    "message": "Turn on the \"See the screen\" switch to allow the capture, then send your question again."
+  "panel_point_frame_limit": {
+    "message": "Elements inside a frame (iframe) aren't tracked."
   },
   "panel_docsearch_query": {
     "message": "Searching: $QUERY$",
-    "placeholders": { "query": { "content": "$1", "example": "export video kling ai tutorial" } }
+    "placeholders": {
+      "query": {
+        "content": "$1",
+        "example": "export video kling ai tutorial"
+      }
+    }
   },
   "panel_docsearch_scope": {
     "message": "Searching $SITE$ via $ENGINE$",
     "placeholders": {
-      "site": { "content": "$1", "example": "help.kling.ai" },
-      "engine": { "content": "$2", "example": "Brave Search" }
+      "site": {
+        "content": "$1",
+        "example": "help.kling.ai"
+      },
+      "engine": {
+        "content": "$2",
+        "example": "Brave Search"
+      }
     }
   },
   "panel_docsearch_web": {
     "message": "on the web via $ENGINE$",
-    "placeholders": { "engine": { "content": "$1", "example": "Brave Search" } }
+    "placeholders": {
+      "engine": {
+        "content": "$1",
+        "example": "Brave Search"
+      }
+    }
   },
-  "panel_docsearch_reading": { "message": "Reading the pages found…" },
-  "panel_sources_title": { "message": "Sources" },
+  "panel_docsearch_reading": {
+    "message": "Reading the pages found…"
+  },
+  "panel_sources_title": {
+    "message": "Sources"
+  },
   "error_search_not_configured": {
     "message": "No search service is configured — add a Brave or Tavily key in settings."
   },
-  "error_search_unavailable_auth": { "message": "The search key was refused by the service." },
-  "error_search_unavailable_quota": { "message": "The search service's free quota is used up." },
-  "error_search_unavailable_rate": { "message": "The search service is getting too many requests right now." },
-  "error_search_unavailable_network": { "message": "The search service or the documentation couldn't be reached." },
-  "error_search_unavailable_no_result": { "message": "Nothing relevant was found." },
+  "error_search_unavailable_auth": {
+    "message": "The search key was refused by the service."
+  },
+  "error_search_unavailable_quota": {
+    "message": "The search service's free quota is used up."
+  },
+  "error_search_unavailable_rate": {
+    "message": "The search service is getting too many requests right now."
+  },
+  "error_search_unavailable_network": {
+    "message": "The search service or the documentation couldn't be reached."
+  },
+  "error_search_unavailable_no_result": {
+    "message": "Nothing relevant was found."
+  },
   "panel_build_fingerprint": {
     "message": "v$VERSION$ · $FINGERPRINT$",
     "placeholders": {
-      "version": { "content": "$1", "example": "0.1.0" },
-      "fingerprint": { "content": "$2", "example": "a1b2c3d4" }
+      "version": {
+        "content": "$1",
+        "example": "0.1.0"
+      },
+      "fingerprint": {
+        "content": "$2",
+        "example": "a1b2c3d4"
+      }
     }
   },
   "panel_build_fingerprint_unavailable": {
     "message": "v$VERSION$ · fingerprint unavailable",
-    "placeholders": { "version": { "content": "$1", "example": "0.1.0" } }
+    "placeholders": {
+      "version": {
+        "content": "$1",
+        "example": "0.1.0"
+      }
+    }
   },
-
-  "panel_read_button_invite": { "message": "Read this page" },
-  "panel_read_button_reading": { "message": "Reading…" },
-  "panel_read_button_activate_site": { "message": "Activate this site" },
+  "panel_read_button_invite": {
+    "message": "Read this page"
+  },
+  "panel_read_button_reading": {
+    "message": "Reading…"
+  },
+  "panel_read_button_activate_site": {
+    "message": "Activate this site"
+  },
   "panel_read_button_refused_note": {
     "message": "Access refused. You can activate just this site, or click the Coati toolbar icon to read the page once."
   },
   "panel_read_button_refused_note_unknown_site": {
     "message": "Access refused. Click the Coati toolbar icon to read the page once, or try again."
   },
-
-  "panel_first_run_title": { "message": "Getting started with Coati" },
-  "panel_first_run_program_ok": { "message": "Local program detected" },
-  "panel_first_run_program_missing": { "message": "Local program not found" },
-  "panel_first_run_program_pending": { "message": "Looking for the local program…" },
-  "panel_first_run_program_action": { "message": "Download the program" },
-  "panel_first_run_model_ok": { "message": "Model connected" },
-  "panel_first_run_model_missing": { "message": "No model is responding" },
-  "panel_first_run_model_pending": { "message": "Checking the model…" },
-  "panel_first_run_model_waiting": { "message": "Model: waiting for the local program" },
-  "panel_first_run_model_action": { "message": "Connect a model" },
-  "panel_first_run_page_ok": { "message": "Page access granted" },
-  "panel_first_run_page_missing": { "message": "Give it access to the page" },
+  "panel_first_run_title": {
+    "message": "Getting started with Coati"
+  },
+  "panel_first_run_program_ok": {
+    "message": "Local program detected"
+  },
+  "panel_first_run_program_missing": {
+    "message": "Local program not found"
+  },
+  "panel_first_run_program_pending": {
+    "message": "Looking for the local program…"
+  },
+  "panel_first_run_program_action": {
+    "message": "Download the program"
+  },
+  "panel_first_run_model_ok": {
+    "message": "Model connected"
+  },
+  "panel_first_run_model_missing": {
+    "message": "No model is responding"
+  },
+  "panel_first_run_model_pending": {
+    "message": "Checking the model…"
+  },
+  "panel_first_run_model_waiting": {
+    "message": "Model: waiting for the local program"
+  },
+  "panel_first_run_model_action": {
+    "message": "Connect a model"
+  },
+  "panel_first_run_page_ok": {
+    "message": "Page access granted"
+  },
+  "panel_first_run_page_missing": {
+    "message": "Give it access to the page"
+  },
   "panel_first_run_page_hint": {
     "message": "Click \"Read this page\" at the top of the card. The browser will ask for access to all sites; Coati only reads a page when you click."
   },
-  "panel_first_run_page_action": { "message": "Show the button" },
-  "panel_first_run_mark_done": { "message": "done" },
-  "panel_first_run_mark_todo": { "message": "to do" },
-  "panel_first_run_mark_pending": { "message": "in progress" },
+  "panel_first_run_page_action": {
+    "message": "Show the button"
+  },
+  "panel_first_run_mark_done": {
+    "message": "done"
+  },
+  "panel_first_run_mark_todo": {
+    "message": "to do"
+  },
+  "panel_first_run_mark_pending": {
+    "message": "in progress"
+  },
   "panel_first_run_lang": {
     "message": "Language: $LANG$",
-    "placeholders": { "lang": { "content": "$1", "example": "English" } }
+    "placeholders": {
+      "lang": {
+        "content": "$1",
+        "example": "English"
+      }
+    }
   },
-  "panel_first_run_lang_change": { "message": "change" },
-
-  "neverConnectedTitle": { "message": "No AI model connected yet" },
+  "panel_first_run_lang_change": {
+    "message": "change"
+  },
+  "neverConnectedTitle": {
+    "message": "No AI model connected yet"
+  },
   "neverConnectedBody": {
     "message": "Coati answers through an AI model, installed on your computer or online. The guide helps you connect one."
   },
-  "neverConnectedAction": { "message": "Connect a model" },
-  "panelHelpButtonLabel": { "message": "Help: connect a model" },
+  "neverConnectedAction": {
+    "message": "Connect a model"
+  },
+  "panelHelpButtonLabel": {
+    "message": "Help: connect a model"
+  },
   "panelHelpPopoverText": {
     "message": "Coati needs an AI model to answer: on your computer (free and private) or online (a key to create). The tutorial walks you through it step by step. Click this button to open it."
   },
-
-  "panel_unreadable_hint": { "message": "Uncheck \"Read the page\" to ask a general question." },
-  "panel_unreadable_pdf": { "message": "⚠ Coati can't read a PDF displayed by the browser." },
+  "panel_unreadable_hint": {
+    "message": "The question is sent without the page."
+  },
+  "panel_unreadable_pdf": {
+    "message": "⚠ Coati can't read a PDF displayed by the browser."
+  },
   "panel_unreadable_canvas": {
     "message": "⚠ This page is drawn (map, editor): Coati can't find any text to read there."
   },
-  "panel_unreadable_empty": { "message": "⚠ Coati finds almost no text on this page." },
-
-  "options_page_title": { "message": "Settings — Coati" },
-  "options_heading": { "message": "Coati settings" },
-  "options_model_title": { "message": "Model" },
+  "panel_unreadable_empty": {
+    "message": "⚠ Coati finds almost no text on this page."
+  },
+  "options_page_title": {
+    "message": "Settings — Coati"
+  },
+  "options_heading": {
+    "message": "Coati settings"
+  },
+  "options_model_title": {
+    "message": "Model"
+  },
   "options_model_help": {
     "message": "The model that answers your requests. This choice is saved by the local program, on this machine."
   },
-  "options_model_disconnected": { "message": "The local program isn't responding: open it on your computer, then come back to this page to see or change the model." },
-  "options_model_name_label": { "message": "Model name" },
-  "options_model_name_placeholder": { "message": "e.g. llama3.2 (optional)" },
-  "options_model_save": { "message": "Save the model" },
-  "options_attach_title": { "message": "Reading the page" },
-  "options_attach_checkbox": { "message": "Attach the open page to my questions" },
-  "options_attach_help": { "message": "Starting value of the panel's \"Read the page\" switch." },
-  "options_point_effect_label": { "message": "Show an element" },
-  "options_point_effect_subtle": { "message": "Subtle" },
-  "options_point_effect_strong": { "message": "Strong" },
-  "options_point_effect_spectacular": { "message": "Spectacular" },
+  "options_model_disconnected": {
+    "message": "The local program isn't responding: open it on your computer, then come back to this page to see or change the model."
+  },
+  "options_model_name_label": {
+    "message": "Model name"
+  },
+  "options_model_name_placeholder": {
+    "message": "e.g. llama3.2 (optional)"
+  },
+  "options_model_save": {
+    "message": "Save the model"
+  },
+  "options_point_effect_label": {
+    "message": "Show an element"
+  },
+  "options_point_effect_subtle": {
+    "message": "Subtle"
+  },
+  "options_point_effect_strong": {
+    "message": "Strong"
+  },
+  "options_point_effect_spectacular": {
+    "message": "Spectacular"
+  },
   "options_point_effect_help": {
     "message": "How Coati highlights an element on the page when you click \"Show\"."
   },
-  "options_shortcut_title": { "message": "Keyboard shortcut" },
-  "options_shortcut_edit": { "message": "Change the shortcut" },
+  "options_shortcut_title": {
+    "message": "Keyboard shortcut"
+  },
+  "options_shortcut_edit": {
+    "message": "Change the shortcut"
+  },
   "options_shortcut_help": {
     "message": "To change it: about:addons, gear icon, then \"Manage Extension Shortcuts\"."
   },
-  "options_sites_title": { "message": "Activated sites" },
-  "options_sites_link_intro": { "message": "The prompts suggested on each site are set in" },
-  "options_sites_link_text": { "message": "My prompts" },
-  "options_history_title": { "message": "History" },
+  "options_sites_title": {
+    "message": "Activated sites"
+  },
+  "options_sites_link_intro": {
+    "message": "The prompts suggested on each site are set in"
+  },
+  "options_sites_link_text": {
+    "message": "My prompts"
+  },
+  "options_history_title": {
+    "message": "History"
+  },
   "options_history_help": {
     "message": "The conversation is kept on this computer, unencrypted, then erased after this delay."
   },
-  "options_retention_label": { "message": "Keep for" },
-  "options_retention_7d": { "message": "7 days" },
-  "options_retention_30d": { "message": "30 days" },
-  "options_retention_90d": { "message": "90 days" },
-  "options_retention_never": { "message": "No limit" },
-  "options_language_title": { "message": "Language" },
+  "options_retention_label": {
+    "message": "Keep for"
+  },
+  "options_retention_7d": {
+    "message": "7 days"
+  },
+  "options_retention_30d": {
+    "message": "30 days"
+  },
+  "options_retention_90d": {
+    "message": "90 days"
+  },
+  "options_retention_never": {
+    "message": "No limit"
+  },
+  "options_language_title": {
+    "message": "Language"
+  },
   "options_language_help": {
     "message": "Coati's interface language (panel, settings, My prompts) and the language asked of the model for its replies."
   },
-  "options_about_title": { "message": "About" },
-  "options_about_version": { "message": "Version" },
-  "options_about_fingerprint": { "message": "Code fingerprint" },
-  "options_about_license": { "message": "License" },
-  "options_about_source": { "message": "Source code" },
-  "options_legacy_title": { "message": "Browser with no native program (Flatpak, Snap)" },
-  "options_legacy_token_label": { "message": "Pairing secret" },
+  "options_about_title": {
+    "message": "About"
+  },
+  "options_about_version": {
+    "message": "Version"
+  },
+  "options_about_fingerprint": {
+    "message": "Code fingerprint"
+  },
+  "options_about_license": {
+    "message": "License"
+  },
+  "options_about_source": {
+    "message": "Source code"
+  },
+  "options_legacy_title": {
+    "message": "Browser with no native program (Flatpak, Snap)"
+  },
+  "options_legacy_token_label": {
+    "message": "Pairing secret"
+  },
   "options_legacy_token_help_before": {
     "message": "Only if your browser (Flatpak, Snap) cannot launch a native program. In a terminal, run"
   },
-  "options_legacy_token_help_after": { "message": ", then paste the secret here. It is never written to disk." },
-  "options_legacy_token_placeholder": { "message": "Paste the secret here" },
-  "options_legacy_save": { "message": "Save" },
-
+  "options_legacy_token_help_after": {
+    "message": ", then paste the secret here. It is never written to disk."
+  },
+  "options_legacy_token_placeholder": {
+    "message": "Paste the secret here"
+  },
+  "options_legacy_save": {
+    "message": "Save"
+  },
   "options_sites_help_gecko": {
     "message": "On these sites, Firefox lets Coati see which site is open: the panel immediately offers the right buttons."
   },
   "options_sites_help_chrome": {
     "message": "On these sites, Chrome lets Coati see which site is open: the panel immediately offers the right buttons."
   },
-  "options_provider_desc_claude_api": { "message": "Your own Anthropic key, billed to your account." },
-  "options_provider_desc_ollama": { "message": "A model that runs on your machine: nothing leaves it." },
+  "options_provider_desc_claude_api": {
+    "message": "Your own Anthropic key, billed to your account."
+  },
+  "options_provider_desc_ollama": {
+    "message": "A model that runs on your machine: nothing leaves it."
+  },
   "options_provider_desc_openai_compat": {
     "message": "An OpenAI-compatible server: LM Studio, Ollama, OpenAI, Mistral, OpenRouter, DeepSeek, or another address."
   },
-  "options_invalid_secret": { "message": "Invalid secret (64 hexadecimal characters expected)." },
-  "options_test_in_progress": { "message": "Testing…" },
-  "options_test_connection": { "message": "Test the connection" },
-  "options_test_connected": { "message": "Connected" },
-  "options_credit_unchecked": { "message": "This check cannot see your remaining credit." },
-  "options_claude_cli_auth_required": { "message": "Claude session expired or disconnected." },
-  "options_claude_cli_paste_hint": { "message": "Paste into a terminal:" },
-  "options_copy_command": { "message": "Copy" },
-  "options_test_ok": { "message": "Connection successful." },
-  "options_test_failed": { "message": "The connection failed." },
-  "options_key_saved": { "message": "key saved" },
-  "options_configured": { "message": "configured" },
-  "options_apikey_placeholder_optional": { "message": "API key (optional, depends on the server)" },
-  "options_apikey_placeholder_anthropic": { "message": "Anthropic API key (sk-ant-…)" },
-  "options_save": { "message": "Save" },
-  "options_apikey_clear": { "message": "Clear the key" },
-  "options_apikey_clear_confirm": { "message": "Confirm erase" },
-  "options_other_address": { "message": "Other address" },
-  "options_save_address": { "message": "Save the address" },
-  "options_address_refused": { "message": "Address refused: HTTPS, or HTTP to localhost/127.0.0.1 only." },
-  "options_choose_model": { "message": "Choose a model…" },
-  "options_model_placeholder_claude": { "message": "e.g. claude-sonnet-4-5 (optional)" },
-  "options_model_placeholder_openai_compat": { "message": "exact name expected by the server" },
-  "options_shortcut_not_set": { "message": "not set" },
-
-  "keyInput_label": { "message": "API key" },
-  "keyInput_placeholder": { "message": "Paste the key here" },
-  "keyInput_placeholder_replace": { "message": "Paste a new key to replace the current one" },
-  "keyInput_show": { "message": "Show" },
-  "keyInput_hide": { "message": "Hide" },
-  "keyInput_save": { "message": "Save the key" },
-  "keyInput_saving": { "message": "Sending to the local program…" },
-  "keyInput_saved": { "message": "Key saved" },
-  "keyInput_verifying": { "message": "Key saved, checking with the service…" },
-  "keyInput_accepted": { "message": "Key accepted" },
-  "keyInput_refused": { "message": "The service refused this key: check that it was copied in full, or create a new one on its website." },
-  "keyInput_remedy_credit": { "message": "Add credit on the service's website, then click “Check again”." },
-  "keyInput_remedy_wait": { "message": "The key is saved: wait a minute, then click “Check again”." },
-  "keyInput_test_failed": { "message": "The key check failed." },
-  "keyInput_save_failed": { "message": "The key was not saved." },
-  "keyInput_retry": { "message": "Check again" },
-  "keyInput_delete": { "message": "Delete the key" },
-  "keyInput_delete_confirm": { "message": "Confirm deletion" },
-  "keyInput_deleted": { "message": "Key deleted from this computer." },
-  "keyInput_not_connected": { "message": "The local program isn't responding: a key can't be saved right now." },
-  "keyInput_note_storage": { "message": "The key is stored unencrypted on this computer, in a file only your user account can read." },
-  "keyInput_note_never_share": { "message": "Never paste it anywhere else (chat, Discord, email): Coati will never ask you for it." },
-  "keyInput_note_spending_cap": { "message": "Paid service: set a monthly spending cap on its website." },
-  "keyInput_spending_cap_link": { "message": "Set the cap" },
-  "setup_title": { "message": "Connect an AI model" },
-  "setup_open_link": { "message": "Need help? Follow the step-by-step guide" },
-  "setup_intro_need": { "message": "To answer you, Coati needs an AI model." },
-  "setup_intro_local_program": { "message": "The local program, installed with Coati on this computer, connects your browser to that model." },
-  "setup_not_connected": { "message": "The local program isn't responding: the checks will work again as soon as it is running." },
-  "setup_choose": { "message": "Where should the model run?" },
-  "setup_path_local_title": { "message": "On my computer" },
-  "setup_path_local_text": { "message": "Free and private: your texts never leave the computer. Needs a recent computer." },
-  "setup_path_online_title": { "message": "Online" },
-  "setup_path_online_text": { "message": "Simpler: create a key with a service. Free or paid, depending on the service." },
-  "setup_checking": { "message": "Checking…" },
-  "setup_check_unknown": { "message": "The check didn't complete. Try again in a moment." },
-  "setup_copy": { "message": "Copy" },
-  "setup_copied": { "message": "Copied" },
-  "setup_copy_manual": { "message": "Selected: press Ctrl+C to copy" },
-  "setup_try_title": { "message": "Try it on a page" },
-  "setup_try_text": { "message": "Open any web page, then click the Coati icon in the browser toolbar. If it isn't there, click the puzzle-piece icon and pin Coati." },
-  "setup_local_install_title": { "message": "Install Ollama" },
-  "setup_local_install_text": { "message": "Ollama is free software that runs the model on your computer." },
+  "options_invalid_secret": {
+    "message": "Invalid secret (64 hexadecimal characters expected)."
+  },
+  "options_test_in_progress": {
+    "message": "Testing…"
+  },
+  "options_test_connection": {
+    "message": "Test the connection"
+  },
+  "options_test_connected": {
+    "message": "Connected"
+  },
+  "options_credit_unchecked": {
+    "message": "This check cannot see your remaining credit."
+  },
+  "options_claude_cli_auth_required": {
+    "message": "Claude session expired or disconnected."
+  },
+  "options_claude_cli_paste_hint": {
+    "message": "Paste into a terminal:"
+  },
+  "options_copy_command": {
+    "message": "Copy"
+  },
+  "options_test_ok": {
+    "message": "Connection successful."
+  },
+  "options_test_failed": {
+    "message": "The connection failed."
+  },
+  "options_key_saved": {
+    "message": "key saved"
+  },
+  "options_configured": {
+    "message": "configured"
+  },
+  "options_apikey_placeholder_optional": {
+    "message": "API key (optional, depends on the server)"
+  },
+  "options_apikey_placeholder_anthropic": {
+    "message": "Anthropic API key (sk-ant-…)"
+  },
+  "options_save": {
+    "message": "Save"
+  },
+  "options_apikey_clear": {
+    "message": "Clear the key"
+  },
+  "options_apikey_clear_confirm": {
+    "message": "Confirm erase"
+  },
+  "options_other_address": {
+    "message": "Other address"
+  },
+  "options_save_address": {
+    "message": "Save the address"
+  },
+  "options_address_refused": {
+    "message": "Address refused: HTTPS, or HTTP to localhost/127.0.0.1 only."
+  },
+  "options_choose_model": {
+    "message": "Choose a model…"
+  },
+  "options_model_placeholder_claude": {
+    "message": "e.g. claude-sonnet-4-5 (optional)"
+  },
+  "options_model_placeholder_openai_compat": {
+    "message": "exact name expected by the server"
+  },
+  "options_shortcut_not_set": {
+    "message": "not set"
+  },
+  "keyInput_label": {
+    "message": "API key"
+  },
+  "keyInput_placeholder": {
+    "message": "Paste the key here"
+  },
+  "keyInput_placeholder_replace": {
+    "message": "Paste a new key to replace the current one"
+  },
+  "keyInput_show": {
+    "message": "Show"
+  },
+  "keyInput_hide": {
+    "message": "Hide"
+  },
+  "keyInput_save": {
+    "message": "Save the key"
+  },
+  "keyInput_saving": {
+    "message": "Sending to the local program…"
+  },
+  "keyInput_saved": {
+    "message": "Key saved"
+  },
+  "keyInput_verifying": {
+    "message": "Key saved, checking with the service…"
+  },
+  "keyInput_accepted": {
+    "message": "Key accepted"
+  },
+  "keyInput_refused": {
+    "message": "The service refused this key: check that it was copied in full, or create a new one on its website."
+  },
+  "keyInput_remedy_credit": {
+    "message": "Add credit on the service's website, then click “Check again”."
+  },
+  "keyInput_remedy_wait": {
+    "message": "The key is saved: wait a minute, then click “Check again”."
+  },
+  "keyInput_test_failed": {
+    "message": "The key check failed."
+  },
+  "keyInput_save_failed": {
+    "message": "The key was not saved."
+  },
+  "keyInput_retry": {
+    "message": "Check again"
+  },
+  "keyInput_delete": {
+    "message": "Delete the key"
+  },
+  "keyInput_delete_confirm": {
+    "message": "Confirm deletion"
+  },
+  "keyInput_deleted": {
+    "message": "Key deleted from this computer."
+  },
+  "keyInput_not_connected": {
+    "message": "The local program isn't responding: a key can't be saved right now."
+  },
+  "keyInput_note_storage": {
+    "message": "The key is stored unencrypted on this computer, in a file only your user account can read."
+  },
+  "keyInput_note_never_share": {
+    "message": "Never paste it anywhere else (chat, Discord, email): Coati will never ask you for it."
+  },
+  "keyInput_note_spending_cap": {
+    "message": "Paid service: set a monthly spending cap on its website."
+  },
+  "keyInput_spending_cap_link": {
+    "message": "Set the cap"
+  },
+  "setup_title": {
+    "message": "Connect an AI model"
+  },
+  "setup_open_link": {
+    "message": "Need help? Follow the step-by-step guide"
+  },
+  "setup_intro_need": {
+    "message": "To answer you, Coati needs an AI model."
+  },
+  "setup_intro_local_program": {
+    "message": "The local program, installed with Coati on this computer, connects your browser to that model."
+  },
+  "setup_not_connected": {
+    "message": "The local program isn't responding: the checks will work again as soon as it is running."
+  },
+  "setup_choose": {
+    "message": "Where should the model run?"
+  },
+  "setup_path_local_title": {
+    "message": "On my computer"
+  },
+  "setup_path_local_text": {
+    "message": "Free and private: your texts never leave the computer. Needs a recent computer."
+  },
+  "setup_path_online_title": {
+    "message": "Online"
+  },
+  "setup_path_online_text": {
+    "message": "Simpler: create a key with a service. Free or paid, depending on the service."
+  },
+  "setup_checking": {
+    "message": "Checking…"
+  },
+  "setup_check_unknown": {
+    "message": "The check didn't complete. Try again in a moment."
+  },
+  "setup_copy": {
+    "message": "Copy"
+  },
+  "setup_copied": {
+    "message": "Copied"
+  },
+  "setup_copy_manual": {
+    "message": "Selected: press Ctrl+C to copy"
+  },
+  "setup_try_title": {
+    "message": "Try it on a page"
+  },
+  "setup_try_text": {
+    "message": "Open any web page, then click the Coati icon in the browser toolbar. If it isn't there, click the puzzle-piece icon and pin Coati."
+  },
+  "setup_local_install_title": {
+    "message": "Install Ollama"
+  },
+  "setup_local_install_text": {
+    "message": "Ollama is free software that runs the model on your computer."
+  },
   "setup_local_download_for": {
     "message": "Download Ollama for $OS$",
     "placeholders": {
-      "os": { "content": "$1", "example": "Windows" }
+      "os": {
+        "content": "$1",
+        "example": "Windows"
+      }
     }
   },
-  "setup_local_other_os": { "message": "Other systems:" },
-  "setup_local_download": { "message": "Download Ollama:" },
-  "setup_local_linux_install": { "message": "On Linux, you can also install it from a terminal:" },
-  "setup_local_start_intro": { "message": "Then start it:" },
-  "setup_local_start_windows": { "message": "Open Ollama from the Start menu; its icon appears next to the clock." },
-  "setup_local_start_mac": { "message": "Open Ollama from the Applications folder; its icon appears in the menu bar." },
-  "setup_local_start_linux": { "message": "The installer starts it for you. If it isn't running, run this command in a terminal:" },
-  "setup_local_running_title": { "message": "Check that Ollama responds" },
-  "setup_local_running_text": { "message": "Coati will switch to Ollama and check that it responds on this computer." },
-  "setup_local_running_check": { "message": "Use Ollama and check" },
-  "setup_local_running_ok": { "message": "Ollama is responding." },
-  "setup_local_unreachable": { "message": "Ollama isn't responding. Check that it is running (step 1), then try again." },
-  "setup_local_model_title": { "message": "Download a model" },
-  "setup_local_model_text": { "message": "Pick the row that matches your computer's memory (RAM). More memory allows a more capable model, but a bigger download." },
+  "setup_local_other_os": {
+    "message": "Other systems:"
+  },
+  "setup_local_download": {
+    "message": "Download Ollama:"
+  },
+  "setup_local_linux_install": {
+    "message": "On Linux, you can also install it from a terminal:"
+  },
+  "setup_local_start_intro": {
+    "message": "Then start it:"
+  },
+  "setup_local_start_windows": {
+    "message": "Open Ollama from the Start menu; its icon appears next to the clock."
+  },
+  "setup_local_start_mac": {
+    "message": "Open Ollama from the Applications folder; its icon appears in the menu bar."
+  },
+  "setup_local_start_linux": {
+    "message": "The installer starts it for you. If it isn't running, run this command in a terminal:"
+  },
+  "setup_local_running_title": {
+    "message": "Check that Ollama responds"
+  },
+  "setup_local_running_text": {
+    "message": "Coati will switch to Ollama and check that it responds on this computer."
+  },
+  "setup_local_running_check": {
+    "message": "Use Ollama and check"
+  },
+  "setup_local_running_ok": {
+    "message": "Ollama is responding."
+  },
+  "setup_local_unreachable": {
+    "message": "Ollama isn't responding. Check that it is running (step 1), then try again."
+  },
+  "setup_local_model_title": {
+    "message": "Download a model"
+  },
+  "setup_local_model_text": {
+    "message": "Pick the row that matches your computer's memory (RAM). More memory allows a more capable model, but a bigger download."
+  },
   "setup_local_memory_known": {
     "message": "Your browser says this computer has at least $GB$ GB of memory (it never reports more than 8 GB).",
     "placeholders": {
-      "gb": { "content": "$1", "example": "8" }
+      "gb": {
+        "content": "$1",
+        "example": "8"
+      }
     }
   },
-  "setup_local_memory_unknown": { "message": "Your browser doesn't report this computer's memory: check your system information." },
-  "setup_local_col_memory": { "message": "Computer memory" },
-  "setup_local_col_model": { "message": "Model" },
-  "setup_local_col_size": { "message": "Download" },
+  "setup_local_memory_unknown": {
+    "message": "Your browser doesn't report this computer's memory: check your system information."
+  },
+  "setup_local_col_memory": {
+    "message": "Computer memory"
+  },
+  "setup_local_col_model": {
+    "message": "Model"
+  },
+  "setup_local_col_size": {
+    "message": "Download"
+  },
   "setup_local_memory_row": {
     "message": "$GB$ GB or more",
     "placeholders": {
-      "gb": { "content": "$1", "example": "8" }
+      "gb": {
+        "content": "$1",
+        "example": "8"
+      }
     }
   },
-  "setup_local_suggested": { "message": "suggested" },
+  "setup_local_suggested": {
+    "message": "suggested"
+  },
   "setup_size_gb": {
     "message": "$GB$ GB",
     "placeholders": {
-      "gb": { "content": "$1", "example": "3,3" }
+      "gb": {
+        "content": "$1",
+        "example": "3,3"
+      }
     }
   },
-  "setup_local_pull_text": { "message": "Open a terminal (Windows: PowerShell; macOS: Terminal), paste this command, then wait for the download to finish." },
-  "setup_local_model_check": { "message": "Check the model" },
-  "setup_local_model_ok": { "message": "The model is ready." },
+  "setup_local_pull_text": {
+    "message": "Open a terminal (Windows: PowerShell; macOS: Terminal), paste this command, then wait for the download to finish."
+  },
+  "setup_local_model_check": {
+    "message": "Check the model"
+  },
+  "setup_local_model_ok": {
+    "message": "The model is ready."
+  },
   "setup_local_model_missing": {
     "message": "The model $MODEL$ isn't in Ollama yet: run the command above and wait for the download to finish.",
     "placeholders": {
-      "model": { "content": "$1", "example": "gemma3:4b" }
+      "model": {
+        "content": "$1",
+        "example": "gemma3:4b"
+      }
     }
   },
-  "setup_local_no_model": { "message": "No model is installed in Ollama yet: run the command above." },
-  "setup_lmstudio_title": { "message": "Advanced: LM Studio" },
-  "setup_lmstudio_text": { "message": "LM Studio is another app that runs a model on your computer. Install it, download a model from the app, then start its local server (“Developer” tab, “Start Server” button)." },
-  "setup_lmstudio_download": { "message": "Download LM Studio" },
-  "setup_lmstudio_use": { "message": "Use LM Studio and check" },
-  "setup_lmstudio_ok": { "message": "LM Studio is responding. Pick its model in the “Model” section below." },
-  "setup_speedup_title": { "message": "Speed up Ollama" },
-  "setup_speedup_intro": { "message": "Two Ollama settings roughly halve the memory taken by the page being read, with little loss of quality: a leaner calculation (“flash attention”) and a compressed working memory. The model then fits entirely in the graphics card more often, and answers faster." },
-  "setup_speedup_linux_edit": { "message": "Open the Ollama service settings (standard install, with systemd):" },
-  "setup_speedup_linux_add": { "message": "In the editor that opens, paste these three lines into the empty area at the top, then save and close:" },
-  "setup_speedup_linux_restart": { "message": "Restart Ollama:" },
-  "setup_speedup_mac_set": { "message": "In Terminal, run these two commands:" },
-  "setup_speedup_mac_restart": { "message": "Quit Ollama (its icon in the menu bar, “Quit Ollama”), then open the app again." },
-  "setup_speedup_win_open": { "message": "Open Settings and search for “Edit environment variables for your account”." },
-  "setup_speedup_win_add": { "message": "Under “User variables”, click “New…” and add these two variables (name, then value):" },
+  "setup_local_no_model": {
+    "message": "No model is installed in Ollama yet: run the command above."
+  },
+  "setup_lmstudio_title": {
+    "message": "Advanced: LM Studio"
+  },
+  "setup_lmstudio_text": {
+    "message": "LM Studio is another app that runs a model on your computer. Install it, download a model from the app, then start its local server (“Developer” tab, “Start Server” button)."
+  },
+  "setup_lmstudio_download": {
+    "message": "Download LM Studio"
+  },
+  "setup_lmstudio_use": {
+    "message": "Use LM Studio and check"
+  },
+  "setup_lmstudio_ok": {
+    "message": "LM Studio is responding. Pick its model in the “Model” section below."
+  },
+  "setup_speedup_title": {
+    "message": "Speed up Ollama"
+  },
+  "setup_speedup_intro": {
+    "message": "Two Ollama settings roughly halve the memory taken by the page being read, with little loss of quality: a leaner calculation (“flash attention”) and a compressed working memory. The model then fits entirely in the graphics card more often, and answers faster."
+  },
+  "setup_speedup_linux_edit": {
+    "message": "Open the Ollama service settings (standard install, with systemd):"
+  },
+  "setup_speedup_linux_add": {
+    "message": "In the editor that opens, paste these three lines into the empty area at the top, then save and close:"
+  },
+  "setup_speedup_linux_restart": {
+    "message": "Restart Ollama:"
+  },
+  "setup_speedup_mac_set": {
+    "message": "In Terminal, run these two commands:"
+  },
+  "setup_speedup_mac_restart": {
+    "message": "Quit Ollama (its icon in the menu bar, “Quit Ollama”), then open the app again."
+  },
+  "setup_speedup_win_open": {
+    "message": "Open Settings and search for “Edit environment variables for your account”."
+  },
+  "setup_speedup_win_add": {
+    "message": "Under “User variables”, click “New…” and add these two variables (name, then value):"
+  },
   "setup_speedup_win_value": {
     "message": "value: $VALUE$",
-    "placeholders": { "value": { "content": "$1", "example": "q8_0" } }
+    "placeholders": {
+      "value": {
+        "content": "$1",
+        "example": "q8_0"
+      }
+    }
   },
-  "setup_speedup_win_restart": { "message": "Quit Ollama from its icon near the clock (right-click, “Quit Ollama”), then start it again." },
-  "setup_speedup_faq": { "message": "Ollama documentation (FAQ)" },
-  "setup_online_service_title": { "message": "Choose a service" },
-  "setup_online_free_warning": { "message": "Before you choose: OpenRouter's free models may keep the texts you send them, and use them. Don't send anything confidential." },
+  "setup_speedup_win_restart": {
+    "message": "Quit Ollama from its icon near the clock (right-click, “Quit Ollama”), then start it again."
+  },
+  "setup_speedup_faq": {
+    "message": "Ollama documentation (FAQ)"
+  },
+  "setup_online_service_title": {
+    "message": "Choose a service"
+  },
+  "setup_online_free_warning": {
+    "message": "Before you choose: OpenRouter's free models may keep the texts you send them, and use them. Don't send anything confidential."
+  },
   "setup_online_free_detail": {
     "message": "Free models: up to $PERDAY$ questions a day, $WITHCREDIT$ if you buy at least $CREDIT$ of credit.",
     "placeholders": {
-      "perday": { "content": "$1", "example": "50" },
-      "withcredit": { "content": "$2", "example": "1000" },
-      "credit": { "content": "$3", "example": "10 $US" }
+      "perday": {
+        "content": "$1",
+        "example": "50"
+      },
+      "withcredit": {
+        "content": "$2",
+        "example": "1000"
+      },
+      "credit": {
+        "content": "$3",
+        "example": "10 $US"
+      }
     }
   },
   "setup_online_paid_detail": {
     "message": "Paid: about $COST$ per question on a page of about $WORDS$ words.",
     "placeholders": {
-      "cost": { "content": "$1", "example": "0,006 $US" },
-      "words": { "content": "$2", "example": "2000" }
+      "cost": {
+        "content": "$1",
+        "example": "0,006 $US"
+      },
+      "words": {
+        "content": "$2",
+        "example": "2000"
+      }
     }
   },
-  "setup_online_others": { "message": "Other services" },
+  "setup_online_others": {
+    "message": "Other services"
+  },
   "setup_online_service_ok": {
     "message": "$NAME$ selected.",
     "placeholders": {
-      "name": { "content": "$1", "example": "OpenRouter" }
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
     }
   },
-  "setup_online_pick_first": { "message": "First choose a service (step 1)." },
-  "setup_online_account_title": { "message": "Create an account and a key" },
-  "setup_online_account_text": { "message": "Create an account (or sign in), open the API keys page, create a key, then copy it." },
+  "setup_online_pick_first": {
+    "message": "First choose a service (step 1)."
+  },
+  "setup_online_account_title": {
+    "message": "Create an account and a key"
+  },
+  "setup_online_account_text": {
+    "message": "Create an account (or sign in), open the API keys page, create a key, then copy it."
+  },
   "setup_online_signup": {
     "message": "Open $NAME$",
     "placeholders": {
-      "name": { "content": "$1", "example": "OpenRouter" }
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
     }
   },
-  "setup_online_keys_page": { "message": "API keys page" },
-  "setup_online_openrouter_privacy": { "message": "If a free model refuses to answer, allow free models in OpenRouter's privacy settings." },
-  "setup_online_privacy_link": { "message": "Privacy settings" },
+  "setup_online_keys_page": {
+    "message": "API keys page"
+  },
+  "setup_online_openrouter_privacy": {
+    "message": "If a free model refuses to answer, allow free models in OpenRouter's privacy settings."
+  },
+  "setup_online_privacy_link": {
+    "message": "Privacy settings"
+  },
   "setup_online_openrouter_quota": {
     "message": "Free-model limit: $PERMIN$ questions per minute.",
     "placeholders": {
-      "permin": { "content": "$1", "example": "20" }
+      "permin": {
+        "content": "$1",
+        "example": "20"
+      }
     }
   },
-  "setup_online_paid_billing": { "message": "Paid service: add a payment method or credit, then set a monthly spending cap (reminder in the next step)." },
-  "setup_online_prepaid": { "message": "Prepaid service: you buy credit in advance and never spend more than that credit." },
-  "setup_online_key_title": { "message": "Paste the key" },
+  "setup_online_paid_billing": {
+    "message": "Paid service: add a payment method or credit, then set a monthly spending cap (reminder in the next step)."
+  },
+  "setup_online_prepaid": {
+    "message": "Prepaid service: you buy credit in advance and never spend more than that credit."
+  },
+  "setup_online_key_title": {
+    "message": "Paste the key"
+  },
   "setup_online_key_text": {
     "message": "A key from this service usually starts with “$PREFIX$”.",
     "placeholders": {
-      "prefix": { "content": "$1", "example": "sk-or-" }
+      "prefix": {
+        "content": "$1",
+        "example": "sk-or-"
+      }
     }
   },
-
-
-  "welcome_title": { "message": "Welcome to Coati" },
+  "welcome_title": {
+    "message": "Welcome to Coati"
+  },
   "welcome_lead": {
     "message": "Coati summarizes a page or a video and answers your questions about what you're reading, with the model of your choice, through a program that runs on your machine."
   },
-  "welcome_pin_title": { "message": "Pin the icon" },
-  "welcome_pin_browser_chromium": { "message": "Chrome, Brave, Edge" },
-  "welcome_pin_browser_gecko": { "message": "Firefox" },
+  "welcome_pin_title": {
+    "message": "Pin the icon"
+  },
+  "welcome_pin_browser_chromium": {
+    "message": "Chrome, Brave, Edge"
+  },
+  "welcome_pin_browser_gecko": {
+    "message": "Firefox"
+  },
   "welcome_pin_step1_chromium": {
     "message": "Click the extensions icon (the puzzle piece), to the right of the address bar."
   },
-  "welcome_pin_step2_chromium": { "message": "Click the pin next to \"Coati\"." },
+  "welcome_pin_step2_chromium": {
+    "message": "Click the pin next to \"Coati\"."
+  },
   "welcome_pin_step3_chromium": {
     "message": "Coati's icon then stays in the toolbar: a click opens the panel."
   },
@@ -625,17 +1384,27 @@
   "welcome_pin_step3_gecko": {
     "message": "Coati's icon then stays in the toolbar: a click opens the sidebar."
   },
-  "welcome_steps_title": { "message": "Three steps" },
-  "welcome_program_title": { "message": "Install the local program" },
+  "welcome_steps_title": {
+    "message": "Three steps"
+  },
+  "welcome_program_title": {
+    "message": "Install the local program"
+  },
   "welcome_program_text": {
     "message": "Coati goes through a small program installed on your computer: it talks to the model and keeps your keys, never the extension."
   },
-  "welcome_program_link": { "message": "Download the program" },
-  "welcome_model_title": { "message": "Choose a model" },
+  "welcome_program_link": {
+    "message": "Download the program"
+  },
+  "welcome_model_title": {
+    "message": "Choose a model"
+  },
   "welcome_model_text": {
     "message": "In settings: a model that runs on your own machine (Ollama), or an online service with your own key."
   },
-  "welcome_page_title": { "message": "Open Coati on a page" },
+  "welcome_page_title": {
+    "message": "Open Coati on a page"
+  },
   "welcome_page_text_chromium": {
     "message": "Click Coati's icon, then \"Read this page\" at the top of the panel. The browser will ask once for access to all sites."
   },
@@ -645,247 +1414,524 @@
   "welcome_gesture": {
     "message": "Coati only reads a page when you click: never in the background, never on a tab switch."
   },
-
-  "prompts_page_title": { "message": "My prompts — Coati" },
-  "prompts_heading": { "message": "My prompts" },
+  "prompts_page_title": {
+    "message": "My prompts — Coati"
+  },
+  "prompts_heading": {
+    "message": "My prompts"
+  },
   "prompts_intro": {
     "message": "A case holds a site's prompts: Coati's suggestions and yours, mixed together, in the order you choose."
   },
   "prompts_all_sites_line": {
     "message": "Coati has access to all sites, and only reads a page when you click."
   },
-  "prompts_all_sites_revoke": { "message": "Go back to per-site" },
+  "prompts_all_sites_revoke": {
+    "message": "Go back to per-site"
+  },
   "prompts_banner_no_token": {
     "message": "Local program not connected — open the extension's settings to pair it."
   },
   "prompts_banner_disconnected": {
     "message": "The local program isn't responding — open it on your computer, then come back to this page to see or edit your prompts."
   },
-  "prompts_all_sites_heading": { "message": "On all sites" },
-  "prompts_empty": { "message": "No prompts yet." },
-  "prompts_restore_suggestions": { "message": "Restore Coati's suggestions" },
-  "prompts_active_switch": { "message": "Active" },
-  "prompts_action_title": { "message": "Built-in action: reads the video's captions" },
+  "prompts_all_sites_heading": {
+    "message": "On all sites"
+  },
+  "prompts_empty": {
+    "message": "No prompts yet."
+  },
+  "prompts_restore_suggestions": {
+    "message": "Restore Coati's suggestions"
+  },
+  "prompts_active_switch": {
+    "message": "Active"
+  },
+  "prompts_action_title": {
+    "message": "Built-in action: reads the video's captions"
+  },
   "prompts_move_up_aria": {
     "message": "Move \"$LABEL$\" up",
-    "placeholders": { "label": { "content": "$1", "example": "Summarize this video" } }
+    "placeholders": {
+      "label": {
+        "content": "$1",
+        "example": "Summarize this video"
+      }
+    }
   },
   "prompts_move_down_aria": {
     "message": "Move \"$LABEL$\" down",
-    "placeholders": { "label": { "content": "$1", "example": "Summarize this video" } }
+    "placeholders": {
+      "label": {
+        "content": "$1",
+        "example": "Summarize this video"
+      }
+    }
   },
-  "prompts_delete_confirm": { "message": "Confirm?" },
+  "prompts_delete_confirm": {
+    "message": "Confirm?"
+  },
   "prompts_delete_confirm_aria": {
     "message": "Confirm deleting \"$LABEL$\"",
-    "placeholders": { "label": { "content": "$1", "example": "Summarize this video" } }
+    "placeholders": {
+      "label": {
+        "content": "$1",
+        "example": "Summarize this video"
+      }
+    }
   },
   "prompts_delete_aria": {
     "message": "Delete \"$LABEL$\"",
-    "placeholders": { "label": { "content": "$1", "example": "Summarize this video" } }
+    "placeholders": {
+      "label": {
+        "content": "$1",
+        "example": "Summarize this video"
+      }
+    }
   },
-  "prompts_editor_title_label": { "message": "Title (optional)" },
-  "prompts_editor_body_label": { "message": "Text" },
-
+  "prompts_editor_title_label": {
+    "message": "Title (optional)"
+  },
+  "prompts_editor_body_label": {
+    "message": "Text"
+  },
   "sw_request_superseded": {
     "message": "A newer request took priority; this one was dropped."
   },
   "sw_broker_silent_15s": {
     "message": "The local program hasn't responded in 15s. Check that it's running on this machine, then try again."
   },
-
-  "ctx_read_page": { "message": "Read this page with Coati" },
-  "ctx_rewrite": { "message": "Rewrite" },
-  "ctx_shorten": { "message": "Shorten" },
-  "ctx_explain": { "message": "Explain" },
-  "ctx_translate": { "message": "Translate" },
-
-  "sugg_wikipedia_name": { "message": "Wikipedia" },
-
-  "sugg_youtube_key_points_label": { "message": "Timestamped key points" },
+  "ctx_read_page": {
+    "message": "Read this page with Coati"
+  },
+  "ctx_rewrite": {
+    "message": "Rewrite"
+  },
+  "ctx_shorten": {
+    "message": "Shorten"
+  },
+  "ctx_explain": {
+    "message": "Explain"
+  },
+  "ctx_translate": {
+    "message": "Translate"
+  },
+  "sugg_wikipedia_name": {
+    "message": "Wikipedia"
+  },
+  "sugg_youtube_key_points_label": {
+    "message": "Timestamped key points"
+  },
   "sugg_youtube_key_points_prompt": {
     "message": "List the video's key points, each with its timestamp."
   },
-  "sugg_youtube_fact_check_label": { "message": "Worth checking" },
+  "sugg_youtube_fact_check_label": {
+    "message": "Worth checking"
+  },
   "sugg_youtube_fact_check_prompt": {
     "message": "Point out the claims in the video that would be worth checking, and say why."
   },
-
-  "sugg_google_refine_label": { "message": "Refine my search" },
+  "sugg_google_refine_label": {
+    "message": "Refine my search"
+  },
   "sugg_google_refine_prompt": {
     "message": "Turn my search visible on this page into an advanced search: quotes for an exact phrase, site:, filetype:, exclusions with -, and a before:/after: bound if a time period is relevant."
   },
-  "sugg_google_compare_label": { "message": "Compare these results" },
+  "sugg_google_compare_label": {
+    "message": "Compare these results"
+  },
   "sugg_google_compare_prompt": {
     "message": "Compare the results on this page: what they have in common, what sets them apart, and which best answers my search."
   },
-  "sugg_google_sources_label": { "message": "Who are these sources?" },
+  "sugg_google_sources_label": {
+    "message": "Who are these sources?"
+  },
   "sugg_google_sources_prompt": {
     "message": "For each result on this page, say who the source is and whether it looks reliable on this topic."
   },
-
-  "sugg_wikipedia_essentials_label": { "message": "The essentials in 5 points" },
+  "sugg_wikipedia_essentials_label": {
+    "message": "The essentials in 5 points"
+  },
   "sugg_wikipedia_essentials_prompt": {
     "message": "Summarize this article in 5 essential points, in order of importance."
   },
-  "sugg_wikipedia_explain_label": { "message": "Explain it simply" },
+  "sugg_wikipedia_explain_label": {
+    "message": "Explain it simply"
+  },
   "sugg_wikipedia_explain_prompt": {
     "message": "Explain this article's topic simply, as if to someone discovering it."
   },
-  "sugg_wikipedia_dates_label": { "message": "Key dates" },
+  "sugg_wikipedia_dates_label": {
+    "message": "Key dates"
+  },
   "sugg_wikipedia_dates_prompt": {
     "message": "List the key dates mentioned in this article, with what happened at each."
   },
-
-  "sugg_reddit_thread_gist_label": { "message": "What the thread says" },
+  "sugg_reddit_thread_gist_label": {
+    "message": "What the thread says"
+  },
   "sugg_reddit_thread_gist_prompt": {
     "message": "Summarize what this thread says: the dominant opinion and the most-discussed points."
   },
-  "sugg_reddit_opposing_label": { "message": "Opposing views" },
+  "sugg_reddit_opposing_label": {
+    "message": "Opposing views"
+  },
   "sugg_reddit_opposing_prompt": {
     "message": "Point out the opposing views in this thread, and each side's main argument."
   },
-
-  "sugg_amazon_reviews_label": { "message": "What the reviews say" },
+  "sugg_amazon_reviews_label": {
+    "message": "What the reviews say"
+  },
   "sugg_amazon_reviews_prompt": {
     "message": "Summarize this product's reviews: the strengths and the most frequently reported flaws."
   },
-  "sugg_amazon_weaknesses_label": { "message": "Reported weaknesses" },
+  "sugg_amazon_weaknesses_label": {
+    "message": "Reported weaknesses"
+  },
   "sugg_amazon_weaknesses_prompt": {
     "message": "Point out the weaknesses reported in this product's reviews, even minority ones."
   },
-  "model_list_title": { "message": "Available models" },
-  "model_list_local": { "message": "On this computer" },
-  "model_list_online": { "message": "Online" },
+  "model_list_title": {
+    "message": "Available models"
+  },
+  "model_list_local": {
+    "message": "On this computer"
+  },
+  "model_list_online": {
+    "message": "Online"
+  },
   "model_list_size_gb": {
     "message": "$GB$ GB",
     "placeholders": {
-      "gb": { "content": "$1", "example": "2.6" }
+      "gb": {
+        "content": "$1",
+        "example": "2.6"
+      }
     }
   },
-  "model_list_thinks": { "message": "thinks before answering, slower" },
-  "model_list_ollama_unreachable": { "message": "Ollama is not responding" },
-  "model_list_no_local": { "message": "No model installed" },
-  "model_list_add": { "message": "Add a model…" },
-  "model_list_loading": { "message": "Looking for models…" },
-  "model_list_unavailable": { "message": "The local program could not list the models." },
-  "model_pill_local": { "message": "local" },
-  "model_pill_online": { "message": "online" },
-  "model_pill_none": { "message": "No model" },
-  "model_pill_stale_broker": { "message": "Restart the local program" },
+  "model_list_thinks": {
+    "message": "thinks before answering, slower"
+  },
+  "model_list_ollama_unreachable": {
+    "message": "Ollama is not responding"
+  },
+  "model_list_no_local": {
+    "message": "No model installed"
+  },
+  "model_list_add": {
+    "message": "Add a model…"
+  },
+  "model_list_loading": {
+    "message": "Looking for models…"
+  },
+  "model_list_unavailable": {
+    "message": "The local program could not list the models."
+  },
+  "model_pill_local": {
+    "message": "local"
+  },
+  "model_pill_online": {
+    "message": "online"
+  },
+  "model_pill_none": {
+    "message": "No model"
+  },
+  "model_pill_stale_broker": {
+    "message": "Restart the local program"
+  },
   "model_pill_stale_broker_label": {
     "message": "Local program older than the extension. Open the menu."
   },
   "model_menu_stale_broker_line": {
     "message": "The local program is older than the extension: restart it to see and change the model."
   },
-  "panel_status_action_hint": { "message": "Click to change model." },
+  "panel_status_action_hint": {
+    "message": "Click to change model."
+  },
   "model_pill_label": {
     "message": "Model: $MODEL$, $WHERE$. Change model",
     "placeholders": {
-      "model": { "content": "$1", "example": "qwen3:4b" },
-      "where": { "content": "$2", "example": "local" }
+      "model": {
+        "content": "$1",
+        "example": "qwen3:4b"
+      },
+      "where": {
+        "content": "$2",
+        "example": "local"
+      }
     }
   },
-  "setup_local_models_check": { "message": "Check available models" },
-  "setup_local_models_text": { "message": "Already have models in Ollama? Coati lists them here; one click picks the one that answers." },
-  "setup_local_suggestions_title": { "message": "Models to download" },
+  "setup_local_models_check": {
+    "message": "Check available models"
+  },
+  "setup_local_models_text": {
+    "message": "Already have models in Ollama? Coati lists them here; one click picks the one that answers."
+  },
+  "setup_local_suggestions_title": {
+    "message": "Models to download"
+  },
   "setup_local_model_installed": {
     "message": "$MODEL$ is installed. Pick it in the list of available models below.",
     "placeholders": {
-      "model": { "content": "$1", "example": "gemma3:4b" }
+      "model": {
+        "content": "$1",
+        "example": "gemma3:4b"
+      }
     }
   },
   "setup_local_model_chosen": {
     "message": "Coati now uses $MODEL$.",
     "placeholders": {
-      "model": { "content": "$1", "example": "qwen3:4b" }
+      "model": {
+        "content": "$1",
+        "example": "qwen3:4b"
+      }
     }
   },
-  "model_fit_gpu": { "message": "fits in the graphics card" },
-  "model_fit_shared": { "message": "shared with the processor, slower" },
-  "model_fit_too_big": { "message": "too big for this computer" },
+  "model_fit_gpu": {
+    "message": "fits in the graphics card"
+  },
+  "model_fit_shared": {
+    "message": "shared with the processor, slower"
+  },
+  "model_fit_too_big": {
+    "message": "too big for this computer"
+  },
   "model_fit_loaded_percent": {
     "message": "loaded $PERCENT$% in the graphics card",
     "placeholders": {
-      "percent": { "content": "$1", "example": "100" }
+      "percent": {
+        "content": "$1",
+        "example": "100"
+      }
     }
   },
-  "setup_local_model_text_host": { "message": "These models run on this computer, based on its memory. A bigger model answers better, but more slowly." },
+  "setup_local_model_text_host": {
+    "message": "These models run on this computer, based on its memory. A bigger model answers better, but more slowly."
+  },
   "setup_local_host_vram": {
     "message": "This computer: $RAM$ GB of memory, $VRAM$ GB of graphics memory.",
     "placeholders": {
-      "ram": { "content": "$1", "example": "16" },
-      "vram": { "content": "$2", "example": "6.4" }
+      "ram": {
+        "content": "$1",
+        "example": "16"
+      },
+      "vram": {
+        "content": "$2",
+        "example": "6.4"
+      }
     }
   },
   "setup_local_host_vram_unknown": {
     "message": "This computer: $RAM$ GB of memory, graphics memory unknown.",
     "placeholders": {
-      "ram": { "content": "$1", "example": "16" }
+      "ram": {
+        "content": "$1",
+        "example": "16"
+      }
     }
   },
   "setup_local_host_unified": {
     "message": "This computer: $RAM$ GB of memory, shared memory (Mac).",
     "placeholders": {
-      "ram": { "content": "$1", "example": "16" }
+      "ram": {
+        "content": "$1",
+        "example": "16"
+      }
     }
   },
-  "setup_local_col_fit": { "message": "On this computer" },
-  "setup_local_none_fit": { "message": "None of these models fits on this computer. An online service will be more comfortable." },
-  "setup_local_installed_tag": { "message": "already installed" },
+  "setup_local_col_fit": {
+    "message": "On this computer"
+  },
+  "setup_local_none_fit": {
+    "message": "None of these models fits on this computer. An online service will be more comfortable."
+  },
+  "setup_local_installed_tag": {
+    "message": "already installed"
+  },
   "setup_local_installed_no_pull": {
     "message": "$MODEL$ is already installed: nothing to download.",
     "placeholders": {
-      "model": { "content": "$1", "example": "qwen3.5:4b" }
+      "model": {
+        "content": "$1",
+        "example": "qwen3.5:4b"
+      }
     }
   },
-  "model_list_provider_local": { "message": "on this computer" },
-  "model_list_provider_online": { "message": "online service" },
-  "options_current_label": { "message": "Current model" },
-  "options_current_no_model": { "message": "No model chosen" },
-  "options_test_short": { "message": "Test" },
-  "options_installed_title": { "message": "Installed models" },
-  "options_refresh": { "message": "Refresh" },
-  "options_services_title": { "message": "Configured services" },
-  "options_services_empty": { "message": "No online service yet." },
-  "options_add_service": { "message": "Add a service" },
-  "options_other_address_title": { "message": "Another OpenAI-compatible address" },
-  "options_cap_title": { "message": "Spending cap" },
-  "options_cap_text": { "message": "Paid services bill by usage. Set a monthly cap on their site:" },
-  "options_state_key_missing": { "message": "Key needed" },
-  "options_state_address_missing": { "message": "Address needed" },
-  "options_state_check": { "message": "Needs a check: click Test" },
-  "options_state_key_saved": { "message": "Key saved" },
-  "options_state_ready": { "message": "Ready" },
-  "options_service_active": { "message": "In use" },
-  "options_service_use": { "message": "Use" },
-  "options_service_remove": { "message": "Remove" },
-  "options_service_remove_confirm": { "message": "Confirm removal" },
-  "options_service_settings": { "message": "Key and model" },
-  "options_local_guide_title": { "message": "Install Ollama and a recommended model, step by step" },
+  "model_list_provider_local": {
+    "message": "on this computer"
+  },
+  "model_list_provider_online": {
+    "message": "online service"
+  },
+  "options_current_label": {
+    "message": "Current model"
+  },
+  "options_current_no_model": {
+    "message": "No model chosen"
+  },
+  "options_test_short": {
+    "message": "Test"
+  },
+  "options_installed_title": {
+    "message": "Installed models"
+  },
+  "options_refresh": {
+    "message": "Refresh"
+  },
+  "options_services_title": {
+    "message": "Configured services"
+  },
+  "options_services_empty": {
+    "message": "No online service yet."
+  },
+  "options_add_service": {
+    "message": "Add a service"
+  },
+  "options_other_address_title": {
+    "message": "Another OpenAI-compatible address"
+  },
+  "options_cap_title": {
+    "message": "Spending cap"
+  },
+  "options_cap_text": {
+    "message": "Paid services bill by usage. Set a monthly cap on their site:"
+  },
+  "options_state_key_missing": {
+    "message": "Key needed"
+  },
+  "options_state_address_missing": {
+    "message": "Address needed"
+  },
+  "options_state_check": {
+    "message": "Needs a check: click Test"
+  },
+  "options_state_key_saved": {
+    "message": "Key saved"
+  },
+  "options_state_ready": {
+    "message": "Ready"
+  },
+  "options_service_active": {
+    "message": "In use"
+  },
+  "options_service_use": {
+    "message": "Use"
+  },
+  "options_service_remove": {
+    "message": "Remove"
+  },
+  "options_service_remove_confirm": {
+    "message": "Confirm removal"
+  },
+  "options_service_settings": {
+    "message": "Key and model"
+  },
+  "options_local_guide_title": {
+    "message": "Install Ollama and a recommended model, step by step"
+  },
   "options_add_service_replaces": {
     "message": "One service of this kind at a time (OpenRouter, OpenAI, Mistral, DeepSeek, another address): adding another replaces $SERVICE$ and its key.",
     "placeholders": {
-      "service": { "content": "$1", "example": "OpenRouter" }
+      "service": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
     }
   },
-  "options_current_default_model": { "message": "Service's default model" },
-  "options_search_title": { "message": "Search in the docs" },
-  "options_search_help": { "message": "Coati searches the site's official documentation when you ask it from the panel. It needs a key from a search service; both have a free tier." },
-  "options_search_provider_brave": { "message": "Brave Search" },
-  "options_search_provider_tavily": { "message": "Tavily" },
-  "options_search_test": { "message": "Check" },
-  "options_search_test_paid_note": { "message": "The check uses one request of your free quota." },
-  "setup_search_title": { "message": "Get a free key" },
-  "setup_search_intro": { "message": "Both services have a free tier that covers personal use:" },
-  "setup_search_brave": { "message": "Brave Search: about 1,000 free searches a month (5 dollars of credits offered each month). Create an account and a key on the API dashboard." },
-  "setup_search_brave_link": { "message": "Brave Search API dashboard" },
-  "setup_search_tavily": { "message": "Tavily: 1,000 free credits a month. Create an account on Tavily's site, then a key." },
-  "setup_search_paste": { "message": "Pick the service above, paste the key, save it, then click “Check”." },
+  "options_current_default_model": {
+    "message": "Service's default model"
+  },
+  "options_search_title": {
+    "message": "Search in the docs"
+  },
+  "options_search_help": {
+    "message": "Coati searches the site's official documentation when you ask it from the panel. It needs a key from a search service; both have a free tier."
+  },
+  "options_search_provider_brave": {
+    "message": "Brave Search"
+  },
+  "options_search_provider_tavily": {
+    "message": "Tavily"
+  },
+  "options_search_test": {
+    "message": "Check"
+  },
+  "options_search_test_paid_note": {
+    "message": "The check uses one request of your free quota."
+  },
+  "setup_search_title": {
+    "message": "Get a free key"
+  },
+  "setup_search_intro": {
+    "message": "Both services have a free tier that covers personal use:"
+  },
+  "setup_search_brave": {
+    "message": "Brave Search: about 1,000 free searches a month (5 dollars of credits offered each month). Create an account and a key on the API dashboard."
+  },
+  "setup_search_brave_link": {
+    "message": "Brave Search API dashboard"
+  },
+  "setup_search_tavily": {
+    "message": "Tavily: 1,000 free credits a month. Create an account on Tavily's site, then a key."
+  },
+  "setup_search_paste": {
+    "message": "Pick the service above, paste the key, save it, then click “Check”."
+  },
   "options_search_placeholder": {
     "message": "$SERVICE$ API key",
     "placeholders": {
-      "service": { "content": "$1", "example": "Brave Search" }
+      "service": {
+        "content": "$1",
+        "example": "Brave Search"
+      }
     }
+  },
+  "panel_access_denied_sent": {
+    "message": "⚠ Coati cannot access this page, so the question is sent without it. $HINT$",
+    "placeholders": {
+      "hint": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_read_error_sent": {
+    "message": "⚠ The page could not be read, so the question is sent without it: $DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "sensitive_dialog_title": {
+    "message": "Sensitive data?"
+  },
+  "sensitive_dialog_text": {
+    "message": "This page may contain sensitive data (types found: $KINDS$). The online model will receive the page's code as is. Estimated size: ~$KTOKENS$ k tokens.",
+    "placeholders": {
+      "kinds": {
+        "content": "$1",
+        "example": "API key, card, IBAN"
+      },
+      "ktokens": {
+        "content": "$2",
+        "example": "3.2"
+      }
+    }
+  },
+  "sensitive_dialog_send": {
+    "message": "Send anyway"
+  },
+  "sensitive_dialog_cancel": {
+    "message": "Cancel"
+  },
+  "sensitive_kind_api_key": {
+    "message": "API key"
+  },
+  "sensitive_kind_card": {
+    "message": "card"
+  },
+  "sensitive_kind_iban": {
+    "message": "IBAN"
   }
 }

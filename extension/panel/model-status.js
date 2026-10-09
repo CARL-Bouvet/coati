@@ -25,7 +25,7 @@ import { setStreamingUi } from "./request-watch.js";
 import { addMessage } from "./message-render.js";
 import { persistConversation } from "./conversation-store.js";
 import { renderFirstRun, renderNeverConnected, openModelTutorial } from "./first-run-wiring.js";
-import { updateAttachScreenUi } from "./attach-toggle.js";
+import { updateDevModeUi } from "./dev-mode.js";
 
 // Lot A2 (plan-montrer-voir-chercher-08-10.md §3A) — "Montrer du doigt".
 // Mirrors the latest `hello-ok.features` relayed by service-worker.js on its
@@ -62,7 +62,7 @@ let providerStatusActionable = false;
  * list". */
 export function applyBrokerFeatures(state, features) {
   brokerFeatures = state === "connected" && Array.isArray(features) ? features.filter((f) => typeof f === "string") : [];
-  updateAttachScreenUi();
+  updateDevModeUi();
 }
 
 /** Same "are you there?" message the panel already sends once at startup
@@ -422,7 +422,7 @@ export function renderStaleBrokerPill() {
 }
 
 export function renderModelPicker() {
-  updateAttachScreenUi();
+  updateDevModeUi();
   if (currentConnState !== "connected" || (!modelsReply && !modelsUnsupported)) {
     els.modelPicker.hidden = true;
     return;

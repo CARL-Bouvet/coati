@@ -65,7 +65,7 @@ import { computeCodeFingerprint } from "../lib/build-fingerprint.js";
 import { t, applyI18n, reloadOnLanguageChange } from "../lib/i18n-page.js";
 import { mountLanguageSelector } from "../lib/language-selector.js";
 import { els } from "./dom-refs.js";
-import { panelState, ATTACH_PAGE_KEY, ATTACH_SCREEN_KEY } from "./panel-state.js";
+import { panelState } from "./panel-state.js";
 import { loadConversation, persistConversation } from "./conversation-store.js";
 import { renderAll } from "./message-render.js";
 import {
@@ -91,33 +91,31 @@ import {
   refreshReadButton,
   PERMISSION_REDETECT_SKIP_MS,
 } from "./first-run-wiring.js";
-import { sendChat, finishAttachScreenToggle } from "./composer-send.js";
+import { sendChat } from "./composer-send.js";
 import { cancelActive, onEraseClick } from "./request-watch.js";
 import { requestPrompts, requestPrefs, openMyPromptsPage, saveCurrentAsPrompt, updateSavePromptEnabled } from "./prompts-wiring.js";
 import {
-  setAttachPageChecked,
-  isAttachPageChecked,
-  setAttachScreenChecked,
-  isAttachScreenChecked,
-  updateAttachToggle,
-  updateAttachScreenUi,
-} from "./attach-toggle.js";
+  DEV_MODE_KEY,
+  DEV_MODE_ACKNOWLEDGED_KEY,
+  parseStoredDevMode,
+  parseStoredDevModeAcknowledged,
+  confirmDevModeActivation,
+  isDevModeChecked,
+  setDevModeChecked,
+  updateDevModeUi,
+} from "./dev-mode.js";
 import { redetectTab, redetectTabFromMetadata, openedFromGesture, lastRedetectTabId, lastRedetectAt } from "./page-detect.js";
 import { updateSiteCard, onPromptsMessage, onPrefsMessage } from "./site-card.js";
 import { activeTabId } from "./page-extract.js";
 import { drainPendingAction } from "./pending-action.js";
 import { onChunk, onProgress, onSearchStatus, onDone, onError } from "./chat-stream.js";
+import { onPageRequest } from "./page-request.js";
 
 // Public repo doc, opened from the "no-host" banner (docs/PROTOCOL.md
 // amendment 2026-09-30, "États et bandeaux"). No local doc viewer in the
 // extension itself, so this points at the same repo the "À propos" section
 // already links to.
 const INSTALL_DOC_URL = "https://github.com/CARL-Bouvet/coati/blob/main/docs/INSTALL.md";
-// `captureVisibleTab` needs `activeTab` or `<all_urls>` — the narrower
-// per-site `ALL_SITES_ORIGINS` (read-button.js) does NOT satisfy it (B0
-// finding, 08/10, see screenshot.js's own header comment). Requested only
-// when the user turns "See the screen" on (CLAUDE.md rule #5).
-const SCREEN_CAPTURE_ORIGINS = ["<all_urls>"];
 
 // Composer height recompute (lot 4) — set in init(), called after every
 // programmatic change of els.input.value (those fire no "input" event).
@@ -187,27 +185,30 @@ async function init() {
   els.openMyPrompts.addEventListener("click", openMyPromptsPage);
   els.savePrompt.addEventListener("click", saveCurrentAsPrompt);
   els.eraseConversation.addEventListener("click", onEraseClick);
-  els.attachPage.addEventListener("click", () => {
-    panelState.attachPagePreference = !isAttachPageChecked();
-    setAttachPageChecked(panelState.attachPagePreference);
-    persistConversation();
-  });
-  // Sticky, persisted like attachPage above (renamed "See the screen" —
-  // superseded the B3-era "unchecked after each send"). Turning it ON is
-  // the user gesture Chrome/Firefox need for the broad capture permission:
-  // the request call below must be the very first thing in this handler,
-  // no `await` before it, or the gesture is dropped.
-  els.attachScreen.addEventListener("click", () => {
-    if (els.attachScreen.disabled) return;
-    if (isAttachScreenChecked()) {
-      panelState.attachScreenPreference = false;
-      setAttachScreenChecked(false);
+  // "Dev mode" (docs/PROTOCOL.md "Page on demand") — replaces the former
+  // "Read the page"/"See the screen" switches. Turning it OFF is immediate;
+  // turning it ON for the very first time ever shows the risk/cost
+  // confirmation dialog first (dev-mode.js) — declined, the switch reverts.
+  els.devMode.addEventListener("click", async () => {
+    const turningOn = !isDevModeChecked();
+    if (!turningOn) {
+      panelState.devModePreference = false;
+      updateDevModeUi();
       persistConversation();
       return;
     }
-    const asked = api.permissions.request({ origins: SCREEN_CAPTURE_ORIGINS });
-    setAttachScreenChecked(true); // optimistic — reverted in finishAttachScreenToggle() on refusal
-    finishAttachScreenToggle(asked);
+    const acknowledged = await api.storage.local
+      .get(DEV_MODE_ACKNOWLEDGED_KEY)
+      .then((data) => parseStoredDevModeAcknowledged(data[DEV_MODE_ACKNOWLEDGED_KEY]))
+      .catch(() => false);
+    if (!acknowledged) {
+      const confirmed = await confirmDevModeActivation(document);
+      if (!confirmed) return; // switch never moved — nothing to revert
+      await api.storage.local.set({ [DEV_MODE_ACKNOWLEDGED_KEY]: true }).catch(() => {});
+    }
+    panelState.devModePreference = true;
+    updateDevModeUi();
+    persistConversation();
   });
   els.input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -260,18 +261,14 @@ async function init() {
   };
   api.permissions.onAdded.addListener(onPermissionsChanged);
   api.permissions.onRemoved.addListener(onPermissionsChanged);
-  // The settings page writes the same key: adopt its value, or the next
-  // persistConversation() would overwrite it with the stale in-memory one.
+  // The options page writes the same key (same shared preference, dev-
+  // mode.js): adopt its value, or the next persistConversation() would
+  // overwrite it with the stale in-memory one.
   api.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
-    if (ATTACH_PAGE_KEY in changes) {
-      const value = changes[ATTACH_PAGE_KEY].newValue;
-      panelState.attachPagePreference = typeof value === "boolean" ? value : null;
-    }
-    if (ATTACH_SCREEN_KEY in changes) {
-      const value = changes[ATTACH_SCREEN_KEY].newValue;
-      panelState.attachScreenPreference = value === true;
-      updateAttachScreenUi();
+    if (DEV_MODE_KEY in changes) {
+      panelState.devModePreference = parseStoredDevMode(changes[DEV_MODE_KEY].newValue);
+      updateDevModeUi();
     }
   });
 
@@ -299,7 +296,6 @@ async function init() {
     }
   } catch {
     currentTabId = null;
-    updateAttachToggle();
     updateSiteCard();
     refreshReadButton();
   }
@@ -382,6 +378,9 @@ function handleBrokerMessage(message) {
       break;
     case "done":
       onDone(message);
+      break;
+    case "page.request":
+      onPageRequest(message);
       break;
     case "error":
       onError(message);

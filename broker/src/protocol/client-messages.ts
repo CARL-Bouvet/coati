@@ -4,7 +4,7 @@
 import type { ProviderId } from "../config.ts";
 import type { Context } from "./context.ts";
 import type { SitePrefs } from "./prompts-prefs.ts";
-import type { ChatImage, ChatDocSearch, HistoryEntry } from "./chat.ts";
+import type { ChatImage, ChatDocSearch, HistoryEntry, PageMeta } from "./chat.ts";
 
 // v: 2 handshake — docs/PROTOCOL.md "Handshake `v: 2`" (amendement
 // 2026-09-30, G4). `v: 1` (secret-based) no longer exists anywhere in the
@@ -50,6 +50,38 @@ export interface ChatMessage {
   docSearch?: ChatDocSearch;
   // Amendement 2026-10-08 (bis, "historique"). See HistoryEntry above.
   history?: HistoryEntry[];
+  // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
+  // on demand"). Page metadata, offered instead of `context` so the model
+  // reads the page only when it actually needs to. Ignored by the broker
+  // whenever `context` is ALSO present (point 2 of the spec: "if chat.context
+  // is present, behaviour is unchanged") — see handlers/dispatch.ts.
+  page?: PageMeta;
+  /** Only meaningful together with `page` above — offers the dev marker
+   * (model/page-marker.ts's MARKER_DEV) when true. Absent/false means the
+   * dev marker is never offered, and a model that emits it anyway gets it
+   * treated as ordinary text, never a trigger (docs/PROTOCOL.md). */
+  devMode?: boolean;
+}
+
+// Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
+// on demand"). The client's answer to a `page.request`: either the page's
+// content (`context`, the SAME shape a `chat` would have carried up front —
+// for level "dev", `context.text` holds the cleaned HTML rather than visible
+// text) or a decline (PageDeclineMessage below). `target` names the `chat`
+// this answers — see docs/PROTOCOL.md's existing `target` convention
+// (CancelMessage).
+export interface PageContentMessage {
+  type: "page.content";
+  id: string;
+  target: string;
+  level: "text" | "dev";
+  context: Context;
+}
+
+export interface PageDeclineMessage {
+  type: "page.decline";
+  id: string;
+  target: string;
 }
 
 export interface SummarizeMessage {
@@ -231,4 +263,6 @@ export type ClientMessage =
   | SettingsTestMessage
   | ProviderStatusMessage
   | ModelsListMessage
-  | ModelWarmupMessage;
+  | ModelWarmupMessage
+  | PageContentMessage
+  | PageDeclineMessage;

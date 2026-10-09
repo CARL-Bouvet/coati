@@ -6,7 +6,7 @@
 |---|---|---|
 | `extension/panel/` | ~7,500 | side panel: chat, page reading, "Show", screenshot, history (39 files) |
 | `extension/` root + `options/` | ~4,100 | settings page (`options.css` ~1,500, setup tutorial ~790) |
-| `extension/content/` | ~2,500 | page reading (`extract/`, 9 files) + "Show" pointer |
+| `extension/content/` | ~2,600 | page reading (`extract/`, 9 files; `extract-dev.js`, dev level) + "Show" pointer |
 | `extension/lib/` | ~2,500 | shared helpers: i18n, pairing, key entry, model list |
 | `extension/_locales/` | ~2,700 | en/fr/zh_CN text (~890 each) |
 | `extension/prompts/` | ~1,300 | "My prompts" page |
@@ -15,7 +15,7 @@
 | `extension/vendor/` | ~3,400 | SortableJS (third-party, prompt drag-and-drop) |
 | `broker/src/` | ~11,400 | local program: handshake, protocol, model prompts, settings |
 | — `broker/src/providers/` | ~2,400 | Ollama, OpenAI-compatible, Claude API |
-| — `broker/src/search/` | ~1,600 | Brave/Tavily search + per-site doc search — to be replaced by browser search (`docs/ROADMAP.md` L6) |
+| — `broker/src/search/` | ~1,600 | Brave/Tavily search + per-site doc search — to be replaced by browser search (`docs/ROADMAP.md` L3) |
 | `broker/test/` | ~17,400 | unit + integration tests (3,441 of them) |
 | `scripts/install/`, `packaging/` | ~1,850 | Linux/macOS/Windows installers, systemd/launchd/Native Messaging templates |
 | `scripts/brand/` | ~990 | rebuilds the logo from source assets |
@@ -35,17 +35,18 @@
 
 ## Request flow: panel → model → panel
 
-1. User clicks **Read the page** (or sends a chat message with reading on). The panel asks the
-   background service worker to inject the content-extraction script into the active tab.
-2. The content script reads visible text (and, depending on the reading level, structure), runs
-   once, returns its result, and is gone.
-3. The panel sends a typed message (`docs/PROTOCOL.md`) to the background service worker, which
-   forwards it as-is on the single open, authenticated WebSocket.
-4. The broker's `server.ts` dispatches by message type to a handler in `broker/src/handlers/`.
-5. The handler builds the prompt (`model.ts`), fencing page content/history/screenshots as data,
-   and calls the active provider's `streamAnswer`.
-6. Each fragment comes back as a `chunk` message; the service worker relays it to the panel,
-   which appends it to the streaming answer. A final `done` carries token usage.
+1. The user sends a question. The panel reads the active tab locally (text level, free) but sends
+   only the page's title, address and size with the question (`chat.page`).
+2. The background service worker forwards the message as-is on the single open, authenticated
+   WebSocket; the broker's `server.ts` dispatches it to `broker/src/handlers/chat.ts`.
+3. The broker builds the prompt (`model.ts`), fencing page data/history/screenshots as data, and
+   streams the provider's answer through one shared marker scanner (`model/page-marker.ts`).
+4. If the model answers `[[READ_PAGE]]` (or `[[READ_PAGE_DEV]]` in dev mode), the broker stops it
+   and sends `page.request`; the panel answers `page.content` (text level: the extraction it
+   already has; dev level: `content/extract-dev.js`) — `panel/page-request.js` — and the broker
+   runs the question again with the page.
+5. Each fragment comes back as a `chunk`; a final `done` carries token usage and, when the page
+   was read, `done.page` — the line under the answer says which.
 
 ## Modules (external model providers)
 

@@ -16,6 +16,12 @@
 // `optional_host_permissions` ("http://*/*", "https://*/*") do NOT satisfy
 // it. captureScreen() never tries to request anything itself; panel.js
 // classifies the rejection and tells the user which gesture to make.
+//
+// "Dev mode" (docs/PROTOCOL.md "Page on demand") removed the "See the
+// screen" switch that used to call captureScreen() — no UI calls this file
+// at all right now. Kept as-is: a later feature reuses captureScreen()
+// itself (the pure resize/encode/budget logic below), it just needs its own
+// new wiring when it ships.
 
 export const MAX_LONG_SIDE_PX = 1280;
 export const CAPTURE_QUALITY = 0.8; // captureVisibleTab's own JPEG quality

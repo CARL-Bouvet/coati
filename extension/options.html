@@ -138,15 +138,19 @@
       </div>
     </section>
 
-    <!-- 2. Default of the panel's "Read the page" switch. -->
-    <section class="section" aria-labelledby="h-attach">
-      <h2 id="h-attach" data-i18n="options_attach_title">Reading the page</h2>
+    <!-- 2. Default of the panel's "Dev mode" switch (docs/PROTOCOL.md
+         "Page on demand"). Replaces the former "Read the page" checkbox:
+         reading is on-demand now, this only controls the dev extraction
+         level's starting value. -->
+    <section class="section" aria-labelledby="h-dev-mode">
+      <h2 id="h-dev-mode" data-i18n="options_dev_mode_title">Dev mode</h2>
       <label class="check-row">
-        <input id="attachPage" type="checkbox" />
-        <span data-i18n="options_attach_checkbox">Attach the open page to my questions</span>
+        <input id="devMode" type="checkbox" />
+        <span data-i18n="options_dev_mode_checkbox">Let the model read the page's full HTML structure</span>
       </label>
-      <p class="help help--under-check" data-i18n="options_attach_help">
-        Starting value of the panel's "Read the page" switch.
+      <p class="help help--under-check" data-i18n="options_dev_mode_help">
+        Starting value of the panel's "Dev mode" switch. Sends more data (higher cost) and may expose personal
+        data present on the page.
       </p>
 
       <!-- "Point at" highlight intensity (product-owner feedback

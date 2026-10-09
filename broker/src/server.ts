@@ -70,6 +70,7 @@ import type { ProviderRuntimeOptions } from "./providers/types.ts";
 // keeps working unchanged (lot F5 — see this file's own header).
 export {
   MAX_CONTEXT_CHARS,
+  MAX_DEV_CONTEXT_CHARS,
   BROKER_FEATURES,
   contextTooLarge,
   contextBudgetError,
@@ -332,6 +333,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           lang: DEFAULT_LANG,
           docSearching: false,
           closed: false,
+          pageRequests: new Map(),
         } satisfies ConnData,
       });
       if (!upgraded) {

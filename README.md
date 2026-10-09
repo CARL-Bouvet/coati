@@ -43,7 +43,7 @@ Chrome Web Store or AMO yet — it loads in developer mode. File feedback via
 3. Pick a model. Recommended for a first try: [Ollama](https://ollama.com), fully local —
    `ollama pull llama3.2` (~2 GB), then select **Ollama (local)** in the extension's settings.
    A Claude API key or any OpenAI-compatible endpoint also works.
-4. Click the Coati icon, then **Read the page**.
+4. Click the Coati icon and ask about the page; the model reads it when your question needs it.
 
 ## Docs
 

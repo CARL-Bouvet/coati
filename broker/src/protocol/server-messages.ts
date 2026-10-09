@@ -29,6 +29,18 @@ export interface DoneMessage {
    * sent exactly once per request, same lifecycle as `usage`.
    */
   historyKept?: number;
+  /**
+   * Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
+   * on demand"). Present only when the page was actually read during this
+   * request (one successful `page.content` round trip) — absent when the
+   * model never asked (or a `chat.page` wasn't even offered), same
+   * "absent means it never happened" convention as `historyKept`. `chars` is
+   * the content's own length as received; `sentChars` is how much of it
+   * actually reached the model after any dev-level fit-to-context
+   * truncation (model/build.ts's devContentCharBudget); `truncated` is true
+   * iff `sentChars < chars`.
+   */
+  page?: { level: "text" | "dev"; chars: number; sentChars: number; truncated: boolean };
 }
 
 export interface ErrorMessage {
@@ -297,6 +309,22 @@ export interface SearchStatusMessage {
   query?: string;
 }
 
+// Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
+// on demand"). Sent when the streamed answer's own text matched one of the
+// two markers (model/page-marker.ts) — `id` is the ORIGINATING `chat`'s own
+// id, never a fresh one (so the client correlates it to the request it's
+// already displaying), mirroring CancelMessage's `target` convention in
+// spirit though this message IS itself the chat's id, not a reference to
+// it. `discard: true` only when the marker appeared mid-answer (text was
+// already shown and must be cleared) — absent (never `false`) when it was
+// the very first thing the answer would have shown.
+export interface PageRequestMessage {
+  type: "page.request";
+  id: string;
+  level: "text" | "dev";
+  discard?: true;
+}
+
 // Broker's step-3 challenge in the v: 2 handshake — docs/PROTOCOL.md. Never
 // part of the general message() dispatch: server.ts's handshake state
 // machine sends this directly, before the connection is authed.
@@ -321,4 +349,5 @@ export type ServerMessage =
   | ModelsMessage
   | ModelWarmupResultMessage
   | ProgressMessage
-  | SearchStatusMessage;
+  | SearchStatusMessage
+  | PageRequestMessage;
