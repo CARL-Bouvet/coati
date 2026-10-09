@@ -1,5 +1,5 @@
 // Lot A1 ("Montrer du doigt") + lot B1 ("Regarder l'écran") — docs/PROTOCOL.md
-// "Amendement 2026-10-08". Covers the parts of plan §3A/§3B owned by this
+// "Amendment 2026-10-08". Covers the parts of plan §3A/§3B owned by this
 // worker: context.elements parsing/budget/render, chat.image validation,
 // the two-tier message size cap, and the vision-unsupported gate.
 

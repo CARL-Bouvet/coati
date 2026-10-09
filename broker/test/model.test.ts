@@ -2,9 +2,9 @@
 // added by the security audit: per-request nonce fencing (buildPrompt), and a
 // timeout that guarantees streamAnswer always settles (model.ts). The
 // generic timeout/cancel contract every provider must honour is exercised
-// here against the ollama provider's fake fetch (goal G1b, 29/09 ménage du
-// dépôt public — this used to run against a now-private provider module);
-// see docs/MODULES.md for the shared contract.
+// here against the ollama provider's fake fetch (goal G1b, 29/09 cleanup of
+// the public repo — this used to run against a now-private provider module);
+// see docs/ARCHITECTURE.md for the shared contract.
 
 import { describe, expect, test, afterEach } from "bun:test";
 import {
@@ -164,7 +164,7 @@ describe("buildPrompt — title/url placement (item 2)", () => {
 
 // --- streamAnswer: timeout and cancellation (item 3), against ollama's fake
 // fetch — the shared contract every provider (built in or an external
-// module, docs/MODULES.md) must honour: MODEL_TIMEOUT_MS always settles the
+// module, docs/ARCHITECTURE.md) must honour: MODEL_TIMEOUT_MS always settles the
 // call, a real abort is never misclassified as a timeout.
 
 const OLLAMA_OPTS = { model: "llama3.2", ollamaUrl: "http://127.0.0.1:11434" };
@@ -296,7 +296,7 @@ describe("summarize instruction", () => {
   });
 
   // Goal G6: en is the default when no lang is negotiated — see messages.ts's
-  // normalizeLang and docs/PROTOCOL.md "Langue de la connexion".
+  // normalizeLang and docs/PROTOCOL.md.
   test("defaults to English when no lang is passed", () => {
     const context: Context = { kind: "page", text: "Some article text." };
     const { prompt } = buildPrompt({ kind: "summarize", context });
@@ -321,10 +321,10 @@ describe("summarize instruction", () => {
   });
 });
 
-// Amendement 2026-10-08 bis ("historique", docs/PROTOCOL.md) — buildPrompt's
+// Amendment 2026-10-08 bis ("historique", docs/PROTOCOL.md) — buildPrompt's
 // own sanitisation/placement of chat.history, plus the two standalone
 // helpers every non-Ollama provider (and the private claude-cli module) use.
-describe("buildPrompt — chat.history (amendement 2026-10-08 bis)", () => {
+describe("buildPrompt — chat.history (amendment 2026-10-08 bis)", () => {
   test("history is absent from BuiltPrompt when the chat input carries none", () => {
     const built = buildPrompt({ kind: "chat", text: "hi" });
     expect(built.history).toBeUndefined();

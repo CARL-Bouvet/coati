@@ -20,14 +20,14 @@
 // Effect on success is bounded to: `scrollIntoView` + a purely visual frame
 // (plus, at the "strong"/"spectacular" levels, a dimming overlay, pulse
 // rings and an arrow — still none of it able to act on the page). NEVER a
-// click, a focus, or an input — see docs/DECISIONS.md "Contrainte dure — la
-// règle du geste" and the plan's own "Sécurité" section (R2: a page could
+// click, a focus, or an input — see docs/DECISIONS.md "Hard constraint — the
+// gesture rule" and the plan's own "Security" section (R2: a page could
 // try to retarget what a label claims to point at; the overlay alone has no
 // way to act on the user's behalf).
 //
 // Added 08/10 (product-owner feedback: "the thin caramel frame is too easy
-// to miss") — three intensity levels, chosen by the user in Options (« Lecture
-// de la page », `chrome.storage.local["pointEffect"]`, default "strong") and
+// to miss") — three intensity levels, chosen by the user in Options ("Page
+// reading", `chrome.storage.local["pointEffect"]`, default "strong") and
 // passed by panel.js as `opts.effect`:
 //   - "subtle": today's frame, thicker + a soft outer glow.
 //   - "strong" (default): spotlight (everything but the element dimmed),
@@ -334,7 +334,7 @@
    * @returns {"ok"|"stale"}
    */
   globalThis.__coatiPoint = function coatiPoint(opts) {
-    removeExistingHighlight(); // "une seule surbrillance à la fois"
+    removeExistingHighlight(); // "one highlight at a time"
 
     // panel.js's toggle: a second click on the SAME "Montrer : …" button
     // calls `__coatiPoint({clear: true})` to remove the effect immediately,

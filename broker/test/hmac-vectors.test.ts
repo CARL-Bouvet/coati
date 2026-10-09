@@ -1,7 +1,7 @@
 // Shared HMAC v: 2 test vectors — broker/test/fixtures/hmac-v2-vectors.json.
 // Generated once, deterministically (sha256 of fixed fixture strings), and
 // consumed by BOTH the broker (this file, node:crypto) and the extension
-// worker's own test suite (WebCrypto) — docs/PROTOCOL.md "Poignée de main
+// worker's own test suite (WebCrypto) — docs/PROTOCOL.md
 // `v: 2`", test plan. Never regenerate ad hoc: any change here must be
 // reflected on both sides.
 

@@ -23,7 +23,7 @@ const isGecko =
 
 /** The extension API namespace. Import this instead of touching `chrome` or
  * `browser` directly, so one source runs unpacked in Chrome and as a signed
- * .xpi in Firefox. See docs/FIREFOX.md.
+ * .xpi in Firefox. See docs/INSTALL.md.
  *
  * A live Proxy, not a plain `const target = ...` snapshot: `bun test` runs
  * every test file in one process, and several unrelated files now import

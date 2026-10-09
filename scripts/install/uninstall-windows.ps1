@@ -35,14 +35,14 @@ function Remove-IfExists {
 
 if ($NoService) {
     if ($DryRun) {
-        Write-Host "[dry-run] tâche planifiée ignorée (-NoService)"
+        Write-Host "[dry-run] scheduled task skipped (-NoService)"
     }
 } else {
     if ($DryRun) {
         Write-Host "[dry-run] Unregister-ScheduledTask $TaskName"
     } else {
         Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
-        Write-Host "Tâche planifiée supprimée : $TaskName"
+        Write-Host "Scheduled task removed: $TaskName"
     }
 }
 
@@ -61,7 +61,7 @@ foreach ($key in $RegistryKeys) {
     }
     if (Test-Path -LiteralPath $key) {
         Remove-Item -LiteralPath $key -Force
-        Write-Host "Registre supprimé : $key"
+        Write-Host "Registry removed: $key"
     }
 }
 
@@ -76,10 +76,10 @@ if (-not $DryRun -and (Test-Path -LiteralPath $BinDest)) {
     for ($i = 0; $i -lt 10 -and (Test-Path -LiteralPath $BinDest); $i++) {
         try { Remove-Item -LiteralPath $BinDest -Force -ErrorAction Stop } catch { Start-Sleep -Milliseconds 500 }
     }
-    if (Test-Path -LiteralPath $BinDest) { throw "Impossible de supprimer $BinDest (fichier encore utilisé)." }
-    Write-Host "Supprimé : $BinDest"
+    if (Test-Path -LiteralPath $BinDest) { throw "Cannot remove $BinDest (file still in use)." }
+    Write-Host "Removed: $BinDest"
 }
 Remove-IfExists $BinDest
 
 Write-Host ""
-Write-Host "Désinstallation terminée."
+Write-Host "Uninstallation complete."

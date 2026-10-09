@@ -1,6 +1,6 @@
 // What the broker hands to every model provider, built-in or loaded from an
-// external module (docs/MODULES.md, amendement 2026-09-29 de docs/PROTOCOL.md
-// "Fournisseur de modèle"). A module must never import broker internals by a
+// external module (docs/ARCHITECTURE.md, amendment 2026-09-29 de docs/PROTOCOL.md
+// "Model provider"). A module must never import broker internals by a
 // relative path outside its own file — everything it legitimately needs
 // (system-prompt builder, timeout constant, typed errors, a logger) comes
 // through this `host` object, passed as `createProvider(host, options)`'s

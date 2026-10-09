@@ -92,7 +92,7 @@
     return Object.assign({ type: "settings", id: payload.id }, settingsStore);
   }
 
-  // --- Prompts + prefs in-memory store (docs/PROTOCOL.md "Bibliothèque de
+  // --- Prompts + prefs in-memory store (docs/PROTOCOL.md
   // prompts et préférences par site") ---------------------------------------
   // Seeded from the fixture (fixture.prompts: PromptEntry[], fixture.prefs:
   // {sites: {...}}), then mutated in place by prompts.save/delete/move and
@@ -291,7 +291,7 @@
           });
         }, 0);
       } else if (payload.type === "models.list" && fixture.models) {
-        // Amendement 2026-10-07: only fixtures that declare `models` answer.
+        // Amendment 2026-10-07: only fixtures that declare `models` answer.
         // `current` follows the settings store when the fixture echoes
         // settings.set, so a pick in the menu moves the checkmark.
         setTimeout(function () {
@@ -302,7 +302,7 @@
           dispatchToListeners({ type: "coati:broker-message", message: reply });
         }, 0);
       } else if (payload.type === "models.list" && fixture.modelsUnsupported) {
-        // Amendement 2026-10-07 bis: simulates an older local program, which
+        // Amendment 2026-10-07 bis: simulates an older local program, which
         // doesn't know this message type — the same generic error
         // parseClientMessage() sends for any unrecognised `type`
         // (broker/src/protocol.ts). The panel still shows the pill, in its
@@ -346,7 +346,7 @@
       // that need to show a recovery block (retry button etc.) set
       // `chatErrorReply`: any `chat` (or summarize/act) then triggers an
       // immediate scripted error reply so pendingRetries stays populated and
-      // the retry button renders (amendement 2026-10-02, goal-j2FJ-kI7).
+      // the retry button renders (amendment 2026-10-02, goal-j2FJ-kI7).
       if (fixture.chatErrorReply && (payload.type === "chat" || payload.type === "summarize" || payload.type === "act")) {
         var chatId = payload.id;
         var errorReply = fixture.chatErrorReply;

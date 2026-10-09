@@ -37,6 +37,6 @@ for (const [k, v] of Object.entries(out)) {
   console.log("=== " + k);
   if (v.error) { console.log(v.error); continue; }
   for (const c of (v.chosenChain || []).slice(0, 4)) console.log("  choisi  ", JSON.stringify(c));
-  for (const l of v.landmarks) console.log("  repère  ", JSON.stringify(l));
+  for (const l of v.landmarks) console.log("  landmark", JSON.stringify(l));
 }
 await ctx.close(); rmSync(dir, { recursive: true, force: true });

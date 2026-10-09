@@ -1,6 +1,6 @@
 // Shared low-level file/directory hardening helpers — docs/PROTOCOL.md
 // "Écoute exclusive du port, durcissement du dossier et fichiers temporaires"
-// (amendement 2026-09-30, G4, security review). Used by config.ts (config.json,
+// (amendment 2026-09-30, G4, security review). Used by config.ts (config.json,
 // data/config dirs) and broker-key.ts (broker-key.json, pairing-secret).
 //
 // Two independent guarantees:

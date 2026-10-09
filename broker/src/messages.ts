@@ -1,5 +1,5 @@
 // Central table of every broker-generated, human-readable sentence — one
-// entry per stable code, three languages. Goal G6 (docs/PROTOCOL.md "Langue
+// entry per stable code, three languages. Goal G6 (docs/PROTOCOL.md
 // de la connexion"): the product ships in en (default), fr, zh_CN, following
 // the browser UI language the client reports in its `hello`. Callers never
 // hand-write a French (or English) sentence inline any more — they look up a
@@ -18,7 +18,7 @@
 //    wait: `provider.status-result.reason` is a stable, English, non-displayed
 //    code by contract (never translated); but `settings`'s
 //    `available[].reason` (Availability.reason, providers/types.ts) IS
-//    user-visible (extension/options.js shows it verbatim after "Détail :")
+//    user-visible (extension/options.js shows it verbatim after "Detail:")
 //    and IS covered here, via the `availability.*` codes below;
 //  - the model's own reply language (see model.ts's buildSystemPrompt/
 //    buildPrompt "reply language" instruction, and the per-pageKind summary
@@ -32,7 +32,7 @@ export const SUPPORTED_LANGS: readonly Lang[] = ["en", "fr", "zh_CN"];
 /**
  * Normalises a BCP 47 UI-language tag — what the client sends in `hello.lang`,
  * straight from `chrome.i18n.getUILanguage()` (e.g. "fr", "en-US", "zh-CN") —
- * to one of Coati's three shipped languages. docs/PROTOCOL.md "Langue de la
+ * to one of Coati's three shipped languages. docs/PROTOCOL.md
  * connexion": fr* -> fr; zh* -> zh_CN EXCEPT the Traditional-leaning subtags
  * (Hant/TW/HK/MO), which fall through to the "everything else" case below,
  * same as any other unrecognised tag; missing/empty/anything else -> en.
@@ -59,7 +59,7 @@ type Catalog = Record<string, Record<Lang, string>>;
 // KEYS STILL NEEDING A REAL zh_CN TRANSLATION: every key in this file (24)
 // — see this worker's report for the exact count and file.
 const MESSAGES: Catalog = {
-  // --- auth-required (docs/PROTOCOL.md "Fournisseur de modèle": shown
+  // --- auth-required (docs/PROTOCOL.md: shown
   // verbatim to a human, unlike model-unavailable/internal) ---------------
   "auth.apiKeyRejected": {
     en: "API key rejected — check it in settings.",
@@ -67,8 +67,8 @@ const MESSAGES: Catalog = {
     zh_CN: "API 密钥被拒绝 — 请在设置中检查。",
   },
 
-  // --- quota-exceeded / rate-limited (docs/PROTOCOL.md "Fournisseur de
-  // modèle", amendement 2026-10-01, goal U1) — same contract as
+  // --- quota-exceeded / rate-limited (docs/PROTOCOL.md,
+  // amendment 2026-10-01, goal U1) — same contract as
   // auth.apiKeyRejected above: shown verbatim to a human, never
   // model-unavailable/internal's raw English technical detail. -------------
   "provider.quotaExceeded": {
@@ -82,8 +82,8 @@ const MESSAGES: Catalog = {
     zh_CN: "该提供商当前请求过多。请稍等片刻后重试。",
   },
 
-  // --- model-missing / provider-overloaded (amendement 2026-10-02,
-  // goal-j2FJ-kI7, "parcours panne modèle") — same contract as
+  // --- model-missing / provider-overloaded (amendment 2026-10-02,
+  // goal-j2FJ-kI7, "model failure path") — same contract as
   // provider.quotaExceeded above: shown verbatim to a human. -------------
   "provider.modelMissing": {
     en: "This model isn't available on your account — pick another one in settings.",
@@ -96,7 +96,7 @@ const MESSAGES: Catalog = {
     zh_CN: "该提供商当前负载过高。请稍后重试。",
   },
 
-  // --- settings.test-result (docs/PROTOCOL.md "settings.test") -----------
+  // --- settings.test-result (docs/PROTOCOL.md) -----------
   "settingsTest.success.claude-api": {
     en: "Connection to the Anthropic API succeeded.",
     fr: "Connexion à l'API Anthropic réussie.",
@@ -143,7 +143,7 @@ const MESSAGES: Catalog = {
     zh_CN: "无法连接到此提供商。",
   },
   // --- settings.test-result's `code: "model-missing"` (docs/PROTOCOL.md,
-  // amendement 2026-10-01, goal U2) — ollama only: the daemon answered but
+  // amendment 2026-10-01, goal U2) — ollama only: the daemon answered but
   // the configured model isn't installed, distinct from "ollama isn't
   // responding" (settingsTest.failure.ollama above). ---------------------
   "settingsTest.failure.ollama.modelMissing": {
@@ -179,7 +179,7 @@ const MESSAGES: Catalog = {
     fr: "Aucun modèle configuré — choisissez-en un dans les réglages.",
     zh_CN: "未配置模型 — 请在设置中选择。",
   },
-  // Appended to a successful testConnection's message (amendement 2026-10-02,
+  // Appended to a successful testConnection's message (amendment 2026-10-02,
   // goal-j2FJ-kI7) when the free probe cannot see the account's credit
   // balance — every built-in provider's check. Rendered by the options page
   // as its own line, never folded into the success sentence above.
@@ -190,7 +190,7 @@ const MESSAGES: Catalog = {
   },
 
   // --- Availability.reason (settings's available[].reason — shown verbatim
-  // by extension/options.js after "Détail : ") ----------------------------
+  // by extension/options.js after "Detail: ") ----------------------------
   "availability.claudeApi.noKey": {
     en: "no Anthropic API key configured",
     fr: "aucune clé API Anthropic configurée",
@@ -222,7 +222,7 @@ const MESSAGES: Catalog = {
     zh_CN: "无法连接到 {url}：{detail}",
   },
 
-  // --- settings.test target "search" (docs/PROTOCOL.md §9, lot C1) — same
+  // --- settings.test target "search" (docs/PROTOCOL.md, lot C1) — same
   // contract as settingsTest.success/failure.* above, one pair per engine. --
   "settingsTest.success.search.brave": {
     en: "Connection to Brave Search succeeded.",

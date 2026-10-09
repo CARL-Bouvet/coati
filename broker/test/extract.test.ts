@@ -16,11 +16,21 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { EXTRACT_FILES } from "../../extension/content/extract-files.js";
 
-const EXTRACT_JS_SOURCE = readFileSync(
-  join(import.meta.dir, "../../extension/content/extract.js"),
-  "utf8",
+// Lot F4: the content script is split across several files, injected
+// together and in order, all sharing one global scope — see
+// extract-files.js. Concatenate every file's declarations (function/var —
+// safe to redeclare, which is why none of them is `const`/`let` at this
+// top level) verbatim as EXTRACT_JS_DECLARATIONS; only the LAST file
+// (content/extract.js) ends in a bare expression statement, handled as
+// EXTRACT_JS_SOURCE by runExtract()'s own `asExpression` step below, same
+// trick the single-file version used before the split.
+const EXTRACT_JS_FILE_SOURCES = EXTRACT_FILES.map((f) =>
+  readFileSync(join(import.meta.dir, "../../extension", f), "utf8"),
 );
+const EXTRACT_JS_DECLARATIONS = EXTRACT_JS_FILE_SOURCES.slice(0, -1).join("\n");
+const EXTRACT_JS_SOURCE = EXTRACT_JS_FILE_SOURCES[EXTRACT_JS_FILE_SOURCES.length - 1];
 
 /** Minimal viewport-relative rect — same shape as a real DOMRect for the
  * subset extract.js reads (top/bottom/left/right/width/height). */
@@ -229,7 +239,7 @@ function matches(el: FakeElement, selector: string): boolean {
 
 /** Runs extract.js's IIFE against a fake document/location/window and
  * returns its completion value, exactly like chrome.scripting.executeScript
- * would. `viewport` and `getComputedStyle` back the Amendement 2026-09-25
+ * would. `viewport` and `getComputedStyle` back the Amendment 2026-09-25
  * overlay-exclusion signals (position, coverage ratio, edge docking) — real
  * browsers provide both as ambient globals inside a content script, which is
  * why extract.js references them as bare identifiers rather than through
@@ -280,7 +290,7 @@ function runExtract(opts: {
     "location",
     "window",
     "getComputedStyle",
-    `"use strict";\nreturn (\n${asExpression}\n);`,
+    `"use strict";\n${EXTRACT_JS_DECLARATIONS}\nreturn (\n${asExpression}\n);`,
   );
   return factory(fakeDocument, fakeLocation, fakeWindow, fakeGetComputedStyle);
 }
@@ -343,7 +353,7 @@ describe("harness — FakeElement models the real DOM traps, not a convenience s
     expect(hidden.getClientRects().length).toBe(1);
     // extract.js reads this through getComputedStyle(el).visibility, not
     // through a property on the element — asserted indirectly by the
-    // fact-extraction tests below (piège n°4).
+    // fact-extraction tests below (trap #4).
   });
 });
 
@@ -404,12 +414,12 @@ describe("extract.js — contenteditable exclusion (item 5)", () => {
 });
 
 // ============================================================================
-// Amendement 2026-09-25 (types de page) — docs/PROTOCOL.md "Types de page,
+// Amendment 2026-09-25 (types de page) — docs/PROTOCOL.md
 // faits et entrées". Fixtures below model the traps measured on real pages
 // (notes/corpus/observations.md) rather than idealized DOMs.
 // ============================================================================
 
-describe("extract.js — couches superposées (piège n°1 : bienici résultats)", () => {
+describe("extract.js — stacked layers (trap #1: bienici results)", () => {
   test("a Didomi-style consent dialog is excluded, the article underneath survives", () => {
     const acceptButton = new FakeElement("button", { text: "Tout accepter" });
     const didomi = new FakeElement("div", {
@@ -473,7 +483,7 @@ describe("extract.js — couches superposées (piège n°1 : bienici résultats)
   });
 });
 
-describe("extract.js — garde-fou des 200 caractères", () => {
+describe("extract.js — 200-char fallback guard", () => {
   test("a page that's ENTIRELY the consent dialog cancels the exclusion and forces pageKind other", () => {
     const acceptButton = new FakeElement("button", { text: "Tout accepter" });
     const onlyDialog = new FakeElement("div", {
@@ -490,13 +500,13 @@ describe("extract.js — garde-fou des 200 caractères", () => {
     expect(result.pageKind).toBe("other");
     expect(result.facts).toBeUndefined();
     expect(result.items).toBeUndefined();
-    // Comportement d'aujourd'hui : mieux vaut la bannière que rien du tout
-    // quand elle est tout ce que la page contient.
+    // Current behaviour: the banner is better than nothing when it is the
+    // only thing the page contains.
     expect(result.text.length).toBeGreaterThan(0);
   });
 });
 
-describe("extract.js — une fiche avec une vraie carte de contact fixe (piège n°2)", () => {
+describe("extract.js — listing with a real fixed contact card (trap #2)", () => {
   test("4 facts + a numeric value → pageKind listing; the small fixed contact card is read, not treated as a banner", () => {
     const factsList = new FakeElement("dl", {
       children: [
@@ -546,7 +556,7 @@ describe("extract.js — une fiche avec une vraie carte de contact fixe (piège 
   });
 });
 
-describe("extract.js — dl de menu de navigation (piège n°3 : MDN)", () => {
+describe("extract.js — dl navigation menu (trap #3: MDN)", () => {
   test("a dt/dd pair whose dd is a list of links is not read as a fact", () => {
     const navDd = new FakeElement("dd", {
       children: [
@@ -573,7 +583,7 @@ describe("extract.js — dl de menu de navigation (piège n°3 : MDN)", () => {
   });
 });
 
-describe("extract.js — un article SUR les cookies n'est pas effacé par la règle lexicale", () => {
+describe("extract.js — an article ABOUT cookies is not erased by the lexical rule", () => {
   test("long article discussing cookies/RGPD, with an illustrative 'Tout accepter' button, survives (guard: >=1500 chars)", () => {
     const illustrativeButton = new FakeElement("button", { text: "Tout accepter" });
     const cookieArticle = new FakeElement("div", {
@@ -605,13 +615,13 @@ describe("extract.js — un article SUR les cookies n'est pas effacé par la rè
 });
 
 // ============================================================================
-// Amendement 2026-09-25 bis — fixtures modelled on the MEASURED shapes from
+// Amendment 2026-09-25 bis — fixtures modelled on the MEASURED shapes from
 // notes/corpus/apres/ (real Chromium probe), not idealized DOMs. The first
 // implementation passed the fixtures above and still failed every one of
 // these on real pages (notes/corpus/observations.md).
 // ============================================================================
 
-describe("extract.js — bienici résultats : liste à deux niveaux de profondeur (correction n°1, n°2, n°3)", () => {
+describe("extract.js — bienici results: two-level-deep list (fix #1, #2, #3)", () => {
   test("results container two levels above a promoted-ad main region, with an oversized entry and in-container facts", () => {
     // Correction n°1: `findMainRegion` picks the promoted ad first (it's the
     // first `article` past 200 chars) — not the results container itself.
@@ -684,7 +694,7 @@ describe("extract.js — bienici résultats : liste à deux niveaux de profondeu
   });
 });
 
-describe("extract.js — formulaire caché (correction n°4 : piège du DOM sur la fiche bienici)", () => {
+describe("extract.js — hidden form (fix #4: DOM trap on the bienici listing)", () => {
   test("a hidden country-code dropdown and validation messages inside a <form> yield ZERO facts", () => {
     const realFacts = new FakeElement("dl", {
       children: [
@@ -773,12 +783,12 @@ describe("extract.js — formulaire caché (correction n°4 : piège du DOM sur 
   });
 });
 
-describe("extract.js — infobox Wikipédia (rappel « valeur chiffrée » : jamais un nombre seul)", () => {
+describe("extract.js — Wikipedia infobox (reminder: a 'numeric value' is never a bare number)", () => {
   test("a taxonomy infobox (4+ facts, no currency/unit) with '21 langues' near the <h1> stays 'article'", () => {
     const h1 = new FakeElement("h1", { text: "Coati" });
     // "21 langues" sits right above the h1 in the real page — modeled here
     // as a sibling line one level up, exactly the shape hasChiefNumericFact
-    // now walks (and must NOT treat as a valeur chiffrée: no unit, no currency).
+    // now walks (and must NOT treat as a numeric value: no unit, no currency).
     const languageCount = new FakeElement("div", { text: "21 langues" });
     const heading = new FakeElement("div", {
       children: [languageCount, h1],

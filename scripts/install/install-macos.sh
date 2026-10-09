@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installs a downloaded coati-broker binary as both the launchd user agent
 # and the Native Messaging host on macOS (goal G4, docs/PROTOCOL.md
-# "Amendement 2026-09-30 : Native Messaging" — sections "macOS" et
+# "Amendment 2026-09-30 : Native Messaging" — sections "macOS" et
 # "Emplacements des manifestes"). Idempotent. Never requires sudo/admin.
 #
 #   scripts/install/install-macos.sh <path-to-coati-broker-binary> [options]
@@ -53,12 +53,12 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     -*)
-      echo "Option inconnue : $1" >&2
+      echo "Unknown option: $1" >&2
       exit 1
       ;;
     *)
       if [ -n "$BINARY" ]; then
-        echo "Un seul chemin de binaire attendu (déjà : $BINARY)" >&2
+        echo "Only one binary path expected (already set: $BINARY)" >&2
         exit 1
       fi
       BINARY="$1"
@@ -72,7 +72,7 @@ if [ -z "$BINARY" ]; then
   exit 1
 fi
 if [ ! -f "$BINARY" ]; then
-  echo "Erreur : binaire introuvable : $BINARY" >&2
+  echo "Error: binary not found: $BINARY" >&2
   exit 1
 fi
 
@@ -85,12 +85,12 @@ if [ "$DRY_RUN" = "1" ]; then
 else
   cp "$BINARY" "$BIN_DEST"
   chmod 0755 "$BIN_DEST"
-  echo "Binaire installé : $BIN_DEST"
+  echo "Binary installed: $BIN_DEST"
 fi
 
-# Gatekeeper: retirer la marque "téléchargé depuis Internet" et poser une
-# signature ad hoc si l'outil est disponible. Best-effort : ni l'un ni
-# l'autre n'est disponible en dehors de macOS (tests --prefix sous Linux).
+# Gatekeeper: remove the "downloaded from the Internet" quarantine flag and
+# apply an ad-hoc signature when the tools are available. Best-effort: neither
+# is available outside macOS (--prefix tests run from Linux).
 if [ "$DRY_RUN" = "1" ]; then
   echo "[dry-run] xattr -d com.apple.quarantine $BIN_DEST"
   echo "[dry-run] codesign -s - $BIN_DEST"
@@ -104,7 +104,7 @@ else
 fi
 
 if [ "$NO_SERVICE" = "1" ]; then
-  say "$DRY_RUN" "agent launchd ignoré (--no-service)"
+  say "$DRY_RUN" "launchd agent skipped (--no-service)"
 else
   PLIST_SRC="$REPO_ROOT/packaging/com.getcoati.broker.plist"
   LAUNCH_AGENTS_DIR="$PREFIX/Library/LaunchAgents"
@@ -117,20 +117,20 @@ else
   RENDERED="$(replace_literal @@BINARY_PATH@@ "$(xml_escape "$BIN_DEST")" < "$PLIST_SRC" \
     | replace_literal @@LOG_DIR@@ "$(xml_escape "$LOG_DIR")")"
   write_file "$DRY_RUN" "$PLIST_DEST" "$RENDERED" 0644
-  say "$DRY_RUN" "agent launchd écrit : $PLIST_DEST"
+  say "$DRY_RUN" "launchd agent written: $PLIST_DEST"
 
   if [ "$DRY_RUN" = "1" ]; then
     echo "[dry-run] launchctl bootstrap gui/\$UID $PLIST_DEST"
   elif command -v launchctl >/dev/null 2>&1; then
     launchctl bootout "gui/$(id -u)" "$PLIST_DEST" >/dev/null 2>&1 || true
     launchctl bootstrap "gui/$(id -u)" "$PLIST_DEST"
-    echo "Agent launchd chargé."
+    echo "launchd agent loaded."
   else
-    echo "launchctl introuvable (hors macOS) : agent écrit mais pas chargé."
+    echo "launchctl not found (not macOS): agent written but not loaded."
   fi
 fi
 
 install_manifests macos "$PREFIX" "$ALL" "$DRY_RUN" "$BIN_DEST"
 
 echo
-echo "Installation terminée."
+echo "Installation complete."

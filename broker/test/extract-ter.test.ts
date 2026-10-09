@@ -1,4 +1,4 @@
-// Unit tests for docs/PROTOCOL.md "Amendement 2026-09-25 (ter), après une
+// Unit tests for docs/PROTOCOL.md
 // deuxième sonde sur les vraies pages" — rules 5-9 (line ~655-676), which
 // replace/override the (bis) rules from the same section where they differ.
 // Only scripts/corpus-probe.ts covered these before this file existed.
@@ -34,11 +34,19 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { EXTRACT_FILES } from "../../extension/content/extract-files.js";
 
-const EXTRACT_JS_SOURCE = readFileSync(
-  join(import.meta.dir, "../../extension/content/extract.js"),
-  "utf8",
+// Lot F4: the content script is split across several files, injected
+// together and in order, all sharing one global scope — see
+// extract-files.js. Concatenate every file's declarations verbatim as
+// EXTRACT_JS_DECLARATIONS; only the LAST file (content/extract.js) ends in
+// a bare expression statement, handled as EXTRACT_JS_SOURCE below, same
+// trick the single-file version used before the split.
+const EXTRACT_JS_FILE_SOURCES = EXTRACT_FILES.map((f) =>
+  readFileSync(join(import.meta.dir, "../../extension", f), "utf8"),
 );
+const EXTRACT_JS_DECLARATIONS = EXTRACT_JS_FILE_SOURCES.slice(0, -1).join("\n");
+const EXTRACT_JS_SOURCE = EXTRACT_JS_FILE_SOURCES[EXTRACT_JS_FILE_SOURCES.length - 1];
 
 type FakeRect = { top?: number; bottom?: number; left?: number; right?: number; width?: number; height?: number };
 
@@ -244,7 +252,7 @@ function runExtract(opts: {
     "location",
     "window",
     "getComputedStyle",
-    `"use strict";\nreturn (\n${asExpression}\n);`,
+    `"use strict";\n${EXTRACT_JS_DECLARATIONS}\nreturn (\n${asExpression}\n);`,
   );
   return factory(fakeDocument, fakeLocation, fakeWindow, fakeGetComputedStyle);
 }

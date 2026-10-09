@@ -1,4 +1,4 @@
-// Tavily Search adapter — docs/PROTOCOL.md "Consulter la doc officielle".
+// Tavily Search adapter — docs/PROTOCOL.md.
 // The API key is sent ONLY to api.tavily.com, in the POST body (Tavily's own
 // contract — no header-based auth) — never logged, never echoed anywhere
 // else (CLAUDE.md rule #1). Same "direct fetch, not safe-fetch.ts" reasoning
@@ -37,8 +37,8 @@ export interface TavilySearchOptions {
   /**
    * Asks Tavily to fetch each result's page body inline — when it does,
    * doc-search.ts can skip its own safeFetch round trip for that result
-   * entirely (docs/PROTOCOL.md §C: "Tavily `include_raw_content` évite ces
-   * requêtes").
+   * entirely (docs/PROTOCOL.md §C: "Tavily `include_raw_content` avoids
+   * those requests").
    */
   includeRawContent?: boolean;
 }
@@ -109,7 +109,7 @@ export async function tavilySearch(
 
 /**
  * No confirmed free key-check endpoint for Tavily (docs/PROTOCOL.md §C
- * "Questions ouvertes" #6: "Tavily `/usage` à confirmer") — falls back to
+ * "Open questions" #6: "Tavily `/usage` to confirm") — falls back to
  * the same real-call probe as Brave's testConnection.
  */
 export async function tavilyTestConnection(apiKey: string, timeoutMs?: number): Promise<SearchTestResult> {

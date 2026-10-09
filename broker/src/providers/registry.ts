@@ -1,7 +1,7 @@
 // The registry of model providers Coati knows about: the three built-ins
 // (ollama, claude-api, openai-compat) plus whatever external modules config.json's
-// `modules` array names — see docs/MODULES.md and docs/PROTOCOL.md's
-// amendement 2026-09-29. server.ts uses this both to dispatch
+// `modules` array names — see docs/ARCHITECTURE.md and docs/PROTOCOL.md's
+// amendment 2026-09-29. server.ts uses this both to dispatch
 // chat/summarize/act to the currently-selected provider and to answer
 // `settings.get`/`settings.set` by probing every provider's isAvailable().
 
@@ -43,7 +43,7 @@ export interface LoadModulesResult {
  * Loads every module declared in config.json's `modules` array via dynamic
  * `import()` — the ONLY path a provider beyond the two built-ins enters this
  * broker. `entry.path` is used as given (an absolute filesystem path is the
- * documented contract, docs/MODULES.md) — never a URL, never anything that
+ * documented contract, docs/ARCHITECTURE.md) — never a URL, never anything that
  * came from the extension or a page.
  */
 export async function loadProviderModules(
@@ -77,7 +77,7 @@ export async function loadProviderModules(
       continue;
     }
     if (!isModelProviderShape(provider)) {
-      warnings.push(`module at ${entry.path} did not return a valid provider (see docs/MODULES.md) — skipped`);
+      warnings.push(`module at ${entry.path} did not return a valid provider (see docs/ARCHITECTURE.md) — skipped`);
       continue;
     }
     providers.push(provider);

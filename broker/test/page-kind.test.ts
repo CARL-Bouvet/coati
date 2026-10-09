@@ -1,5 +1,5 @@
 // Tests for the 2026-09-25 "types de page" amendment (lot L7, broker side):
-// docs/PROTOCOL.md — grep "Amendement 2026-09-25 (types de page)".
+// docs/PROTOCOL.md — grep "Amendment 2026-09-25 (types de page)".
 //
 // Layout mirrors the amendment's own sections:
 //   1. protocol.ts — parseContext shape leniency for pageKind/facts/items.

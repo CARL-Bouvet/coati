@@ -290,7 +290,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect((err as Error).message).not.toContain("sk-ant-should-never-leak");
   });
 
-  test("a 403 response is classified as ModelMissingError, NOT AuthRequiredError (amendement 2026-10-02)", async () => {
+  test("a 403 response is classified as ModelMissingError, NOT AuthRequiredError (amendment 2026-10-02)", async () => {
     __setFetchImplForTests((async () => new Response("forbidden", { status: 403 })) as unknown as typeof fetch);
     const built = buildPrompt({ kind: "chat", text: "salut" });
     const err = await (async () => {
@@ -402,7 +402,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(err).toBeInstanceOf(QuotaExceededError);
   });
 
-  test("a plain 400 response (no billing signal) is model-unavailable, never internal (amendement 2026-10-02)", async () => {
+  test("a plain 400 response (no billing signal) is model-unavailable, never internal (amendment 2026-10-02)", async () => {
     __setFetchImplForTests((async () => new Response(JSON.stringify({ error: { type: "invalid_request_error", message: "bad request" } }), { status: 400 })) as unknown as typeof fetch);
     const built = buildPrompt({ kind: "chat", text: "salut" });
     const err = await (async () => {
@@ -419,7 +419,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(isModelUnavailableError(err)).toBe(true);
   });
 
-  test("a 400 response naming a spend limit is classified as quota-exceeded (amendement 2026-10-02)", async () => {
+  test("a 400 response naming a spend limit is classified as quota-exceeded (amendment 2026-10-02)", async () => {
     __setFetchImplForTests(
       (async () =>
         new Response(JSON.stringify({ error: { type: "invalid_request_error", message: "Spend limit reached for your organization" } }), {
@@ -439,7 +439,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(err).toBeInstanceOf(QuotaExceededError);
   });
 
-  test("a 529 overloaded_error response is classified as ProviderOverloadedError (amendement 2026-10-02)", async () => {
+  test("a 529 overloaded_error response is classified as ProviderOverloadedError (amendment 2026-10-02)", async () => {
     __setFetchImplForTests((async () => new Response("overloaded", { status: 529 })) as unknown as typeof fetch);
     const built = buildPrompt({ kind: "chat", text: "salut" });
     const err = await (async () => {
@@ -454,7 +454,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(err).toBeInstanceOf(ProviderOverloadedError);
   });
 
-  test("a bare 502/503 response is classified as ProviderOverloadedError (amendement 2026-10-02)", async () => {
+  test("a bare 502/503 response is classified as ProviderOverloadedError (amendment 2026-10-02)", async () => {
     for (const status of [502, 503]) {
       __setFetchImplForTests((async () => new Response("bad gateway", { status })) as unknown as typeof fetch);
       const built = buildPrompt({ kind: "chat", text: "salut" });
@@ -487,7 +487,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
   });
 });
 
-// Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): a FREE
+// Goal U2 (docs/PROTOCOL.md, amendment 2026-10-01): a FREE
 // `GET /v1/models` probe — never the billed `POST /v1/messages` streamAnswer
 // uses.
 describe("claude-api testConnection (goal U2)", () => {
@@ -510,7 +510,7 @@ describe("claude-api testConnection (goal U2)", () => {
       return new Response(JSON.stringify({ data: [] }), { status: 200 });
     }) as unknown as typeof fetch);
     const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-works" });
-    // Amendement 2026-10-02 (goal-j2FJ-kI7): a successful probe always
+    // Amendment 2026-10-02 (goal-j2FJ-kI7): a successful probe always
     // carries creditUnchecked — it can't see the account's credit balance.
     expect(result).toEqual({ ok: true, creditUnchecked: true });
     expect(calledUrl).toBe("https://api.anthropic.com/v1/models");
@@ -523,13 +523,13 @@ describe("claude-api testConnection (goal U2)", () => {
     expect(result).toEqual({ ok: false, code: "auth-required" });
   });
 
-  test("403 → model-missing, NOT auth-required (amendement 2026-10-02)", async () => {
+  test("403 → model-missing, NOT auth-required (amendment 2026-10-02)", async () => {
     __setFetchImplForTests((async () => new Response("forbidden", { status: 403 })) as unknown as typeof fetch);
     const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-works" });
     expect(result).toEqual({ ok: false, code: "model-missing" });
   });
 
-  test("200 with configured model absent from the returned list → model-missing (amendement 2026-10-02)", async () => {
+  test("200 with configured model absent from the returned list → model-missing (amendment 2026-10-02)", async () => {
     __setFetchImplForTests((async () => new Response(JSON.stringify({ data: [{ id: "claude-haiku-5" }] }), { status: 200 })) as unknown as typeof fetch);
     const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-works", model: "claude-opus-5" });
     expect(result).toEqual({ ok: false, code: "model-missing" });

@@ -2,8 +2,8 @@
 // Two jobs: expose `t(key, substitutions)` for JS-built strings, and
 // `applyI18n(root)` to fill static HTML via `data-i18n*` attributes.
 //
-// U1 (the language selector design notes, "Technique du
-// sélecteur"): `chrome.i18n` cannot switch locale at runtime — it's fixed to
+// U1 (the language selector design notes, "Language selector technique"):
+// `chrome.i18n` cannot switch locale at runtime — it's fixed to
 // the browser's own UI language for the extension's whole lifetime. So this
 // file also loads `_locales/<lang>/messages.json` itself, over `fetch()`,
 // for whichever language `uiLang` (chrome.storage.local, see lib/ui-lang.js)
@@ -17,8 +17,7 @@
 // listing) are NOT covered by any of this — `__MSG_extName__` etc. in
 // manifest.json can only ever follow the browser's own UI language
 // (platform limitation, no runtime hook), documented in
-// the language selector design notes, "Points tranchés par
-// défaut".
+// the language selector design notes, "Defaults decided upfront".
 //
 // Security rule 3 (no innerHTML from untrusted data): this file only ever
 // writes via `textContent` / attribute setters, never `innerHTML`.

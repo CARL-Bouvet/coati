@@ -9,8 +9,8 @@
 // already uses.
 //
 // `[[eN]]` whose ref is NOT among the elements the extraction actually
-// produced is dropped from the output entirely (plan: "jeton inconnu
-// retiré") — the model is never trusted to invent a target, and the label
+// produced is dropped from the output entirely (plan: "unknown token
+// removed") — the model is never trusted to invent a target, and the label
 // shown on a known ref's button always comes from `elements` (the
 // extraction), never from the model's own words around the token.
 

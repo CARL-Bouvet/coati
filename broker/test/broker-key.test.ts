@@ -1,6 +1,6 @@
 // broker/src/broker-key.ts + broker/src/fs-atomic.ts — docs/PROTOCOL.md
 // "Clé de broker" / "Écoute exclusive du port, durcissement du dossier et
-// fichiers temporaires" (amendement 2026-09-30, G4).
+// fichiers temporaires" (amendment 2026-09-30, G4).
 
 import { describe, expect, test } from "bun:test";
 import { existsSync, statSync, lstatSync, symlinkSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";

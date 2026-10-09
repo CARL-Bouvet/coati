@@ -14,10 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: garde-fou (aucun fichier interne ni secret dans le dépôt public)
+      - name: safety check (no internal file or secret in the public repository)
         if: matrix.os == 'ubuntu-latest'
-        # Rejoue le crochet pre-push local sur l'arbre poussé : dernier filet si un clone
-        # n'a pas le crochet installé.
+        # Replays the local pre-push hook on the pushed tree: last safety net
+        # when a clone does not have the hook installed.
         run: echo "refs/heads/ci $(git rev-parse HEAD) refs/heads/ci 0000000000000000000000000000000000000000" | bash scripts/hooks/pre-push
 
       - uses: oven-sh/setup-bun@v2
@@ -39,7 +39,7 @@ jobs:
       - name: build-binaries.sh (this runner's own target)
         # goal G4 "binaries + Windows CI": builds only the host target here —
         # no cross-compile download — then proves the compiled binary can
-        # still dynamic-import an external module (docs/MODULES.md).
+        # still dynamic-import an external module (docs/ARCHITECTURE.md).
         shell: bash
         run: |
           case "${{ matrix.os }}" in

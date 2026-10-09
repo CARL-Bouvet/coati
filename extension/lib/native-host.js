@@ -1,6 +1,6 @@
 // Native Messaging call to the local broker's helper host
-// (docs/PROTOCOL.md, amendement 2026-09-30, "Cadrage et échange avec
-// l'hôte"). One-shot: the browser starts a fresh host process per call and
+// (docs/PROTOCOL.md, amendment 2026-09-30, "Framing and exchange with
+// the host"). One-shot: the browser starts a fresh host process per call and
 // tears it down after the reply — no `connectNative`, nothing kept open.
 //
 // This module never touches chrome.storage itself (the caller — the service
@@ -25,8 +25,7 @@ const KEY_GET_REQUEST = { type: "key.get", v: 1 };
  *   malformed reply, or the 5s deadline. The caller treats every rejection
  *   the same way: state "no-host" (see service-worker.js), never inspecting
  *   the browser's own rejection message — it varies by browser/version
- *   (docs/PROTOCOL.md: "Les messages d'erreur des navigateurs ne sont pas
- *   analysés").
+ *   (docs/PROTOCOL.md: "Browser error messages are not parsed").
  */
 export async function requestBrokerKeyFromHost(api, timeoutMs = NATIVE_HOST_TIMEOUT_MS) {
   const reply = await Promise.race([

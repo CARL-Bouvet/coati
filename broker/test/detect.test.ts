@@ -84,7 +84,7 @@ describe("classifyPageType", () => {
 });
 
 // URL-only classifier — used on tab switch, where reading the page is
-// forbidden (règle du geste, CLAUDE.md rule #5). Must never guess: only a
+// forbidden (action rule, CLAUDE.md rule #5). Must never guess: only a
 // shape genuinely legible from the URL alone resolves to a type.
 describe("classifyPageTypeFromMetadata", () => {
   test("a YouTube watch URL is a video from the URL alone", () => {

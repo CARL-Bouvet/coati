@@ -4,8 +4,6 @@ about: Report something that does not work as expected
 labels: bug
 ---
 
-Français accepté.
-
 **Coati version**
 Shown at the bottom of the side panel.
 
@@ -28,7 +26,7 @@ e.g. Ollama (local) / llama3.2, or the provider and model name shown in Coati se
 **Observed behaviour**
 
 **Banner text or screenshot**
-If the side panel shows a banner (e.g. "Coati ne trouve pas son programme local…"), paste its
+If the side panel shows a banner (e.g. "Coati can't find its local program…"), paste its
 exact text here, or attach a screenshot.
 
 ---

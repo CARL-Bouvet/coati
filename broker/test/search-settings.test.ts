@@ -179,7 +179,7 @@ describe("chat.docSearch — not configured", () => {
       JSON.stringify({
         type: "chat",
         id: "c1",
-        // Amendement 2026-10-08 (bis): no more button — a search only runs
+        // Amendment 2026-10-08 (bis): no more button — a search only runs
         // when the TEXT itself explicitly asks for one (search/intent.ts).
         text: "search the docs: how do I export?",
         docSearch: { origin: "https://app.example.com" },

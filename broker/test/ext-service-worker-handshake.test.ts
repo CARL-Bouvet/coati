@@ -1,5 +1,5 @@
 // Service worker orchestration of the Native Messaging handshake v2
-// (extension/background/service-worker.js) — docs/PROTOCOL.md amendement
+// (extension/background/service-worker.js) — docs/PROTOCOL.md amendment
 // 2026-09-30, "Plan de test", bullet "Extension": a simulated
 // `runtime.sendNativeMessage` + a simulated WebSocket, checking:
 //   - the key is stored in storage.session (never storage.local) and reused
@@ -234,14 +234,14 @@ beforeEach(() => {
   (globalThis as any).WebSocket = FakeWebSocket;
   FakeWebSocket.instances = [];
   // Collapse the pairing retry delays to 0 ms so the 3-retry sequence
-  // completes within waitFor's 1 s window (amendement 2026-10-02).
+  // completes within waitFor's 1 s window (amendment 2026-10-02).
   (globalThis as any).__coatiTestRetryDelays__ = [0, 0, 0];
 });
 
 afterEach(() => {
   // Cancel any pending pairing-retry setTimeout so it doesn't fire in the
   // next test's context and corrupt nativeMessageCalls / FakeWebSocket state
-  // (amendement 2026-10-02 — spaced retries are macrotasks).
+  // (amendment 2026-10-02 — spaced retries are macrotasks).
   (globalThis as any).__coatiCancelPairingRetry__?.();
   (globalThis as any).WebSocket = REAL_WEB_SOCKET;
 });
@@ -305,7 +305,7 @@ describe("service-worker: key storage and reuse", () => {
 });
 
 describe("service-worker: wrong broker proof (close 4000)", () => {
-  // amendement 2026-10-02: up to 3 retries (delays collapsed to 0 ms via
+  // amendment 2026-10-02: up to 3 retries (delays collapsed to 0 ms via
   // __coatiTestRetryDelays__ — see beforeEach).
   test("retries 3 times via the host, then broker-untrusted — nothing sent after any failure", async () => {
     let hostCall = 0;
@@ -363,7 +363,7 @@ describe("service-worker: wrong broker proof (close 4000)", () => {
 });
 
 describe("service-worker: 4401 (auth/origin refused)", () => {
-  // amendement 2026-10-02: 3 retries, "pairing-retry" state between each.
+  // amendment 2026-10-02: 3 retries, "pairing-retry" state between each.
   test("retries 3 times via the host, then no-token; pairing-retry shown between each attempt", async () => {
     let hostCall = 0;
     nativeMessageImpl = async () => {
@@ -392,7 +392,7 @@ describe("service-worker: 4401 (auth/origin refused)", () => {
 });
 
 describe("service-worker: pairing-retry — counter reset on hello-ok", () => {
-  // amendement 2026-10-02: after a hello-ok, the retry budget resets so the
+  // amendment 2026-10-02: after a hello-ok, the retry budget resets so the
   // very next 4401 gets 3 fresh retries (not zero because they were "used up").
   test("a 4401 after hello-ok gets a fresh 3-retry budget (4 WS total, ends no-token)", async () => {
     nativeMessageImpl = async () => ({ type: "key", v: 1, key: KEY_A });

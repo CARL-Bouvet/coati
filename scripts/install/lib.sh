@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Shared helpers for scripts/install/install-linux.sh, uninstall-linux.sh,
 # install-macos.sh and uninstall-macos.sh — goal G4, Native Messaging
-# installers (docs/PROTOCOL.md, "Amendement 2026-09-30 : Native Messaging").
+# installers (docs/PROTOCOL.md,).
 #
 # Not meant to be run directly: `. "$(dirname "$0")/lib.sh"` from a caller
 # that has already set REPO_ROOT-independent behaviour (this file resolves

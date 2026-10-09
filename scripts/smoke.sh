@@ -1,28 +1,28 @@
 #!/usr/bin/env bash
-# Coati — boucle de vérification de bout en bout.
+# Coati — end-to-end sanity loop.
 #
-# Charge l'extension dans un profil Chrome dédié, sème le jeton de pairage dans
-# le service worker, et laisse l'alarme de reconnexion déclencher la connexion au
-# broker. Sert à répondre à une seule question, la seule qui compte ici : est-ce
-# que l'extension joint le serveur local, et avec quel `Origin` ?
+# Loads the extension in a dedicated Chrome profile, seeds the pairing token in
+# the service worker, and lets the reconnect alarm trigger the connection to the
+# broker. Answers one question: does the extension reach the local server,
+# and with what `Origin`?
 #
-#   ./scripts/smoke.sh            # contre le vrai broker (doit tourner sur 8787)
-#   ./scripts/smoke.sh --stub     # contre un stub qui journalise tout
+#   ./scripts/smoke.sh            # against the real broker (must be on 8787)
+#   ./scripts/smoke.sh --stub     # against a stub that logs everything
 #
-# Variables :
-#   COATI_CHROME    binaire du navigateur (défaut : Chrome for Testing 154)
-#   COATI_HEADLESS  0 pour une vraie fenêtre. Indispensable pour observer une
-#                     demande de permission : en headless elle ne peut pas
-#                     s'afficher, donc son absence ne prouve rien.
-#   COATI_PROFILE   répertoire de profil (défaut : un profil dédié par navigateur)
-#   COATI_DEV       1 pour charger la copie de développement (permissions
-#                     d'hôte accordées d'office, cf. scripts/dev-extension.sh).
-#                     Indispensable pour éprouver l'extraction sans clic humain.
-#                     L'identifiant d'extension diffère : à déclarer une fois
-#                     dans ~/.config/coati/config.json → allowedExtensionIds.
+# Variables:
+#   COATI_CHROME    browser binary (default: Chrome for Testing 154)
+#   COATI_HEADLESS  0 for a real window. Required to observe a permission prompt:
+#                     in headless mode it cannot appear, so its absence proves
+#                     nothing.
+#   COATI_PROFILE   profile directory (default: a dedicated profile per browser)
+#   COATI_DEV       1 to load the development copy (host permissions granted
+#                     upfront, cf. scripts/dev-extension.sh). Required to test
+#                     extraction without a human click. The extension ID differs:
+#                     declare it once in ~/.config/coati/config.json →
+#                     allowedExtensionIds.
 #
-# Laisse le navigateur en vie à la fin : inspecter avec `bun scripts/cdp-eval.js '<expr>'`.
-# Arrêter avec ./scripts/smoke.sh --stop
+# Leaves the browser alive at the end: inspect with `bun scripts/cdp-eval.js '<expr>'`.
+# Stop with ./scripts/smoke.sh --stop
 
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -40,8 +40,8 @@ PORT="${COATI_PORT:-9222}"
 STUB_LOG=/tmp/coati-stub.log
 
 stop() {
-  pkill -f "user-data-dir=$PROFILE" && echo "Chrome arrêté."
-  pkill -f "coati-stub.js" && echo "Stub arrêté."
+  pkill -f "user-data-dir=$PROFILE" && echo "Chrome stopped."
+  pkill -f "coati-stub.js" && echo "Stub stopped."
   exit 0
 }
 [ "${1:-}" = "--stop" ] && stop
@@ -70,7 +70,7 @@ log("stub listening on 127.0.0.1:8787");
 STUB
   setsid --fork bun /tmp/coati-stub.js > "$STUB_LOG" 2>&1 < /dev/null
   sleep 1
-  echo "Stub démarré → $STUB_LOG"
+  echo "Stub started → $STUB_LOG"
 fi
 
 mkdir -p "$PROFILE"
@@ -81,16 +81,16 @@ if ! pgrep -f "user-data-dir=$PROFILE" > /dev/null; then
     --disable-extensions-except="$EXT" --load-extension="$EXT" \
     --remote-debugging-port=$PORT about:blank > /tmp/coati-chrome.log 2>&1 < /dev/null
   sleep 6
-  echo "$(basename "$CHROME") lancé (headless=$HEADLESS, profil $PROFILE, extension chargée)."
+  echo "$(basename "$CHROME") launched (headless=$HEADLESS, profile $PROFILE, extension loaded)."
 fi
 
-# Le jeton vit en chrome.storage.session : il disparaît à chaque redémarrage du
-# navigateur, c'est voulu. On le resème à chaque passage.
-bun scripts/cdp-eval.js "chrome.storage.session.set({pairingToken:'${COATI_TOKEN:-smoke-token}'}).then(()=>'token semé')" "$PORT"
-echo "Identifiant de l'extension chargée :"
+# The token lives in chrome.storage.session: it disappears on every browser
+# restart, by design. Re-seed it on every run.
+bun scripts/cdp-eval.js "chrome.storage.session.set({pairingToken:'${COATI_TOKEN:-smoke-token}'}).then(()=>'token seeded')" "$PORT"
+echo "Loaded extension ID:"
 bun scripts/cdp-eval.js "chrome.runtime.id" "$PORT"
 
-echo "Attente de l'alarme de reconnexion (jusqu'à 35 s)…"
+echo "Waiting for the reconnect alarm (up to 35 s)..."
 sleep 35
 
 if [ "${1:-}" = "--stub" ]; then

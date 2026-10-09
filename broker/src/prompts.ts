@@ -1,10 +1,10 @@
 // Prompt library persisted at ~/.local/share/coati/prompts-v2.json.
 // Base directory is always passed in as a parameter so tests can point at a temp dir.
 //
-// Amendement 2026-09-28 ("Mes prompts par site" — docs/DECISIONS.md T41): replaces the flat
+// Amendment 2026-09-28 ("Mes prompts par site" — docs/DECISIONS.md T41): replaces the flat
 // `prompts.json` (identified by `name`) with a per-site format identified by a broker-assigned
 // `id`. The old `prompts.json` is NEVER read, renamed or deleted — see docs/PROTOCOL.md
-// "Bibliothèque de prompts et préférences par site" → "Stockage". No migration: a library that
+// "Prompt library and per-site preferences" → "Storage". No migration: a library that
 // existed under the old format simply does not appear anymore.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from "node:fs";
@@ -98,7 +98,7 @@ export function listPrompts(dirs: PromptsDirs): PromptEntry[] {
  * from being observed half-done, not two writes from clobbering one another.
  *
  * Exported so prefs.ts's prompts.move handler (server.ts) can share the same
- * lock across both files — see docs/PROTOCOL.md "prompts.move".
+ * lock across both files — see docs/PROTOCOL.md.
  */
 const dirLocks = new Map<string, Promise<unknown>>();
 

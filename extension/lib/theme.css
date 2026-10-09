@@ -15,7 +15,7 @@
  *
  * Three spacing variants (`[data-variant]` on <html>), default = "a" when absent:
  *   a — compact : 14px / 1.45 / spacing 4-8-12-16 / caramel accent (P24)
- *   b — aéré    : 15px / 1.55 / spacing 6-10-14-20 / older warm accent
+ *   b — airy    : 15px / 1.55 / spacing 6-10-14-20 / older warm accent
  *   c — lisible : 16px / 1.6  / spacing 8-12-16-24 / blue accent
  *
  * Font: Figtree, shipped with the extension (extension/fonts/, SIL OFL 1.1,
@@ -64,7 +64,7 @@
   /* Floating layers (the prompt list opening over the conversation). */
   --overlay-shadow: 0 -4px 16px rgb(0 0 0 / 0.16);
   /* "Mes prompts" head case background (plan-activation-28-09.md "Points
-   * tranchés" 1): a very light caramel tint derived from the P24 accent
+   * settled" 1): a very light caramel tint derived from the P24 accent
    * (--accent: #9c5a12), distinct enough from --surface to read as its own
    * band across the full board width without competing with any text on
    * it — no row or button ever paints directly against it (rows keep their
@@ -73,7 +73,7 @@
   --case-head-bg: #fbf0df;
 
   /* Header: anthracite in BOTH themes, so it always carries the dark-theme
-   * values (palette.md, "Règles") — declared once, outside the media query. */
+   * values (palette.md, "Rules") — declared once, outside the media query. */
   --header-bg: #2a2c30;
   --header-fg: #edeef0;
   --header-muted: #b4b7be;
@@ -85,7 +85,7 @@
   --header-status-idle: #8a8e96;
   /* Light tile behind the fixed logo (welcome page, T51) in BOTH themes: the
    * icon is drawn for a light background, and its dark versions are still
-   * provisional (docs/logo/coati/LISEZMOI.md). */
+   * provisional (docs/logo/coati/README.md). */
   --logo-tile-bg: #ffffff;
 
   /* Variant "a" (compact) — default when [data-variant] is absent. */

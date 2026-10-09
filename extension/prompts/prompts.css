@@ -94,7 +94,7 @@ body {
   margin: 0;
 }
 
-/* Head case (plan-activation-28-09.md "Points tranchés" 1): first on the
+/* Head case (plan-activation-28-09.md "Settled points" 1): first on the
  * board, full grid width, coloured background, no case title — see
  * prompts.js's buildHeadCaseElement(). `--case-head-bg` is defined in
  * lib/theme.css next to the rest of the P24 tokens. */
@@ -161,7 +161,7 @@ body {
   white-space: nowrap;
 }
 
-/* "Actif" switch — same shape as the panel's "Lire la page"
+/* "Active" switch — same shape as the panel's "Read page"
  * (panel/card.css's .switch/.switch-track/.switch-thumb), duplicated here
  * for the same reason as .connection-banner above: no build step to share a
  * partial between the panel and this page. */
@@ -214,7 +214,7 @@ body {
   border-radius: var(--radius);
 }
 
-/* Locked "on" while "all sites" is granted (T42, amendement 2026-09-30 bis):
+/* Locked "on" while "all sites" is granted (T42, amendment 2026-09-30 bis):
  * the label keeps its normal colour (readable), only the track dims. */
 .switch[aria-disabled="true"] {
   cursor: not-allowed;
@@ -224,7 +224,7 @@ body {
   opacity: 0.6;
 }
 
-/* "Tous les sites" line, top of the sites area — same width as the board. */
+/* "All sites" line, top of the sites area — same width as the board. */
 .all-sites-notice {
   display: flex;
   flex-wrap: wrap;

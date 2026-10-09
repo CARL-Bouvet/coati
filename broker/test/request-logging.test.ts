@@ -3,7 +3,7 @@
 // content, or the pairing token in either line (measured incident:
 // journalctl only had the handshake/listen lines, nothing to diagnose a hung
 // or failed request from). Driven against the ollama provider's fake fetch
-// (goal G1b, 29/09 ménage du dépôt public — this used to run against a
+// (goal G1b, 29/09 cleanup of the public repo — this used to run against a
 // now-private provider module).
 
 import { describe, expect, test, afterEach, mock } from "bun:test";
@@ -206,9 +206,9 @@ describe("A2 — one journal line per request", () => {
   });
 });
 
-// Item 7 (lot7 security review) + amendement 2026-09-30 (G4): grant lines
+// Item 7 (lot7 security review) + amendment 2026-09-30 (G4): grant lines
 // must go to stderr — same as every reject* line already does — per
-// docs/PROTOCOL.md "Journalisation" ("le broker écrit sur sa sortie
+// docs/PROTOCOL.md ("le broker écrit sur sa sortie
 // d'erreur"), never console.log (stdout).
 describe("grant — stderr, not stdout", () => {
   let errorSpy: ReturnType<typeof mock>;
@@ -236,7 +236,7 @@ describe("grant — stderr, not stdout", () => {
     expect(logLines.some((l) => l.includes("grant"))).toBe(false);
   });
 
-  test("a moz-extension origin with a valid proof also authenticates (no pinning, amendement 2026-09-30)", async () => {
+  test("a moz-extension origin with a valid proof also authenticates (no pinning, amendment 2026-09-30)", async () => {
     const server = boot();
     const uuid = "12345678-1234-1234-1234-123456789abc";
     const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `moz-extension://${uuid}`, KEY);

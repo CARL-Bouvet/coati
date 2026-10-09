@@ -1,6 +1,6 @@
 // Tests for scripts/install/install-linux.sh + uninstall-linux.sh (and, when
 // running on darwin, install-macos.sh + uninstall-macos.sh) — goal G4,
-// docs/PROTOCOL.md "Amendement 2026-09-30 : Native Messaging".
+// docs/PROTOCOL.md.
 //
 // Runs the real installer against a fake --prefix (never the real HOME),
 // with --no-service so no systemd/launchd call is made, then checks every

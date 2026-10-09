@@ -1,16 +1,14 @@
 #!/usr/bin/env bun
-// Sonde de bout en bout (task C2) — rend permanente la sonde jetable écrite
-// par l'admin le 2026-09-21 (voir scripts/ws-probe.js, qui reste pour les
-// essais manuels au clavier). Répond à "toute la chaîne est-elle vivante ?"
-// sans ouvrir de navigateur : lit le jeton de pairage et l'id d'extension
-// depuis les mêmes fichiers que le broker et l'extension, ouvre le
-// WebSocket, fait la poignée de main, envoie un `summarize` avec un faux
-// transcript YouTube, et affiche le résultat.
+// End-to-end probe (task C2) — makes permanent the throwaway probe written
+// by the admin on 2026-09-21 (see scripts/ws-probe.js, kept for interactive
+// manual tests). Answers "is the whole chain alive?" without opening a
+// browser: reads the pairing token and extension id from the same files the
+// broker and extension use, opens the WebSocket, performs the handshake,
+// sends a `summarize` with a fake YouTube transcript, and prints the result.
 //
-// Usage : bun scripts/probe-summarize.ts
-// Sortie : 0 si un `done` est reçu, non nul sinon (poignée de main refusée,
-// `error`, timeout). Les lignes destinées à un humain sont en français ; le
-// code reste en anglais, comme le reste du dépôt (voir CLAUDE.md).
+// Usage: bun scripts/probe-summarize.ts
+// Exit: 0 if a `done` is received, non-zero otherwise (handshake refused,
+// `error`, timeout).
 
 import { createHmac, randomBytes } from "node:crypto";
 import { homedir } from "node:os";
@@ -34,7 +32,7 @@ function fail(message: string): never {
 async function main(): Promise<void> {
   const dataDir = join(homedir(), ".local", "share", "coati");
   const configDir = join(homedir(), ".config", "coati");
-  // Handshake v2 (docs/PROTOCOL.md, amendement 2026-09-30): the broker key
+  // Handshake v2 (docs/PROTOCOL.md, amendment 2026-09-30): the broker key
   // K is read from the file the running broker writes, as ws-probe.js does.
   const keyPath = join(process.env.COATI_DATA_DIR ?? dataDir, "broker-key.json");
   const configPath = join(configDir, "config.json");
@@ -45,7 +43,7 @@ async function main(): Promise<void> {
     if (typeof keyFile?.key !== "string" || !/^[0-9a-f]{64}$/.test(keyFile.key)) throw new Error("bad key");
     key = Buffer.from(keyFile.key, "hex");
   } catch {
-    fail(`Clé de broker introuvable ou invalide : ${keyPath} (le broker tourne-t-il ?).`);
+    fail(`Broker key not found or invalid: ${keyPath} (is the broker running?).`);
   }
   const cNonce = randomBytes(32).toString("hex");
   const hmacHex = (message: string) => createHmac("sha256", key).update(message, "utf8").digest("hex");
@@ -54,17 +52,17 @@ async function main(): Promise<void> {
   try {
     config = await Bun.file(configPath).json();
   } catch {
-    fail(`Config introuvable ou invalide : ${configPath}`);
+    fail(`Config not found or invalid: ${configPath}`);
   }
   const extensionId = config.allowedExtensionIds?.[0];
   if (!extensionId) {
-    fail(`Aucun "allowedExtensionIds" dans ${configPath} — le broker refusera l'Origin de toute façon.`);
+    fail(`No "allowedExtensionIds" in ${configPath} — the broker will reject any Origin.`);
   }
   const port = config.port ?? 8787;
   const url = `ws://127.0.0.1:${port}/ws`;
   const origin = `chrome-extension://${extensionId}`;
 
-  console.error(`→ connexion à ${url} (Origin: ${origin})`);
+  console.error(`→ connecting to ${url} (Origin: ${origin})`);
 
   await new Promise<void>((resolve, reject) => {
     const ws = new WebSocket(url, { headers: { Origin: origin } } as ConstructorParameters<typeof WebSocket>[1]);
@@ -76,7 +74,7 @@ async function main(): Promise<void> {
       if (settled) return;
       settled = true;
       ws.close();
-      reject(new Error(`Timeout après ${TIMEOUT_MS / 1000} s — aucune réponse terminale (done/error) reçue.`));
+      reject(new Error(`Timeout after ${TIMEOUT_MS / 1000} s — no terminal message (done/error) received.`));
     }, TIMEOUT_MS);
 
     const finish = (err?: Error) => {
@@ -89,7 +87,7 @@ async function main(): Promise<void> {
     };
 
     ws.onopen = () => {
-      console.error("→ connecté, envoi du hello (v: 2)");
+      console.error("→ connected, sending hello (v: 2)");
       ws.send(JSON.stringify({ type: "hello", v: 2, nonce: cNonce }));
     };
 
@@ -98,13 +96,13 @@ async function main(): Promise<void> {
       try {
         msg = JSON.parse(event.data as string);
       } catch {
-        finish(new Error(`Réponse non-JSON reçue du broker : ${String(event.data).slice(0, 200)}`));
+        finish(new Error(`Non-JSON response from broker: ${String(event.data).slice(0, 200)}`));
         return;
       }
 
       if (msg.type === "challenge") {
         if (msg.proof !== hmacHex(`coati-v2-broker:${cNonce}:${msg.nonce}`)) {
-          finish(new Error("Preuve du broker invalide — clé périmée ou broker usurpé."));
+          finish(new Error("Invalid broker proof — key mismatch or broker impersonation."));
           return;
         }
         ws.send(JSON.stringify({ type: "auth", v: 2, proof: hmacHex(`coati-v2-extension:${cNonce}:${msg.nonce}`) }));
@@ -114,7 +112,7 @@ async function main(): Promise<void> {
       if (msg.type === "hello-ok") {
         handshakeDone = true;
         console.error("← hello-ok (v: 2)");
-        console.error("→ envoi d'un summarize (faux transcript YouTube)");
+        console.error("→ sending summarize (fake YouTube transcript)");
         ws.send(
           JSON.stringify({
             type: "summarize",
@@ -136,12 +134,12 @@ async function main(): Promise<void> {
         return;
       }
       if (msg.type === "done") {
-        console.error(`\n← done (${answer.length} caractères, usage ${JSON.stringify(msg.usage)})`);
+        console.error(`\n← done (${answer.length} chars, usage ${JSON.stringify(msg.usage)})`);
         finish();
         return;
       }
       if (msg.type === "error") {
-        finish(new Error(`Le broker a répondu une erreur ${msg.code} : ${msg.message}`));
+        finish(new Error(`Broker returned error ${msg.code}: ${msg.message}`));
         return;
       }
       // Anything else (e.g. a settings/prompts reply) is unexpected here but
@@ -149,7 +147,7 @@ async function main(): Promise<void> {
     };
 
     ws.onerror = () => {
-      finish(new Error(`Connexion WebSocket impossible vers ${url} — le broker tourne-t-il ? (systemctl --user status coati-broker)`));
+      finish(new Error(`WebSocket connection failed to ${url} — is the broker running? (systemctl --user status coati-broker)`));
     };
 
     ws.onclose = (event) => {
@@ -157,19 +155,19 @@ async function main(): Promise<void> {
       if (!handshakeDone) {
         finish(
           new Error(
-            `Poignée de main refusée (fermeture code ${event.code}) — clé ou Origin invalide. ` +
-              `Vérifiez ${keyPath} et ${configPath}.`,
+            `Handshake rejected (close code ${event.code}) — key or Origin invalid. ` +
+              `Check ${keyPath} and ${configPath}.`,
           ),
         );
         return;
       }
       if (event.code !== 1000) {
-        finish(new Error(`Connexion fermée de façon inattendue (code ${event.code}, raison "${event.reason}").`));
+        finish(new Error(`Connection closed unexpectedly (code ${event.code}, reason "${event.reason}").`));
       }
     };
   });
 
-  console.error("✓ Chaîne extension↔broker↔modèle opérationnelle.");
+  console.error("✓ Extension↔broker↔model chain is working.");
 }
 
 main()

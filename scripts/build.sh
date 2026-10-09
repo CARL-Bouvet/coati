@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
-# Construit les deux paquets Coati (Chrome/Brave et Firefox) depuis la même
-# arborescence source `extension/`. Pas de bundler, pas de dépendance : une
-# copie de travail par cible, le bon manifest posé dessus, `zip`.
+# Builds the two Coati packages (Chrome/Brave and Firefox) from the same
+# `extension/` source tree. No bundler, no extra dependency: one working copy
+# per target, the right manifest dropped in, then `zip`.
 #
-# Chrome/Brave garde `extension/manifest.json` tel quel (le "Charger l'extension
-# non empaquetée" du navigateur continue de pointer directement sur `extension/`
-# sans passer par ce script). Firefox n'a pas le même manifest — voir
-# `extension/manifest.firefox.json` et docs/FIREFOX.md pour le détail des
-# différences (background non-persistant, sidebar_action au lieu de side_panel,
-# pas d'externally_connectable, pas de `key`). Ce script copie la source, pose
-# manifest.firefox.json à la place de manifest.json, puis zippe — le fichier
-# manifest.firefox.json lui-même ne doit jamais finir dans un paquet.
+# Chrome/Brave keeps `extension/manifest.json` as-is (the browser's "Load
+# unpacked extension" flow continues to point directly at `extension/` without
+# going through this script). Firefox uses a different manifest — see
+# `extension/manifest.firefox.json` and docs/INSTALL.md for the differences
+# (non-persistent background, sidebar_action instead of side_panel, no
+# externally_connectable, no `key`). This script copies the source, drops
+# manifest.firefox.json in place of manifest.json, then zips — the
+# manifest.firefox.json file itself must never end up inside a package.
 #
 #   ./scripts/build.sh
 #
-# Produit :
+# Produces:
 #   dist/coati-chrome.zip
 #   dist/coati-firefox.zip
-#   dist/stage/firefox/        copie non empaquetée, pour "Charger un module
-#                               complémentaire temporaire" dans Firefox — ce
-#                               chargeur exige un manifest.json réel sur disque,
-#                               un .zip ne suffit pas. Voir docs/FIREFOX.md.
+#   dist/stage/firefox/        unpacked copy, for "Load Temporary Add-on"
+#                               in Firefox — that loader requires a real
+#                               manifest.json on disk, a .zip is not enough.
+#                               See docs/INSTALL.md.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -32,7 +32,7 @@ STAGE="$DIST/stage"
 # The two manifests are hand-maintained separately (no templating) — the one
 # thing they must never drift on is "version": AMO refuses to sign the same
 # version number twice for a given gecko id, and a silent mismatch would make
-# the Firefox package invisibly stale. See docs/FIREFOX.md "Pour republier".
+# the Firefox package invisibly stale. See docs/INSTALL.md "Re-publish".
 CHROME_VERSION="$(bun -e 'console.log(JSON.parse(await Bun.file(process.argv[1]).text()).version)' "$SRC/manifest.json")"
 FIREFOX_VERSION="$(bun -e 'console.log(JSON.parse(await Bun.file(process.argv[1]).text()).version)' "$SRC/manifest.firefox.json")"
 if [ "$CHROME_VERSION" != "$FIREFOX_VERSION" ]; then
@@ -48,7 +48,7 @@ mkdir -p "$DIST"
 
 build_target() {
   local browser="$1"       # chrome | firefox
-  local manifest_src="$2"  # manifest à poser comme manifest.json dans le paquet
+  local manifest_src="$2"  # manifest to use as manifest.json in the package
   local stage="$STAGE/$browser"
 
   rm -rf "$stage"
@@ -65,4 +65,4 @@ build_target() {
 build_target chrome "$SRC/manifest.json"
 build_target firefox "$SRC/manifest.firefox.json"
 
-echo "dist/stage/firefox/  (chargement temporaire Firefox — voir docs/FIREFOX.md)"
+echo "dist/stage/firefox/  (Firefox temporary load — see docs/INSTALL.md)"

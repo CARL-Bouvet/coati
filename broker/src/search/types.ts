@@ -13,7 +13,7 @@ export interface SearchResult {
   rawContent?: string;
 }
 
-// Mirrors docs/PROTOCOL.md §8's `search-unavailable` reasons exactly —
+// Mirrors docs/PROTOCOL.md's `search-unavailable` reasons exactly —
 // doc-search.ts maps this straight onto the wire's ErrorMessage.reason.
 export type SearchFailureReason = "auth" | "quota" | "rate" | "network" | "no-result";
 
@@ -25,7 +25,7 @@ export type SearchTestResult =
   | { ok: true }
   | { ok: false; reason: SearchFailureReason };
 
-/** The two engines a user can configure — docs/PROTOCOL.md §9. */
+/** The two engines a user can configure — docs/PROTOCOL.md. */
 export type SearchProviderId = "brave" | "tavily";
 export function isSearchProviderId(v: unknown): v is SearchProviderId {
   return v === "brave" || v === "tavily";

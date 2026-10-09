@@ -2,11 +2,11 @@
 // lot 3). No DOM, no chrome.* — importable from panel.js and from bun test,
 // same pattern as card-state.js.
 //
-// docs/PROTOCOL.md "Bibliothèque de prompts et préférences par site":
+// docs/PROTOCOL.md:
 //   - `PromptEntry` = { id, site, title?, body }.
 //   - `prefs.sites[site]` = { order?: string[], removed?: string[] } — ids
 //     mix Coati suggestion ids (`coati:<site>:<slug>`) and prompt ids
-//     (`p_…`). "Lecture tolérante": an id in `order` that matches nothing is
+//     (`p_…`). "Lenient reading": an id in `order` that matches nothing is
 //     skipped; an item missing from `order` is appended at the end, in a
 //     fixed default order (Coati suggestions in suggestions-data.js order,
 //     then user prompts in list order) — see applyOrder() below, which
@@ -30,7 +30,7 @@ export function truncateLabel(text, max = LABEL_MAX) {
 
 /** A button's label: the prompt's title when non-empty, otherwise its body
  * truncated at a word boundary (~40 chars) + "…" (plan-mes-prompts-28-09.md,
- * "Un bouton affiche le titre du prompt ; sans titre, le début du texte").
+ * "A button shows the prompt title; without a title, the start of the text").
  * Exported for reuse by prompts/prompts.js (row label — same rule, same
  * page-4 "case" ordering source of truth). */
 export function labelForPrompt(prompt) {
@@ -84,7 +84,7 @@ function toButton(entry) {
  * @returns {Array<{key:string, kind:"coati"|"user", label:string, prompt?:string, action?:string}>}
  *   Ordered buttons: the site's own case (Coati suggestions minus removed,
  *   plus the user's prompts for that site, in the case's order), then the
- *   prompts of "*" (Tous les sites), in "*"'s own order. Empty/null siteKey
+ *   prompts of "*" (All sites), in "*"'s own order. Empty/null siteKey
  *   (T44 — an unreadable page address, no site case at all) → the unnamed
  *   "@unsorted" part of the head case instead, in ITS order, still followed
  *   by "*". A known site never shows "@unsorted" prompts, and vice versa.

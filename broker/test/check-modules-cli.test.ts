@@ -1,6 +1,6 @@
 // End-to-end smoke test for the `--check-modules` CLI flag (server.ts's
 // import.meta.main block) — proves an external provider module named in
-// config.json's `modules` array (docs/MODULES.md) still loads via dynamic
+// config.json's `modules` array (docs/ARCHITECTURE.md) still loads via dynamic
 // `import()` when run as a real OS process, no network required. Runs the
 // same check against `bun run src/server.ts` always, and additionally
 // against the compiled binary at dist/bin/coati-broker-<host> when

@@ -1,16 +1,21 @@
-// Mesure de la lecture générique de Coati sur un corpus de pages réelles (étude
-// interne du 29/09). Navigateur isolé, profil jetable, copie de
-// l'extension SANS `key` (autre ID : aucun appairage possible avec le vrai broker). Une visite
-// par adresse ; un seul clic automatique, sur « Tout accepter » d'un bandeau de consentement.
-// Usage : node scripts/lecture/measure.mjs [clé1,clé2…]   (Playwright, `bun install` à la racine
-// du dépôt d'abord). Navigateur : $COATI_BROWSER (défaut /usr/bin/brave sous Linux).
-// Sortie : $OUT (défaut .tmp/lecture/out) : <clé>.txt, <clé>.png, index.json. Sans fenêtre par
-// défaut ; HEADFUL=1 xvfb-run -a node … pour un navigateur « visible » hors écran.
-// Diagnostic d'un raté : node scripts/lecture/why.mjs <clé1,clé2…> (lit $OUT, écrit why.json).
+// Measures Coati's generic page reading on a corpus of real pages (internal
+// study, 2026-09-29). Isolated browser, throwaway profile, extension copy
+// WITHOUT `key` (different ID: no pairing with the real broker possible). One
+// visit per URL; one automatic click on "Accept all" consent banners.
+// Usage: node scripts/lecture/measure.mjs [key1,key2…]  (Playwright, run `bun install`
+// at the repo root first). Browser: $COATI_BROWSER (default /usr/bin/brave on Linux).
+// Output: $OUT (default .tmp/lecture/out): <key>.txt, <key>.png, index.json. Headless
+// by default; HEADFUL=1 xvfb-run -a node … for a "visible" browser off-screen.
+// Diagnose a miss: node scripts/lecture/why.mjs <key1,key2…> (reads $OUT, writes why.json).
 import { chromium } from "playwright";
 import { mkdtempSync, rmSync, cpSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { EXTRACT_FILES } from "../../extension/content/extract-files.js";
+// Lot F4: content/extract.js is now split across several files, injected
+// together and in order (see extract-files.js) — same contract panel.js
+// uses, applied here to the extension copy this script loads into Brave.
+const EXTRACT_FILE_PATHS = EXTRACT_FILES.map((f) => `/${f}`);
 const ROOT = path.resolve(fileURLToPath(import.meta.url), "../../..");
 const OUT = process.env.OUT || path.join(ROOT, ".tmp/lecture/out");
 mkdirSync(OUT, { recursive: true });
@@ -73,26 +78,26 @@ for (const e of entries) {
     await page.screenshot({ path: `${OUT}/${e.key}.png` }).catch(() => {});
     await page.bringToFront();
     const t0 = Date.now();
-    const ex = await sw.evaluate(async (u) => {
+    const ex = await sw.evaluate(async ({ u, files }) => {
       const tabs = await chrome.tabs.query({});
       const tab = tabs.find(t => t.url === u) || tabs.find(t => t.active);
       try {
-        const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["/content/extract.js"] });
+        const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, files });
         return res && res.result ? res.result : { error: "no result" };
       } catch (err) { return { error: err.message }; }
-    }, page.url());
+    }, { u: page.url(), files: EXTRACT_FILE_PATHS });
     row.extractMs = Date.now() - t0;
     const text = ex.text || "";
     Object.assign(row, { extractError: ex.error ?? null, kind: ex.kind ?? null, pageKind: ex.pageKind ?? null, extractedLen: text.length,
       kept: row.bodyLen ? +((text.length / row.bodyLen) * 100).toFixed(1) : null,
       facts: Array.isArray(ex.facts) ? ex.facts.length : 0, items: Array.isArray(ex.items) ? ex.items.length : 0, truncated: text.length >= 40000 });
     const facts = (ex.facts || []).map(f => `  fait   · ${f.label} : ${f.value}`);
-    const items = (ex.items || []).map(it => `  entrée · ${[it.title, it.price, it.location, it.detail].filter(Boolean).join(" | ")}`);
-    writeFileSync(`${OUT}/${e.key}.txt`, [`# ${e.key}`, `url finale : ${row.url}`, `titre : ${row.title}`,
-      `kind/pageKind : ${row.kind}/${row.pageKind}  faits ${row.facts}  entrées ${row.items}`,
-      `page visible (body.innerText) : ${row.bodyLen} car. ; ombre (shadow DOM) : ${row.shadowHosts} hôtes, ${row.shadowText} car. ; iframes ${row.bigIframes} (dont ${row.crossOriginIframes} d'une autre origine) ; canvas ${row.canvasShare} de l'écran ; hauteur ${row.screens} écrans`,
-      `extraction : ${row.extractedLen} car. (${row.kept} %), ${row.extractMs} ms${row.extractError ? " — ERREUR " + row.extractError : ""}`,
-      `consentement cliqué : ${row.consent ?? "non"}`, ...facts, ...items, "", "--- texte extrait ---", text].join("\n"));
+    const items = (ex.items || []).map(it => `  item  · ${[it.title, it.price, it.location, it.detail].filter(Boolean).join(" | ")}`);
+    writeFileSync(`${OUT}/${e.key}.txt`, [`# ${e.key}`, `final url   : ${row.url}`, `title       : ${row.title}`,
+      `kind/pageKind: ${row.kind}/${row.pageKind}  facts ${row.facts}  items ${row.items}`,
+      `visible page (body.innerText): ${row.bodyLen} chars; shadow DOM: ${row.shadowHosts} hosts, ${row.shadowText} chars; iframes ${row.bigIframes} (${row.crossOriginIframes} cross-origin); canvas ${row.canvasShare} of viewport; height ${row.screens} screens`,
+      `extraction: ${row.extractedLen} chars (${row.kept}%), ${row.extractMs} ms${row.extractError ? " — ERROR " + row.extractError : ""}`,
+      `consent clicked: ${row.consent ?? "none"}`, ...facts, ...items, "", "--- extracted text ---", text].join("\n"));
   } catch (err) { row.error = String(err.message).split("\n")[0]; }
   index.push(row);
   await page.close();

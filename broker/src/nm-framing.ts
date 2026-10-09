@@ -1,5 +1,5 @@
-// Chrome Native Messaging framing — docs/PROTOCOL.md "Cadrage et échange avec
-// l'hôte" (amendement 2026-09-30, G4): 4 bytes of length, native byte order
+// Chrome Native Messaging framing — docs/PROTOCOL.md
+// with the host" (amendment 2026-09-30, G4): 4 bytes of length, native byte order
 // (little-endian on every platform Coati targets — x86-64, arm64), followed
 // by that many UTF-8 JSON bytes. Pure, allocation-light functions — no I/O
 // here; native-host.ts wires these against real stdin/stdout.
@@ -35,12 +35,12 @@ export type ParseFrameResult =
  *    stream has already ended — that EOF-before-header case is the caller's
  *    job to detect, this function has no notion of "the stream is done").
  *  - Length outside [MIN_FRAME_BYTES, MAX_FRAME_BYTES]: "invalid-length" —
- *    docs/PROTOCOL.md: "Longueur hors de 1 à 4 096 : aucune réponse, sortie 1."
+ *    docs/PROTOCOL.md: "Length outside 1–4096: no reply, exit 1."
  *  - Length valid but fewer than `length` body bytes buffered yet:
  *    "incomplete".
  *  - Otherwise "complete": `body` is exactly `length` bytes, `rest` is
- *    whatever followed (docs/PROTOCOL.md: "deux trames : seule la première
- *    est traitée" — the caller simply discards `rest`, it never asks for a
+ *    whatever followed (docs/PROTOCOL.md: "two frames: only the first is
+ *    processed" — the caller simply discards `rest`, it never asks for a
  *    second frame).
  */
 export function tryParseFrame(buffer: Buffer): ParseFrameResult {

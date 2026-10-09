@@ -1,4 +1,4 @@
-// Per-site suggestion data (Coati's free tier — docs/DECISIONS.md T30 amendement 2026-09-28,
+// Per-site suggestion data (Coati's free tier — docs/DECISIONS.md T30 amendment 2026-09-28,
 // T31, plan-mes-prompts-28-09.md §4). Exactly five sites: no generic fallback and no niche sites
 // (real estate, Leboncoin, shopping) anymore — those moved to paid (P25/T30).
 //
@@ -11,7 +11,7 @@
 //        | { id: string, label: string, action: "summarize" } // YouTube only, see below
 //
 // `id` on an Item is a stable Coati suggestion id, `coati:<site>:<slug>`, referenced from
-// prefs.json's order/removed (docs/PROTOCOL.md "Identifiants dans order et removed"). Never
+// prefs.json's order/removed (docs/PROTOCOL.md). Never
 // renamed once shipped — renaming would silently detach it from a user's saved order.
 
 import { t } from "./i18n-page.js";
@@ -35,7 +35,7 @@ export const SITES = [
     paths: null,
     items: [
       // Not a chat prompt: the panel's existing summarize/transcript action
-      // (panel.js's "Résumer" path). Not editable in "Mes prompts" — the page
+      // (panel.js's "Summarize" path). Not editable in "My prompts" — the page
       // (lot 4) must special-case `action` items and skip the edit/delete UI
       // that applies to prompt-backed items.
       { id: "coati:youtube:summarize", label: t("panel_summarize_video"), action: "summarize" },
@@ -145,8 +145,8 @@ const NO_SUBDOMAIN_HOSTS = new Set(["youtu.be"]);
 
 // EXPLICIT schemes only, never `*://`: the manifest's optional_host_permissions declare
 // `http://*/*` and `https://*/*` as two separate patterns, and Chrome refuses any requested
-// pattern that no single declared pattern contains — `*://…` is rejected with « Only
-// permissions specified in the manifest may be requested » (bug of 28/09: nothing but YouTube,
+// pattern that no single declared pattern contains — `*://…` is rejected with "Only
+// permissions specified in the manifest may be requested" (bug of 28/09: nothing but YouTube,
 // granted earlier by the old per-origin link, could ever be activated).
 /** @param {string} host @param {string} scheme */
 function permissionPatternForHost(host, scheme) {
@@ -163,7 +163,7 @@ function permissionPatternForHost(host, scheme) {
  * - A user hostname key (e.g. `crisco4.unicaen.fr`): `https://` and `http://` patterns matching
  *   that host and its subdomains, including `www.` (the key has `www.` stripped, but the granted
  *   permission still covers `www.<key>`); a small site may still be served over plain HTTP.
- * - `"*"` (tous les sites), `"@unsorted"` (page d'adresse inconnue), `null`/`undefined`/anything
+ * - `"*"` (all sites), `"@unsorted"` (unknown-address page), `null`/`undefined`/anything
  *   else not a non-empty string: no host to request a permission for — `[]`.
  * @param {string | null | undefined} siteKey
  * @returns {string[]}

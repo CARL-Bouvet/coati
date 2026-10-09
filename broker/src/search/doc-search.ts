@@ -26,7 +26,7 @@ export const DOC_SEARCH_MAX_TOTAL_CHARS = 24_000;
 export const DOC_SEARCH_MAX_CALLS = 2;
 
 /** Thrown when `chat.docSearch` was sent but no search provider/key is
- * configured — docs/PROTOCOL.md §8, error code `search-not-configured`. */
+ * configured — docs/PROTOCOL.md, error code `search-not-configured`. */
 export class SearchNotConfiguredError extends Error {
   constructor() {
     super("chat.docSearch present but no search provider is configured");
@@ -38,7 +38,7 @@ export function isSearchNotConfiguredError(err: unknown): boolean {
 }
 
 /** Thrown when a provider/key IS configured but the search itself failed —
- * docs/PROTOCOL.md §8, error code `search-unavailable`. `reason` goes
+ * docs/PROTOCOL.md, error code `search-unavailable`. `reason` goes
  * straight onto the wire's ErrorMessage. */
 export class SearchUnavailableError extends Error {
   readonly reason: SearchFailureReason;
@@ -179,7 +179,7 @@ async function runSearchCall(
 }
 
 /** Reads one page's text, bounded to `maxChars`. Prefers a search result's
- * own `rawContent` (Tavily's `include_raw_content` — "évite ces requêtes",
+ * own `rawContent` (Tavily's `include_raw_content` — "avoids those requests",
  * docs/PROTOCOL.md §C step 3) over a fresh safeFetch GET. Returns undefined
  * on any failure — the caller skips that source rather than failing the
  * whole request, EXCEPT when every attempted page fails (see runDocSearch). */
@@ -247,7 +247,7 @@ export async function runDocSearch(opts: DocSearchOptions): Promise<DocSearchRes
     results = first.results;
 
     if (results.length === 0 && firstDomain !== undefined && calls < DOC_SEARCH_MAX_CALLS) {
-      // "sans filtre seulement si zéro résultat" — docs/PROTOCOL.md §C step 2.
+      // "unscoped only if zero results" — docs/PROTOCOL.md §C step 2.
       const second = await runSearchCall(provider, question, apiKey, undefined);
       calls++;
       if (!second.ok) throw new SearchUnavailableError(second.reason);

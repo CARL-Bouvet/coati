@@ -1,5 +1,5 @@
 [Unit]
-Description=Coati broker — passerelle locale extension/modèle IA (binaire distribué)
+Description=Coati broker — local gateway between the extension and the AI model (distributed binary)
 Documentation=https://github.com/CARL-Bouvet/coati
 After=network.target
 

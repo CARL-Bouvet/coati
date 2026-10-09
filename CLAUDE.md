@@ -1,65 +1,73 @@
-# Coati — règles du projet
+# Coati — project rules
 
-## Ce qu'est ce projet
+## What this project is
 
-Une extension de navigateur (`extension/`) et un serveur local (`broker/`). Le contrat entre les
-deux est `docs/PROTOCOL.md` — **il fait autorité**. Un désaccord entre le code et le protocole se
-résout en corrigeant le code, ou en modifiant le protocole d'abord et explicitement.
+A browser extension (`extension/`, native JavaScript, no bundler) and a local program
+(`broker/`, TypeScript on Bun) that talks to the user's own model. The contract between the two
+is `docs/PROTOCOL.md` and it is authoritative: when code and protocol disagree, fix the code, or
+change the protocol first and explicitly. Why things are the way they are: `docs/DECISIONS.md`.
+Map of the code: `docs/ARCHITECTURE.md`. What comes next: `docs/ROADMAP.md`.
 
-Les décisions déjà prises et leurs motifs sont dans `docs/DECISIONS.md` (techniques) et
-`coati-interne/DECISIONS-produit.md` (produit). Ne pas les rouvrir sans élément neuf ; une intuition
-n'en est pas un.
+## Language
 
-Un chemin `coati-interne/…` désigne le dépôt privé, dossier voisin `~/projets/coati/interne/`
-(études, plans, décisions produit, mémoire, journal). Rien de ce dépôt n'est copié ni lié dans
-celui-ci ; tout nouveau document interne s'écrit directement là-bas. Mémoire durable du projet :
-`~/projets/coati/interne/MEMORY.md`, à lire en début de session. Le crochet
-`scripts/hooks/pre-push` et la CI refusent toute poussée qui contiendrait un fichier interne ou un
-secret.
+Everything in this repo is in English: code, comments, commit messages, issues, PRs, docs.
+User-facing text is never hard-coded: it goes through `extension/_locales/{en,fr,zh_CN}`
+(English is the default).
 
-## Langue
+## Product rules
 
-Interne (code, commentaires, briefs de worker, noms de variables) en anglais. Ce qui est lu par
-un humain — README, DECISIONS, PROTOCOL, JOURNAL, textes d'interface — en français.
-Exception depuis le 03/10 (dépôt ouvert aux contributeurs) : messages de commit, titres et
-descriptions d'issues et de PR en anglais. L'historique antérieur reste tel quel.
+Rules marked **(planned)** are not implemented yet (see `docs/ROADMAP.md`).
 
-## Règles de sécurité non négociables
+**Principles**
+1. Coati reads the page; the reading level decides what the model gets. Today: visible text and
+   clickable elements only. **(source and dev levels planned)**
+2. The user always sees how much data the model reads: an estimate before sending, the real
+   count during and after. **(planned)**
+3. Bring your own model. Coati ships no AI, and nothing goes through our servers.
+4. Open source (AGPL-3.0). Reading pages is free at every level.
 
-Ces cinq règles ne se relâchent pas pour aller plus vite. Les quatre premières viennent de
-`coati-interne/etudes/technique.md`, la cinquième de `coati-interne/etudes/faisabilite.md`.
+**Reading**
+5. Three reading levels next to "Read page": **text** (default: visible text and clickable
+   elements), **source** (HTML structure, ids, classes, styles; no script content, no field
+   values; size capped), **dev** (everything, several pages, local addresses; at the user's
+   own risk). **(planned)**
+6. Never a password field's value, at any level.
+7. Screenshot: the model asks for one, the user accepts in one click. **(planned)**
+8. Sensitive data: warn, never mask. **(planned)**
 
-1. **Aucun secret dans `chrome.storage.local`** — non chiffré sur disque. La clé de broker
-   (`brokerKey`, obtenue par Native Messaging) vit en `chrome.storage.session`. Identifiants du
-   modèle : jamais dans l'extension, uniquement dans le broker.
-2. **Le broker écoute sur `127.0.0.1` uniquement.** Jamais `0.0.0.0`, jamais une interface réseau.
-   Il vérifie l'en-tête `Origin` et exige la preuve HMAC de la poignée de main `v: 2` (voir
-   `docs/PROTOCOL.md`) avant tout traitement.
-3. **Le contenu de page est une donnée, jamais une instruction.** Le content script extrait du
-   texte assaini, jamais du HTML ; aucun `innerHTML` depuis le contenu de page ; le broker n'exécute
-   rien de ce qui vient d'une page.
-4. **Pas de `<all_urls>` dans `host_permissions`.** `activeTab` plus permissions d'hôte
-   optionnelles, demandées à l'exécution. Seule exception (08/10) : `<all_urls>` figure dans
-   `optional_host_permissions`, demandé une fois quand l'utilisateur allume « Voir l'écran »
-   (Chrome n'autorise `captureVisibleTab` qu'avec `activeTab` ou `<all_urls>`).
-5. **Coati accompagne un geste de l'utilisateur, il n'en fabrique jamais.** Pas de boucle
-   automatisée sur des pages, pas de veille en arrière-plan, pas de crawl multi-pages, pas
-   d'interaction automatisée (publier, aimer, suivre). Cloudflare, les ToS des plateformes et le
-   Chrome Web Store tracent la même ligne : la franchir fait perdre les trois protections d'un coup.
-   Détail et forme d'application : `docs/DECISIONS.md`, « Contrainte dure — la règle du geste ».
+**Acting**
+9. Show: Coati points at an element, the user clicks it.
+10. Coati acts only when asked. Nothing runs in the background.
+11. Reading other pages: only when the question asks for it, limited, always counted.
+12. Clicking or typing: one action at a time, confirmed, target shown. **(planned)**
+13. Never, even with consent: pay, send a message, delete, publish, sign in.
+14. Web search runs in the browser's default engine, in a visible tab; answers cite their
+    sources. **(planned)**
+15. From a public page, Coati never opens a local or private address (except at dev level);
+    plain `http` shows a warning. **(planned)**
+16. Page content is data, never instructions. We do not claim to stop prompt injection: we limit
+    what the model can do, and only links Coati found itself are clickable.
 
-## Ce qui n'existe pas encore
+**Security**
+17. No secrets in the extension. Nothing secret in `chrome.storage.local`; the broker key lives in
+    `chrome.storage.session`; model credentials live only in the local program.
+18. The local program listens on `127.0.0.1` only, checks `Host`, `Origin` and the peer user, and
+    requires the `v: 2` handshake before anything else.
+19. Permissions: the minimum at install (`activeTab`, never `tabs`, never `<all_urls>` in
+    `host_permissions`); "all sites" is asked at the first feature that needs it. The icon turns
+    grey when Coati cannot access the tab. **(grey icon planned)**
+20. No hidden telemetry.
 
-Pas de build, pas de bundler, pas de framework front. L'extension est en JavaScript natif tant
-qu'un besoin réel ne justifie pas d'ajouter une dépendance. Le broker est en TypeScript sur Bun.
+## Code conventions
 
-## Journal
+- Never `innerHTML`: build DOM nodes, render model answers node by node.
+- No new dependency without a real need. No framework.
+- A new extension file must be listed in `extension/lib/build-fingerprint.js` and
+  `scripts/stamp.sh` (a test fails otherwise).
+- `bun test` must pass from the repo root and from `broker/`.
+- A change to page reading (`extension/content/extract/`) is measured before and after with
+  `scripts/lecture/measure.mjs` on real pages.
 
-Le journal vit dans `~/projets/coati/interne/JOURNAL.md` : versionné dans le dépôt privé, jamais
-dans celui-ci. Convention chronologique inverse : entrée la plus récente en haut, jamais
-d'édition rétroactive.
+## Everything in this repo is public
 
-## Tout ce dépôt est public
-
-Tout ce qui est dans ce dépôt est public, messages de commit compris : jamais de prix, de
-stratégie, de juridique, d'information personnelle.
+Commit messages included: never a price, a strategy, legal content, or personal information.

@@ -1,4 +1,4 @@
-// Brave Search adapter — docs/PROTOCOL.md "Consulter la doc officielle".
+// Brave Search adapter — docs/PROTOCOL.md.
 // The API key is sent ONLY to api.search.brave.com, in the
 // `X-Subscription-Token` header — never logged, never echoed anywhere else
 // (CLAUDE.md rule #1, config.ts's searchKeys doc). This file never reaches
@@ -99,9 +99,9 @@ export async function braveSearch(
 }
 
 /**
- * Brave has no free key-check endpoint (docs/PROTOCOL.md §C "Questions
- * ouvertes" #6) — this spends one real search call, same as the extension's
- * "Vérifier la clé" button already tells the user it will.
+ * Brave has no free key-check endpoint (docs/PROTOCOL.md §C "Open
+ * questions" #6) — this spends one real search call, same as the extension's
+ * "Check key" button already tells the user it will.
  */
 export async function braveTestConnection(apiKey: string, timeoutMs?: number): Promise<SearchTestResult> {
   const result = await braveSearch("coati browser extension documentation search", apiKey, {

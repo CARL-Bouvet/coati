@@ -1,5 +1,5 @@
 // Shared provider contract. Every model backend (ollama, claude-api, and any
-// externally loaded module — see docs/MODULES.md, docs/DECISIONS.md T8)
+// externally loaded module — see docs/ARCHITECTURE.md, docs/DECISIONS.md T8)
 // implements this so server.ts and the
 // `settings.*` protocol messages never need to know which backend is active.
 // Prompt assembly (fencing, the shared system prompt) stays out of here —
@@ -20,7 +20,7 @@ export interface Availability {
 /** Runtime knobs threaded in from CoatiConfig (broker/src/config.ts).
  * Providers ignore whatever they don't need — ollama ignores apiKey,
  * claude-api ignores ollamaUrl, an external module ignores both unless its
- * own `options` (docs/MODULES.md) says otherwise. `apiKey`
+ * own `options` (docs/ARCHITECTURE.md) says otherwise. `apiKey`
  * is WRITE-ONLY end to end (see config.ts's CoatiConfig.apiKey) — it flows
  * from config into this options bag and into the Anthropic API request
  * header, and nowhere else. */
@@ -29,7 +29,7 @@ export interface ProviderRuntimeOptions {
   ollamaUrl?: string;
   apiKey?: string;
   /** Base URL of an `openai-compat` server (e.g. "http://localhost:1234/v1")
-   * — amendement 2026-09-30 bis, goal G5. NOT a secret (unlike apiKey): it is
+   * — amendment 2026-09-30 bis, goal G5. NOT a secret (unlike apiKey): it is
    * echoed back in the `settings` response for the active provider. Ignored
    * by every other provider. */
   baseUrl?: string;
@@ -43,8 +43,8 @@ export interface ProviderRuntimeOptions {
   lang?: Lang;
 }
 
-/** One provider's answer to `provider.status` (docs/PROTOCOL.md, amendement
- * 2026-09-25, "Disponibilité du fournisseur") — a cheap, NEVER-BILLED probe,
+/** One provider's answer to `provider.status` (docs/PROTOCOL.md, amendment
+ * 2026-09-25, "Provider availability") — a cheap, NEVER-BILLED probe,
  * distinct from isAvailable() (which some providers make a real paid/model
  * call to establish, e.g. none currently do, but the contract allows it).
  * `reason` is one of each provider's own closed set of short English codes —
@@ -55,8 +55,8 @@ export interface StatusCheck {
 }
 
 /** Closed set of `settings.test-result.code` values a provider's
- * `testConnection` can report on failure (docs/PROTOCOL.md "settings.test",
- * amendement 2026-10-01, goal U2) — a subset of `ErrorCode` (protocol.ts)
+ * `testConnection` can report on failure (docs/PROTOCOL.md,
+ * amendment 2026-10-01, goal U2) — a subset of `ErrorCode` (protocol.ts)
  * plus `model-missing`, which is NOT a general ErrorCode (it never appears on
  * a chat/summarize/act `error` message — those report the same underlying
  * condition as `model-unavailable`, see ollama.ts's streamAnswer) but IS
@@ -72,10 +72,10 @@ export type TestConnectionCode =
   | "provider-overloaded";
 
 /** Result of a provider's FREE connection probe (docs/PROTOCOL.md
- * "settings.test", amendement 2026-10-01, goal U2) — unlike the old
+ * "settings.test", amendment 2026-10-01, goal U2) — unlike the old
  * streamAnswer-based probe it replaces for built-in providers, this must
  * never spend a token. `code` is only ever present when `ok` is false.
- * `creditUnchecked` (amendement 2026-10-02, goal-j2FJ-kI7): true on a
+ * `creditUnchecked` (amendment 2026-10-02, goal-j2FJ-kI7): true on a
  * successful probe that cannot see the account's credit balance (every
  * built-in provider's free check — see each provider's own testConnection
  * comment) — the options page renders this as one line, never implies the
@@ -97,7 +97,7 @@ export interface ModelProvider {
    * (currently just ollama, via /api/tags). Used to populate the settings
    * UI's model picker. */
   listModels?(opts: ProviderRuntimeOptions): Promise<string[]>;
-  /** The model this provider uses when none was ever set (amendement
+  /** The model this provider uses when none was ever set (amendment
    * 2026-10-07 bis, docs/PROTOCOL.md). Lets `models.list` still name a
    * sensible model for a configured provider that has neither a
    * `listModels()` nor a remembered model yet — e.g. claude-api right after
@@ -108,7 +108,7 @@ export interface ModelProvider {
   /** Backs `provider.status` (see StatusCheck above). Every provider
    * implements this — unlike isAvailable(), it never makes a billed call. */
   checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck>;
-  /** Backs `settings.test` with a FREE probe (docs/PROTOCOL.md, amendement
+  /** Backs `settings.test` with a FREE probe (docs/PROTOCOL.md, amendment
    * 2026-10-01, goal U2) — optional: a provider (built-in or external module)
    * that cannot offer one simply omits it, and server.ts's
    * testProviderConnection() falls back to the old streamAnswer-based probe
@@ -116,19 +116,19 @@ export interface ModelProvider {
    * reports failure via TestConnectionResult.code instead. */
   testConnection?(opts: ProviderRuntimeOptions & { timeoutMs?: number }): Promise<TestConnectionResult>;
   /**
-   * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): STATIC vision
+   * Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md): STATIC vision
    * support, for a provider whose answer never depends on which specific
    * model is active — `true` for claude-api/claude-cli, whatever an
-   * external module declares (docs/MODULES.md's `vision`). Checked by
+   * external module declares (docs/ARCHITECTURE.md's `vision`). Checked by
    * server.ts's vision gate ONLY when `supportsVision` below is absent.
    * Absent AND no `supportsVision` (a module that declares neither) is
-   * treated as `false` — fail closed, per docs/MODULES.md. A provider whose
+   * treated as `false` — fail closed, per docs/ARCHITECTURE.md. A provider whose
    * vision support DOES vary by model (ollama, openai-compat) leaves this
    * absent and implements `supportsVision` instead.
    */
   vision?: boolean;
   /**
-   * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): does the model
+   * Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md): does the model
    * `opts` names right now understand an attached image? The LIVE gate
    * server.ts calls before honouring a `chat.image` — distinct from
    * `ModelEntry.vision` (protocol.ts), which is display-only, for the

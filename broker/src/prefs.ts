@@ -1,8 +1,8 @@
 // Per-site display preferences persisted at ~/.local/share/coati/prefs.json.
-// Amendement 2026-09-28 ("Mes prompts par site" — docs/DECISIONS.md T41). Same
+// Amendment 2026-09-28 ("My prompts by site" — docs/DECISIONS.md T41). Same
 // guarantees as prompts.ts: atomic write, per-dataDir lock, tolerant read
 // (absent/corrupt/unknown shape → empty, never throws at the client). See
-// docs/PROTOCOL.md "prefs.get / prefs.set".
+// docs/PROTOCOL.md.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from "node:fs";
 import { join } from "node:path";

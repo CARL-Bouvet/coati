@@ -1,29 +1,33 @@
-// Sonde de corpus : passe une liste d'URL dans un navigateur déjà lancé (port de
-// débogage) et écrit, pour chacune, ce que `content/extract.js` en tire — c'est
-// exactement ce que le modèle recevrait.
+// Corpus probe: feeds a list of URLs to an already-running browser (debug port)
+// and writes, for each URL, what `content/extract.js` extracts from it — which
+// is exactly what the model would receive.
 //
-// Pourquoi ce script : `scripts/extract-probe.js` traite une URL à la fois et
-// affiche un extrait tronqué. Comparer un avant/après sur une dizaine de pages
-// demande une sortie stable, écrite sur disque, avec de quoi juger ce qui a été
-// perdu (taille du texte de la page, taille de l'extraction, présence d'une
-// couche superposée).
+// Why this script: `scripts/extract-probe.js` processes one URL at a time and
+// shows a truncated excerpt. Comparing a before/after across a dozen pages
+// requires stable output written to disk, with enough information to judge what
+// was lost (page text size, extraction size, presence of an overlay layer).
 //
-// Prérequis : un navigateur lancé avec la copie de développement de l'extension
-// (scripts/dev-extension.sh) et un port de débogage ouvert. Voir
-// notes/PLAN_goal_passe_complete.md pour le lancement confiné au projet.
+// Prerequisites: a browser running the development copy of the extension
+// (scripts/dev-extension.sh) with a debug port open.
 //
-// Usage :
-//   bun scripts/corpus-probe.ts <fichier-urls> <port> <dossier-sortie>
+// Usage:
+//   bun scripts/corpus-probe.ts <urls-file> <port> <output-dir>
 //
-// Le fichier d'URL contient une entrée par ligne, `<clé> <url>`, les lignes
-// vides et celles commençant par # étant ignorées.
+// The URL file contains one entry per line, `<key> <url>`, blank lines and
+// lines starting with # are ignored.
 
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { EXTRACT_FILES } from "../extension/content/extract-files.js";
+
+// Lot F4: content/extract.js is now split across several files, injected
+// together and in order (see extract-files.js) — same contract panel.js
+// uses, applied here through the dev extension's own service worker.
+const EXTRACT_FILE_PATHS = EXTRACT_FILES.map((f) => `/${f}`);
 
 const [urlsFile, portArg, outDir] = process.argv.slice(2);
 if (!urlsFile || !portArg || !outDir) {
-  console.error("usage: bun scripts/corpus-probe.ts <fichier-urls> <port> <dossier-sortie>");
+  console.error("usage: bun scripts/corpus-probe.ts <urls-file> <port> <output-dir>");
   process.exit(2);
 }
 const port = Number(portArg);
@@ -108,7 +112,7 @@ async function main() {
       const extractExpr = `(async () => {
         const tabs = await chrome.tabs.query({});
         const tab = tabs.find(t => t.url === ${JSON.stringify(url)}) || tabs[tabs.length - 1];
-        const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["/content/extract.js"] });
+        const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ${JSON.stringify(EXTRACT_FILE_PATHS)} });
         return JSON.stringify(res && res.result ? res.result : { error: "no result" });
       })()`;
       const extracted = JSON.parse(await cdp(sw.webSocketDebuggerUrl, extractExpr));
@@ -135,26 +139,26 @@ async function main() {
         [
           `# ${key}`,
           `url        : ${url}`,
-          `titre      : ${page.title}`,
+          `title      : ${page.title}`,
           `type       : ${row.extractedType ?? "?"}`,
-          `pageKind   : ${row.pageKind ?? "—"}  (faits : ${facts.length}, entrées : ${items.length})`,
-          ...facts.map((f) => `  fait    · ${f.label} : ${f.value}`),
-          ...items.map((it) => `  entrée  · ${[it.title, it.price, it.location, it.detail].filter(Boolean).join(" | ")}`),
-          `page       : ${page.bodyLen} caractères visibles`,
-          `extraction : ${text.length} caractères (${row.kept}% de la page)`,
-          `couches superposées détectées : ${page.overlays.length}`,
-          ...page.overlays.map((o: any) => `  - ${o.tag}${o.id ? "#" + o.id : ""} [${o.position}${o.dialog ? ", dialog" : ""}] ${o.len} car. : ${o.head}`),
-          `paires libellé/valeur (dl) : ${page.definitionPairs.length}`,
-          ...page.definitionPairs.map(([l, v]: [string, string]) => `  - ${l} : ${v}`),
+          `pageKind   : ${row.pageKind ?? "—"}  (facts: ${facts.length}, items: ${items.length})`,
+          ...facts.map((f) => `  fact  · ${f.label}: ${f.value}`),
+          ...items.map((it) => `  item  · ${[it.title, it.price, it.location, it.detail].filter(Boolean).join(" | ")}`),
+          `page       : ${page.bodyLen} visible chars`,
+          `extraction : ${text.length} chars (${row.kept}% of page)`,
+          `overlay layers detected: ${page.overlays.length}`,
+          ...page.overlays.map((o: any) => `  - ${o.tag}${o.id ? "#" + o.id : ""} [${o.position}${o.dialog ? ", dialog" : ""}] ${o.len} chars: ${o.head}`),
+          `label/value pairs (dl): ${page.definitionPairs.length}`,
+          ...page.definitionPairs.map(([l, v]: [string, string]) => `  - ${l}: ${v}`),
           "",
-          "--- texte extrait ---",
+          "--- extracted text ---",
           text,
         ].join("\n") + "\n",
         "utf8",
       );
     } catch (err: any) {
       row.error = String(err?.message ?? err).slice(0, 300);
-      await writeFile(join(outDir, `${key}.txt`), `# ${key}\nurl : ${url}\nERREUR : ${row.error}\n`, "utf8");
+      await writeFile(join(outDir, `${key}.txt`), `# ${key}\nurl  : ${url}\nERROR: ${row.error}\n`, "utf8");
     }
     index.push(row);
   }
@@ -163,8 +167,8 @@ async function main() {
   for (const r of index) {
     console.log(
       r.error
-        ? `${r.key.padEnd(18)} ERREUR ${r.error.slice(0, 80)}`
-        : `${r.key.padEnd(18)} page ${String(r.bodyLen).padStart(6)} → texte ${String(r.extractedLen).padStart(6)} (${r.kept}%)  pageKind:${r.pageKind ?? "—"}  faits:${r.facts}  entrées:${r.items}  couches:${r.overlayCount}`,
+        ? `${r.key.padEnd(18)} ERROR ${r.error.slice(0, 80)}`
+        : `${r.key.padEnd(18)} page ${String(r.bodyLen).padStart(6)} → text ${String(r.extractedLen).padStart(6)} (${r.kept}%)  pageKind:${r.pageKind ?? "—"}  facts:${r.facts}  items:${r.items}  layers:${r.overlayCount}`,
     );
   }
 }

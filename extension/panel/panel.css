@@ -147,7 +147,7 @@ textarea {
   pointer-events: auto;
 }
 
-/* CSS slot for the future "coati surpris/indécis" illustration (U2, Kling
+/* CSS slot for the future "surprised/undecided coati" illustration (U2, Kling
  * prompt pending) — today's existing head asset stands in, confined to the
  * reserved bottom-right strip above (never under the text: low opacity is a
  * second line of defense, not the only one). */
@@ -202,7 +202,7 @@ textarea {
   background: var(--status-idle);
 }
 
-/* Model-missing problem (amendement 2026-10-07 bis): the status text itself
+/* Model-missing problem (amendment 2026-10-07 bis): the status text itself
  * becomes a button opening the model menu — underline on hover/focus is
  * enough, no colour change (it isn't an error, just an actionable detail). */
 .status-label--action {
@@ -224,7 +224,7 @@ textarea {
 .status--broker-untrusted .status-dot { background: var(--status-disconnected); }
 .status--pairing-retry .status-dot { background: var(--status-connecting); }
 
-/* Model pill + menu (amendement 2026-10-07): right after « Connecté ». The
+/* Model pill + menu (amendment 2026-10-07): right after "Connected". The
  * brand row wraps, so on a 320 px panel the pill drops under the status
  * instead of pushing the header tools off-screen. */
 .brand {
@@ -285,7 +285,7 @@ textarea {
   color: var(--muted);
 }
 
-/* Stale-broker pill (amendement 2026-10-07 bis): its label is a short
+/* Stale-broker pill (amendment 2026-10-07 bis): its label is a short
  * sentence, not a one-word suffix — let the name wrap onto a second line and
  * grow the pill's height, instead of a single nowrap line clipping (or, for
  * the "where" suffix, overflowing past the border — bug report, 320 px). */
@@ -404,12 +404,12 @@ textarea {
 }
 
 /* Lot 4: too big for this machine — still selectable, only muted; the
- * words « trop gros pour cet ordinateur » carry the meaning, not colour. */
+ * words "too big for this computer" carry the meaning, not colour. */
 .model-item--too-big .model-item-name {
   color: var(--muted);
 }
 
-/* « Ajouter un modèle… »: no checkmark column, aligned with the names. */
+/* "Add a model…": no checkmark column, aligned with the names. */
 .model-item--add {
   padding-left: calc(var(--space-2) + 1em + var(--space-2));
   color: var(--accent);
@@ -553,11 +553,11 @@ textarea {
   font-weight: 600;
 }
 
-/* "Enregistré pour <site>" — the disquette's calm, temporary confirmation
+/* "Saved for <site>" — the disquette's calm, temporary confirmation
  * (plan-mes-prompts-28-09.md, lot 3: no title asked, no dialog). Fills the
  * row before the save button so it never reflows it at 320px. */
-/* Wraps instead of truncating: the unknown-address notice (« Enregistré, sans
- * site : Coati ne voit pas l'adresse de cette page. ») must be read whole at
+/* Wraps instead of truncating: the unknown-address notice ("Saved, without
+ * site: Coati cannot see this page's address.") must be read whole at
  * 320 px — an ellipsis cut it mid-word (admin fix, 28/09). */
 .prompt-saved-notice {
   flex: 1 1 auto;
@@ -568,7 +568,7 @@ textarea {
   overflow-wrap: anywhere;
 }
 
-/* Amendement 2026-10-08 bis ("historique", docs/PROTOCOL.md §6) — discreet
+/* Amendment 2026-10-08 bis ("historique", docs/PROTOCOL.md) — discreet
  * line above the composer's input, same muted register as
  * .prompt-saved-notice/.message-cut-notice, never the error style. */
 .history-notice {
@@ -811,8 +811,8 @@ textarea {
 }
 
 /* Before the first word (plan-ollama-rapide-07-10.md, point 3): the coati
- * head sniffs next to « Chargement du modèle… » / « Le modèle lit la
- * page… ». The line replaces the blinking cursor. */
+ * head sniffs next to "Loading the model…" / "The model is reading the
+ * page…". The line replaces the blinking cursor. */
 .message--progress::after {
   content: none;
 }
@@ -830,7 +830,7 @@ textarea {
   min-width: 0;
 }
 
-/* « Ce modèle réfléchit avant de répondre : c'est plus long. » */
+/* "This model thinks before answering: it takes longer." */
 .message-progress-hint {
   font-size: 0.9em;
 }
@@ -852,7 +852,7 @@ textarea {
   object-fit: contain;
 }
 
-/* « qwen3:8b ne tient pas entièrement dans la carte graphique… »: Coati's
+/* "qwen3:8b does not fully fit in the graphics card…": Coati's
  * own calm line, not an error (no --danger). */
 .message--notice {
   align-self: center;
@@ -947,7 +947,7 @@ textarea {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--fg);
-  /* amendement 2026-10-02 (goal-j2FJ-kI7): this class is now also used on
+  /* amendment 2026-10-02 (goal-j2FJ-kI7): this class is now also used on
      external <a> links (buildExternalLink(), panel.js) — same look as the
      buttons it shares the class with, never underlined/inline-link styling. */
   display: inline-block;
@@ -985,8 +985,8 @@ textarea {
   background: var(--bg);
 }
 
-/* One row, alone: the "Enregistré pour …" notice and the disquette. The
- * prompt list moved to "Mes prompts" (a later phase); the "Lire la page"
+/* One row, alone: the "Saved for …" notice and the disquette. The
+ * prompt list moved to "My prompts" (a later phase); the "Read page"
  * switch lives in the site card's head row (Lot 2, card.css). */
 .composer-bar {
   display: flex;
@@ -995,7 +995,7 @@ textarea {
   min-height: 28px;
 }
 
-/* Lot B3/F — "Joindre l'écran". Reuses the `.switch` class already styled
+/* Lot B3/F — "Attach the screen". Reuses the `.switch` class already styled
  * for #attachPage (card.css) — same widget, same look; only the row layout
  * and the destination line's own (muted, identity P24) color are new. */
 /* Lot F fix (admin review, 320px capture): was a single row, squeezing the

@@ -1,5 +1,5 @@
 // Pure-function fixtures for broker/src/admission.ts — docs/PROTOCOL.md
-// "Admission HTTP et WebSocket" (amendement 2026-09-25). Host allowlist and
+// "Admission HTTP et WebSocket" (amendment 2026-09-25). Host allowlist and
 // /proc/net/tcp[6] parsing/encoding, tested without touching the real
 // filesystem or a real socket — see server.ts's admitRequest for the thin
 // impure wrapper that reads /proc and calls process.getuid().

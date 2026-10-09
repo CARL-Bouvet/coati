@@ -59,7 +59,7 @@
     return { provider: "ollama", state: state, reason: reason };
   };
 
-  // Amendement 2026-10-07 — `models` replies (models.list).
+  // Amendment 2026-10-07 — `models` replies (models.list).
   var OLLAMA_OK = { provider: "ollama", state: "ok" };
   var MODELS_ONE_INSTALLED = {
     current: { provider: "ollama", model: null },
@@ -362,7 +362,7 @@
       permissions: ["https://www.youtube.com/*", "https://exemple-actu.fr/*"],
     },
 
-    // Amendement 2026-10-07: « Modèle » section fed by models.list — the
+    // Amendment 2026-10-07: « Modèle » section fed by models.list — the
     // Ollama models show while Claude answers; one click switches.
     "options-models": {
       status: "connected",
@@ -522,7 +522,7 @@
       permissions: ["https://www.youtube.com/*"],
     },
 
-    // Programme natif introuvable (G4, docs/PROTOCOL.md amendement
+    // Programme natif introuvable (G4, docs/PROTOCOL.md amendment
     // 2026-09-30) : même section ouverte d'office, texte de statut différent.
     "no-host": {
       status: "no-host",
@@ -540,7 +540,7 @@
       autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
     },
 
-    // Amendement 2026-10-02 (goal-j2FJ-kI7) — "Tester la connexion" réussit
+    // Amendment 2026-10-02 (goal-j2FJ-kI7) — "Tester la connexion" réussit
     // pour openai-compat mais le solde de crédit n'a pas pu être vérifié
     // (creditUnchecked: true) : ligne « connecté » + note secondaire
     // (renderTestResult, options_credit_unchecked). Fournisseur openai-compat /
@@ -566,7 +566,7 @@
       autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
     },
 
-    // Amendement 2026-10-02 (goal-j2FJ-kI7) — model-missing lors du test :
+    // Amendment 2026-10-02 (goal-j2FJ-kI7) — model-missing lors du test :
     // ce modèle n'est pas disponible sur le compte (code "model-missing").
     "provider-test-model-missing": {
       status: "connected",
@@ -579,7 +579,7 @@
       autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
     },
 
-    // Amendement 2026-10-02 (goal-j2FJ-kI7) — provider-overloaded lors du
+    // Amendment 2026-10-02 (goal-j2FJ-kI7) — provider-overloaded lors du
     // test : le fournisseur est surchargé (code "provider-overloaded").
     "provider-test-overloaded": {
       status: "connected",
@@ -592,7 +592,7 @@
       autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
     },
 
-    // Amendement 2026-10-02 (goal-j2FJ-kI7) — claude-cli : session expirée
+    // Amendment 2026-10-02 (goal-j2FJ-kI7) — claude-cli : session expirée
     // lors du test. renderTestResult spécialise le texte (options_claude_cli_
     // auth_required) et affiche la commande copiable « claude auth login
     // --claudeai » (CLAUDE_CLI_LOGIN_COMMAND).

@@ -92,7 +92,7 @@ describe("discoverDocSite", () => {
     expect(result.llmsText).toBe("# llms\n");
   });
 
-  test("repli sur le web (scope: null) when nothing answers at all", async () => {
+  test("falls back to web (scope: null) when nothing answers at all", async () => {
     allowAllLookup();
     __setFetchImplForTests(async () => new Response(null, { status: 404 }));
     const dataDir = makeTmpDir("coati-discover-");

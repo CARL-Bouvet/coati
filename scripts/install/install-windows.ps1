@@ -1,6 +1,6 @@
 # Installs a downloaded coati-broker.exe as both a per-user scheduled task
 # and the Native Messaging host on Windows (goal G4, docs/PROTOCOL.md
-# "Amendement 2026-09-30 : Native Messaging" - section "Windows"). Idempotent.
+# "Amendment 2026-09-30 : Native Messaging" - section "Windows"). Idempotent.
 # Never requires an elevated ("Run as administrator") shell.
 #
 #   scripts/install/install-windows.ps1 -Binary <path-to-coati-broker.exe> [options]
@@ -30,7 +30,7 @@ $ErrorActionPreference = "Stop"
 $HostName = "com.getcoati.broker"
 
 if (-not (Test-Path -LiteralPath $Binary -PathType Leaf)) {
-    Write-Error "Binaire introuvable : $Binary"
+    Write-Error "Binary not found: $Binary"
     exit 1
 }
 
@@ -67,11 +67,11 @@ if ($DryRun) {
     Write-Host "[dry-run] copy $Binary -> $BinDest"
 } else {
     Copy-Item -LiteralPath $Binary -Destination $BinDest -Force
-    Write-Host "Binaire installé : $BinDest"
+    Write-Host "Binary installed: $BinDest"
 }
 
-# Retire la marque "téléchargé depuis Internet" ; sans elle SmartScreen peut
-# bloquer le lancement par le navigateur sans message visible.
+# Remove the "downloaded from the Internet" mark; without this SmartScreen may
+# silently block the binary when the browser tries to launch it.
 if ($DryRun) {
     Write-Host "[dry-run] Unblock-File $BinDest"
 } else {
@@ -99,7 +99,7 @@ foreach ($pair in @(
         Write-Host "[dry-run] write $($pair.Dest)"
     } else {
         Set-Content -LiteralPath $pair.Dest -Value $content -NoNewline -Encoding UTF8
-        Write-Host "Manifeste écrit : $($pair.Dest)"
+        Write-Host "Manifest written: $($pair.Dest)"
     }
 }
 
@@ -120,10 +120,10 @@ foreach ($entry in $RegistryKeys) {
     }
     New-Item -Path $entry.Key -Force | Out-Null
     Set-ItemProperty -Path $entry.Key -Name "(default)" -Value $entry.Manifest
-    Write-Host "Registre : $($entry.Key) -> $($entry.Manifest)"
+    Write-Host "Registry: $($entry.Key) -> $($entry.Manifest)"
 }
 
-# Data dir ACL - docs/PROTOCOL.md "Windows", "ACL explicite". The broker's
+# Data dir ACL - docs/PROTOCOL.md, "ACL explicite". The broker's
 # data dir (broker-key.json, pairing.txt, etc.) is under the profile
 # (%USERPROFILE%\.local\share\coati) and already inherits a default ACL that
 # lets in only this user, SYSTEM and Administrators. In defense in depth, the
@@ -148,7 +148,7 @@ if ($DryRun) {
         /grant:r "*${SystemSid}:(OI)(CI)F" `
         /grant:r "*${AdministratorsSid}:(OI)(CI)F" | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "icacls a échoué (code $LASTEXITCODE) sur $DataDir"
+        Write-Error "icacls failed (exit code $LASTEXITCODE) on $DataDir"
         exit 1
     }
 
@@ -159,14 +159,14 @@ if ($DryRun) {
     } | Sort-Object -Unique
     $Unexpected = $ActualSids | Where-Object { $AllowedSids -notcontains $_ }
     if ($Unexpected) {
-        Write-Error "ACL de $DataDir contient des entrées inattendues après icacls : $($Unexpected -join ', ')"
+        Write-Error "ACL of $DataDir contains unexpected entries after icacls: $($Unexpected -join ', ')"
         exit 1
     }
-    Write-Host "ACL vérifiée : $DataDir -> $($ActualSids -join ', ')"
+    Write-Host "ACL verified: $DataDir -> $($ActualSids -join ', ')"
 }
 
 if ($NoService) {
-    Write-Step "tâche planifiée ignorée (-NoService)"
+    Write-Step "scheduled task skipped (-NoService)"
 } else {
     $TaskName = "CoatiBroker"
     if ($DryRun) {
@@ -179,9 +179,9 @@ if ($NoService) {
         Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
         Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings | Out-Null
         Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-        Write-Host "Tâche planifiée créée et démarrée : $TaskName"
+        Write-Host "Scheduled task created and started: $TaskName"
     }
 }
 
 Write-Host ""
-Write-Host "Installation terminée."
+Write-Host "Installation complete."

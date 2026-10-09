@@ -1,13 +1,12 @@
-// Client WebSocket minimal pour éprouver le broker sans passer par le navigateur.
+// Minimal WebSocket client to probe the broker without going through the browser.
 //
-// Sert à isoler les pannes : si ce script obtient une réponse et que l'extension
-// n'en obtient pas, le problème est côté extension, et réciproquement.
+// Useful to isolate failures: if this script gets an answer but the extension
+// doesn't, the problem is on the extension side, and vice versa.
 //
-// Lit la clé de broker (broker-key.json, amendement 2026-09-30 G4) et déroule
-// la poignée de main v: 2 en HMAC-SHA256 — voir docs/PROTOCOL.md "Poignée de
-// main `v: 2`".
+// Reads the broker key (broker-key.json, amendment 2026-09-30 G4) and runs
+// the v: 2 HMAC-SHA256 handshake — see docs/PROTOCOL.md.
 //
-// Usage: bun scripts/ws-probe.js "ma question"
+// Usage: bun scripts/ws-probe.js "my question"
 
 import { createHmac, randomBytes } from "node:crypto";
 
@@ -20,8 +19,8 @@ const dataDir = process.env.COATI_DATA_DIR ?? `${home}/.local/share/coati`;
 const keyFile = await Bun.file(`${dataDir}/broker-key.json`).json().catch(() => null);
 if (!keyFile?.key) {
   console.error(
-    `Aucune clé de broker lisible sous ${dataDir}/broker-key.json — le broker tourne-t-il ? ` +
-      "(docs/PROTOCOL.md « Clé de broker »)",
+    `No broker key readable at ${dataDir}/broker-key.json — is the broker running? ` +
+      "(docs/PROTOCOL.md \"Broker key\")",
   );
   process.exit(2);
 }
@@ -30,7 +29,7 @@ const key = Buffer.from(keyFile.key, "hex");
 const config = await Bun.file(`${home}/.config/coati/config.json`).json();
 const extensionId = config.allowedExtensionIds?.[0];
 if (!extensionId) {
-  console.error("Aucun allowedExtensionIds dans la config — le broker refusera l'Origin.");
+  console.error("No allowedExtensionIds in config — the broker will reject any Origin.");
   process.exit(2);
 }
 
@@ -38,21 +37,21 @@ function hmacHex(k, message) {
   return createHmac("sha256", k).update(message, "utf8").digest("hex");
 }
 
-const question = process.argv[2] ?? "Réponds exactement: PONG";
+const question = process.argv[2] ?? "Reply exactly: PONG";
 const ws = new WebSocket(`ws://127.0.0.1:${config.port ?? 8787}/ws`, {
   headers: { Origin: `chrome-extension://${extensionId}` },
 });
 
 let answer = "";
 const timeout = setTimeout(() => {
-  console.error("\nTIMEOUT après 90 s — aucun terminal reçu.");
+  console.error("\nTIMEOUT after 90 s — no terminal message received.");
   process.exit(1);
 }, 90000);
 
 const cNonce = randomBytes(32).toString("hex");
 
 ws.onopen = () => {
-  console.error("→ connecté, envoi du hello (v: 2)");
+  console.error("→ connected, sending hello (v: 2)");
   ws.send(JSON.stringify({ type: "hello", v: 2, nonce: cNonce }));
 };
 
@@ -61,7 +60,7 @@ ws.onmessage = (ev) => {
   if (msg.type === "challenge") {
     const expectedBrokerProof = hmacHex(key, `coati-v2-broker:${cNonce}:${msg.nonce}`);
     if (msg.proof !== expectedBrokerProof) {
-      console.error("← challenge: preuve du broker invalide — clé périmée ou broker usurpé. Abandon.");
+      console.error("← challenge: invalid broker proof — key mismatch or broker impersonation. Aborting.");
       ws.close();
       process.exit(1);
     }
@@ -81,7 +80,7 @@ ws.onmessage = (ev) => {
   }
   if (msg.type === "done") {
     clearTimeout(timeout);
-    console.error(`\n← done (${answer.length} caractères, usage ${JSON.stringify(msg.usage)})`);
+    console.error(`\n← done (${answer.length} chars, usage ${JSON.stringify(msg.usage)})`);
     ws.close();
     process.exit(0);
   }
@@ -95,7 +94,7 @@ ws.onmessage = (ev) => {
 
 ws.onclose = (ev) => {
   if (ev.code !== 1000) {
-    console.error(`\nFermeture ${ev.code}: ${ev.reason}`);
+    console.error(`\nClosed ${ev.code}: ${ev.reason}`);
     process.exit(1);
   }
 };

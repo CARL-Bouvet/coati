@@ -1,8 +1,8 @@
 // Native Messaging call to the local host (extension/lib/native-host.js) —
-// docs/PROTOCOL.md amendement 2026-09-30, "Cadrage et échange avec l'hôte".
+// docs/PROTOCOL.md amendment 2026-09-30, "Cadrage et échange avec l'hôte".
 // `api.runtime.sendNativeMessage` is mocked here; the real browser API is
 // exercised by the broker-side simulated-handshake test plan (see
-// PROTOCOL.md "Poignée de main Native Messaging simulée"), out of scope for
+// PROTOCOL.md), out of scope for
 // a `bun test` unit test.
 import { describe, expect, test } from "bun:test";
 import { requestBrokerKeyFromHost, NATIVE_HOST_NAME } from "../../extension/lib/native-host.js";

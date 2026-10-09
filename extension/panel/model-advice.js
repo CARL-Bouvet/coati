@@ -1,7 +1,7 @@
 // Slow local model advice (plan-ollama-rapide-07-10.md, points 3, 4 and 6):
-// the « Chargement du modèle… » / « Le modèle lit la page… » line shown in
+// the "Loading the model…" / "The model is reading the page…" line shown in
 // the pending answer before its first word, the calm line shown when a
-// « partagé » model is picked, and the tip under a slow or cut answer.
+// "shared" model is picked, and the tip under a slow or cut answer.
 //
 // No i18n import on purpose (same as lib/model-list.js): the pure helpers
 // are unit-tested under bun, and the builders receive `t` from panel.js.
@@ -13,7 +13,7 @@ import { bestGpuModel, isSlowLocalModel, sameModel, shortModelName } from "../li
  * earns the tip under the answer. */
 export const SLOW_FIRST_WORD_MS = 30_000;
 
-/** Options page anchor of the « Accélérer Ollama » block (options.js). */
+/** Options page anchor of the "Speed up Ollama" block (options.js). */
 export const OLLAMA_SPEEDUP_PATH = "options.html#setup-ollama-speedup";
 
 /** The sniffing coati (WebP/still PNG) shows for at most this long per
@@ -35,7 +35,7 @@ export function readProgressStage(stage) {
 }
 
 /** Locale key of the waiting line. `readsPage`: the request carries the
- * page (summarize, chat with the page attached) — else « votre demande ». */
+ * page (summarize, chat with the page attached) — else "your request". */
 export function progressKey(stage, readsPage) {
   if (stage === "loading") return "panel_progress_loading";
   if (stage === "thinking") return "panel_progress_thinking";
@@ -65,8 +65,8 @@ export function isSlowFirstWord(elapsedMs, entry) {
   return elapsedMs > SLOW_FIRST_WORD_MS && isSlowLocalModel(entry);
 }
 
-/** « qwen3:8b ne tient pas entièrement dans la carte graphique : il sera
- * lent. qwen3:4b y tient. » — second sentence only when a model fits. */
+/** "qwen3:8b doesn't fully fit in the graphics card: it will be slow.
+ * qwen3:4b fits." — second sentence only when an alternative model fits. */
 export function sharedModelNoticeText(entry, grouped, t) {
   const first = t("panel_shared_model_note", [shortModelName(entry.model)]);
   const alt = alternativeTo(entry, grouped);
@@ -110,8 +110,8 @@ export function buildProgress(doc, { stage, readsPage, t, iconSrc, iconStillSrc,
 }
 
 /**
- * The tip under the answer: one sentence, then « Passer à … » (when a model
- * fits) and « Accélérer Ollama ».
+ * The tip under the answer: one sentence, then "Switch to …" (when a model
+ * fits) and "Speed up Ollama".
  * @param {{suggest: string|null}} tip
  * @param {{t: Function, onSwitch: (model: string) => void, onSpeedup: () => void, canSwitch: boolean}} opts
  */

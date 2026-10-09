@@ -11,11 +11,11 @@
 // chrome.storage.local key and default — shared by panel.js (reads it to
 // filter the conversation on load) and options.js (the settings UI that
 // writes it). Single source of truth (KISS audit 2026-09-26, item 9).
-export const RETENTION_DAYS_KEY = "coati:retentionDays"; // number of days, or null for "jamais"
+export const RETENTION_DAYS_KEY = "coati:retentionDays"; // number of days, or null for "never"
 export const DEFAULT_RETENTION_DAYS = 30;
 
 /** Reads back what `api.storage.local.get(RETENTION_DAYS_KEY)` returned:
- * `null` ("jamais", stored deliberately) and a finite number both pass
+ * `null` ("never", stored deliberately) and a finite number both pass
  * through as-is; anything else (never set, corrupted) falls back to the
  * default.
  * @param {number|null|undefined} stored
@@ -28,7 +28,7 @@ export function parseStoredRetentionDays(stored) {
 /**
  * @param {Array<{id: string, ts?: number}>} messages
  * @param {number|null} retentionDays - number of days to keep messages for.
- *   `null` (or any value <= 0) means "jamais" — never expire.
+ *   `null` (or any value <= 0) means "never" — never expire.
  * @param {number} [now] - epoch ms, injected for testability. Defaults to
  *   Date.now().
  * @returns {Array} a new array: untimestamped messages stamped with `now`,

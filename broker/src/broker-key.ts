@@ -1,7 +1,7 @@
-// The broker key (docs/PROTOCOL.md "Clé de broker") and the legacy-mode
-// permanent pairing secret S ("Mode hérité : legacyPairing") — amendement
+// The broker key (docs/PROTOCOL.md) and the legacy-mode
+// permanent pairing secret S ("Legacy mode: legacyPairing") — amendment
 // 2026-09-30 (G4). Both are 32-byte keys used as HMAC-SHA256 keys in the
-// v: 2 handshake ("Poignée de main v: 2"); this module owns their
+// v: 2 handshake ("Handshake v: 2"); this module owns their
 // generation, on-disk format, file hardening, and the HMAC/compare helpers
 // the handshake needs. Never logs a key or a proof.
 
@@ -17,7 +17,7 @@ export const PAIRING_SECRET_FILENAME = "pairing-secret";
 export const KEY_BYTES = 32;
 
 /** `^[0-9a-f]{64}$` — every nonce and proof on the wire is checked against
- * this BEFORE any hex decoding (docs/PROTOCOL.md "Poignée de main v: 2"): a
+ * this BEFORE any hex decoding (docs/PROTOCOL.md): a
  * value that doesn't match is an immediate failure, never an exception. */
 export const HEX64_RE = /^[0-9a-f]{64}$/;
 
@@ -77,7 +77,7 @@ export function hexToKey(hex: string): Buffer | undefined {
 /**
  * Writes broker-key.json, atomically, 0600, in a hardened 0700 dataDir. Must
  * only be called AFTER the broker has successfully bound its port
- * (docs/PROTOCOL.md: "seulement après que l'écoute sur le port a réussi") —
+ * (docs/PROTOCOL.md: "only after the port listen has succeeded") —
  * callers (server.ts) are responsible for that ordering.
  */
 export function writeBrokerKeyFile(dirs: Pick<Dirs, "dataDir">, key: Buffer, pid: number, startedAt: string): void {
@@ -87,7 +87,7 @@ export function writeBrokerKeyFile(dirs: Pick<Dirs, "dataDir">, key: Buffer, pid
 }
 
 /** True iff a process with this pid is alive AND belongs to the same OS
- * account as the caller — docs/PROTOCOL.md "Hôte natif": `process.kill(pid,
+ * account as the caller — docs/PROTOCOL.md: `process.kill(pid,
  * 0)` failing with either ESRCH (no such process) or EPERM (a process exists
  * but under another account) both mean "not our broker". Never throws. */
 export function isSameAccountProcessAlive(pid: number): boolean {
@@ -144,7 +144,7 @@ export function readBrokerKeyFile(dirs: Pick<Dirs, "dataDir">): ReadBrokerKeyRes
 }
 
 /** Deletes broker-key.json on clean shutdown (SIGTERM/SIGINT), but ONLY if
- * the file's own `pid` still matches `pid` — docs/PROTOCOL.md "Effacement".
+ * the file's own `pid` still matches `pid` — docs/PROTOCOL.md.
  * Never throws (best-effort — a broker exiting must not crash on this). */
 export function deleteBrokerKeyFileIfOwned(dirs: Pick<Dirs, "dataDir">, pid: number): void {
   const path = brokerKeyPath(dirs);
@@ -160,7 +160,7 @@ export function deleteBrokerKeyFileIfOwned(dirs: Pick<Dirs, "dataDir">, pid: num
 
 /**
  * Loads the legacy-mode permanent pairing secret S, creating it (32 random
- * bytes, hardened dir + file) if absent — docs/PROTOCOL.md "Mode hérité":
+ * bytes, hardened dir + file) if absent — docs/PROTOCOL.md:
  * created once, at the first need (--show-pairing-secret, or first startup
  * with legacyPairing: true). Callers gate this on legacyPairing themselves —
  * this function has no opinion on the flag.
@@ -199,7 +199,7 @@ export function loadOrCreatePairingSecret(dirs: Pick<Dirs, "dataDir">): Buffer {
 }
 
 /** Deletes the legacy pairing-secret file if present — called at broker
- * startup when `legacyPairing` is off (docs/PROTOCOL.md "Mode hérité"; final
+ * startup when `legacyPairing` is off (docs/PROTOCOL.md; final
  * security review): a secret left over from a previous run with
  * `legacyPairing: true` must not keep sitting on disk, readable, once the
  * operator has turned the mode off. Logs exactly one line when it actually
@@ -238,7 +238,7 @@ export function extensionProof(key: Buffer, cNonce: string, bNonce: string): str
  * Constant-time-safe comparison of two hex strings representing the wire
  * values of the v: 2 handshake (nonces, proofs). Validates BOTH against
  * HEX64_RE before decoding — an invalid shape is an immediate `false`, never
- * an exception (docs/PROTOCOL.md: "ne lève jamais"). Only ever compares two
+ * an exception (docs/PROTOCOL.md: "never throws"). Only ever compares two
  * equal-length (32-byte) buffers through timingSafeEqual.
  */
 export function safeEqualHex(a: string, b: string): boolean {

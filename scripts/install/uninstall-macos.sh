@@ -32,7 +32,7 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     *)
-      echo "Option inconnue : $1" >&2
+      echo "Unknown option: $1" >&2
       exit 1
       ;;
   esac
@@ -41,7 +41,7 @@ done
 PLIST_DEST="$PREFIX/Library/LaunchAgents/com.getcoati.broker.plist"
 
 if [ "$NO_SERVICE" = "1" ]; then
-  say "$DRY_RUN" "agent launchd ignoré (--no-service)"
+  say "$DRY_RUN" "launchd agent skipped (--no-service)"
   remove_file "$DRY_RUN" "$PLIST_DEST"
 else
   if [ "$DRY_RUN" = "1" ]; then
@@ -57,4 +57,4 @@ remove_file "$DRY_RUN" "$PREFIX/Library/Application Support/Coati/coati-broker"
 uninstall_manifests macos "$PREFIX" "$DRY_RUN"
 
 echo
-echo "Désinstallation terminée."
+echo "Uninstallation complete."

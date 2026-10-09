@@ -1,4 +1,4 @@
-// Tests for models.list (amendement 2026-10-07):
+// Tests for models.list (amendment 2026-10-07):
 //   - models.list with a non-ollama active provider still lists Ollama models
 //   - embedding-only model (capabilities without "completion") is filtered out
 //   - unreachable Ollama → sources state "unreachable", no crash
@@ -272,7 +272,7 @@ describe("lastModels — per-provider model memory", () => {
     expect(cfg.lastModels?.["ollama"]).toBe("llama3.2");
   });
 
-  // Amendement 2026-10-07 bis — bug report: "modèle configuré absent
+  // Amendment 2026-10-07 bis — bug report: "modèle configuré absent
   // d'Ollama" shown even though the model was installed, because switching
   // AWAY from a provider before it ever had a model recorded in lastModels
   // lost that model for good.

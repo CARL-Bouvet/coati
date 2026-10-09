@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Installs a downloaded coati-broker binary as both the systemd user service
-# and the Native Messaging host (goal G4, docs/PROTOCOL.md "Amendement
+# and the Native Messaging host (goal G4, docs/PROTOCOL.md
 # 2026-09-30 : Native Messaging"). Idempotent: rerunning overwrites the same
 # files with the same content, never duplicates anything.
 #
@@ -22,7 +22,7 @@
 set -euo pipefail
 
 if [ "$(id -u)" -eq 0 ]; then
-  echo "Erreur : ce script ne doit pas être lancé en root (et n'appelle jamais sudo)." >&2
+  echo "Error: this script must not be run as root (and never calls sudo)." >&2
   exit 1
 fi
 
@@ -59,12 +59,12 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     -*)
-      echo "Option inconnue : $1" >&2
+      echo "Unknown option: $1" >&2
       exit 1
       ;;
     *)
       if [ -n "$BINARY" ]; then
-        echo "Un seul chemin de binaire attendu (déjà : $BINARY)" >&2
+        echo "Only one binary path expected (already set: $BINARY)" >&2
         exit 1
       fi
       BINARY="$1"
@@ -78,7 +78,7 @@ if [ -z "$BINARY" ]; then
   exit 1
 fi
 if [ ! -f "$BINARY" ]; then
-  echo "Erreur : binaire introuvable : $BINARY" >&2
+  echo "Error: binary not found: $BINARY" >&2
   exit 1
 fi
 
@@ -91,11 +91,11 @@ if [ "$DRY_RUN" = "1" ]; then
 else
   cp "$BINARY" "$BIN_DEST"
   chmod 0755 "$BIN_DEST"
-  echo "Binaire installé : $BIN_DEST"
+  echo "Binary installed: $BIN_DEST"
 fi
 
 if [ "$NO_SERVICE" = "1" ]; then
-  say "$DRY_RUN" "service systemd ignoré (--no-service)"
+  say "$DRY_RUN" "systemd service skipped (--no-service)"
 else
   UNIT_SRC="$REPO_ROOT/packaging/coati-broker-binary.service"
   SYSTEMD_DIR="$PREFIX/.config/systemd/user"
@@ -103,7 +103,7 @@ else
   ensure_dir "$DRY_RUN" "$SYSTEMD_DIR" 0755
   RENDERED="$(replace_literal @@BINARY_PATH@@ "$(systemd_escape "$BIN_DEST")" < "$UNIT_SRC")"
   write_file "$DRY_RUN" "$UNIT_DEST" "$RENDERED" 0644
-  say "$DRY_RUN" "unité systemd écrite : $UNIT_DEST"
+  say "$DRY_RUN" "systemd unit written: $UNIT_DEST"
 
   if [ "$DRY_RUN" = "1" ]; then
     echo "[dry-run] systemctl --user daemon-reload"
@@ -114,15 +114,15 @@ else
     # systemd session. Use --no-service under --prefix (tests, CI).
     systemctl --user daemon-reload
     systemctl --user enable --now coati-broker
-    echo "Service systemd activé et démarré."
+    echo "systemd service enabled and started."
   fi
 fi
 
 install_manifests linux "$PREFIX" "$ALL" "$DRY_RUN" "$BIN_DEST"
 
 echo
-echo "Installation terminée."
+echo "Installation complete."
 if [ "$NO_SERVICE" = "1" ]; then
-  echo "Service systemd non installé (--no-service) : lancer le broker manuellement,"
-  echo "ou relancer sans --no-service."
+  echo "systemd service not installed (--no-service): start the broker manually,"
+  echo "or re-run without --no-service."
 fi

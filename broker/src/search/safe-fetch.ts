@@ -7,7 +7,7 @@
 // search engine or read from an llms.txt file — is attacker-influenceable in
 // principle (a malicious or compromised search index, a doc site that
 // redirects somewhere unexpected), so it goes through safeFetch(), which
-// enforces docs/PROTOCOL.md "Consulter la doc officielle" / "SSRF":
+// enforces docs/PROTOCOL.md:
 //
 //  - https:// only, never http:// (a plain downgrade would also leak nothing
 //    since no secret is ever attached to these requests, but it's one less

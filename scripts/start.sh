@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Démarre le broker Coati et rappelle comment brancher l'extension.
+# Starts the Coati broker and reminds how to connect the extension.
 #
-#   ./scripts/start.sh          # démarre en tâche de fond
-#   ./scripts/start.sh --stop   # arrête
-#   ./scripts/start.sh --log    # suit le journal
+#   ./scripts/start.sh          # start in the background
+#   ./scripts/start.sh --stop   # stop
+#   ./scripts/start.sh --log    # follow the log
 
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -15,7 +15,7 @@ KEY_FILE="$HOME/.local/share/coati/broker-key.json"
 case "${1:-}" in
   --stop)
     pgrep -f "broker/src/server.ts" | head -1 | xargs -r kill -TERM
-    # Amendement 2026-10-02 (goal-j2FJ-kI7): wait for the process to actually
+    # Amendment 2026-10-02 (goal-j2FJ-kI7): wait for the process to actually
     # exit before returning, up to ~10s — a caller that restarts right after
     # --stop (tests, dev workflow) must never race the old process still
     # holding the port/socket.
@@ -24,10 +24,10 @@ case "${1:-}" in
       sleep 0.5
     done
     if pgrep -f "broker/src/server.ts" > /dev/null; then
-      echo "Broker toujours en cours après 10 s d'attente." >&2
+      echo "Broker still running after 10 s." >&2
       exit 1
     fi
-    echo "Broker arrêté."
+    echo "Broker stopped."
     exit 0
     ;;
   --log)
@@ -37,7 +37,7 @@ case "${1:-}" in
 esac
 
 if pgrep -f "broker/src/server.ts" > /dev/null; then
-  echo "Le broker tourne déjà. (--stop pour l'arrêter)"
+  echo "Broker already running. (--stop to stop it)"
 else
   setsid --fork bun broker/src/server.ts > "$LOG" 2>&1 < /dev/null
   sleep 2
@@ -45,15 +45,15 @@ else
 fi
 
 echo
-echo "Pour brancher l'extension :"
-echo "  1. chrome://extensions → mode développeur → « Charger l'extension non empaquetée »"
+echo "To connect the extension:"
+echo "  1. chrome://extensions → developer mode → Load unpacked extension"
 echo "     → $PWD/extension"
-echo "  2. Relever l'identifiant affiché, et l'ajouter à $CONFIG"
-echo "     dans \"allowedExtensionIds\" (le broker refuse toute autre origine)."
-echo "  3. Une fois : bash scripts/dev-native-host.sh (déclare le programme natif"
-echo "     au navigateur ; l'extension obtient alors la clé du broker d'elle-même)."
+echo "  2. Copy the displayed extension ID and add it to $CONFIG"
+echo "     under \"allowedExtensionIds\" (the broker rejects every other origin)."
+echo "  3. Once: bash scripts/dev-native-host.sh (registers the native host"
+echo "     with the browser; the extension then fetches the broker key itself)."
 if [ -f "$KEY_FILE" ]; then
-  echo "     Clé du broker présente : $KEY_FILE"
+  echo "     Broker key present: $KEY_FILE"
 else
-  echo "     (la clé est écrite dans $KEY_FILE quand le broker écoute)"
+  echo "     (the key is written to $KEY_FILE when the broker is listening)"
 fi

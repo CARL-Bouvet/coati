@@ -1,9 +1,9 @@
 // Readable-text extraction for a fetched documentation page — Bun's built-in
 // HTMLRewriter (lol-html), zero dependency (CLAUDE.md: "pas de bundler, pas de
-// dépendance de build" unless a real need — the broker already relies on
+// no build dependency" unless a real need — the broker already relies on
 // Bun's own runtime, this is the same contract). Strips `script`, `style`,
-// `nav`, `footer` and `noscript` content — docs/PROTOCOL.md "Consulter la
-// doc officielle": "texte hors script/style/nav/footer". Everything that
+// `nav`, `footer` and `noscript` content — docs/PROTOCOL.md
+// docs": "text outside script/style/nav/footer". Everything that
 // comes out of this function is PAGE CONTENT — a data value, never treated
 // as instructions by anything downstream (model.ts fences it exactly like
 // any other page text — see doc-search.ts).

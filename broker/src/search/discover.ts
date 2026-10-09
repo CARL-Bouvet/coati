@@ -1,6 +1,6 @@
 // Finds a site's official documentation host, so a later search can be
 // scoped to it (`site:help.kling.ai …`) instead of the open web —
-// docs/PROTOCOL.md "Consulter la doc officielle", step 1. Cached 7 days per
+// docs/PROTOCOL.md, step 1. Cached 7 days per
 // registrable domain in `~/.local/share/coati/doc-sites.json` (dataDir —
 // never config.json: this is NOT a secret, docs/PROTOCOL.md says so
 // explicitly). Bounded to ≤ 5 outgoing requests per (uncached) discovery: a
@@ -21,7 +21,7 @@ const DISCOVERY_REQUEST_TIMEOUT_MS = 3000;
 
 export interface DocSiteResult {
   /** Hostname search should be scoped to (e.g. "help.kling.ai"), or null —
-   * "repli sur le web": no doc host found at all, docs/PROTOCOL.md §7. */
+   * "repli sur le web": no doc host found at all, docs/PROTOCOL.md. */
   scope: string | null;
   /** Content of `/llms.txt` when found on the scope (or on the plain site
    * when no subdomain answered), undefined otherwise. */

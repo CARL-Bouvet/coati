@@ -2,7 +2,7 @@
 # Installs the Native Messaging host for a source checkout of Coati — no
 # compiled binary needed, unlike scripts/install/install-*.sh. Writes a tiny
 # launcher script that runs the broker from source in host mode ("Lanceur"
-# in docs/PROTOCOL.md, "Amendement 2026-09-30 : Native Messaging"), then
+# in docs/PROTOCOL.md,), then
 # registers it for Brave (default) — the browser used during development —
 # or every existing Chromium-family / Firefox dir with --all.
 #
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 if [ "$(id -u)" -eq 0 ]; then
-  echo "Erreur : ce script ne doit pas être lancé en root (et n'appelle jamais sudo)." >&2
+  echo "Error: this script must not be run as root (and never calls sudo)." >&2
   exit 1
 fi
 
@@ -33,7 +33,7 @@ for arg in "$@"; do
     --uninstall) UNINSTALL=1 ;;
     --dry-run) DRY_RUN=1 ;;
     *)
-      echo "Option inconnue : $arg" >&2
+      echo "Unknown option: $arg" >&2
       exit 1
       ;;
   esac
@@ -45,13 +45,13 @@ LAUNCHER="$DEV_DIR/coati-native-host.sh"
 if [ "$UNINSTALL" = "1" ]; then
   remove_file "$DRY_RUN" "$LAUNCHER"
   uninstall_manifests linux "$HOME" "$DRY_RUN"
-  echo "Désinstallation de l'hôte natif de développement terminée."
+  echo "Development native host uninstalled."
   exit 0
 fi
 
 BUN_BIN="$(command -v bun || true)"
 if [ -z "$BUN_BIN" ]; then
-  echo "Erreur : bun introuvable dans le PATH." >&2
+  echo "Error: bun not found in PATH." >&2
   exit 1
 fi
 
@@ -66,7 +66,7 @@ LAUNCHER_CONTENT="#!/bin/sh
 $(printf 'exec %q %q --native-host "$@"\n' "$BUN_BIN" "$PROJECT_ROOT/broker/src/server.ts")
 "
 write_file "$DRY_RUN" "$LAUNCHER" "$LAUNCHER_CONTENT" 0700
-say "$DRY_RUN" "lanceur écrit : $LAUNCHER"
+say "$DRY_RUN" "launcher written: $LAUNCHER"
 
 if [ "$ALL" = "1" ]; then
   # Every existing Chromium-family / Firefox dir, same as the distributed
@@ -78,11 +78,11 @@ else
   BRAVE_NMH_DIR="$HOME/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts"
   ensure_dir "$DRY_RUN" "$BRAVE_NMH_DIR" 0700
   write_file "$DRY_RUN" "$BRAVE_NMH_DIR/$HOST_NAME.json" "$(render_manifest chromium "$LAUNCHER")" 0644
-  say "$DRY_RUN" "manifeste écrit pour Brave : $BRAVE_NMH_DIR/$HOST_NAME.json"
+  say "$DRY_RUN" "manifest written for Brave: $BRAVE_NMH_DIR/$HOST_NAME.json"
 fi
 
 echo
-echo "Installation de l'hôte natif de développement terminée."
+echo "Development native host installed."
 if [ "$ALL" != "1" ]; then
-  echo "Seul Brave a été enregistré. --all pour tous les navigateurs présents."
+  echo "Only Brave was registered. Use --all for every present browser."
 fi

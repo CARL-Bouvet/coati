@@ -1,5 +1,5 @@
 // Pure helpers of extension/lib/model-list.js (goal « modèle visible »,
-// amendement 2026-10-07 of docs/PROTOCOL.md). The DOM renderer itself is
+// amendment 2026-10-07 of docs/PROTOCOL.md). The DOM renderer itself is
 // exercised by the lab states `model-menu-*` and the Chromium e2e.
 import { describe, expect, test } from "bun:test";
 import {

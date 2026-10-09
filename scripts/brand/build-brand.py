@@ -791,35 +791,34 @@ Autres paires vérifiées : libellé du bouton sur le caramel ({_fr(_contrast(li
 
 
 def build_lisezmoi() -> None:
-    content = """# Identité Coati — dossier `docs/logo/coati/`
+    content = """# Coati identity — `docs/logo/coati/` folder
 
-Tout ce dossier sort d'un seul script, à partir du logo maître `coati.svg` et de la police
-Figtree. Le script recadre, recolore et compose avec du texte ; il ne dessine rien.
+Everything in this folder comes out of a single script, from the master logo (`coati.svg`) and
+the Figtree font. The script crops, recolours, and composes with text; it draws nothing.
 
-## Reconstruire
+## Rebuild
 `.tmp/brand-venv/bin/python3 scripts/brand/build-brand.py`
 
-## Contenu
-- `coati.svg`, `coati-512.png` : logo maître, pour fond clair. Ne pas modifier.
-- `police/` : Figtree et sa licence OFL.
-- `mot/` : logotype « Coati » seul, assemblages logo + nom (horizontal, vertical).
-- `icones/` : versions monochromes, icônes de 16 à 128 px, icône de boutique.
-- `publications/` : tuile, bannière, aperçu GitHub, image de partage (français et anglais),
-  avatar.
+## Contents
+- `coati.svg`, `coati-512.png`: master logo, for a light background. Do not edit.
+- `police/`: Figtree font and its OFL licence.
+- `mot/`: "Coati" logotype alone, logo + name assemblies (horizontal, vertical).
+- `icones/`: monochrome variants, icons from 16 to 128 px, store icon.
+- `publications/`: tile, banner, GitHub preview, share image (French and English), avatar.
 
-## Provisoire, en attente d'un dessin Kling
-- **Tout ce qui sert sur fond sombre** (fichiers `-negatif` et `-sombre`) : obtenu en recolorant
-  le logo, contours noirs passés en blanc. Refusé le 27/09 ; sera refait à partir d'une version
-  sombre dessinée sans contour.
-- **Icônes de barre d'outils** (`icon16`, `icon32`) : réduction du logo, illisible à cette
-  taille. Seront refaites à partir d'une icône simplifiée dessinée par Kling.
-- **Versions à une seule couleur** (`coati-mono-*`) : obtenues par seuil de luminosité, elles
-  perdent le visage (masque, œil). À redessiner aussi.
+## Provisional, pending a Kling drawing
+- **Everything for a dark background** (`-negatif` and `-sombre` files): obtained by
+  recolouring the logo, black outlines turned white. Rejected on 2026-09-27; will be redone from
+  a dark version drawn without an outline.
+- **Toolbar icons** (`icon16`, `icon32`): the logo shrunk down, illegible at that size. Will be
+  redone from a simplified icon drawn by Kling.
+- **Single-colour variants** (`coati-mono-*`): obtained by a luminosity threshold, they lose the
+  face (mask, eye). Also to be redrawn.
 
-## Couleurs
-Notes de palette et planche de référence : dans le dépôt de design privé (hors de ce dépôt).
+## Colours
+Palette notes and the reference board: in the private design repo (outside this repo).
 """
-    (OUT / "LISEZMOI.md").write_text(content, encoding="utf-8")
+    (OUT / "README.md").write_text(content, encoding="utf-8")
 
 
 def _font(weight: str, size: int):

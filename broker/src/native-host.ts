@@ -1,5 +1,5 @@
-// Native Messaging host — docs/PROTOCOL.md "Hôte natif : lancement et
-// détection" / "Cadrage et échange avec l'hôte" (amendement 2026-09-30, G4).
+// Native Messaging host — docs/PROTOCOL.md
+// / "Framing and exchange with the host" (amendment 2026-09-30, G4).
 // Same executable as the broker (server.ts dispatches here before anything
 // else when process.argv matches — see isNativeHostInvocation); also runnable
 // standalone (`bun run src/native-host.ts <args>`, this file's own
@@ -41,7 +41,7 @@ function looksLikePathArg(arg: string): boolean {
 export type CallerVerification = { ok: true } | { ok: false };
 
 /**
- * Defense in depth (docs/PROTOCOL.md "Contrôle de l'appelant") — the browser
+ * Defense in depth (docs/PROTOCOL.md) — the browser
  * has already checked the caller before launching this process at all
  * (`allowed_origins`/`allowed_extensions`). This only protects against a
  * direct invocation of the executable, outside any browser:

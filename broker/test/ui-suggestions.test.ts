@@ -1,8 +1,8 @@
 // Tests for extension/lib/suggestions.js and suggestions-data.js.
 // Run with: cd broker && bun test test/ui-suggestions.test.ts
 //
-// Amendement 2026-09-28 ("Mes prompts par site"): rewritten for the five-site,
-// no-generic-fallback data (docs/DECISIONS.md T30 amendement, T31).
+// Amendment 2026-09-28 ("Mes prompts par site"): rewritten for the five-site,
+// no-generic-fallback data (docs/DECISIONS.md T30 amendment, T31).
 import { describe, expect, test } from "bun:test";
 import { suggestionsFor, siteKeyFor } from "../../extension/lib/suggestions.js";
 import { SITES, permissionPatternsFor } from "../../extension/lib/suggestions-data.js";

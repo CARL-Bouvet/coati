@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // scripts/ci/extension-e2e.mjs — goal G4, "CI end to end": loads the built,
 // unpacked Chrome/Brave extension (dist/stage/chrome — pinned ID via
-// extension/manifest.json's "key", see docs/PROTOCOL.md "Poignée de main")
+// extension/manifest.json's "key", see docs/PROTOCOL.md)
 // in a real Chromium via Playwright, wires the Native Messaging host
 // manifest for a throwaway --user-data-dir, starts the broker on the REAL,
-// fixed port 8787 (docs/PROTOCOL.md "Transport" — the extension's CSP
+// fixed port 8787 (docs/PROTOCOL.md — the extension's CSP
 // hard-codes it, COATI_PORT would make it refuse to connect) with a temp
 // HOME and the fake provider module fixture, opens the panel page, sends a
 // chat message, and asserts the fake provider's answer shows up and the

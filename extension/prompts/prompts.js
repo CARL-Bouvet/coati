@@ -21,7 +21,7 @@ applyI18n(document);
 // recorded in the mission report.
 const ARM_TIMEOUT_MS = 4000;
 
-// --- "Tous les sites" (docs/DECISIONS.md T42, amendement 2026-09-30 bis) ---
+// --- "All sites" (docs/DECISIONS.md T42, amendment 2026-09-30 bis) ---
 // User-facing strings grouped here, from _locales/<lang>/messages.json.
 // A mutable object rather than a fresh const so U1's live language switch
 // (onLanguageChange below) can refresh it in place — every reader
@@ -42,14 +42,14 @@ const els = {
 };
 
 // True while the optional "all sites" host permission is held (granted from
-// the panel's "Lire cette page" button, T50). A per-site pattern can't be
+// the panel's "Read this page" button, T50). A per-site pattern can't be
 // removed from under that broader grant, so the per-site switches then show
 // "on", locked, and the one way back is the notice's own button.
 let allSitesGranted = false;
 
 // --- State -------------------------------------------------------------
 // `prompts`/`prefsSites` mirror the broker exactly (docs/PROTOCOL.md
-// "Bibliothèque de prompts et préférences par site") — every reducer below
+// "Prompt library and per-site preferences") — every reducer below
 // reads from these two and writes through a coati:client-message; the actual
 // mutation only lands once the corresponding broadcast comes back in
 // onRuntimeMessage(), which is also what every OTHER open Coati page
@@ -167,8 +167,8 @@ function applyStatus(state) {
 }
 
 // Same two states, same wording style as options.js's disconnected model
-// section ("Broker non connecté — impossible d'afficher ou de changer le
-// fournisseur de modèle.") — this page has nothing to show or edit without
+// section ("Local program not connected — cannot show or change the
+// model provider.") — this page has nothing to show or edit without
 // the broker either.
 function applyConnectionBanner(state) {
   if (state === "no-token") {
@@ -246,10 +246,10 @@ function buildRowsList(siteKey, items) {
   return list;
 }
 
-// Head case (plan-activation-28-09.md, "Points tranchés" 1, Romain's
+// Head case (plan-activation-28-09.md, "Settled points" 1, Romain's
 // correction at goal launch): full board width, coloured background, NO
 // case title of its own — two parts instead:
-//   - "*" ("Sur tous les sites"): the only heading in the case, always
+//   - "*" ("On all sites"): the only heading in the case, always
 //     shown (heading + muted empty line when empty, same as any other
 //     always-shown case);
 //   - "@unsorted" (prompts saved on a page whose address Coati couldn't
@@ -333,10 +333,10 @@ function buildCaseElement(descriptor, items) {
   return section;
 }
 
-// --- "Actif" switch (plan-activation-28-09.md, "Points tranchés" 2) -------
+// --- "Active" switch (plan-activation-28-09.md, "Settled points" 2) -------
 // One per SITE case (popular or user's own) — never in the head case, which
 // has no single site key to activate. Same `role="switch"` button shape as
-// the panel's "Lire la page" (extension/panel/panel.html:36-39), duplicated
+// the panel's "Read page" (extension/panel/panel.html:36-39), duplicated
 // rather than imported: this page has no build step to share a partial
 // (same rationale as prompts.css's .connection-banner comment).
 
@@ -443,7 +443,7 @@ function buildRowElement(caseKey, item, index, total) {
   const isAction = item.kind === "coati" && Boolean(item.action);
   let label;
   if (isAction) {
-    // YouTube's "Résumer cette vidéo" — not a stored prompt, nothing to
+    // YouTube's "Summarize this video" — not a stored prompt, nothing to
     // expand (FACTS: "not editable (no expand)"), but still movable/deletable.
     label = document.createElement("span");
     label.className = "prompt-row-label prompt-row-label--static";
@@ -578,7 +578,7 @@ function openEditor(caseKey, item) {
     site: caseKey,
     isCoati: item.kind === "coati",
     // A Coati suggestion opens with its label as the title: saving it
-    // unchanged must keep the button's name (« Points clés minutés »), not
+    // unchanged must keep the button's name ("Timestamped key points"), not
     // fall back to the start of the text (admin fix, 28/09).
     title: item.kind === "user" ? item.title ?? "" : item.label ?? "",
     body: item.body ?? "",

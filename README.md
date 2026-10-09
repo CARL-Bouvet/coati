@@ -5,84 +5,66 @@
 <sub>Page shown: Wikipedia, "Coati" (text and image under CC BY-SA). Answer generated locally by
 `llama3.2` through Ollama.</sub>
 
-## Quick start (English)
+A companion in the browser: a side panel that answers questions, summarizes the page or video
+you're looking at, and reworks text you select — using a model of your choice. Your API keys and
+credentials are held by a local program running on `127.0.0.1`, never inside the extension.
 
-Coati is a browser side panel that summarises the page or video you are viewing and reworks
-selected text, using a model of your choice. Your API keys and credentials are held by a local
-program running on 127.0.0.1 — never inside the extension.
+Two pieces:
 
-**Requirements:** Chrome, Chromium, Brave, or Edge (Firefox: see docs/FIREFOX.md).
-The default provider is Ollama; any OpenAI-compatible API or Claude API key also works.
+- **`extension/`** — the Chromium/Firefox extension (Manifest V3). It never calls an AI provider
+  directly, and holds no credential.
+- **`broker/`** — a small server that runs on your own machine, listens on `127.0.0.1` only,
+  holds the configuration, and talks to the model. The extension talks to it over a WebSocket.
 
-1. Go to the [Releases page](https://github.com/CARL-Bouvet/coati/releases) and download, from
-   the same release: the binary for your OS, `SHA256SUMS`, and the "Source code" archive.
-2. Verify the checksum (Linux: `sha256sum --check --ignore-missing SHA256SUMS`;
-   macOS: `shasum -a 256 <binary>`; Windows PowerShell: `Get-FileHash <binary> -Algorithm SHA256`).
-3. Decompress the "Source code" archive and run the installer inside it, passing the binary path
-   as argument (see [docs/INSTALL.md](docs/INSTALL.md) for exact commands per OS).
-4. Load the extension unpacked: open `chrome://extensions`, enable Developer mode, click
-   "Load unpacked", and choose the `extension/` folder from the decompressed archive.
-5. Install a model: `ollama pull llama3.2` (~2 GB; any Ollama chat model works).
-6. In the extension's settings ("Open settings" in the side panel), choose provider
-   **Ollama (local)** and pick `llama3.2` in the model list.
-7. Click the Coati icon in the toolbar to open the side panel, then click **Read the page**.
+The contract between the two is fixed in [`docs/PROTOCOL.md`](docs/PROTOCOL.md). Design
+decisions and why they were made: [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
-Detailed guide (French): [docs/INSTALL.md](docs/INSTALL.md). Report issues via
+## Why a local broker
+
+An extension's storage isn't encrypted on disk, and an extension is exposed to every page the
+user visits. Putting credentials somewhere else — a local process the browser can only talk to,
+never read from — takes the secret out of that blast radius. The cost: a recent Chrome
+restriction that gates `fetch` to `127.0.0.1` behind a user permission a service worker can't
+request itself. WebSockets still escape it, which is why that's the transport — see
+`docs/PROTOCOL.md`.
+
+## Status
+
+Version 0.1.0, in public testing. Executables aren't signed by Apple or Microsoft yet (see
+"Unsigned binaries" in [docs/INSTALL.md](docs/INSTALL.md)), and the extension isn't on the
+Chrome Web Store or AMO yet — it loads in developer mode. File feedback via
 [GitHub Issues](https://github.com/CARL-Bouvet/coati/issues).
 
----
+## Quick start
 
-Un compagnon dans le navigateur : un panneau latéral qui répond, résume la page ou la vidéo
-qu'on regarde, et retravaille le texte qu'on sélectionne.
+1. Install the local program — see [docs/INSTALL.md](docs/INSTALL.md) (Linux, macOS, Windows).
+2. Load the extension unpacked in your browser (Chrome/Brave/Edge: developer mode; Firefox: see
+   [docs/INSTALL.md](docs/INSTALL.md) — merged into INSTALL).
+3. Pick a model. Recommended for a first try: [Ollama](https://ollama.com), fully local —
+   `ollama pull llama3.2` (~2 GB), then select **Ollama (local)** in the extension's settings.
+   A Claude API key or any OpenAI-compatible endpoint also works.
+4. Click the Coati icon, then **Read the page**.
 
-Deux morceaux :
+## Docs
 
-- **`extension/`** — l'extension Chromium (Manifest V3). Elle n'appelle jamais un fournisseur
-  d'IA directement, et ne détient aucun identifiant.
-- **`broker/`** — un petit serveur qui tourne sur la machine de l'utilisateur, écoute sur
-  `127.0.0.1` seulement, détient la configuration et parle au modèle. L'extension lui parle en
-  WebSocket.
+- [docs/PROTOCOL.md](docs/PROTOCOL.md) — the extension ↔ broker contract.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the pieces fit together.
+- [docs/INSTALL.md](docs/INSTALL.md) — install, uninstall, troubleshooting.
+- [docs/DECISIONS.md](docs/DECISIONS.md) — design decisions and why.
+- [docs/ROADMAP.md](docs/ROADMAP.md) — what's next, help wanted.
+- [SECURITY.md](SECURITY.md) — threat boundary, reporting a vulnerability.
 
-Le contrat entre les deux est figé dans [`docs/PROTOCOL.md`](docs/PROTOCOL.md). Les décisions de
-conception et ce qui les motive sont dans [`docs/DECISIONS.md`](docs/DECISIONS.md).
+## License
 
-## Pourquoi un broker
+AGPL-3.0 — see [`LICENSE`](LICENSE). The Coati name and logo are not covered by the AGPL license.
 
-Le stockage d'une extension n'est pas chiffré sur le disque, et une extension est exposée à
-toutes les pages que l'utilisateur visite. Mettre les identifiants ailleurs — dans un processus
-local que le navigateur ne peut qu'interroger — retire le secret de la zone de souffle.
+The code is open because that's the only way to make verifiable what Coati promises: page
+content doesn't leave your machine unless you chose a remote model. Several competing extensions
+promised the same thing in writing and were disproved by traffic analysis — the difference here
+is that you can read the code instead of taking our word for it.
 
-Le prix à payer est une contrainte récente de Chrome : joindre `127.0.0.1` depuis une page
-déclenche une demande de permission (Local Network Access). Les WebSockets y échappent encore ;
-c'est pour ça que le transport en est un. Voir `docs/PROTOCOL.md`.
+## Interface languages
 
-## État
-
-Version 0.1.0 en test public. Les exécutables ne sont pas encore signés par Apple ou Microsoft
-(voir « Exécutables non signés » dans [docs/INSTALL.md](docs/INSTALL.md)) et l'extension n'est
-pas encore publiée sur le Chrome Web Store ni sur AMO : elle se charge en mode développeur.
-Les retours se font via les [issues GitHub](https://github.com/CARL-Bouvet/coati/issues).
-
-## Licence
-
-AGPL-3.0 — voir [`LICENSE`](LICENSE). Le nom et le logo Coati ne sont pas couverts par la licence
-AGPL.
-
-Le code est ouvert parce que c'est la seule façon de rendre vérifiable ce que Coati promet : le
-contenu des pages ne quitte pas la machine. Plusieurs extensions concurrentes ont promis la même
-chose par écrit et ont été démenties par analyse de trafic ; la différence tient à ce qu'on peut
-lire le code plutôt qu'à ce qu'on affirme. Chaque ligne qui touche aux données de l'utilisateur est
-dans ce dépôt.
-
-## Langues de l'interface
-
-L'interface est disponible en français, anglais et chinois simplifié.
-The Chinese interface is machine-translated and awaits review by a native speaker.
+The interface is available in English, French, and Simplified Chinese. The Chinese interface is
+machine-translated and awaits review by a native speaker.
 中文界面由机器翻译生成，尚待母语者审校。
-
-## Installer
-
-Les exécutables du broker sont sur la page des
-[versions publiées](https://github.com/CARL-Bouvet/coati/releases). L'installation (Linux, macOS,
-Windows), l'installation depuis les sources et le dépannage sont décrits dans
-[`docs/INSTALL.md`](docs/INSTALL.md).

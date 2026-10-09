@@ -8,7 +8,7 @@
  *   band      anthracite header band, full width, ≥ 56 px tall; its content
  *             aligned on the column (title · status · FR/EN/中).
  *   rhythm    section 28 px top/bottom (≤ 560 px: 20), hairline between
- *             sections; inside « Modèle »: 16 px between current model, tabs
+ *             sections; inside "Model": 16 px between current model, tabs
  *             and tab panel, 20 px between blocks of a panel.
  *   type      steps ≥ 1.2 apart: current model 22 / h2 18 / h3 15 / body 14;
  *             help 13 and eyebrow 12 are split from body by tone, not size.
@@ -218,7 +218,7 @@ code {
   font-weight: 500;
 }
 
-/* "Montrer un élément" — 3-way segmented choice, same bordered-radio look
+/* "Show an element" — 3-way segmented choice, same bordered-radio look
  * as .search-provider (search-service choice) but narrower columns since
  * the labels are one word each. */
 .point-effect-field { margin-top: var(--space-3); }
@@ -464,7 +464,7 @@ code:focus-visible {
 .current-test-result { grid-column: 1 / -1; }
 .current-test-result:empty { display: none; }
 
-/* Z2b — tabs « Sur cet ordinateur » / « En ligne »: a segmented control,
+/* Z2b — tabs "On this computer" / "Online": a segmented control,
  * two equal halves at every width. Selected = page background, border and
  * weight (never colour alone). */
 .model-tabs {
@@ -528,9 +528,9 @@ h3.block-title {
 .model-field-slot:empty { display: none; }
 .model-field-slot { margin-top: var(--space-3); }
 
-/* Folds (<details>): the guide, « Accélérer Ollama », LM Studio, « Ajouter
- * un service » — a stack of hairline rows with one chevron style. Inner
- * folds (« Autres services », « Autre adresse », a service's key and model)
+/* Folds (<details>): the guide, "Speed up Ollama", LM Studio, "Add
+ * a service" — a stack of hairline rows with one chevron style. Inner
+ * folds ("Other services", "Other address", a service's key and model)
  * drop the rules. */
 .tab-folds > .fold {
   border-top: 1px solid var(--divider);
@@ -652,14 +652,14 @@ h3.block-title {
 
 .service-result:empty { display: none; }
 
-/* « Retirer » replaces the key component's own « Supprimer la clé » in a
+/* "Remove" replaces the key component's own "Delete key" in a
  * row (same two-step confirm, one place to remove a service). */
 .service .key-input-delete { display: none; }
 
 .cap-links { margin: 0; }
 
-/* « Recherche dans la doc » (lot C3): service choice as two bordered radio
- * choices (Brave first), the key component, then « Vérifier » + its quota
+/* "Search the docs" (lot C3): service choice as two bordered radio
+ * choices (Brave first), the key component, then "Check" + its quota
  * note and the folded how-to. */
 .search-providers {
   display: grid;
@@ -798,7 +798,7 @@ h3.block-title {
   border-color: var(--danger-active);
 }
 
-/* « Autre adresse compatible OpenAI » (goal G5): preset select + address +
+/* "Other OpenAI-compatible address" (goal G5): preset select + address +
  * save. baseUrl is not a secret. */
 .baseurl-field {
   display: flex;
@@ -822,7 +822,7 @@ h3.block-title {
   display: none;
 }
 
-/* --- « Tester » results --------------------------------------------------------- */
+/* --- "Test" results --------------------------------------------------------- */
 
 .test-result {
   font-size: var(--fs-small);
@@ -831,7 +831,7 @@ h3.block-title {
 .test-result--ok { color: var(--success); }
 .test-result--error { color: var(--danger); }
 
-/* Sub-elements of a test-result block (amendement 2026-10-02, goal-j2FJ-kI7,
+/* Sub-elements of a test-result block (amendment 2026-10-02, goal-j2FJ-kI7,
    leftover b).  Only existing CSS variables — no new colors. */
 .test-result-headline { display: block; }
 .test-result-detail {
@@ -871,7 +871,7 @@ h3.block-title {
   gap: 6px;
 }
 
-/* The tab already says « Sur cet ordinateur »: the list's own group heading
+/* The tab already says "On this computer": the list's own group heading
  * stays for screen readers only. */
 .model-list-heading {
   position: absolute;
@@ -965,7 +965,7 @@ h3.block-title {
 }
 
 /* Lot 4: too big for this machine — still selectable, only muted; the
- * words « trop gros pour cet ordinateur » carry the meaning, not colour. */
+ * words "too big for this computer" carry the meaning, not colour. */
 .model-item--too-big .model-item-name {
   color: var(--muted);
 }
@@ -1087,7 +1087,7 @@ kbd {
 /* --- Setup guide (options-setup.js), inside the tabs --------------------------
  * Steps are a numbered rail (28 px mark + text). */
 
-/* The one-line « why » with the U2 coati icon (Kling, cut out and mirrored
+/* The one-line "why" with the U2 coati icon (Kling, cut out and mirrored
  * only), shown while no model answers yet (Romain, 01/10). */
 .setup-intro {
   display: flex;
@@ -1245,7 +1245,7 @@ h3.setup-step-title {
   white-space: pre-wrap;
 }
 
-/* « Accélérer Ollama »: one short block per OS, this machine's first. */
+/* "Speed up Ollama": one short block per OS, this machine's first. */
 .setup-speedup-os {
   display: flex;
   flex-direction: column;
@@ -1440,7 +1440,7 @@ h4.setup-subtitle {
   }
   .page-head .status { justify-self: start; }
 
-  /* Current model: the id gets the full width, « Tester » goes under it. */
+  /* Current model: the id gets the full width, "Test" goes under it. */
   .current-line {
     grid-template-columns: minmax(0, 1fr);
     padding: var(--space-3);

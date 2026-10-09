@@ -1,5 +1,5 @@
-// `provider.status` — docs/PROTOCOL.md "Disponibilité du fournisseur"
-// (amendement 2026-09-25 / 2026-09-25 bis). Three layers:
+// `provider.status` — docs/PROTOCOL.md
+// (amendment 2026-09-25 / 2026-09-25 bis). Three layers:
 //   1. broker/src/provider-status.ts's ProviderStatusCache — 60s cache,
 //      shared in-flight probe, cleared on demand.
 //   2. Each provider's own checkStatus() reason-code table.
@@ -34,7 +34,7 @@ describe("ProviderStatusCache", () => {
     let now = 0;
     const cache = new ProviderStatusCache(() => now);
 
-    const opts = { model: "llama3.2", ollamaUrl: "http://x" };
+    const opts = { model: "llama3.2", ollamaUrl: "http://127.0.0.1:19999" };
     const first = await cache.get("ollama", opts);
     const second = await cache.get("ollama", opts);
     expect(calls.n).toBe(1);
@@ -46,7 +46,7 @@ describe("ProviderStatusCache", () => {
     __setFetchImplForTests(fakeOllamaFetch(calls));
     let now = 0;
     const cache = new ProviderStatusCache(() => now);
-    const opts = { model: "llama3.2", ollamaUrl: "http://x" };
+    const opts = { model: "llama3.2", ollamaUrl: "http://127.0.0.1:19999" };
 
     await cache.get("ollama", opts);
     now = 60_001;
@@ -59,8 +59,8 @@ describe("ProviderStatusCache", () => {
     __setFetchImplForTests(fakeOllamaFetch(calls));
     const cache = new ProviderStatusCache(() => 0);
 
-    await cache.get("ollama", { model: "llama3.2", ollamaUrl: "http://x" });
-    await cache.get("ollama", { model: "mistral", ollamaUrl: "http://x" });
+    await cache.get("ollama", { model: "llama3.2", ollamaUrl: "http://127.0.0.1:19999" });
+    await cache.get("ollama", { model: "mistral", ollamaUrl: "http://127.0.0.1:19999" });
     expect(calls.n).toBe(2);
   });
 
@@ -75,7 +75,7 @@ describe("ProviderStatusCache", () => {
     }) as unknown as typeof fetch);
     const cache = new ProviderStatusCache(() => 0);
 
-    const opts = { model: "llama3.2", ollamaUrl: "http://x" };
+    const opts = { model: "llama3.2", ollamaUrl: "http://127.0.0.1:19999" };
     const p1 = cache.get("ollama", opts);
     const p2 = cache.get("ollama", opts);
     resolveFetch(new Response(JSON.stringify({ models: [{ name: "llama3.2:latest" }] }), { status: 200 }));
@@ -88,7 +88,7 @@ describe("ProviderStatusCache", () => {
     const calls = { n: 0 };
     __setFetchImplForTests(fakeOllamaFetch(calls));
     const cache = new ProviderStatusCache(() => 0);
-    const opts = { model: "llama3.2", ollamaUrl: "http://x" };
+    const opts = { model: "llama3.2", ollamaUrl: "http://127.0.0.1:19999" };
 
     await cache.get("ollama", opts);
     cache.clear();
@@ -113,7 +113,7 @@ describe("ProviderStatusCache", () => {
       return new Response(JSON.stringify({ models: [{ name: "llama3.2:latest" }] }), { status: 200 });
     }) as unknown as typeof fetch);
     const cache = new ProviderStatusCache(() => 0);
-    const opts = { model: "llama3.2", ollamaUrl: "http://x" };
+    const opts = { model: "llama3.2", ollamaUrl: "http://127.0.0.1:19999" };
 
     const stuck = cache.get("ollama", opts); // never resolves until resolveFirstFetch is called
     cache.clear();
@@ -136,7 +136,7 @@ describe("ProviderStatusCache", () => {
     __setFetchImplForTests(fakeOllamaFetch({ n: 0 }));
     let now = 1000;
     const cache = new ProviderStatusCache(() => now);
-    const opts = { model: "llama3.2", ollamaUrl: "http://x" };
+    const opts = { model: "llama3.2", ollamaUrl: "http://127.0.0.1:19999" };
 
     const first = await cache.get("ollama", opts);
     now = 5000;
@@ -165,8 +165,8 @@ describe("claude-api checkStatus", () => {
 });
 
 // A per-provider checkStatus describe block for a personal, subprocess-backed
-// provider used to live here (goal G1b, 29/09 ménage du dépôt public) — moved
-// to that provider's own private module test suite. See docs/MODULES.md for
+// provider used to live here (goal G1b, 29/09 cleanup of the public repo) — moved
+// to that provider's own private module test suite. See docs/ARCHITECTURE.md for
 // the module contract it now tests against.
 
 describe("ollama checkStatus", () => {
@@ -183,7 +183,7 @@ describe("ollama checkStatus", () => {
   test("configured model not installed -> ko / model-missing", async () => {
     __setFetchImplForTests((async () =>
       new Response(JSON.stringify({ models: [{ name: "mistral:latest" }] }), { status: 200 })) as unknown as typeof fetch);
-    expect(await ollamaProvider.checkStatus({ model: "llama3.2", ollamaUrl: "http://x" })).toEqual({
+    expect(await ollamaProvider.checkStatus({ model: "llama3.2", ollamaUrl: "http://127.0.0.1:19999" })).toEqual({
       state: "ko",
       reason: "model-missing",
     });
@@ -192,7 +192,7 @@ describe("ollama checkStatus", () => {
   test("no model configured and none installed -> ko / no-model-installed", async () => {
     __setFetchImplForTests((async () =>
       new Response(JSON.stringify({ models: [] }), { status: 200 })) as unknown as typeof fetch);
-    expect(await ollamaProvider.checkStatus({ ollamaUrl: "http://x" })).toEqual({
+    expect(await ollamaProvider.checkStatus({ ollamaUrl: "http://127.0.0.1:19999" })).toEqual({
       state: "ko",
       reason: "no-model-installed",
     });
@@ -201,7 +201,7 @@ describe("ollama checkStatus", () => {
   test("configured model installed -> ok / ready", async () => {
     __setFetchImplForTests((async () =>
       new Response(JSON.stringify({ models: [{ name: "llama3.2:latest" }] }), { status: 200 })) as unknown as typeof fetch);
-    expect(await ollamaProvider.checkStatus({ model: "llama3.2", ollamaUrl: "http://x" })).toEqual({
+    expect(await ollamaProvider.checkStatus({ model: "llama3.2", ollamaUrl: "http://127.0.0.1:19999" })).toEqual({
       state: "ok",
       reason: "ready",
     });
@@ -210,11 +210,11 @@ describe("ollama checkStatus", () => {
   test("no model configured but the daemon has models installed -> ok / ready", async () => {
     __setFetchImplForTests((async () =>
       new Response(JSON.stringify({ models: [{ name: "llama3.2:latest" }] }), { status: 200 })) as unknown as typeof fetch);
-    expect(await ollamaProvider.checkStatus({ ollamaUrl: "http://x" })).toEqual({ state: "ok", reason: "ready" });
+    expect(await ollamaProvider.checkStatus({ ollamaUrl: "http://127.0.0.1:19999" })).toEqual({ state: "ok", reason: "ready" });
   });
 });
 
-// Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): same
+// Goal U2 (docs/PROTOCOL.md, amendment 2026-10-01): same
 // free /api/tags probe as checkStatus above, reshaped as TestConnectionResult
 // — the task brief's required distinction is model-missing (daemon up,
 // configured model absent) vs model-unavailable (daemon unreachable).
@@ -232,7 +232,7 @@ describe("ollama testConnection (goal U2)", () => {
   test("configured model not installed -> model-missing, distinct from model-unavailable", async () => {
     __setFetchImplForTests((async () =>
       new Response(JSON.stringify({ models: [{ name: "mistral:latest" }] }), { status: 200 })) as unknown as typeof fetch);
-    expect(await ollamaProvider.testConnection!({ model: "llama3.2", ollamaUrl: "http://x" })).toEqual({
+    expect(await ollamaProvider.testConnection!({ model: "llama3.2", ollamaUrl: "http://127.0.0.1:19999" })).toEqual({
       ok: false,
       code: "model-missing",
     });
@@ -241,7 +241,7 @@ describe("ollama testConnection (goal U2)", () => {
   test("no model configured -> model-unavailable, without pretending success", async () => {
     __setFetchImplForTests((async () =>
       new Response(JSON.stringify({ models: [{ name: "llama3.2:latest" }] }), { status: 200 })) as unknown as typeof fetch);
-    expect(await ollamaProvider.testConnection!({ ollamaUrl: "http://x" })).toEqual({
+    expect(await ollamaProvider.testConnection!({ ollamaUrl: "http://127.0.0.1:19999" })).toEqual({
       ok: false,
       code: "model-unavailable",
     });
@@ -250,7 +250,7 @@ describe("ollama testConnection (goal U2)", () => {
   test("configured model installed -> ok, no code", async () => {
     __setFetchImplForTests((async () =>
       new Response(JSON.stringify({ models: [{ name: "llama3.2:latest" }] }), { status: 200 })) as unknown as typeof fetch);
-    expect(await ollamaProvider.testConnection!({ model: "llama3.2", ollamaUrl: "http://x" })).toEqual({ ok: true });
+    expect(await ollamaProvider.testConnection!({ model: "llama3.2", ollamaUrl: "http://127.0.0.1:19999" })).toEqual({ ok: true });
   });
 });
 
@@ -270,7 +270,7 @@ describe("server.ts — provider.status wiring", () => {
     const dataDir = makeTmpDir("coati-provider-status-");
     const configDir = makeTmpDir("coati-provider-status-cfg-");
     const server = startServer(
-      { port: 0, allowedExtensionIds: [ALLOWED_ID], provider: "ollama", ollamaUrl: "http://x", ...overrides },
+      { port: 0, allowedExtensionIds: [ALLOWED_ID], provider: "ollama", ollamaUrl: "http://127.0.0.1:19999", ...overrides },
       KEY,
       { dataDir, configDir },
     );
@@ -364,7 +364,7 @@ describe("server.ts — provider.status wiring", () => {
     ws.close();
   });
 
-  // docs/PROTOCOL.md "Aucune bascule automatique" / "Règles invariantes": the
+  // docs/PROTOCOL.md: the
   // broker never changes provider on its own — not on a `ko` status.
   test("a ko provider.status never changes the active provider — no automatic switch", async () => {
     __setFetchImplForTests((async () => {

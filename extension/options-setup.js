@@ -2,14 +2,14 @@
 // two model tabs (redesign 08/10). `options.html#setup` still opens it
 // (contract with the panel: its "never connected" message and "?" button
 // open that URL) — options.js picks the tab, this file builds the steps:
-//   local  — appended to the « Sur cet ordinateur » tab: one fold with the
+//   local  — appended to the "On this computer" tab: one fold with the
 //            Ollama steps (install, check it answers, pull a model sized to
-//            the machine), then « Accélérer Ollama », then LM Studio;
-//   online — appended inside « Ajouter un service » (« En ligne » tab):
+//            the machine), then "Speed up Ollama", then LM Studio;
+//   online — appended inside "Add a service" ("Online" tab):
 //            OpenRouter free models first, then Claude and OpenAI (paid),
-//            Mistral and DeepSeek under « Autres »; create a key, paste it in
+//            Mistral and DeepSeek under "Others"; create a key, paste it in
 //            the shared key component (lib/key-input.js).
-// Both end on « Essayer sur une page ». Each step is ticked as soon as the
+// Both end on "Try it on a page". Each step is ticked as soon as the
 // existing probes say it succeeded (provider.status for Ollama,
 // settings.test through the key component) — never on a click alone.
 //
@@ -97,7 +97,7 @@ function externalLink(href, text, className = "link") {
   return a;
 }
 
-/** A command line + « Copier » button. Writing to the clipboard on a click is
+/** A command line + "Copy" button. Writing to the clipboard on a click is
  * fine; Coati never READS the clipboard. `block`: several lines, kept as typed. */
 function commandLine(command, { block = false } = {}) {
   const wrap = el("div", "setup-command");
@@ -171,8 +171,8 @@ function fold(id, title, className = "fold") {
 
 /**
  * @param {object} opts
- * @param {HTMLElement} opts.localRoot   « Sur cet ordinateur » tab: the folds are appended here
- * @param {HTMLElement} opts.onlineRoot  inside « Ajouter un service »: the online steps
+ * @param {HTMLElement} opts.localRoot   "On this computer" tab: the folds are appended here
+ * @param {HTMLElement} opts.onlineRoot  inside "Add a service": the online steps
  * @param {(payload: object) => void} opts.send
  * @param {() => string} opts.newId
  * @param {(reply: object) => void} [opts.onModels]  every `models` reply this guide receives
@@ -239,7 +239,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   running.body.append(runningCheck);
 
   // Step 3 — pick and pull a model.
-  // Lot 4 (amendement 2026-10-07): when the local program reports the
+  // Lot 4 (amendment 2026-10-07): when the local program reports the
   // machine's capacity (`host`), the suggestions are filtered by it
   // (lib/model-list.js suggestForHost); otherwise (older local program, or
   // no answer yet) the previous table driven by navigator.deviceMemory.
@@ -373,7 +373,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
     }
     pullSlot.replaceChildren(commandLine(`ollama pull ${chosenModel}`));
   }
-  // « Vérifier le modèle » only checks (models.list): it never writes the
+  // "Check the model" only checks (models.list): it never writes the
   // suggested row's model into the config — choosing is done in the
   // installed list at the top of the tab (options.js), which this check
   // refreshes through `onModels`.
@@ -411,7 +411,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   checkButtons.push(lmButton);
   lmBody.append(lmButton, lmResult);
 
-  // « Accélérer Ollama » (plan-ollama-rapide-07-10.md, point 5). This
+  // "Speed up Ollama" (plan-ollama-rapide-07-10.md, point 5). This
   // machine's OS first (same detectOs() as the download button).
   const speedupFold = fold("setupOllamaSpeedup", t("setup_speedup_title"), "fold setup-speedup");
   const speedup = speedupFold.details;
@@ -424,7 +424,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   speedupLinks.append(externalLink(OLLAMA_SPEEDUP.faqUrl, t("setup_speedup_faq")));
   speedupBody.append(speedupLinks);
 
-  // Order agreed 08/10: guide (with the suggested models), Accélérer, LM Studio.
+  // Order agreed 08/10: guide (with the suggested models), Speed up, LM Studio.
   localRoot.append(guide.details, speedup, lmFold.details);
   guide.details.addEventListener("toggle", () => {
     if (guide.details.open) prefetchModels();
@@ -742,7 +742,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
       renderSuggestions();
       markChosenLocalModel();
     },
-    /** The « Sur cet ordinateur » tab is shown (true) or hidden (false). */
+    /** The "On this computer" tab is shown (true) or hidden (false). */
     setLocalVisible(visible) {
       localVisible = Boolean(visible);
       prefetchModels();

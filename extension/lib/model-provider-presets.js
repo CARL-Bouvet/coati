@@ -1,8 +1,8 @@
 // Address presets for the `openai-compat` model provider (docs/PROTOCOL.md
-// "Fournisseur de modèle", amendement 2026-09-30 bis, goal G5) — one adapter,
+// "Model provider", amendment 2026-09-30 bis, goal G5) — one adapter,
 // many servers that speak the same `/v1/chat/completions` format. Preset
 // addresses are pure pre-fill: the user can always type a different one (the
-// last entry, "Autre adresse", has no baseUrl and just clears the field).
+// last entry, "Other address", has no baseUrl and just clears the field).
 // Shared by extension/options.js; broker/src/providers/openai-compat.ts does
 // its OWN security check (isAllowedBaseUrl there) — this file's
 // isAllowedBaseUrl is a client-side convenience copy of the exact same rule,

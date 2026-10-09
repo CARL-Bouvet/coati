@@ -1,5 +1,5 @@
-// broker/src/nm-framing.ts — docs/PROTOCOL.md "Cadrage et échange avec
-// l'hôte" (amendement 2026-09-30, G4).
+// broker/src/nm-framing.ts — docs/PROTOCOL.md
+// l'hôte" (amendment 2026-09-30, G4).
 
 import { describe, expect, test } from "bun:test";
 import { encodeFrame, encodeJsonFrame, tryParseFrame, MAX_FRAME_BYTES, MIN_FRAME_BYTES } from "../src/nm-framing.ts";

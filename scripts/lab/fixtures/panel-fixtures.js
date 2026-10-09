@@ -140,8 +140,8 @@
     "Cinquième ligne : à partir d'ici, la barre de défilement doit apparaître.\n" +
     "Sixième ligne.";
 
-  // PromptEntry shape (docs/PROTOCOL.md "Bibliothèque de prompts et
-  // préférences par site", amendement 2026-09-28): {id, site, title?, body}.
+  // PromptEntry shape (docs/PROTOCOL.md
+  // préférences par site", amendment 2026-09-28): {id, site, title?, body}.
   // `starPrompt`/`sitePrompt` just save on repetition below.
   var promptIdCounter = 0;
   function nextPromptId() {
@@ -195,7 +195,7 @@
   var PROVIDER_OK = { provider: "ollama", state: "ok", reason: "ready" };
   var PROVIDER_KO = { provider: "claude-api", state: "ko", reason: "no-key" };
 
-  // Amendement 2026-10-07 (models.list): the model pill next to « Connecté »
+  // Amendment 2026-10-07 (models.list): the model pill next to « Connecté »
   // and its menu. Local + online, one « thinking » model, sizes in GB.
   var MODELS_LOCAL_AND_ONLINE = {
     current: { provider: "ollama", model: "qwen3:4b" },
@@ -365,7 +365,7 @@
       },
     },
 
-    // Amendement 2026-10-07 bis — older local program, no models.list: the
+    // Amendment 2026-10-07 bis — older local program, no models.list: the
     // pill stays visible (calm "update the local program" state) instead of
     // hiding, and still names the current model from settings.get.
     "model-pill-stale-broker": {
@@ -397,7 +397,7 @@
       },
     },
 
-    // Amendement 2026-10-07 bis — provider.status reason "model-missing":
+    // Amendment 2026-10-07 bis — provider.status reason "model-missing":
     // the pill names the (wrongly) configured model, the status text next
     // to « Connecté » carries the only real problem and is itself a button
     // (underline on hover/focus) — clicking it opens the same model menu.
@@ -590,7 +590,7 @@
     },
 
     // Bandeau de connexion — "no-token" (4401) : id d'extension refusé après
-    // toutes les tentatives automatiques (amendement 2026-10-02, goal-j2FJ-kI7
+    // toutes les tentatives automatiques (amendment 2026-10-02, goal-j2FJ-kI7
     // : anti-oracle, texte neutre panel_banner_pairing_refused + « Réessayer »
     // ; la cause exacte n'est pas divulguée). Plus de variante Firefox/Chromium
     // depuis G4 (Native Messaging).
@@ -603,7 +603,7 @@
     },
 
     // Bandeau de connexion — "no-host" : programme natif introuvable (G4,
-    // docs/PROTOCOL.md amendement 2026-09-30). Deux liens : doc d'install et
+    // docs/PROTOCOL.md amendment 2026-09-30). Deux liens : doc d'install et
     // réglages (section Flatpak/Snap).
     "no-host": {
       status: "no-host",
@@ -615,7 +615,7 @@
 
     // Bandeau de connexion — "broker-untrusted" (4000) : un programme répond
     // sur le port 8787 mais n'a pas prouvé être le broker Coati (preuve HMAC
-    // fausse). Amendement 2026-10-02 (goal-j2FJ-kI7) : texte propre au cas
+    // fausse). Amendment 2026-10-02 (goal-j2FJ-kI7) : texte propre au cas
     // (panel_banner_broker_untrusted) + « Réessayer ».
     "broker-untrusted": {
       status: "broker-untrusted",
@@ -628,7 +628,7 @@
     // Bandeau de connexion — "pairing-retry" : le programme a refusé la
     // poignée de main ; relances automatiques en cours (backoff). Pas de
     // bouton Réessayer (doublon avec la tentative automatique). Texte :
-    // panel_banner_pairing_retry (amendement 2026-10-02, goal-j2FJ-kI7).
+    // panel_banner_pairing_retry (amendment 2026-10-02, goal-j2FJ-kI7).
     "pairing-retry": {
       status: "pairing-retry",
       tab: null,
@@ -716,7 +716,7 @@
       },
     },
 
-    // Amendement 2026-09-28 (plan-mes-prompts-28-09.md) : plus de liste
+    // Amendment 2026-09-28 (plan-mes-prompts-28-09.md) : plus de liste
     // dépliable dans le panneau (zone 5b disparue, page "Mes prompts" à
     // part) — cet état montre désormais l'encart avec des prompts déjà
     // enregistrés dans "Tous les sites", à la suite des suggestions Coati.
@@ -729,7 +729,7 @@
       prompts: STAR_PROMPTS_5,
     },
 
-    // Amendement 2026-09-28 : le champ "nom du prompt" a disparu avec la
+    // Amendment 2026-09-28 : le champ "nom du prompt" a disparu avec la
     // zone 5b — la disquette enregistre maintenant tout de suite, sans
     // titre. Cet état déclenche ce nouveau chemin : texte saisi puis 💾
     // cliquée, la notice "Enregistré pour …" doit apparaître.
@@ -764,7 +764,7 @@
       prompts: [],
     },
 
-    // auth-required d'un fournisseur à clé — amendement 2026-10-02
+    // auth-required d'un fournisseur à clé — amendment 2026-10-02
     // (goal-j2FJ-kI7) : « [Fournisseur] refuse la clé » (nommé quand connu),
     // « Ouvrir les réglages » (profond vers la carte du fournisseur) et
     // « Créer une clé chez [Fournisseur] » (lien externe keysUrl). Fournisseur
@@ -842,7 +842,7 @@
       prompts: [],
     },
 
-    // Amendement 2026-10-02 (goal-j2FJ-kI7) — quota-exceeded : « Recharger
+    // Amendment 2026-10-02 (goal-j2FJ-kI7) — quota-exceeded : « Recharger
     // chez Claude (Anthropic) » (lien externe billingUrl) + « Réessayer »
     // (l'utilisateur peut avoir rechargé entre temps). Fournisseur claude-api :
     // getProviderLinks résout par id. Round-trip live via chatErrorReply pour
@@ -874,7 +874,7 @@
 
     // Goal U1, lot 2 — trop de requêtes chez le fournisseur (rate-limited),
     // avec un retryAfterSec connu : bouton « Réessayer » désactivé, décompte
-    // en texte brut (sûr avec "réduire les animations"). Amendement 2026-10-02
+    // en texte brut (sûr avec "réduire les animations"). Amendment 2026-10-02
     // (goal-j2FJ-kI7) : round-trip live via chatErrorReply pour que
     // pendingRetries soit peuplé et le bouton Réessayer visible.
     "error-rate-limited": {
@@ -903,7 +903,7 @@
       },
     },
 
-    // Amendement 2026-10-02 (goal-j2FJ-kI7) — provider-overloaded : le
+    // Amendment 2026-10-02 (goal-j2FJ-kI7) — provider-overloaded : le
     // fournisseur lui-même est surchargé (transient, pas de réglage à changer).
     // Bloc de récupération : « Réessayer » seulement (buildProviderOverload-
     // RecoveryBlock). Round-trip live via chatErrorReply.
@@ -932,7 +932,7 @@
       },
     },
 
-    // Amendement 2026-10-02 (goal-j2FJ-kI7) — model-missing (fournisseur
+    // Amendment 2026-10-02 (goal-j2FJ-kI7) — model-missing (fournisseur
     // distant, non-Ollama) : ce modèle précis n'est pas disponible sur le
     // compte. Bloc : « Ouvrir les réglages » (profond vers la carte). Pas de
     // Réessayer (le payload n'est pas conservé — changer de modèle d'abord).
@@ -958,7 +958,7 @@
       prompts: [],
     },
 
-    // Amendement 2026-10-02 (goal-j2FJ-kI7) — model-missing sur Ollama :
+    // Amendment 2026-10-02 (goal-j2FJ-kI7) — model-missing sur Ollama :
     // commande copiable « ollama pull llama3.2 » (buildModelMissingRecovery-
     // Block spécialisé). Pas de Réessayer.
     "error-ollama-model-absent": {
@@ -983,7 +983,7 @@
       prompts: [],
     },
 
-    // Amendement 2026-10-02 (goal-j2FJ-kI7) — model-unavailable : diagnostic
+    // Amendment 2026-10-02 (goal-j2FJ-kI7) — model-unavailable : diagnostic
     // incertain (modèle injoignable ou timeout 120 s du broker). Bloc :
     // « Réessayer » + « Ouvrir les réglages » (profond). Round-trip live.
     "error-model-unavailable": {
@@ -1011,7 +1011,7 @@
       },
     },
 
-    // Amendement 2026-10-02 (goal-j2FJ-kI7) — auth-required sur claude-cli :
+    // Amendment 2026-10-02 (goal-j2FJ-kI7) — auth-required sur claude-cli :
     // session expirée. Bloc : commande copiable « claude auth login --claudeai »
     // + « Ouvrir les réglages » + « Réessayer » (même chemin que l'auth session
     // normale — SESSION_AUTH_PROVIDERS contient "claude-cli").
@@ -1138,7 +1138,7 @@
       autoAction: { steps: [{ type: "fill", selector: "#input", value: LONG_COMPOSER_TEXT, delayMs: 20 }] },
     },
 
-    // Amendement 2026-09-28 : plus de liste déroulante par-dessus le fil —
+    // Amendment 2026-09-28 : plus de liste déroulante par-dessus le fil —
     // cet état garde son intention (beaucoup de prompts enregistrés, encart
     // qui défile) mais via l'encart lui-même, ici sur un site inconnu
     // (10 prompts "Tous les sites"), une conversation déjà ouverte dessous.
@@ -1668,7 +1668,7 @@
 
     // Lot F — docsearch "en cours" (search.status, stage "searching", scope
     // connu) — progress line under a still-streaming answer, no sources yet
-    // (docs/PROTOCOL.md §7: "sources seulement au stade reading").
+    // (docs/PROTOCOL.md: "sources seulement au stade reading").
     "docsearch-progress": {
       status: "connected",
       tab: ARTICLE_TAB,

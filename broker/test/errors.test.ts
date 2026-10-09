@@ -55,7 +55,7 @@ describe("unauthorized error emission on bad handshake", () => {
     expect(messages[0]).toMatchObject({ type: "error", code: "unauthorized" });
   });
 
-  // A wrong `auth` proof: 4401 generic failure — docs/PROTOCOL.md "Poignée
+  // A wrong `auth` proof: 4401 generic failure — docs/PROTOCOL.md
   // de main `v: 2`".
   test("wrong auth proof: emits error(unauthorized) then closes 4401", async () => {
     const { server } = boot();
@@ -78,7 +78,7 @@ describe("unauthorized error emission on bad handshake", () => {
 
   // Oversized message BEFORE authentication: still the generic handshake
   // failure (4401), same as any other malformed hello — see
-  // docs/PROTOCOL.md "Limites côté broker". Sized between MAX_MESSAGE_BYTES
+  // docs/PROTOCOL.md. Sized between MAX_MESSAGE_BYTES
   // (256 KiB) and the server's `websocket.maxPayloadLength` (final security
   // review: MAX_MESSAGE_BYTES + 4 KiB slack, server.ts) so the frame still
   // reaches the app-level size check exercised here, rather than being
@@ -121,7 +121,7 @@ describe("unauthorized error emission on bad handshake", () => {
   });
 });
 
-// docs/PROTOCOL.md "Limites côté broker" (amendement 2026-09-25, audit écart
+// docs/PROTOCOL.md (amendment 2026-09-25, audit écart
 // n°11): AFTER authentication, an oversized message gets a DISTINCT `error`
 // with id "oversized", then close(1009) — not the generic 4401. The message
 // is never parsed (its own `id`, if any, is never looked for).

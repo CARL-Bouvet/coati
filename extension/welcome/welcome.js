@@ -80,7 +80,7 @@ function render() {
   setText("welcomeGesture", TEXT.gesture);
 }
 
-// U2 — same tutorial destination as the panel's "Connecter un modèle"
+// U2 — same tutorial destination as the panel's "Connect a model"
 // actions (first-run.js, panel.js): the options page, jumped to #setup.
 document.getElementById("stepModelAction").addEventListener("click", () => {
   api.tabs.create({ url: api.runtime.getURL(MODEL_TUTORIAL_PATH) });

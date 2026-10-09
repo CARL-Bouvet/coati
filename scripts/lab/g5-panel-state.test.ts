@@ -142,7 +142,8 @@ describe("voie B — static invariants", () => {
   });
 
   test("the read button asks for the permission before any await (Firefox gesture rule)", () => {
-    const panel = readFileSync(join(EXT, "panel", "panel.js"), "utf8");
+    // Lot F3 (09/10): onReadPageClick moved from panel.js to first-run-wiring.js.
+    const panel = readFileSync(join(EXT, "panel", "first-run-wiring.js"), "utf8");
     const start = panel.indexOf("function onReadPageClick()");
     const body = panel.slice(start, panel.indexOf("\n}\n", start));
     expect(start).toBeGreaterThan(-1);
@@ -165,7 +166,7 @@ describe("voie B — static invariants", () => {
   });
 });
 
-describe("Mes prompts under an \"all sites\" grant (T42, amendement 30/09 bis)", () => {
+describe("Mes prompts under an \"all sites\" grant (T42, amendment 30/09 bis)", () => {
   const src = readFileSync(join(EXT, "prompts", "prompts.js"), "utf8");
 
   test("the way back removes exactly the two all-sites patterns, nothing per-site", () => {

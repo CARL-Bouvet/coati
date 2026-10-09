@@ -1,6 +1,6 @@
-// Coati side panel — "Regarder l'écran" (plan-montrer-voir-chercher-08-10.md
+// Coati side panel — "See the screen" (plan-montrer-voir-chercher-08-10.md
 // §3B, lot B3). captureScreen() turns the active tab's pixels into the
-// `chat.image` payload (docs/PROTOCOL.md §3): `captureVisibleTab` JPEG
+// `chat.image` payload (docs/PROTOCOL.md): `captureVisibleTab` JPEG
 // q 0.8 -> createImageBitmap -> OffscreenCanvas resized to <= 1280 px on the
 // long side -> re-encoded JPEG q 0.75, q 0.55 if still > 700 KiB, failure if
 // still too big after that.
@@ -88,7 +88,7 @@ async function encodeAt(canvas, quality) {
 
 /**
  * Captures the active tab of `windowId`, resizes and re-encodes it, and
- * returns the exact `chat.image` shape (docs/PROTOCOL.md §3). Throws
+ * returns the exact `chat.image` shape (docs/PROTOCOL.md). Throws
  * whatever `chrome.tabs.captureVisibleTab` rejects with (panel.js
  * classifies it — activeTab missing vs. an internal chrome:// page vs.
  * anything else) or ScreenshotTooBigError.

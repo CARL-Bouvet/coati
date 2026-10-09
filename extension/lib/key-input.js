@@ -1,5 +1,5 @@
 // The ONE API-key entry component (goal U2), shared by the settings page's
-// provider cards (options.js) and the "Connecter un modèle d'IA" guide
+// provider cards (options.js) and the "Connect an AI model" guide
 // (options-setup.js). Rules, decided by Romain (plan-utilisabilite U2):
 //
 // - masked field with a show/hide toggle; autocomplete/spellcheck/
@@ -10,12 +10,11 @@
 // - the key goes to the local program in ONE `settings.set` message
 //   (docs/PROTOCOL.md, `apiKey` is write-only end to end) and is never kept
 //   in the extension: no storage, no module/closure copy, the field is
-//   cleared right after sending and never refilled — only « Clé enregistrée »;
+//   cleared right after sending and never refilled — only "Key saved";
 // - right after a successful save, a free `settings.test` checks the key and
 //   the result is shown in plain words (accepted / refused / no credit /
 //   rate-limited), mapped from the result's optional `code`;
-// - « Supprimer la clé » (two-step confirm, no native dialog) sends
-//   `apiKey: ""`.
+// - "Delete the key" (two-step confirm, no native dialog) sends `apiKey: ""`.
 //
 // `provider` is always sent with the key: the broker binds a key to
 // `patch.provider ?? active provider` (broker/src/server.ts applySettings),
@@ -55,7 +54,7 @@ function describeTestFailure(code, brokerMessage) {
  * @param {string} [opts.limitsUrl]     paid provider: page where a monthly cap is set
  * @param {(ok: boolean) => void} [opts.onVerified]  called after each verification
  * @param {"model"|"search"} [opts.kind]  "search" (lot C3, docs/PROTOCOL.md
- *   amendement 2026-10-08 §9): `provider` is "brave" | "tavily", the key goes
+ *   amendment 2026-10-08 §9): `provider` is "brave" | "tavily", the key goes
  *   as `searchApiKey` with `searchProvider`, the check is `settings.test`
  *   `target: "search"` — it spends one request of the free quota, so it only
  *   runs on demand (`verify()`), never right after a save — and the delete
@@ -212,7 +211,7 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     saveId = newId();
     state = "deleting";
     render();
-    // A search key is cleared with `clearKey` (amendement 2026-10-08 §9bis),
+    // A search key is cleared with `clearKey` (amendment 2026-10-08 §9bis),
     // which never touches the active provider.
     send(
       search

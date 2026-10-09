@@ -1,4 +1,4 @@
-// v: 2 handshake — docs/PROTOCOL.md "Poignée de main `v: 2`" (amendement
+// v: 2 handshake — docs/PROTOCOL.md (amendment
 // 2026-09-30, G4). No pinning, no session tokens, no v: 1: the key (native or
 // the legacy-mode permanent secret S) is what authenticates a connection.
 
@@ -53,7 +53,7 @@ describe("parseMozExtensionOrigin", () => {
   });
 });
 
-// Amendement 2026-09-30 (G4): no pinning — ANY well-formed moz-extension uuid
+// Amendment 2026-09-30 (G4): no pinning — ANY well-formed moz-extension uuid
 // passes this step; the key (not the origin) authenticates.
 describe("isOriginAllowed", () => {
   const allowed = ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"];
@@ -216,7 +216,7 @@ describe("v: 2 handshake — integration", () => {
   });
 });
 
-// L2-equivalent (amendement 2026-09-30, G4): open() no longer does any file
+// L2-equivalent (amendment 2026-09-30, G4): open() no longer does any file
 // I/O for the origin check (it's pure now — no Firefox pin list to read), so
 // there is nothing left to "fail closed" against at that step. This is a
 // regression guard: an unrelated origin must still be rejected outright.

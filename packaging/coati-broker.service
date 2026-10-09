@@ -1,5 +1,5 @@
 [Unit]
-Description=Coati broker — passerelle locale extension/modèle IA
+Description=Coati broker — local gateway between the extension and the AI model
 Documentation=https://github.com/CARL-Bouvet/coati
 After=network.target
 
@@ -19,10 +19,10 @@ RestartSec=2s
 # little else. The two built-in providers (ollama, claude-api) need nothing
 # beyond that. An external provider module that shells out to its own binary
 # should take that binary's path as one of its own `options` in config.json
-# (docs/MODULES.md) rather than relying on PATH — a systemd user service's
+# (docs/ARCHITECTURE.md) rather than relying on PATH — a systemd user service's
 # minimal PATH not finding it is a known trap.
 
-# Journal systemd (stdout + stderr)
+# systemd journal (stdout + stderr)
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=coati-broker

@@ -7,7 +7,7 @@
 set -euo pipefail
 
 if [ "$(id -u)" -eq 0 ]; then
-  echo "Erreur : ce script ne doit pas être lancé en root (et n'appelle jamais sudo)." >&2
+  echo "Error: this script must not be run as root (and never calls sudo)." >&2
   exit 1
 fi
 
@@ -38,7 +38,7 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     *)
-      echo "Option inconnue : $1" >&2
+      echo "Unknown option: $1" >&2
       exit 1
       ;;
   esac
@@ -47,7 +47,7 @@ done
 UNIT_DEST="$PREFIX/.config/systemd/user/coati-broker.service"
 
 if [ "$NO_SERVICE" = "1" ]; then
-  say "$DRY_RUN" "service systemd ignoré (--no-service)"
+  say "$DRY_RUN" "systemd service skipped (--no-service)"
   remove_file "$DRY_RUN" "$UNIT_DEST"
 else
   if [ "$DRY_RUN" = "1" ]; then
@@ -66,4 +66,4 @@ remove_file "$DRY_RUN" "$PREFIX/.local/bin/coati-broker"
 uninstall_manifests linux "$PREFIX" "$DRY_RUN"
 
 echo
-echo "Désinstallation terminée."
+echo "Uninstallation complete."

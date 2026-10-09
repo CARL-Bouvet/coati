@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
-# Construit une copie de `extension/` avec les permissions d'hôte déjà accordées,
-# pour pouvoir éprouver l'extraction sans clic humain.
+# Builds a copy of `extension/` with host permissions already granted, so
+# extraction can be tested without a human click.
 #
-# Pourquoi : le manifest publié n'a que `activeTab` + permissions d'hôte
-# optionnelles (DECISIONS.md T5). C'est la bonne posture — aucun code ne lit une
-# page sans geste de l'utilisateur — mais elle rend tout test automatisé
-# impossible. Cette copie existe uniquement pour le développement et n'est
-# jamais empaquetée.
+# Why: the published manifest only has `activeTab` + optional host permissions
+# (DECISIONS.md T5). That is the right posture — no code reads a page without
+# a user gesture — but it makes automated testing impossible. This copy exists
+# for development only and is never packaged.
 #
-#   ./scripts/dev-extension.sh          # construit /tmp/coati-ext-dev
-#   ./scripts/dev-extension.sh --id     # affiche l'identifiant que Chrome lui donnera
+#   ./scripts/dev-extension.sh          # builds /tmp/coati-ext-dev
+#   ./scripts/dev-extension.sh --id     # print the ID Chrome will assign it
 #
-# L'identifiant d'une extension non empaquetée dérive du chemin absolu : la copie
-# a donc un identifiant différent de `extension/`, à déclarer une fois dans
+# The ID of an unpacked extension is derived from its absolute path: the copy
+# gets a different ID than `extension/`, which must be declared once in
 # ~/.config/coati/config.json → allowedExtensionIds.
 
 set -euo pipefail
@@ -25,8 +24,8 @@ rm -rf "$DEST"
 mkdir -p "$DEST"
 cp -r "$SRC"/. "$DEST"/
 
-# Les permissions d'hôte deviennent obligatoires au lieu d'optionnelles, et le
-# nom change pour qu'on ne confonde jamais les deux dans chrome://extensions.
+# Host permissions become required instead of optional, and the name changes
+# so the two are never confused in chrome://extensions.
 bun -e '
   const path = process.argv[1];
   const m = JSON.parse(await Bun.file(path).text());
@@ -36,5 +35,5 @@ bun -e '
   await Bun.write(path, JSON.stringify(m, null, 2) + "\n");
 ' "$DEST/manifest.json"
 
-echo "Copie de développement : $DEST"
-echo "Permissions d'hôte accordées d'office. Ne jamais empaqueter cette copie."
+echo "Development copy: $DEST"
+echo "Host permissions granted upfront. Never package this copy."

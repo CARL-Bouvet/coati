@@ -1,7 +1,7 @@
 // Generic two-step "arm, then confirm" reducer — no native dialog, same
-// pattern as options.js's "Effacer la clé" and panel.js's own
+// pattern as options.js's "Delete the key" and panel.js's own
 // eraseConversation button. Used here for deleting a saved prompt from the
-// in-panel library: first click on an item arms it ("Supprimer ?"), a second
+// in-panel library: first click on an item arms it ("Delete?"), a second
 // click on the SAME item within the timeout confirms; clicking a DIFFERENT
 // item re-arms that one instead and disarms the first.
 //

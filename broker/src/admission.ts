@@ -1,6 +1,6 @@
 // Admission checks applied to every HTTP request and every WebSocket upgrade,
-// BEFORE any routing — see docs/PROTOCOL.md "Admission HTTP et WebSocket"
-// (amendement 2026-09-25). Two independent guards:
+// BEFORE any routing — see docs/PROTOCOL.md
+// (amendment 2026-09-25). Two independent guards:
 //   1. `Host` header allowlist — pares DNS rebinding (a hostile page resolving
 //      to 127.0.0.1 still sends its own Host header, which this rejects).
 //   2. Peer UID (Linux only) — pares another OS account on the same machine

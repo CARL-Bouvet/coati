@@ -1,5 +1,5 @@
 // Fixture: a valid external provider module, for broker/test/loader.test.ts.
-// Mirrors the shape docs/MODULES.md documents.
+// Mirrors the shape docs/ARCHITECTURE.md documents.
 export default function createProvider(host: any, options: any) {
   return {
     id: options?.id ?? "fixture-valid",

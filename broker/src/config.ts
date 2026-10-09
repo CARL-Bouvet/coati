@@ -7,10 +7,10 @@ import { homedir } from "node:os";
 import { hardenDir, atomicWriteFileSync } from "./fs-atomic.ts";
 
 /**
- * A model provider's identifier. OPEN string, since amendement 2026-09-29 of
+ * A model provider's identifier. OPEN string, since amendment 2026-09-29 of
  * docs/PROTOCOL.md: the broker embeds exactly two providers (`ollama`,
  * `claude-api`), and anything else is an externally loaded module (see
- * docs/MODULES.md) whose id the broker cannot know ahead of time. config.ts
+ * docs/ARCHITECTURE.md) whose id the broker cannot know ahead of time. config.ts
  * therefore no longer validates a `provider` value against a closed list —
  * only its *shape* (isProviderId below). Whether an id names a provider this
  * broker actually knows about (built in or successfully loaded from
@@ -25,7 +25,7 @@ export type ProviderId = string;
  * must be an absolute filesystem path (never a URL, never anything read from
  * the extension or a page — CLAUDE.md security rule #3). `options` is passed
  * through, untouched, as the module's `createProvider(host, options)` second
- * argument — see docs/MODULES.md. */
+ * argument — see docs/ARCHITECTURE.md. */
 export interface ModuleConfigEntry {
   path: string;
   options?: Record<string, unknown>;
@@ -67,7 +67,7 @@ export interface CoatiConfig {
     "claude-api"?: string;
     "openai-compat"?: { key: string; origin: string };
   };
-  /** Base URL of the `openai-compat` provider's server (amendement 2026-09-30
+  /** Base URL of the `openai-compat` provider's server (amendment 2026-09-30
    * bis, goal G5), e.g. "http://localhost:1234/v1" for LM Studio. NOT a
    * secret — see server.ts's buildSettingsPayload, which echoes it back in
    * `settings` for the active provider, unlike apiKey. Validated (https, or
@@ -75,23 +75,23 @@ export interface CoatiConfig {
    * isValidBaseUrl. */
   baseUrl?: string;
   /** External provider modules to load at startup — see ModuleConfigEntry
-   * above and docs/MODULES.md. Absent/empty means "built-in providers only". */
+   * above and docs/ARCHITECTURE.md. Absent/empty means "built-in providers only". */
   modules?: ModuleConfigEntry[];
-  /** Amendement 2026-09-30 (G4), docs/PROTOCOL.md "Mode hérité": absent or
+  /** Amendment 2026-09-30 (G4), docs/PROTOCOL.md: absent or
    * anything other than `true`/`false` means `false` (with a startup
    * warning for a present-but-invalid value — see loadConfig). Enables the
    * `key: "pasted"` branch of the v: 2 handshake for browsers that cannot
    * launch a native host (Flatpak, Snap). */
   legacyPairing?: boolean;
-  /** Amendement 2026-10-07 (docs/PROTOCOL.md "Mémoire des modèles par
-   * fournisseur") — the last model used per provider. Updated on every
+  /** Amendment 2026-10-07 (docs/PROTOCOL.md)
+   * — the last model used per provider. Updated on every
    * settings.set that sets a model; restored when settings.set changes
    * only the provider (no explicit model). The active model is still
    * config.model (backward compat). Seeded from provider+model on first
    * load of an older config.json that lacks this field. */
   lastModels?: Record<ProviderId, string>;
-  /** Amendement 2026-10-08 (lot C1, "Consulter la doc officielle" —
-   * docs/PROTOCOL.md §9). Which search engine `chat.docSearch` should use —
+  /** Amendment 2026-10-08 (lot C1, "Look up official docs" —
+   * docs/PROTOCOL.md). Which search engine `chat.docSearch` should use —
    * `undefined`/absent means "none chosen" (same as `""` on the wire, see
    * SettingsSetMessage.searchProvider). Independent of `provider`/`model`
    * above (the MODEL provider) — never confused with it. */
@@ -121,18 +121,54 @@ export interface Dirs {
 }
 
 // The pinned extension ID, derived from extension/manifest.json's "key" field
-// (RSA 2048 public key). See docs/PROTOCOL.md "Pairing" for the derivation.
+// (RSA 2048 public key). See docs/PROTOCOL.md for the derivation.
 // Private key: ~/.config/coati/extension-key.pem (outside any repository, never committed).
 const PINNED_EXTENSION_ID = "hehlgipomfminodhahcjbencblepjhah";
 
 export const DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434";
 
-// Amendement 2026-09-25 ("Transport"): the port is fixed. config.json's
+/**
+ * Security gate for `ollamaUrl` (notes/BUG_ollama_url_not_validated_and_redirects_followed_20261006.md):
+ * same https-always / http-loopback-only rule as openai-compat's
+ * `isAllowedBaseUrl` (providers/openai-compat.ts) — reused rather than
+ * reinvented, per docs/PROTOCOL.md's "nothing leaves the machine" claim for
+ * this provider. Plus one check specific to this provider: no embedded
+ * credentials (`http://user:pass@host`) — ollama has no such concept and a
+ * leaked ollamaUrl must never carry any. Defined here (not in
+ * providers/ollama.ts) to avoid a circular import: ollama.ts already imports
+ * DEFAULT_OLLAMA_URL from this module. Applied both at config-load time
+ * (loadConfig below, rejects a bad value from a hand-edited config.json) and
+ * again at use time in providers/ollama.ts — a value that reaches the
+ * provider some other way can never slip through either check alone.
+ */
+export function isAllowedOllamaUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.username || url.password) return false;
+  if (url.protocol === "https:") return true;
+  if (url.protocol === "http:") {
+    // URL.hostname keeps the brackets for a literal IPv6 address ("[::1]",
+    // not "::1"). "127.x.x.x" covers the whole loopback /8, not just
+    // 127.0.0.1 — Ollama/the OS accept any address in that range as loopback.
+    return (
+      url.hostname === "localhost" ||
+      url.hostname === "[::1]" ||
+      /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(url.hostname)
+    );
+  }
+  return false;
+}
+
+// Amendment 2026-09-25 ("Transport"): the port is fixed. config.json's
 // `port` key is no longer read into the running config — see loadConfig's
 // warning below — this constant is the only source of truth left.
 export const FIXED_PORT = 8787;
 
-// Amendement 2026-09-29 (docs/PROTOCOL.md): "ollama", not a personal-CLI
+// Amendment 2026-09-29 (docs/PROTOCOL.md): "ollama", not a personal-CLI
 // provider — the only provider a fresh, public-repo install can use without
 // any extra setup beyond installing Ollama itself.
 export const DEFAULT_CONFIG: CoatiConfig = {
@@ -144,9 +180,9 @@ export const DEFAULT_CONFIG: CoatiConfig = {
 };
 
 /** Real-world default directories. Never called from library logic directly
- * — only from server.ts entrypoint. `COATI_DATA_DIR` (amendement 2026-09-30,
+ * — only from server.ts entrypoint. `COATI_DATA_DIR` (amendment 2026-09-30,
  * G4) overrides dataDir only, for tests and for the native host reading the
- * same broker's files — see docs/PROTOCOL.md "Clé de broker". */
+ * same broker's files — see docs/PROTOCOL.md. */
 export function defaultDirs(): Dirs {
   const home = homedir();
   const dataDir = process.env.COATI_DATA_DIR || join(home, ".local", "share", "coati");
@@ -269,7 +305,7 @@ export function pruneStaleOpenAiCompatKey(config: CoatiConfig): CoatiConfig["api
   return Object.keys(apiKeys).length > 0 ? apiKeys : undefined;
 }
 
-/** Amendement 2026-10-08 (lot C1) — shape-tolerant parse of config.json's raw
+/** Amendment 2026-10-08 (lot C1) — shape-tolerant parse of config.json's raw
  * `searchKeys`, mirroring parseApiKeys above: anything malformed is dropped
  * rather than throwing. Exported for tests. */
 export function parseSearchKeys(raw: unknown): CoatiConfig["searchKeys"] {
@@ -281,14 +317,14 @@ export function parseSearchKeys(raw: unknown): CoatiConfig["searchKeys"] {
   return Object.keys(searchKeys).length > 0 ? searchKeys : undefined;
 }
 
-/** Amendement 2026-10-08 (lot C1) — the search key a request should actually
+/** Amendment 2026-10-08 (lot C1) — the search key a request should actually
  * use, NEVER the raw stored object (same reasoning as resolveApiKey above):
  * a search provider only ever gets its OWN key. */
 export function resolveSearchApiKey(config: CoatiConfig, provider: "brave" | "tavily"): string | undefined {
   return config.searchKeys?.[provider];
 }
 
-/** Amendement 2026-10-08 (lot C1) — stores (or forgets, on `key === ""`) the
+/** Amendment 2026-10-08 (lot C1) — stores (or forgets, on `key === ""`) the
  * API key for one search provider, returning the new `searchKeys` object —
  * pure, does not mutate `config`. Mirrors setApiKey's "" = forget semantics. */
 export function setSearchApiKey(
@@ -360,7 +396,7 @@ function configPath(dirs: Dirs): string {
 /**
  * Loads ~/.config/coati/config.json (relative to dirs.configDir), creating it
  * with defaults on first run. The `port` key, if present, is IGNORED — the
- * broker always listens on FIXED_PORT (amendement 2026-09-25, "Transport");
+ * broker always listens on FIXED_PORT (amendment 2026-09-25, "Transport");
  * a value other than FIXED_PORT only produces a startup warning, never a
  * different listening port.
  */
@@ -384,8 +420,8 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
   const obj = (parsed && typeof parsed === "object" ? parsed : {}) as Record<string, unknown>;
   if (typeof obj.port === "number" && obj.port !== FIXED_PORT) {
     console.warn(
-      `coati-broker: config.json a "port": ${obj.port}, ignoré — le port est figé à ${FIXED_PORT} ` +
-        `(amendement 2026-09-25, voir docs/PROTOCOL.md "Transport").`,
+      `coati-broker: config.json has "port": ${obj.port}, ignored — the port is fixed at ${FIXED_PORT} ` +
+        `(amendment 2026-09-25, see docs/PROTOCOL.md "Transport").`,
     );
   }
   let legacyPairing = false;
@@ -394,8 +430,8 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
       legacyPairing = obj.legacyPairing;
     } else {
       console.warn(
-        `coati-broker: config.json a "legacyPairing": ${JSON.stringify(obj.legacyPairing)}, valeur invalide — ` +
-          `traité comme false (voir docs/PROTOCOL.md "Mode hérité").`,
+        `coati-broker: config.json has "legacyPairing": ${JSON.stringify(obj.legacyPairing)}, invalid value — ` +
+          `treated as false (see docs/PROTOCOL.md "Legacy mode").`,
       );
     }
   }
@@ -405,13 +441,25 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
       ? (obj.allowedExtensionIds as string[])
       : [],
     // A malformed or absent provider value in a hand-edited config.json falls
-    // back to the default — "ollama" (amendement 2026-09-29). Whether the
+    // back to the default — "ollama" (amendment 2026-09-29). Whether the
     // resulting id actually names a provider this broker knows about (built
     // in or loaded from `modules`) is checked at runtime, not here.
     provider: isProviderId(obj.provider) ? obj.provider : DEFAULT_CONFIG.provider,
     model: typeof obj.model === "string" && obj.model ? obj.model : undefined,
-    ollamaUrl:
-      typeof obj.ollamaUrl === "string" && obj.ollamaUrl ? obj.ollamaUrl : DEFAULT_CONFIG.ollamaUrl,
+    // Rejected (not silently kept) when it fails isAllowedOllamaUrl — a bad
+    // scheme, embedded credentials, or a non-loopback http host — falling
+    // back to the default rather than sending page content to whatever that
+    // value names (notes/BUG_ollama_url_not_validated_and_redirects_followed_20261006.md).
+    ollamaUrl: (() => {
+      if (typeof obj.ollamaUrl !== "string" || !obj.ollamaUrl) return DEFAULT_CONFIG.ollamaUrl;
+      if (isAllowedOllamaUrl(obj.ollamaUrl)) return obj.ollamaUrl;
+      console.warn(
+        `coati-broker: config.json has "ollamaUrl": ${JSON.stringify(obj.ollamaUrl)}, rejected — must be ` +
+          `http(s), no credentials in the URL, and http is only allowed on loopback ` +
+          `(localhost/127.0.0.0/8/[::1]). Value ignored, falling back to ${DEFAULT_CONFIG.ollamaUrl}.`,
+      );
+      return DEFAULT_CONFIG.ollamaUrl;
+    })(),
     // New per-provider shape (`apiKeys`) takes priority; a legacy config.json
     // written before this fix (single global `apiKey`, always the
     // claude-api/Anthropic key in practice — openai-compat did not exist
@@ -424,7 +472,7 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
     modules: parseModuleConfigEntries(obj.modules),
     legacyPairing,
     lastModels: parseLastModels(obj.lastModels, obj),
-    // Amendement 2026-10-08 (lot C1): a malformed/absent searchProvider
+    // Amendment 2026-10-08 (lot C1): a malformed/absent searchProvider
     // value falls back to "none chosen" (undefined), never a default engine
     // — unlike `provider` above, there is no sensible default search engine
     // to pick for the user.

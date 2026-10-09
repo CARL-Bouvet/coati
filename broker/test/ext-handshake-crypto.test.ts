@@ -1,5 +1,5 @@
 // Handshake v2 crypto helpers (extension/lib/handshake-crypto.js) —
-// docs/PROTOCOL.md amendement 2026-09-30, "Poignée de main v: 2" and "Plan
+// docs/PROTOCOL.md amendment 2026-09-30, "Poignée de main v: 2" and "Plan
 // de test" ("Vecteurs HMAC" — a fixed-values file checked by both the
 // broker's own code (node:crypto) and the extension's (WebCrypto, here
 // under Bun, which implements the same subtle-crypto API a real browser

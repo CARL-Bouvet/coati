@@ -1,12 +1,12 @@
 // Detects an EXPLICIT request, inside the user's own question text, to
-// search official documentation / the web — docs/PROTOCOL.md "Consulter la
+// search official documentation / the web — docs/PROTOCOL.md
 // doc officielle" amendment, 2026-10-08 bis ("recherche sur demande
 // explicite"). Replaces the old "Chercher dans la doc" button: there is no
 // UI affordance left, so EVERY chat message now runs through this pure,
 // synchronous classifier before any search is even considered.
 //
 // Design: a verb (cherche/search/搜索…) is not enough on its own — "cherche
-// un hôtel" or "search for a hotel" is an ordinary question, not a request
+// un hôtel" ("look for a hotel") or "search for a hotel" is an ordinary question, not a request
 // to go consult documentation or the web, and must NOT trigger a search.
 // Detection requires a verb AND a target (doc/web/online keyword) to both be
 // present, except for a few phrases that are unambiguous requests by
@@ -67,8 +67,8 @@ export function detectSearchIntent(text: string, lang: Lang): boolean {
 
 /** Best-effort removal of the trigger verb/target/standalone phrase from
  * `text` — used only as the REFORMULATION FALLBACK (see search/reformulate.ts)
- * when the extra model call fails: "la question utilisateur, phrase
- * déclenchante retirée, + nom du site". Never throws, never asserts the
+ * when the extra model call fails: "user question, trigger phrase
+ * stripped, + site name". Never throws, never asserts the
  * phrase was actually found (a miss just means the fallback query keeps the
  * trigger word in it — harmless, still a reasonable search query). */
 export function stripSearchTriggerPhrase(text: string, lang: Lang): string {

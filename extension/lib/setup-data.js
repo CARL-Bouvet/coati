@@ -1,4 +1,4 @@
-// Provider facts for the "Connecter un modèle d'IA" guide (options page,
+// Provider facts for the "Connect an AI model" guide (options page,
 // goal U2) — DATA ONLY, no text meant for a human (every sentence lives in
 // _locales/*/messages.json under the `setup*` keys). Kept in this one file so
 // verified facts (URLs, model names, prices, quotas) can be swapped later
@@ -23,7 +23,7 @@ export const OLLAMA_LINUX_INSTALL_COMMAND = "curl -fsSL https://ollama.com/insta
  * installer (e.g. no systemd). Windows and macOS start the app instead. */
 export const OLLAMA_START_COMMAND = "ollama serve";
 
-/** « Accélérer Ollama » (plan-ollama-rapide-07-10.md, point 5): flash
+/** "Speed up Ollama" (plan-ollama-rapide-07-10.md, point 5): flash
  * attention + a q8_0 KV cache, about half the memory the page takes, little
  * quality loss. Two environment variables, set the way each OS's Ollama
  * reads them (https://docs.ollama.com/faq). */
@@ -51,7 +51,7 @@ export const OLLAMA_MODELS_BY_MEMORY = [
 ];
 
 /** Download suggestions when the local program reports the machine's
- * capacity (`host` in the `models` reply, amendement 2026-10-07, lot 4):
+ * capacity (`host` in the `models` reply, amendment 2026-10-07, lot 4):
  * filtered and tagged by lib/model-list.js suggestForHost(). Sizes checked
  * on ollama.com on 2026-10-07. No qwen3:4b: thinking-only, slow. qwen3:8b
  * honours `think: false` (verified on a real Ollama). Smallest first. */
@@ -78,7 +78,7 @@ export const LM_STUDIO = {
 // lib/model-provider-presets.js. `costUsdPerRequest`: rough price of ONE
 // question about an average page (~3,000 tokens in, ~500 out) at the listed
 // model's public price — `0` means free. `group`: "free" (shown first),
-// "paid" (Claude, OpenAI), "other" (under « Autres »).
+// "paid" (Claude, OpenAI), "other" (under "Others").
 
 export const ONLINE_PROVIDERS = [
   {
@@ -110,7 +110,7 @@ export const ONLINE_PROVIDERS = [
     model: "claude-haiku-4-5",
     costUsdPerRequest: 0.006,
     signupUrl: "https://console.anthropic.com/",
-    // Amendement 2026-10-02 (goal-j2FJ-kI7): console.anthropic.com's
+    // Amendment 2026-10-02 (goal-j2FJ-kI7): console.anthropic.com's
     // settings pages redirect to platform.claude.com now — linking the
     // destination directly rather than through a redirect hop.
     keysUrl: "https://platform.claude.com/settings/keys",
@@ -144,7 +144,7 @@ export const ONLINE_PROVIDERS = [
     keysUrl: "https://console.mistral.ai/api-keys",
     limitsUrl: "https://admin.mistral.ai/plateforme/limits",
     // No distinct billing page — the limits page is where Mistral's spend
-    // cap/usage lives (amendement 2026-10-02, goal-j2FJ-kI7).
+    // cap/usage lives (amendment 2026-10-02, goal-j2FJ-kI7).
     billingUrl: "https://admin.mistral.ai/plateforme/limits",
     keyPrefix: "",
   },
@@ -174,8 +174,8 @@ export const COST_BASIS_WORDS = 2000;
  * Maps a broker provider id (docs/PROTOCOL.md, e.g. "claude-api",
  * "openai-compat") + its currently configured `baseUrl` (undefined for
  * claude-api, which has none) to the matching ONLINE_PROVIDERS entry's
- * {keysUrl, billingUrl, name} — amendement 2026-10-02, goal-j2FJ-kI7, built
- * for the panel's "panne modèle" recovery links (options.js's own
+ * {keysUrl, billingUrl, name} — amendment 2026-10-02, goal-j2FJ-kI7, built
+ * for the panel's "model failure" recovery links (options.js's own
  * `keyInputFor` uses the same match: claude-api by `provider`, everything
  * else by `baseUrl`). Returns undefined when no ONLINE_PROVIDERS entry
  * matches (e.g. ollama, or an openai-compat address the guide doesn't know,
@@ -193,7 +193,7 @@ export function getProviderLinks(providerId, baseUrl) {
   return { keysUrl: service.keysUrl, billingUrl: service.billingUrl, name: service.name };
 }
 
-// --- Doc search (lot C3, docs/PROTOCOL.md amendement 2026-10-08 §9) -----------
+// --- Doc search (lot C3, docs/PROTOCOL.md amendment 2026-10-08 §9) -----------
 //
 // The two search services the local program can use. Facts from
 // Internal study of 08/10 (search APIs, Q2): Brave Search

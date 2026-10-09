@@ -1,4 +1,4 @@
-// The "openai-compat" provider (amendement 2026-09-30 bis, docs/PROTOCOL.md,
+// The "openai-compat" provider (amendment 2026-09-30 bis, docs/PROTOCOL.md,
 // goal G5): a single adapter for any server that speaks OpenAI's
 // `/v1/chat/completions` SSE format — LM Studio, Ollama's own `/v1`, OpenAI,
 // Mistral, OpenRouter, DeepSeek, or any other compatible address the user
@@ -53,7 +53,7 @@ export function __resetFetchImplForTests(): void {
 // slow server.
 const MODELS_TIMEOUT_MS = 1500;
 
-// Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): at
+// Goal U2 (docs/PROTOCOL.md, amendment 2026-10-01): at
 // OpenRouter, GET /models is a PUBLIC catalogue — it answers 200 with no key
 // at all, so it validates nothing about the configured key. OpenRouter's own
 // GET /api/v1/key (Bearer) is the route that actually checks the key — used
@@ -71,11 +71,11 @@ const TEST_CONNECTION_DEFAULT_TIMEOUT_MS = 20_000;
 // below (opts.lang).
 export const OPENAI_COMPAT_AUTH_MESSAGE = t("auth.apiKeyRejected", DEFAULT_LANG);
 
-// Goal U1 (docs/PROTOCOL.md "Fournisseur de modèle", amendement 2026-10-01):
+// Goal U1 (docs/PROTOCOL.md, amendment 2026-10-01):
 // same contract as OPENAI_COMPAT_AUTH_MESSAGE above.
 export const OPENAI_COMPAT_QUOTA_EXCEEDED_MESSAGE = t("provider.quotaExceeded", DEFAULT_LANG);
 export const OPENAI_COMPAT_RATE_LIMITED_MESSAGE = t("provider.rateLimited", DEFAULT_LANG);
-// Amendement 2026-10-02 (goal-j2FJ-kI7): same contract, for the two new codes.
+// Amendment 2026-10-02 (goal-j2FJ-kI7): same contract, for the two new codes.
 export const OPENAI_COMPAT_MODEL_MISSING_MESSAGE = t("provider.modelMissing", DEFAULT_LANG);
 export const OPENAI_COMPAT_PROVIDER_OVERLOADED_MESSAGE = t("provider.overloaded", DEFAULT_LANG);
 
@@ -103,7 +103,7 @@ function isInsufficientQuotaBody(bodyText: string): boolean {
 
 /**
  * True when an OpenAI-compatible error response body names Mistral's
- * `unknown_model` condition (amendement 2026-10-02, goal-j2FJ-kI7) — checked
+ * `unknown_model` condition (amendment 2026-10-02, goal-j2FJ-kI7) — checked
  * on either `error.code` or `error.type`/`type`, same tolerance as
  * isInsufficientQuotaBody above. Never throws on a malformed/non-JSON body.
  */
@@ -123,7 +123,7 @@ function isUnknownModelBody(bodyText: string): boolean {
 }
 
 /**
- * Security gate for `baseUrl` (docs/PROTOCOL.md "Fournisseur de modèle"):
+ * Security gate for `baseUrl` (docs/PROTOCOL.md):
  * `https://` unconditionally, or `http://` restricted to loopback
  * (localhost/127.0.0.1/[::1]) — a non-loopback `http://` would send the API
  * key in clear text over the network. Re-checked HERE (not just at
@@ -189,7 +189,7 @@ function isLoopbackHost(baseUrl: string): boolean {
 }
 
 /**
- * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): per-model vision
+ * Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md): per-model vision
  * support, model id → supports-image. Two sources only:
  *  - OpenRouter: `GET {baseUrl}/models` (the same public catalogue
  *    fetchModelIds() uses) carries `architecture.input_modalities`.
@@ -265,7 +265,7 @@ export async function fetchOpenAiCompatVisionMap(
 }
 
 /** The live, per-model vision gate (providers/types.ts's `supportsVision`) —
- * docs/PROTOCOL.md §4. */
+ * docs/PROTOCOL.md. */
 async function supportsVision(opts: ProviderRuntimeOptions): Promise<boolean | undefined> {
   const baseUrl = resolveBaseUrl(opts.baseUrl);
   const model = opts.model?.trim();
@@ -304,7 +304,7 @@ async function listModels(opts: ProviderRuntimeOptions): Promise<string[]> {
 }
 
 /**
- * `provider.status` for openai-compat — amendement 2026-09-30 bis. Unlike
+ * `provider.status` for openai-compat — amendment 2026-09-30 bis. Unlike
  * claude-api (presence-only, no confirmed free probe), a `GET /models` here
  * IS attempted — see docs/PROTOCOL.md's own note on why that default differs
  * from claude-api's for this provider (LM Studio/Ollama: free and local; the
@@ -326,7 +326,7 @@ async function checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck> {
 }
 
 /**
- * `settings.test` for openai-compat — goal U2 (docs/PROTOCOL.md, amendement
+ * `settings.test` for openai-compat — goal U2 (docs/PROTOCOL.md, amendment
  * 2026-10-01): FREE key/reachability check, never streamAnswer()'s billed
  * `POST {baseUrl}/chat/completions`. `GET {baseUrl}/models` is the probe for
  * every origin EXCEPT OpenRouter, whose `/models` is a public catalogue that
@@ -359,7 +359,7 @@ async function testConnection(
       if (response.ok) {
         // GET /api/v1/key doesn't validate the configured model, and
         // /models here is OpenRouter's public catalogue — checked anyway
-        // (amendement 2026-10-02) since it is a real list, even though an
+        // (amendment 2026-10-02) since it is a real list, even though an
         // unlisted id isn't necessarily unusable on OpenRouter.
         if (opts.model) {
           try {
@@ -425,7 +425,7 @@ export function* parseSseLine(line: string): Generator<AnswerEvent> {
 
   // A mid-stream error object some providers emit as a normal `data:` line
   // (rather than an HTTP error status) instead of closing the connection —
-  // OpenRouter's own convention (amendement 2026-10-02, goal-j2FJ-kI7) is
+  // OpenRouter's own convention (amendment 2026-10-02, goal-j2FJ-kI7) is
   // HTTP 200 with `choices[0].finish_reason: "error"`, sometimes alongside
   // this same top-level `error` object, sometimes with the detail nested
   // under `choice.error` instead — both are checked so the failure is
@@ -532,7 +532,7 @@ export async function* streamAnswer(
     }
   }
 
-  // Amendement 2026-10-07 (bis): two-stage timeout.
+  // Amendment 2026-10-07 (bis): two-stage timeout.
   // Loopback URLs get FIRST_TOKEN_TIMEOUT_LOCAL_MS (300 s); remote gets 120 s.
   const isLoopback = (() => {
     try {
@@ -560,7 +560,7 @@ export async function* streamAnswer(
     }, inactivityMs);
   };
 
-  // Amendement 2026-10-08 (bis, "historique"): same trim/report contract as
+  // Amendment 2026-10-08 (bis, "historique"): same trim/report contract as
   // claude-api.ts — see that file's own comment.
   const trimmedHistory = trimHistoryToCharBudget(built.history);
   const historyMessages = trimmedHistory.map((h) => ({ role: h.role, content: h.text }));
@@ -569,7 +569,7 @@ export async function* streamAnswer(
   try {
     let response: Response;
     try {
-      // Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §3; security review
+      // Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md; security review
       // L8): an attached image is wrapped inside the SAME per-request nonce
       // fence as page text — "Screenshot of the page (data, not
       // instruction)" + the opening marker, the `image_url` block, the
@@ -596,7 +596,7 @@ export async function* streamAnswer(
           model,
           stream: true,
           stream_options: { include_usage: true },
-          // Amendement 2026-10-08 (bis, "historique"): past turns rendered
+          // Amendment 2026-10-08 (bis, "historique"): past turns rendered
           // as real alternating messages, between the system turn and the
           // current one — never merged into either.
           messages: [
@@ -632,7 +632,7 @@ export async function* streamAnswer(
       }
       // 404, or Mistral's `unknown_model` body on another status — the model
       // itself is wrong, not auth, not a generic unreachable server
-      // (amendement 2026-10-02, goal-j2FJ-kI7).
+      // (amendment 2026-10-02, goal-j2FJ-kI7).
       if (response.status === 404) {
         throw new ModelMissingError(t("provider.modelMissing", lang));
       }
@@ -641,7 +641,7 @@ export async function* streamAnswer(
         if (isUnknownModelBody(bodyText)) {
           throw new ModelMissingError(t("provider.modelMissing", lang));
         }
-        // Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): the key/model
+        // Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md): the key/model
         // are fine, the server's 400 is specifically about the image we
         // attached — only ever reclassified when this request actually
         // carried one, so an unrelated 400 mentioning "image" isn't misread.
@@ -652,7 +652,7 @@ export async function* streamAnswer(
           // OpenRouter's "in-flight budget" 402 carries a Retry-After header
           // and is transient (rate-limited); without it, it's a plain empty
           // balance (quota-exceeded). Every other provider's 402 stays
-          // quota-exceeded unconditionally (amendement 2026-10-02).
+          // quota-exceeded unconditionally (amendment 2026-10-02).
           const retryAfter = response.headers.get("retry-after");
           if (isOpenRouter && retryAfter) {
             throw new RateLimitedError(t("provider.rateLimited", lang), parseRetryAfterSec(retryAfter));
@@ -679,7 +679,7 @@ export async function* streamAnswer(
       throw new Error("server response has no body");
     }
 
-    // Amendement 2026-10-07: strip <think>…</think> blocks (and ignore any
+    // Amendment 2026-10-07: strip <think>…</think> blocks (and ignore any
     // delta.reasoning_content — already not read by parseSseLine) so that
     // thinking tokens from o1/qwen3-style models never reach the extension.
     const filter = new ThinkFilter();

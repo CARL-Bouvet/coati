@@ -1,5 +1,5 @@
 // Language selector (U1 — the language selector design notes,
-// "Forme du sélecteur de langue" / "Technique du sélecteur"). One shared
+// "Language selector shape" / "Language selector technique"). One shared
 // component mounted twice: compact in the panel header (next to the gear
 // button, same size/style), full-width in the options page.
 //
@@ -18,7 +18,7 @@ import { SUPPORTED_LANGS, UI_LANG_AUTO, UI_LANG_STORAGE_KEY } from "./ui-lang.js
 
 // Short code shown on the compact button: the target language's OWN label
 // for itself, language-invariant by design (English is always "EN" — it
-// never gets translated into the current UI language, same as the "Français"
+// never gets translated into the current UI language, same as the "French"
 // menu entry below). Not routed through messages.json: it carries no accent
 // and nothing here is prose — see i18n.js's test for what actually gets
 // scanned.
@@ -29,7 +29,7 @@ function itemLabel(lang) {
   return lang === UI_LANG_AUTO ? t("lang_name_auto") : t(NAME_KEY[lang]);
 }
 
-/** The resolved language's own endonym ("Français", "English", "简体中文") —
+/** The resolved language's own endonym ("English", "Français", "简体中文") —
  * used by panel.js's first-run card's one-line language mention. */
 export function currentLanguageName(state) {
   return itemLabel(state.lang ?? "en");

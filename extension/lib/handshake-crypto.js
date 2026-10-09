@@ -1,5 +1,5 @@
 // WebCrypto helpers for the Native Messaging handshake v2
-// (docs/PROTOCOL.md, amendement 2026-09-30, "Poignée de main v: 2").
+// (docs/PROTOCOL.md, amendment 2026-09-30, "Handshake v: 2").
 //
 // Every HMAC here is HMAC-SHA256 over UTF-8 text, hex-encoded (lowercase).
 // `crypto.subtle` is available in both the service worker and `bun test`
@@ -7,8 +7,8 @@
 // directly unit-testable — see broker/test/ext-handshake-crypto.test.ts.
 
 /** 64 lowercase hex chars = 32 bytes — the shape of every nonce/proof/key in
- * the v2 handshake. Malformed input (docs/PROTOCOL.md: "nonce qui n'est pas
- * 64 hex minuscules") is a handshake failure, never tolerated loosely. */
+ * the v2 handshake. Malformed input (docs/PROTOCOL.md: "nonce not 64 lowercase
+ * hex chars") is a handshake failure, never tolerated loosely. */
 export const HEX64_RE = /^[0-9a-f]{64}$/;
 
 export function isHex64(value) {
@@ -49,8 +49,8 @@ export async function hmacHex(keyHex, message) {
 
 /** Verifies `signatureHex` is HMAC-SHA256(keyHex, message), via
  * `crypto.subtle.verify` — NOT a string/timing-unsafe compare of two
- * recomputed hex strings (docs/PROTOCOL.md: "avec crypto.subtle.verify (not
- * string compare)"). Returns false (never throws) on a malformed
+ * recomputed hex strings (docs/PROTOCOL.md: "using crypto.subtle.verify, not
+ * string compare"). Returns false (never throws) on a malformed
  * `signatureHex`, so a bad broker challenge is just a failed verification,
  * not a crash. */
 export async function verifyHmacHex(keyHex, message, signatureHex) {
@@ -64,10 +64,10 @@ export async function verifyHmacHex(keyHex, message, signatureHex) {
 }
 
 /** The two labelled message strings signed over `cN:bN` (docs/PROTOCOL.md:
- * "Les deux libellés distincts empêchent de renvoyer au broker sa propre
- * preuve comme preuve d'extension"). Broker proof uses the "-broker:"
- * prefix, extension proof the "-extension:" prefix — never the same string
- * signed twice under different names. */
+ * "The two distinct labels prevent replaying the broker's own proof as an
+ * extension proof"). Broker proof uses the "-broker:" prefix, extension
+ * proof the "-extension:" prefix — never the same string signed twice under
+ * different names. */
 export function brokerProofMessage(cN, bN) {
   return `coati-v2-broker:${cN}:${bN}`;
 }

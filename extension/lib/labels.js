@@ -1,6 +1,6 @@
 // Shared labels for provider names and broker error codes — the single
 // source of truth for text the panel and the options page both need to keep
-// in sync (bug report "panneau et réglages", gaps 3 and 4). Text itself now
+// in sync (bug report "panel and settings", gaps 3 and 4). Text itself now
 // lives in `_locales/<lang>/messages.json` (common_* keys) via lib/i18n.js;
 // this module only maps ids/codes to message keys. Loaded the same way as
 // the other lib/*.js modules (plain ESM import, no build).
@@ -9,7 +9,7 @@ import { t } from "./i18n-page.js";
 // One id per BUILT-IN provider, used everywhere (panel status suffix,
 // options provider list, error text) — never a different name in one place
 // and another elsewhere. Any provider id NOT in this table (an externally
-// loaded module, see docs/MODULES.md) has no built-in text here: the caller
+// loaded module, see docs/ARCHITECTURE.md) has no built-in text here: the caller
 // falls back to the `label` the broker sent for it — see providerLabel()
 // below.
 const PROVIDER_LABEL_KEYS = {
@@ -35,7 +35,7 @@ export const PROVIDER_LABELS = Object.fromEntries(
 // Connection-status labels — shared base for panel.js's renderStatusLabel()
 // and options.js's applyStatus() (KISS audit 2026-09-26, item 9: the two
 // were kept as separate copies). "no-token" differs slightly between the two
-// callers (panel adds "— voir réglages"), so it's the one entry callers may
+// callers (panel adds "— see settings"), so it's the one entry callers may
 // override rather than being forced through here.
 const CONNECTION_STATUS_KEYS = {
   connected: "common_status_connected",
@@ -44,7 +44,7 @@ const CONNECTION_STATUS_KEYS = {
   "handshake-timeout": "common_status_connecting",
   disconnected: "common_status_disconnected",
   "no-token": "common_status_no_token",
-  // docs/PROTOCOL.md amendement 2026-09-30 ("Poignée de main v: 2"):
+  // docs/PROTOCOL.md amendment 2026-09-30 ("Handshake v: 2"):
   // "no-host" = the native-messaging host is unreachable; "broker-untrusted"
   // = a program is listening on the port but didn't prove it's the broker.
   "no-host": "common_status_no_host",
@@ -67,7 +67,7 @@ export function providerLabel(id, fallback) {
 // the primary, human-facing line. The broker's `message` is English
 // technical detail (docs/PROTOCOL.md amendment 2026-09-26) and is NEVER
 // shown alone — describeError() below always appends it as a secondary
-// "Détail : …" line, never as the primary text.
+// "Detail: …" line, never as the primary text.
 const ERROR_CODE_KEYS = {
   "bad-request": "common_error_bad_request",
   unauthorized: "common_error_unauthorized",
@@ -96,7 +96,7 @@ const ERROR_CODE_KEYS = {
  *   older/newer broker) falls back to a generic label rather than surfacing
  *   the raw code.
  * @param {string} [message] - broker's English technical detail. Shown only
- *   as a secondary "Détail : …" line, appended after the label — never
+ *   as a secondary "Detail: …" line, appended after the label — never
  *   returned on its own.
  * @returns {string} ready-to-display text, one or two lines (\n-joined).
  */
@@ -111,7 +111,7 @@ export function describeError(code, message) {
 // can embed a path or URL — see broker/src/providers/*.ts) — there is no
 // `code` to key a label table on. So the label here is always the same
 // generic sentence; the broker's own words become the secondary
-// "Détail : …" line, per the same never-alone rule as describeError().
+// "Detail: …" line, per the same never-alone rule as describeError().
 
 // Security review 2026-09-26, finding #2: chrome.scripting.executeScript has
 // no built-in deadline, so a hostile or pathological page could leave the

@@ -1,4 +1,4 @@
-// G6 (docs/PROTOCOL.md amendement 2026-09-30 ter, "Langue de la connexion") —
+// G6 (docs/PROTOCOL.md amendment 2026-09-30 ter, "Langue de la connexion") —
 // the extension's `hello` v: 2 message carries `lang` = raw
 // chrome.i18n.getUILanguage(), straight from browser-stub-style chrome mock.
 // Deliberately minimal and self-contained (own hand-rolled chrome/WebSocket

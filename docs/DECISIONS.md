@@ -1,263 +1,42 @@
-> Les décisions produit (prix, juridique, marché, plans) sont dans un dépôt privé séparé, non
-> publié ici.
+# Coati — design decisions (technical)
 
-# Coati — décisions de conception (technique)
+Product decisions (pricing, legal, market) live in a separate private repo, not published here.
+One line per decision still in force. A decision only reopens on new evidence, never on a hunch.
 
-Le produit s'est appelé Wingpen jusqu'au 27/09 (P23, voir le dossier interne) ; les entrées
-antérieures gardent l'ancien nom.
+| # | Decision — why |
+|---|---|
+| T1 | Chromium first, Firefox second — the side panel API diverges (`chrome.sidePanel` per tab vs `browser.sidebarAction` per window); one codebase stays possible with a split manifest + `webextension-polyfill`. |
+| T2 | A local broker written by us, not a third-party library — nothing existing combines local-CLI reuse + per-origin policy. |
+| T3 | WebSocket transport, not `fetch` — Local Network Access gates `fetch` to `127.0.0.1` behind a user permission a service worker can't request itself; WebSockets still escape that (crbug.com/421156866). |
+| T4 | No secret in `chrome.storage.local` (unencrypted on disk) — the pairing key lives in `chrome.storage.session`; model credentials never leave the broker. |
+| T5 | No `<all_urls>`: `activeTab` + optional host permissions — shrinks the blast radius of a compromised content script, avoids manual store review. |
+| T6 | The content script sends sanitized text, never HTML; the broker treats that text as data, never as an instruction — a hostile page writes to the DOM the content script reads; this is the main injection vector for this extension shape. |
+| T7 | Default model provider of the public repo: `ollama`, fully local. `claude-api` (BYOK) is the second built-in provider. |
+| T8 | One repo, one common provider interface (`broker/src/providers/types.ts`): two built-in providers plus external modules loaded dynamically from `config.json`, outside the repo — see `docs/MODULES.md`. |
+| T9 | An external provider module (dependencies included) never enters the public repo or the default compiled binary — dynamic loading only, from a path given in `config.json`. |
+| T10 | Superseded by the reading-levels rework (`docs/ROADMAP.md` L2) — per-site declarative, signed recipes are no longer the plan. |
+| T20 | The threat boundary is the OS user account, and the code enforces it: exact `Host` allowlist, then peer UID on Linux, before any routing; not enforced on macOS/Windows, stated at startup. |
+| T21 | Superseded by Native Messaging pairing (T48) — session tokens no longer exist. |
+| T22–T23 | Superseded by Native Messaging pairing (T48) — the "one-click" pairing path and `/pair` for Chromium are both removed. |
+| T24 | Port 8787 fixed — `config.port` is no longer read; the service worker address and the CSP's `connect-src` are literal. |
+| T25 | Provider availability checked only when the panel opens, no billed call (`provider.status`, 60 s cache). |
+| T26 | No automatic provider switch — only a user-issued `settings.set` changes it; switching providers changes who receives page content. |
+| T45 | Generic page reading comes before any paid module — visible-block heuristics (`checkVisibility`, shadow DOM, repeated sibling blocks) benefit every site for free. |
+| T48 | Native Messaging delivers the extension a key drawn fresh on every broker start (`broker-key.json`, mode 0600); the legacy pasted-secret path (`legacyPairing`) stays off by default, for Flatpak/Snap browsers only. |
+| T49 | Handshake `v: 2` is a mutual HMAC challenge-response, broker proves first; key never crosses the wire; nonces/proofs validated as `^[0-9a-f]{64}$` before any decoding; constant-time comparison; cap of 16 concurrent unauthenticated connections. Peer UID not enforced on macOS/Windows — file permissions on the key carry that case instead. |
+| T50–T53 | UI/UX decisions for the read button, first-run checklist, model picker, and Ollama responsiveness tuning (timeouts, warm-up, context sizing) — still in force, detail in commit history rather than here. |
+| T54 | Point-to-element, screenshot-on-ask, and official-doc search are bounded so they never make Coati act on a page and never add a new permission. Click-after-consent (rule D) is explicitly NOT covered by this decision — it needs its own entry before any code. |
+| T55 | `<all_urls>` is optional-only, requested once when "See the screen" is turned on, never in `host_permissions`. |
+| T56 | To be replaced: search runs in the browser's default engine instead of Brave/Tavily (see `docs/ROADMAP.md`). Until then: a search only starts on an explicit request inside the user's own message text, detected server-side, never from a button. |
 
-Figées le 2026-09-16, à l'issue d'un cadrage et de quatre études internes.
-Complétées le 2026-09-17 par le volet distribué payant (étude interne).
-Une décision ne se rouvre que sur élément neuf, pas sur intuition.
+## Superseded, kept for the record
+- T54/T55 (permanent screen switch): to be replaced — the model proposes a screenshot, the user accepts in one click (`docs/ROADMAP.md` L4).
+- T56 (Brave/Tavily search): to be replaced — search runs in the browser's default engine (`docs/ROADMAP.md` L6).
 
-## Technique
-
-| # | Décision | Motif |
-|---|---|---|
-| T1 | Chromium d'abord, Firefox ensuite | Le panneau latéral diverge : `chrome.sidePanel` (par onglet) contre `browser.sidebarAction` (par fenêtre). Un codebase unique reste possible avec un manifest scindé + `webextension-polyfill`. |
-| T2 | Un broker local **écrit par nous**, pas une bibliothèque tierce | Rien d'existant ne combine réutilisation du CLI local + pont Pyramid + politique par origine. ~400 lignes. |
-| T3 | Transport WebSocket, pas `fetch` | Local Network Access soumet `fetch` vers `127.0.0.1` à une permission utilisateur, et un service worker ne peut pas la demander lui-même. Les WebSockets y échappent encore (crbug.com/421156866) — échappatoire datée, repli documenté dans `PROTOCOL.md`. |
-| T4 | Aucun secret dans `chrome.storage.local` | Non chiffré sur disque. Le jeton de pairage vit dans `chrome.storage.session` (mémoire vive) ; les identifiants du modèle ne quittent jamais le broker. |
-| T5 | Pas de `<all_urls>` : `activeTab` + permissions d'hôte optionnelles | Réduit le rayon de souffle d'un content script compromis, et évite la file de revue manuelle de la boutique. |
-| T6 | Le content script envoie du **texte** assaini, jamais du HTML ; le broker traite ce texte comme une donnée, jamais comme une instruction | Une page hostile écrit dans le DOM que le content script lit. C'est le vecteur d'injection principal de cette forme d'extension. |
-| T7 | **Fournisseur de modèle par défaut du dépôt public : `ollama`, 100 % local.** `claude-api` (BYOK, clé personnelle de l'utilisateur) est le second fournisseur intégré. | L'étude marché désigne le BYOK et le local comme les deux seuls modèles tenables hors revente de tokens — voir dossier interne pour le détail produit (verticale, prix). |
-| T8 | **Un dépôt, une interface de fournisseur commune** (`broker/src/providers/types.ts`) : deux fournisseurs intégrés (`ollama`, `claude-api`) et des modules externes chargés dynamiquement depuis `config.json`, hors du dépôt | Le protocole, le panneau et l'extraction — l'essentiel du travail — sont communs. Seul l'accès au modèle diverge. Voir `docs/MODULES.md`. |
-| T9 | **Un module de fournisseur externe (dépendances comprises) ne doit jamais entrer dans le dépôt public ni le binaire distribué par défaut** ; chargement dynamique uniquement, depuis un chemin fourni par `config.json` | Garde chaque dépendance propre à un fournisseur (SDK propriétaire, bibliothèque cliente lourde) hors du dépôt et de la compilation `bun build --compile` par défaut. Voir `docs/MODULES.md`. |
-
-Historique complet des décisions d'origine (17/09, fournisseur personnel) : dossier interne,
-« Décisions techniques retirées du public (29/09) ».
-| T10 | Les recettes par site sont **déclaratives** (sélecteurs, champs, gabarit de prompt), validées contre un schéma et **signées Ed25519**, distribuées sur CDN | MV3 interdit le code distant (« functionality easily discernible from its submitted code ») — retrait automatique sinon. Et un CDN compromis deviendrait une exécution de code arbitraire chez tous les utilisateurs. La signature couvre le gabarit de prompt, sans quoi une recette altérée devient un vecteur d'injection. Bénéfice : corriger un site qui change son HTML sans repasser par la revue du store. |
-| T11 | **Aucun serveur au lancement, sauf celui des licences.** Ni synchronisation, ni relais d'inférence | Le relais détruirait l'avantage (T7). La synchronisation avait été demandée pour les « repères par site » — ce sont en réalité des données produit, identiques pour tous, qui se distribuent en fichier statique (T10). Le serveur de licences doit **échouer en laissant passer** : on ne punit pas un client payant pour une panne. |
-| T12 | Signature de code du broker **différée** ; distribution par `brew`/`scoop`/`npm`/binaire au lancement | ~400 €/an (certificat Windows + Apple Developer) pour supprimer un avertissement que l'audience technique de la verticale sait franchir. Nécessaire le jour où le public cesse d'être technique, pas avant. |
-| T13 | Encaissement par **marchand de référence** (Paddle ou Lemon Squeezy), pas Stripe nu | La TVA d'un abonnement vendu à un particulier de l'UE est due dans le pays de l'acheteur. Le marchand de référence est juridiquement le vendeur : il la collecte et la reverse. ~2 points de commission en plus pour ne jamais toucher à la TVA intracommunautaire. |
-
-### Volet distribué payant — décisions techniques (17/09)
-
-Extrait technique de l'étude interne du 17/09 ; le volet produit correspondant (verticale, prix,
-ToS) est dans le dépôt privé.
-
-| # | Décision | Motif |
-|---|---|---|
-| T17 | **Les recettes ancrent sur le texte visible, jamais sur les classes CSS** | `.css-1x7bf3q` d'un build CSS-in-JS change à chaque déploiement ; le libellé « Montant de vos cotisations » ne change qu'à la refonte. Chercher une valeur *à côté d'un libellé* est ce que fait un humain, et c'est nettement plus stable. |
-| T18 | **Une recette qui échoue dégrade, elle ne casse jamais** | Il y a un LLM dans la boucle : quand les ancres ne répondent plus, on envoie une tranche plus large de texte assaini et le modèle retrouve l'information. Plus lent, moins précis, mais fonctionnel. Un scraper classique casse net. Corollaire : le chemin générique gratuit marche toujours, la recette l'améliore sans jamais en être l'unique voie. |
-| T19 | **Maintenance : canari quotidien sur les pages publiques, utilisateurs-capteurs sur les pages connectées** | Une page connectée n'est pas vérifiable automatiquement sans détenir des identifiants — exclu. Compensations, par ordre d'efficacité : un bouton « cette recette ne correspond plus » (sans bouton, l'utilisateur part en silence) ; un signalement **opt-in, sans contenu** — structure fixe du type `recette impots-avis v3, ancres 2 et 5 introuvables`, zéro texte de page, aperçu exact affiché avant envoi ; et l'auteur lui-même, qui visite ces sites de toute façon. Charge estimée : ~20 recettes sur des sites publics lents = quelques heures par mois ; 50 recettes sur du SaaS à déploiement continu = un mi-temps. D'où la stratégie : **peu de recettes, sur des sites lents, bien faites.** |
-| T16 | **L'adaptateur modèle local (Ollama/LM Studio) passe devant le BYOK HTTP dans l'ordre de construction** | Cette verticale porte les données les plus sensibles d'un utilisateur — revenus, cotisations, avis d'imposition. Avec un modèle local, elles ne quittent jamais la machine : ni broker distant, ni API, ni Anthropic. Personne d'autre ne peut prononcer cette phrase. Sous BYOK avec clé Anthropic, la donnée part chez un sous-traitant choisi par l'utilisateur, qui en est responsable de traitement — acceptable, mais à **dire avant** la première requête sur ce type de page, pas à enfouir dans les CGU. |
-| T14 | **Une recette payante par site exige un contrôle ToS préalable.** Critère : (a) aucune clause anti-outil, ou (b) le contenu appartient à l'utilisateur, ou (c) API officielle autorisant un client tiers | Une recette nommée est un engagement contractuel, pas un détail technique : la livrer, c'est viser le site et se faire opposer ses conditions. Le contrôle passe avant l'écriture, au même rang que le test technique. La condition (b) est la plus robuste — personne ne peut interdire à quelqu'un de lire ce qui lui appartient, la question des droits d'auteur et des clauses *NonCommercial* disparaît, et c'est là que les agents cloud sont les plus aveugles puisqu'il faut être connecté. |
-| T15 | La distinction qui préserve le produit : **le gratuit générique n'est pas visé, le premium nommé l'est** | « Lis la page que je regarde » est universel, indifférent au site, déclenché par l'utilisateur sur son propre écran — au même titre que le mode lecture de Chrome. Ce qu'un ToS interdit, c'est de **vendre** une fonction nommée pour son service. |
-
-## Contrainte dure — la règle du geste
-
-> **Coati accompagne un geste de l'utilisateur, il n'en fabrique jamais.**
-
-Au même rang que les quatre règles de sécurité. Ce n'est pas une précaution morale, c'est la
-condition d'existence du produit : les trois cadres qui nous protègent tracent exactement la même
-ligne, et la franchir les fait perdre tous les trois d'un coup.
-
-| | Côté licite | Côté interdit |
-|---|---|---|
-| Cloudflare (taxonomie juillet 2026) | humain en temps réel | boucle automatisée = catégorie *Agent*, bloquée par défaut depuis le 15/09/2026 sur toute page affichant de la publicité |
-| ToS des plateformes | l'utilisateur agit, l'outil assiste | l'outil agit à sa place — ban du compte **de l'utilisateur** |
-| Chrome Web Store | enrichir ce qui est affiché | extraire en volume, transmettre, contourner |
-
-Interdit : suivi de prix en arrière-plan, veille automatique, crawl multi-pages, publication
-programmée, toute boucle sans geste. Autorisé : tout ce qui part d'un clic sur la page ouverte.
-
-### L'exception nommée (18/09) — ouvrir la transcription YouTube
-
-Un seul clic, sur le bouton « Afficher la transcription » que YouTube affiche déjà, **uniquement**
-en réponse au clic de l'utilisateur sur « Résumer cette vidéo », sur l'onglet qu'il regarde. Jamais
-au chargement, jamais en boucle, jamais sur une autre vidéo que celle affichée. Code isolé dans
-`panel.js:openYouTubeTranscript`, séparé de l'extraction pour rester lisible par un examinateur de
-boutique.
-
-Motif : ce que visent les trois régimes, c'est le **volume et l'autonomie** — un moissonneur. Une
-interaction unique, sur instruction directe et simultanée d'un utilisateur connecté, est son acte à
-lui, outillé. C'est l'axe de hiQ v. LinkedIn et de Meta v. Bright Data : ce qui a fait basculer les
-décisions, c'est l'accès massif derrière un login, jamais une interaction isolée avec une interface.
-Une lecture stricte interdirait aussi de faire défiler une page pour charger du contenu différé, ce
-qui rendrait l'extension inutilisable.
-
-Cette exception est **nommée et bornée** : elle vaut pour ce bouton, pas comme précédent. Toute
-extension du principe repasse par une décision explicite.
-
-**Élargie le 26/09, par décision explicite de Romain** : elle couvre aussi le clic sur une autre
-suggestion vidéo de l'encart de site (T27), par exemple « Points clés minutés ». Mêmes bornes : un
-seul clic sur le bouton que YouTube affiche, en réponse au clic de l'utilisateur, sur l'onglet
-qu'il regarde, pour la vidéo affichée.
-
-**Principe accepté le 26/09 par Romain, à cadrer avant tout code — « une action à la fois,
-décidée par l'utilisateur »** : le modèle peut proposer une action sur la page ouverte ; le panneau
-l'affiche en nommant exactement ce qui sera cliqué ; le clic de l'utilisateur déclenche ce seul
-clic. Jamais d'enchaînement, jamais d'initiative, jamais sur un autre onglet. D'abord les actions
-qui font apparaître du contenu (déplier, afficher plus, commentaires) ; les actions qui ont un
-effet sur le compte (s'abonner, aimer, commenter, acheter, réglages) viendront plus tard. Romain
-envisage de lever davantage les restrictions de clic ; point à clarifier avant d'écrire du code,
-notamment la responsabilité : l'examen du Chrome Web Store juge le code de l'extension, pas le
-modèle (plus bas, « La contrainte vit dans le code »), et une page piégée peut dicter ses
-propositions au modèle.
-
-⚠️ **Ce qui a été écarté au passage** : faire dire au produit « clique à ma place, je n'ai pas le
-droit de le faire ». Cette phrase n'aurait protégé de rien et aurait tout aggravé — un aveu écrit,
-livré à chaque client, que l'éditeur estime l'action interdite, doublé d'une instruction de la
-commettre. C'est la définition de la **facilitation** que vise la politique du Chrome Web Store, et
-la preuve du savoir en cas de litige. Règle générale qui en découle : **ne jamais écrire dans le
-produit qu'on estime quelque chose illégal.** Le cadre juridique s'énonce une fois, en termes
-factuels et neutres, dans les CGU et la fiche de boutique. Les messages d'interface restent
-factuels : ce qui s'est passé, ce que l'utilisateur peut faire — jamais une qualification de droit.
-
-Corollaire de risque : l'exposition réelle n'est pas un procès — aucune plateforme ne poursuit un
-développeur solo pour un clic — mais un **retrait du Chrome Web Store**, administratif, sans recours
-pratique, immédiat. On optimise pour la lecture d'un examinateur, pas pour un tribunal.
-
-**La contrainte vit dans le code, pas dans l'interface.** L'idée d'afficher dans chaque réponse ce
-que Wingpen a le droit de faire a été examinée et écartée : le CWS juge le code et non l'interface
-(la responsabilité ne se transfère pas par mention légale) ; l'encart répété reproduit la plainte
-n°5 de `niches.md` (« UX écrasante ») alors que la simplicité est ce qu'on vend ; et expliquer
-*comment* contourner une restriction est qualifié de **facilitation** par la politique CWS — une
-extension qui refuse d'agir mais publie le mode d'emploi est plus exposée qu'une qui se tait.
-Forme retenue : la fonction n'existe pas, c'est énoncé une fois à l'installation et dans les CGU, et
-un message d'une ligne n'apparaît que si l'utilisateur demande ce que Wingpen ne fera pas.
-
-## Appairage et connexion au modèle (25/09)
-
-Issues du goal du 25/09 (audits du jeton et de la connexion, revue de sécurité du lot 7). Étude
-et comparaison des transports : note interne.
-
-| # | Décision | Motif |
-|---|---|---|
-| T20 | **La frontière de menace est le compte utilisateur du système, et le code l'applique** : liste `Host` exacte, puis UID du pair sous Linux, avant tout routage ; hors Linux, non appliqué et dit au démarrage | L'ancienne note promettait le compte alors que tout processus de la machine passait, autres comptes compris (`PROTOCOL.md`, « Frontière de menace », « Admission HTTP et WebSocket »). |
-| T21 | **`hello-ok` délivre un jeton de session** : 256 bits, en mémoire seulement, lié à l'origine, 64 au plus ; le secret permanent ne sert plus qu'à épingler un uuid Firefox | L'extension ne détient plus de secret durable, et un redémarrage du broker invalide tout ce qui a été délivré (`PROTOCOL.md`, « Poignée de main », « Jeton de session »). |
-| T22 | **Chemin « un clic » retiré** : plus d'`externally_connectable`, de message `wingpen:pair` ni de bouton sur `/pair` | Inutile pour un ID autorisé (appairage silencieux), impossible pour un ID inconnu (refusé à l'`Origin`), et ouvert à toute page servie sur le port, donc à un programme qui l'occuperait (`PROTOCOL.md`, « Chemin « un clic » retiré »). |
-| T23 | **`/pair` réservée à Firefox**, sans ID ni script, servie seulement à une navigation de premier niveau (`Sec-Fetch-Mode: navigate`, `Sec-Fetch-Dest: document`) | C'était la plus grosse exposition du secret permanent ; le filtre écarte le `fetch()` d'une autre extension, seul Native Messaging ferme le reste (`PROTOCOL.md`, « Page `/pair` (Firefox seulement) »). |
-| T24 | **Port 8787 figé** : `config.port` n'est plus lu, `WINGPEN_PORT` sert aux tests | L'adresse du service worker et le `connect-src` de la CSP sont littéraux : un autre port est injoignable (`PROTOCOL.md`, « Transport »). |
-| T25 | **Disponibilité du fournisseur vérifiée à l'ouverture du panneau seulement, sans appel facturé** (`provider.status`, cache de 60 s) | Règle du geste, et aucune dépense sur la clé ou l'abonnement de l'utilisateur pour un simple affichage (`PROTOCOL.md`, « Disponibilité du fournisseur »). |
-| T26 | **Aucune bascule automatique de fournisseur** : seul un `settings.set` venu de l'utilisateur en change | Changer de fournisseur change le destinataire des pages (T16) ; ce choix appartient à l'utilisateur (`PROTOCOL.md`, « Disponibilité du fournisseur », « Règles invariantes »). |
-
-Élément neuf, sans rouvrir de décision ici : le motif de T3 et du risque ouvert n°1
-(crbug.com/421156866, « pas encore » appliqué aux WebSockets) est daté. Chrome 147 et Firefox 154
-filtrent désormais les WebSockets des sites web ; les origines d'extension restent hors de portée,
-sans garantie écrite. Détail : note interne.
-
-## Panneau et suggestions par site (26/09) — volet technique
-
-Décidé par Romain le 26/09, après ses premiers essais du panneau. Le volet produit (choix visuels,
-absence de maquette) est dans le dépôt privé.
-
-| # | Décision | Motif |
-|---|---|---|
-| T27 | **Suggestions par site dans un encart à place fixe** : indicateur d'attente au changement de page, puis l'icône du site et les prompts recommandés dessous ; jeu générique sur un site inconnu | Des boutons qui apparaissent et disparaissent sous la barre feraient sauter la mise en page à chaque changement d'onglet. **Amendement 2026-09-28** : le jeu générique sur site inconnu disparaît. L'encart y montre son en-tête et « Mes prompts ↗ », plus les prompts que l'utilisateur a rangés dans la case « Tous les sites » — voir T33, T41. |
-| T28 | **L'icône de l'encart est celle que le site fournit (favicon)**, jamais un logo embarqué ; jamais non plus une requête vers une adresse choisie par la page : Chromium la sert depuis son cache (`_favicon/`, permission `favicon`, sans avertissement tant que ni `tabs` ni permission d'hôte obligatoire ne sont déclarées), Firefox seulement si c'est une URL `data:` ; la CSP garde `img-src 'self'` (`data:` en plus sous Firefox) | Vaut pour tous les sites, et l'extension ne transporte aucune marque d'autrui (examen du Chrome Web Store). Charger `tab.favIconUrl` aurait ouvert la CSP à tout `https:` et dit à la page, par une requête qu'elle contrôle, que Wingpen est ouvert. **Amendement 2026-09-28** : l'icône disparaît entièrement de l'encart (ni favicon, ni repli visuel) — voir T31. La mécanique de service (`_favicon/`, CSP) décrite ici n'est plus utilisée ; conservée ici pour l'historique. |
-| T29 | **Pas de permission `tabs`** : sur un site non activé, l'encart montre le jeu générique et « Activer ce site » | `tabs` ferait afficher « Lire votre historique de navigation » à l'installation. Le panneau ne connaît l'adresse d'un onglet que sur un site activé ou après un clic (T5). |
-| T30 | **Suggestions par site : un fichier de données livré avec l'extension** (site → prompts), appelé à rejoindre les recettes | Du texte seulement, sans extraction propre au site : rien de ce que T14 et T15 encadrent pour une recette nommée. **Amendement 2026-09-28** : le jeu générique (`GENERIC`) disparaît. Le gratuit ne couvre plus que cinq sites populaires (YouTube, Google résultats, Wikipédia, Reddit fil, Amazon fiche produit) ; immobilier, Leboncoin et achat en ligne générique sortent du gratuit et rejoignent le payant (par site, nommé) — voir T31, P25 (dossier interne). |
-
-## Mes prompts par site, encart épuré, sites populaires (28/09) — volet technique
-
-Décidé par Romain le 28/09 (plan interne). Couvre l'encart, le pied
-du panneau, le fil, la nouvelle page « Mes prompts » et le stockage des prompts/préférences. Le
-volet produit (stockage côté broker, données d'usage) est dans le dépôt privé.
-
-| # | Décision | Motif |
-|---|---|---|
-| T31 | **Contenu et ordre de l'encart** : les prompts de la case du site (suggestions de Coati et prompts de l'utilisateur mêlés, même apparence, sans mention « à vous »), dans l'ordre de la case, puis ceux de « Tous les sites », puis « Mes prompts ↗ » en dernier bouton discret (ouvre la page dans un onglet). La première suggestion de Coati d'un site populaire garde le style principal (caramel). Au-delà de trois lignes de boutons, l'encart défile. Aucune icône de site (amende T28). | Un seul flux visuel, sans distinguer visuellement « ce que Coati propose » de « ce que l'utilisateur a écrit » — la distinction n'aide pas l'usage et alourdit l'encart (P19, dossier interne). |
-| T32 | **Libellé d'un bouton de prompt** : le titre s'il existe, sinon le début du texte coupé par « … » | Le titre devient facultatif (T41), il faut un repli qui ne casse jamais l'affichage. |
-| T33 | **Pied du panneau simplifié** : pas de croix dans l'encart ; la liste « Mes prompts » du pied (zone 5b) disparaît ; le pied ne garde que la disquette, qui enregistre la question tout de suite, sans demander de titre, dans la case du site en cours (« Tous les sites » si l'adresse est inconnue, T29) | Un geste, pas un formulaire : le titre se donne plus tard, dans la page « Mes prompts » (T38), si l'utilisateur le veut. |
-| T34 | **Bouton « Relancer »** sur chaque message de l'utilisateur du fil (visible au survol et au focus clavier, sous la bulle), qui le renvoie selon l'état actuel de l'interrupteur de lecture de page | Reprendre une question sans la retaper ; même règle de lecture qu'un envoi normal — pas de lecture figée au moment du premier envoi. |
-| T35 | **Page « Mes prompts » : grille pleine page, une case par site**, ordre fixe (« Tous les sites », les cinq sites populaires, puis les sites de l'utilisateur par ordre alphabétique) ; une case apparaît au premier prompt enregistré pour un site ; un site = l'adresse sans `www` (`crisco4.unicaen.fr` et `unicaen.fr` sont deux sites) | Un site inconnu doit pouvoir accumuler des prompts sans qu'il ait fallu le prévoir dans le fichier de données (T30). |
-| T36 | **Une ligne de prompt** : une poignée et un bouton pour l'effacer, en deux temps (`confirm-arm.js`) ; pas de case à cocher | Cohérent avec l'usage existant de la confirmation en deux temps ailleurs dans le panneau ; pas de sélection multiple, hors périmètre. |
-| T37 | **La poignée réordonne dans la case et déplace vers une autre case** (changement de site) ; une suggestion de Coati non modifiée reste dans sa case ; boutons « monter » / « descendre » sur chaque ligne pour le clavier et le tactile | SortableJS (bibliothèque retenue, voir « Librairie » du plan) n'a pas de mode clavier — les boutons comblent ce trou plutôt que d'exiger la souris. |
-| T38 | **Édition d'un prompt** : au clic, la ligne s'agrandit et montre titre (facultatif) et texte ; enregistrement par bouton explicite ou à la sortie du champ, le plus simple qui ne perde rien | Pas de sauvegarde automatique à chaque frappe (coût réseau, risque de course) ; pas de perte si l'utilisateur clique ailleurs sans bouton dédié. |
-| T39 | **Suggestions de Coati dans la page** : effaçables (retirées de ce site) et modifiables ; modifier une suggestion la transforme en prompt de l'utilisateur à la même place, l'original compte comme effacé ; lien discret « Rétablir les suggestions de Coati » tant qu'il en manque dans une case | Une suggestion n'est pas un texte figé : l'utilisateur doit pouvoir se l'approprier sans perdre sa place dans la case, et revenir en arrière si l'essai ne convient pas. |
-| T40 | **Hors périmètre de la page** : ni recherche, ni « Déplacer vers… », ni « Masquer », ni déplacement des cases | KISS (P19, dossier interne) : la page gère des prompts, pas une bibliothèque à facettes. |
-| T41 | **Stockage** : pas de migration — l'ancien `prompts.json` à plat est ignoré par le broker, sans être supprimé ; `DEFAULT_PROMPTS` (les cinq prompts d'office) disparaît, bibliothèque vide à l'installation ; `PromptEntry` devient `{ id, site, title?, body }`, `id` stable attribué par le broker (le titre, facultatif, ne peut plus servir d'identifiant) ; `site` vaut `"*"` ou une clé de site sans `www` | Décision de Romain : ne pas écrire de code de migration pour cinq prompts par défaut que personne n'a demandés ; un identifiant stable est nécessaire dès que le titre devient facultatif et modifiable. Détail du format : `docs/PROTOCOL.md`, « Bibliothèque de prompts et préférences par site ». |
-| T42 | **Activation case par case, dans la page « Mes prompts »** : un interrupteur « Actif » dans l'en-tête de chaque case de site (les cinq sites populaires et les sites de l'utilisateur), qui demande ou retire l'autorisation d'accès (`permissions.request` / `permissions.remove`) ; sites populaires : tous leurs domaines reconnus d'un coup (Google et Amazon : les neuf pays déjà couverts) ; pas de lien « Activer les sites populaires » dans l'encart | Décision de Romain (28/09) : l'activation se fait à l'endroit où l'utilisateur voit déjà tous ses sites, pas en aveugle depuis l'encart d'une seule page. Pas de raccourci « tous les sites » (permission trop large pour un clic). |
-| T43 | **Lien « Activer » dans l'encart** : petit texte gris discret, à droite du nom du site sur la ligne d'en-tête, visible dès que Coati connaît l'adresse d'une page non activée ; disparaît une fois le site actif | Complète T42 sans le remplacer : l'utilisateur qui est déjà sur la page peut activer sans détour par « Mes prompts », mais rien n'y fait le travail à sa place (pas de sites populaires ni « tous les sites »). |
-| T44 | **Case de tête de la page « Mes prompts », en deux parties** : pleine largeur, colorée (fond caramel très clair / teinte sombre équivalente), sans titre de case propre. Première partie, seul intitulé de la case : « Sur tous les sites » (l'actuelle case `"*"`, affichée dans tous les encarts). Seconde partie, sans nom du tout (ni « À ranger » ni aucun intitulé), séparée par un filet discret : prompts enregistrés sur une page dont Coati ne voit pas l'adresse, clé interne `@unsorted`, jamais affichée à l'utilisateur ; montrés dans l'encart seulement sur une page d'adresse inconnue, jusqu'à ce que l'utilisateur les glisse ailleurs | Correction de Romain au lancement du goal : la seconde partie ne porte aucun nom, pour ne pas laisser croire que « ranger plus tard » est le geste attendu — c'est un simple accueil temporaire, pas une case comme les autres. |
-
-**Amendement 2026-09-28 (T29)** : sur un site non activé, l'encart ne montre plus « Activer ce
-site » comme repli d'échec de lecture seul — le lien « Activer » (T43) apparaît dès que l'adresse
-est connue, avant même une tentative de lecture.
-
-**Amendement 2026-09-28 (T33)** : la disquette range désormais dans `@unsorted`, pas dans
-« Tous les sites » (`"*"`), quand l'adresse de la page est inconnue — voir T44. « Tous les sites »
-reste la case que l'utilisateur choisit lui-même en glissant un prompt.
-
-## Lecture des pages (29/09)
-
-Décidé par Romain le 29/09 sur les propositions L1-L7 d'une étude interne.
-
-| # | Décision | Motif |
-|---|---|---|
-| T45 | **La lecture générique passe avant tout module payant.** D'abord le choix du bloc principal : ne jamais retenir un bloc non affiché (`checkVisibility`, `getClientRects`, sous-arbres `aria-hidden`), préférer `main`/`article` affichés (L1). Puis, dans l'ordre : regrouper les blocs frères répétés (fils de commentaires), lire le shadow DOM ouvert et fermé (`openOrClosedShadowRoot`), prévenir l'utilisateur quand une page est illisible (PDF, `canvas`, texte vide), garder titres et listes, écarter le texte invisible à l'œil (L2). Chaque changement se mesure avant/après au banc `scripts/lecture/` | 6 pages ratées sur 19 mesurées, dont 3 à 4 par une seule cause (blocs cachés choisis comme contenu). La correction profite à tous les sites, gratuitement. |
-| T46 | **Deux gestes de plus donnent accès à la page** : une entrée « Lire cette page avec Coati » au clic droit sur la page, et un raccourci clavier. Le clic sur l'icône relit l'onglet (`openPanelOnActionClick: false` + `action.onClicked`, fait le 29/09) ; l'icône ne ferme plus le panneau sous Chrome (L3) | Sous Chrome, un clic dans le panneau n'accorde pas `activeTab`. Ces gestes, si, sans permission `tabs`. Vérifié par Romain le 29/09 : le clic sur l'icône fait apparaître l'icône du site et « Activer » (L4) ; sous Firefox, un envoi depuis la barre latérale lit la page (L5). |
-| T47 | **`extractOriginFromError` est retirée** si l'erreur d'injection de Firefox ne contient pas non plus l'adresse (L7) | Sous Chrome/Brave, l'erreur ne contient plus l'adresse : le code est sans effet. |
-
-**Report (L6)** : la frontière gratuit / module et l'ordre des modules se décident après la
-publication sur GitHub de l'extension gratuite.
-
-**Amendement 2026-09-29 (T29)** : pas de permission `tabs`, inchangé. Les gestes qui donnent
-l'adresse d'un site non activé sont le clic sur l'icône, le clic droit et le raccourci (T46) ; sous
-Firefox, aussi un envoi depuis la barre latérale.
-
-## Appairage par Native Messaging (30/09)
-
-Décidé par Romain le 30/09 (goal G4), après la preuve du 25/09 : une autre extension réécrit
-l'`Origin` de son WebSocket et obtient l'appairage silencieux. Détail : `PROTOCOL.md`, « Amendement
-2026-09-30 : Native Messaging (G4) ». Revue de sécurité le même jour : voir les ajouts ci-dessous.
-
-| # | Décision | Motif |
-|---|---|---|
-| T48 | **Native Messaging livre à l'extension une clé tirée à chaque démarrage du broker** (fichier `broker-key.json` en 0600, lu par l'hôte natif `com.getcoati.broker`, qui est le même exécutable que le broker, écoute exclusive du port — `reusePort: false`) ; le WebSocket reste le transport ; l'appairage silencieux, la poignée de main `v: 1`, les jetons de session et `/pair` sont retirés du code, dans tous les modes, pas seulement masqués. `legacyPairing` dans `config.json` (éteint par défaut, pour Flatpak et Snap) ajoute juste une seconde clé possible — un secret permanent `S`, imprimé par `coati-broker --show-pairing-secret` — à la même poignée de main `v: 2`. Permission `nativeMessaging` obligatoire dans les deux manifestes ; l'hôte Firefox exige le chemin du manifeste **et** l'ID `coati@getcoati.com`, l'hôte Chromium l'origine exacte | Seul Native Messaging fait vérifier l'ID de l'extension par le navigateur. Livrer une clé plutôt que relayer tous les messages garde le transport existant et ses tests, sans fichier de socket par système ni pagination sous le plafond d'1 Mo. Retirer `v: 1` du code plutôt que le masquer évite qu'un drapeau mal réglé rouvre une surface qu'on croyait fermée. Permission obligatoire : facultative, elle a été signalée en échec sous Firefox 90 et exigerait un clic de plus. Un seul exécutable : un seul fichier à installer, à débloquer et à mettre à jour, sans décalage de version avec l'hôte. L'ID seul comme preuve d'appel Firefox serait rejouable par un exécutable lancé à la main ; exiger aussi le chemin du manifeste est une défense en profondeur gratuite. |
-| T49 | **Poignée de main `v: 2` en défi-réponse HMAC dans les deux sens**, le broker prouvant le premier ; la clé ne circule jamais sur le WebSocket, plus aucun jeton nulle part. Pas de MAC par trame : un relais demanderait d'intercepter le WebSocket d'une autre extension (impossible depuis une extension) ou de partager le port, fermé par l'écoute exclusive. Nonces et preuves validés `^[0-9a-f]{64}$` avant tout décodage, comparaison en temps constant qui ne lève jamais. Plafond de 16 connexions non authentifiées simultanées, au-delà refusées et journalisées avec une limite de débit. Dossier de données durci (lien symbolique ou UID étranger refusés, 0700 réappliqué) et fichiers temporaires en `O_CREAT\|O_EXCL\|O_NOFOLLOW`. Invariants ajoutés côté extension (jamais `setAccessLevel`, pas d'`externally_connectable` ni d'`onMessageExternal`/`onConnectExternal`, `sender.id` vérifié), avec une vérification statique dans les tests du broker. **L'UID du pair n'est pas porté sous macOS et Windows** : la clé et les droits de son fichier suffisent contre un autre compte, et la différence qui reste est écrite dans la frontière de menace | La preuve du broker ferme l'usurpation du port, jusqu'ici acceptée : l'extension n'envoie rien à qui ne connaît pas la clé. Un MAC par trame protégerait contre un relais que la plateforme des extensions n'autorise déjà pas — coût sans bénéfice mesurable ; l'écoute exclusive traite la seule variante qui reste (partage du port). Valider la forme avant de décoder, et ne jamais lever, retire toute classe d'exception non rattrapée de la poignée de main. Le plafond de connexions et le durcissement du dossier répondent à une revue de sécurité du 30/09 qui a jugé la surface d'un broker exposé sur `127.0.0.1` trop ouverte sans eux. Porter l'UID du pair demanderait des appels natifs (`proc_pidinfo`, `GetExtendedTcpTable`) que Bun n'offre pas sans FFI ; hors Linux, un autre compte obtient au plus un défi inutilisable, puis un refus. |
-
-## Accès aux pages et premier lancement (30/09)
-
-Décidé par Romain le 30/09 (goal G5, « voie B »). Sous Chrome, un clic dans le panneau n'accorde
-pas `activeTab` (T46) : sans permission d'hôte, le panneau ne peut pas lire la page où il est
-ouvert. Deux voies restaient : la permission `tabs` (avertissement « Lire votre historique de
-navigation » dès l'installation), ou l'accès « tous les sites » demandé une fois, à l'exécution.
-Romain a retenu la seconde.
-
-**Amendement 2026-09-30 (T42)** : l'activation case par case de la page « Mes prompts » reste, mais
-n'est plus la seule porte. Au premier clic sur le bouton de l'encart (T50), l'extension demande
-**une seule fois** la permission d'hôte optionnelle « tous les sites », `http://*/*` et
-`https://*/*` — schémas explicites, jamais `*://` (Chrome refuse ce motif en silence).
-`permissions.request` part directement du clic, sans `await` avant l'appel (Firefox exige le geste
-dans le même tour de boucle). Aucune permission d'hôte obligatoire, pas de `<all_urls>`, pas de
-`tabs` : rien ne s'affiche à l'installation. La règle du geste ne change pas : avec l'accès à
-tous les sites, Coati ne lit toujours une page qu'au clic (bouton de l'encart, suggestion, envoi
-avec « Lire la page », icône, clic droit, raccourci), jamais au changement d'onglet ni en arrière-
-plan. Qui refuse garde l'activation site par site : le bouton de l'encart devient alors « Activer
-ce site » (demande limitée aux domaines de ce site, comme l'interrupteur « Actif »), et le refus
-est retenu dans `storage.local` (`coati:allSitesDeclined`, une préférence, pas un secret) pour ne
-pas redemander « tous les sites » à chaque page dont l'adresse est connue. La phrase « Pas de
-raccourci « tous les sites » (permission trop large pour un clic) » du motif de T42 est caduque.
-Les deux manifestes déclaraient déjà ces deux motifs en `optional_host_permissions` (Firefox les
-accepte depuis sa version MV3, 109) : aucun changement de manifeste.
-
-**Amendement 2026-09-30 bis (T42)** : tant que « tous les sites » est accordé, la page « Mes
-prompts » montre une ligne en tête de la zone des sites (« Coati a accès à tous les sites, et ne
-lit une page qu'à votre clic. ») et un bouton « Revenir au site par site », qui retire les deux
-seuls motifs `http://*/*` et `https://*/*` : les accords site par site donnés avant restent tels
-quels. Pendant ce temps, les interrupteurs « Actif » s'affichent allumés et verrouillés
-(`aria-disabled`, toujours atteignables au clavier, la ligne en tête comme description
-accessible). Motif : un navigateur ne retire pas un motif de site de sous un accord plus large ;
-l'interrupteur aurait paru ne rien faire.
-
-**Amendement 2026-09-30 (T43)** : le lien gris « Activer » disparaît, remplacé par le bouton de
-l'encart (T50), à la même place (ligne d'en-tête de l'encart). Il se montre dès que la page n'est
-pas accessible, même quand Coati ignore son adresse : la demande « tous les sites » n'a pas besoin
-de connaître l'origine, ce qui lève le « chicken-and-egg » de T29.
-
-**Amendement 2026-09-30 (T29)** : toujours pas de permission `tabs`. Une fois « tous les sites »
-accordé, le panneau connaît l'adresse de l'onglet par ses seules métadonnées (`tabs.get`), sans
-lire la page, comme sur un site activé.
-
-| # | Décision | Motif |
-|---|---|---|
-| T50 | **Bouton « Lire cette page » dans l'en-tête de l'encart, un anneau caramel autour de l'icône du site** (favicon si connue, sinon l'icône de Coati), avec un libellé verbal. Au repos, tant qu'aucune lecture n'a encore réussi par ce bouton, l'anneau **respire** : un halo caramel qui s'élargit et s'efface, 2,4 s par cycle, avec une pause. Pendant la lecture, le même anneau s'ouvre en arc et **tourne** (« Lecture… », `aria-busy`). Après un refus : ni halo ni rotation, libellé « Activer ce site » si l'adresse est connue, et une ligne d'explication. Le halo s'arrête pour de bon après la première lecture réussie (`coati:readButtonUsed` dans `storage.local`). `prefers-reduced-motion` : aucun mouvement, ni halo ni rotation, le libellé porte seul l'état. Nom accessible = le libellé, anneau de focus caramel. | Trois variantes étudiées. **Anneau qui tourne au repos** (l'idée de départ) : une rotation est le signe universel de « chargement, patientez », et l'encart l'utilise déjà pour la détection (`site-card-spinner`, à côté) — le bouton aurait dit « Coati est occupé » au moment précis où il attend l'utilisateur. **Anneau qui se remplit** : se lit comme un compte à rebours, donc comme une action qui partira seule, ce que la règle du geste interdit. **Halo qui respire** (retenu) : la convention des balises d'accueil (« c'est ici, à vous »), sans promesse d'activité. La rotation reste, mais réservée au seul moment où Coati travaille vraiment : le signe dit la vérité dans les deux états. Le libellé verbal porte le sens, l'animation n'ajoute que la vie ; elle s'arrête après le premier usage pour ne pas devenir un reproche permanent. |
-| T51 | **Premier lancement (P20) : une carte de trois coches dans le panneau, sous l'encart** — programme local détecté (état de connexion issu de Native Messaging : `no-host` = absent), modèle connecté (`provider.status`, ou une première réponse complète), accès aux pages (première lecture réussie par le bouton de T50, ou accès déjà accordé). Chaque coche manquante porte son unique action : lien vers la dernière version publiée, ouverture des réglages, désignation du bouton de l'encart. Logo fixe. Une fois les trois réunies, `coati:firstRunDone` (`storage.local`, pas un secret) la masque pour de bon. **Page d'accueil** (`welcome/`) ouverte par `runtime.onInstalled` seulement si `reason === "install"` : épingler l'icône (texte propre à Chrome/Brave ou à Firefox), les trois étapes, lien vers l'installateur. | Aucun premier résumé n'est lancé seul (règle du geste) : la dernière étape finit sur le bouton de l'encart, que l'utilisateur clique lui-même. Une mise à jour ne rouvre pas la page d'accueil : elle ne sert qu'à qui découvre Coati. |
-| T52 | **Modèle visible et changeable en un clic** (amendement PROTOCOL 2026-10-07) : pastille du modèle à côté de « Connecté », menu « Sur cet ordinateur » / « En ligne » alimenté par `models.list`, même liste dans les réglages et le tutoriel. Ollama est interrogé quel que soit le fournisseur actif ; seuls les modèles installés et capables de converser sont proposés. Le programme local retient le dernier modèle de chaque fournisseur (`lastModels`). Réflexion : `think:false` quand le gabarit Ollama sait la couper (`not $.Think`), sinon `think:true` (raisonnement rangé à part, jamais affiché) et mention « réfléchit avant de répondre, plus lent ». Capacité de la machine lue localement par le programme local (RAM, mémoire graphique par sysfs ou `nvidia-smi`, mémoire unifiée sur Mac) : chaque modèle local est classé « tient dans la carte », « partagé » ou « trop gros », remplacé par la part mesurée (`/api/ps`) quand il est chargé ; les suggestions de téléchargement sont filtrées par cette règle. | La liste ne dépendait que du fournisseur actif : avec un autre fournisseur, les modèles Ollama installés restaient invisibles et l'utilisateur ne savait pas quel modèle répondait. Une liste de cartes graphiques écrite à la main serait sans fin : lire la mémoire sur place suffit, et rien ne quitte la machine (deux nombres arrondis vers l'extension, sur le même ordinateur). Un modèle à réflexion seule (ex. `qwen3:4b`, Thinking-2507) mis en `think:false` déverse son raisonnement dans la réponse sans balise : mesuré sur Ollama 0.35.1. |
-| T53 | **Ollama rapide** (amendement PROTOCOL 2026-10-07 bis) : plus de délai total — délai jusqu'au premier signe d'activité (300 s en local, 120 s en ligne ; la réflexion d'un modèle compte comme activité) puis 60 s d'inactivité (`model-stalled`) ; préchauffage `model.warmup` à l'ouverture du panneau, `keep_alive` 15 min ; taille de contexte fixe par modèle (la plus grande qui laisse modèle + cache dans la carte, 1,5 Go réservés à l'affichage, minimum 8192), dépassée seulement si la page l'exige ; étapes `progress` (chargement, lecture, réflexion) affichées avec le coati qui renifle ; conseil vers le meilleur modèle qui tient dans la carte au choix d'un modèle partagé et après une réponse lente ou coupée ; encart « Accélérer Ollama » (flash attention, cache q8_0) dans le tutoriel. Le texte de la page n'est jamais raccourci. | Mesuré chez Romain : un délai total de 120 s coupait au milieu d'une réponse de `qwen3:8b` (12,6 tokens/s) ; Ollama rechargeait le modèle à chaque changement de palier de contexte ; un modèle qui déborde de la carte lit la page six fois plus lentement. La qualité des réponses reste l'affaire du modèle choisi : Coati conseille, il ne tronque pas. |
-| T54 | **Montrer du doigt / Regarder l'écran / Consulter la doc officielle — bornes de sécurité** (plan interne du 08/10, amendement PROTOCOL 2026-10-08) : les trois capacités **ne font agir Coati sur la page d'aucune façon** et **n'ajoutent aucune permission nouvelle** (même `activeTab`/hôtes optionnels qu'aujourd'hui). **A — Montrer du doigt** : le modèle ne fait que *citer* une référence (`[[e12]]`) parmi une liste numérotée par l'extension (libellé toujours tiré de l'extraction, jamais du modèle, invisibles exclus) ; l'effet maximal d'un clic de l'utilisateur sur le bouton qui en résulte est un défilement et un cadre temporaire — jamais un `click()`, un focus ni une saisie. **B — Regarder l'écran** : une capture d'écran (`captureVisibleTab`, case cochée par question, décochée après chaque envoi) est une donnée comme le texte de la page — mêmes délimiteur et consigne anti-injection, jamais stockée (`chrome.storage`, `persistConversation`), jamais rejouée par « Relancer ». **C — Doc officielle** : une recherche (Brave/Tavily, clé de l'utilisateur) et une lecture de page sont strictement bornées par geste (une recherche par clic, ≤ 2 appels de recherche, ≤ 3 pages lues, aucun lien suivi depuis une page lue — pas de crawl) et protégées contre le SSRF (`safe-fetch.ts` : `https` seulement, IP privées/`localhost`/métadonnées refusées, revalidées à chaque redirection) ; le contenu d'une page de doc reste une donnée, jamais une instruction, même piégé. **Cliquer après accord (D)**, seule capacité qui ferait agir l'extension sur la page (`element.click()`), n'est PAS couverte par cette décision : elle demande sa propre décision `DECISIONS.md`, avant tout code, le jour où elle est engagée. | La règle du geste (CLAUDE.md n°5) et la règle n°3 (contenu de page = donnée) bornent les trois capacités dès leur conception plutôt qu'en revue après coup. Nommer explicitement que D reste hors de ce feu vert évite qu'un futur lot glisse du « montrer » au « cliquer » sans repasser par une décision dédiée — le examinateur du Store et les ToS des plateformes tracent cette même ligne (CLAUDE.md n°5). |
-| T55 | **`<all_urls>` optionnel pour « Voir l'écran »** (08/10, amende T29 et la règle 4 de `CLAUDE.md`) : `<all_urls>` dans `optional_host_permissions` seulement, demandé une fois quand l'utilisateur allume « Voir l'écran », jamais dans `host_permissions`. « Voir l'écran » reste allumé comme « Lire la page » ; une capture part à chaque question tant qu'il l'est. | Chrome n'accorde `captureVisibleTab` qu'avec `activeTab` (clic sur l'icône, raccourci, menu contextuel ; perdu à la navigation) ou `<all_urls>` : les hôtes `http(s)://*/*` de la voie B ne suffisent pas (essai B0). Exiger un clic sur l'icône n'est pas découvrable par un utilisateur ordinaire ; l'avertissement de Chrome est celui déjà accepté pour « Lire cette page ». |
-| T56 | **Recherche sur demande explicite dans la question, pas de bouton** (amendement PROTOCOL 2026-10-08 ter) : le bouton « Chercher dans la doc » est retiré. Une recherche ne part que si le texte de la question contient une demande explicite (fr : « cherche/regarde/consulte … (dans) la doc/l'aide officielle/sur internet/sur le web/en ligne », « fais une recherche » ; en : « search/look up … docs/the web/online », « google it » ; zh : 搜索/查一下…文档/网上), détectée côté broker (`search/intent.ts`), jamais côté panneau. `chat.docSearch.origin` change de sens : il ne demande plus une recherche, il l'autorise seulement pour l'onglet courant (envoyé sur chaque `chat` d'un onglet http(s)). Une reformulation (un appel modèle supplémentaire court, `search/reformulate.ts`) transforme la question en requête de recherche autonome avant de lancer la pipeline. Au passage : l'échelle de filtrage essaie désormais le domaine du site avant le web ouvert (au lieu de sauter l'un à l'autre), et un `llms.txt` qui répond en HTML (faux positif « 200 ») est rejeté. | Le bouton était hors sujet : une capacité de recherche qui se déclenche par un clic séparé, plutôt que par ce que l'utilisateur demande réellement, ajoute un geste sans ajouter de valeur — la question elle-même porte déjà l'intention quand elle existe. |
+## Hard constraint — the gesture rule
+Coati accompanies a user's gesture, it never manufactures one. No background loop, no multi-page
+crawl, no automated interaction (subscribe, like, publish). This is load-bearing: Cloudflare's bot
+taxonomy, platform ToS, and the Chrome Web Store all draw the same line, and crossing it loses all
+three protections at once. The named exception: opening a YouTube transcript is one click on a
+button YouTube already shows, only in direct response to the user's own click, on the tab they are
+looking at — never on page load, never looped, never on another tab.

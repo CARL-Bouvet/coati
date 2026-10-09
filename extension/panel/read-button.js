@@ -1,4 +1,4 @@
-// Encart "Lire cette page" button (docs/DECISIONS.md T50, amended T42/T43).
+// Encart "Read this page" button (docs/DECISIONS.md T50, amended T42/T43).
 // Pure state logic, no DOM, no chrome.* — panel.js feeds it the permission
 // facts and renders the result; broker/test/ui-read-button.test.ts covers it.
 //

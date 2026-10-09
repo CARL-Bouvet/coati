@@ -1,8 +1,8 @@
-// Shared "available models" list (goal « modèle visible », lots 2 + 3).
+// Shared "available models" list (goal "model visible", lots 2 + 3).
 // One source — the local program's `models` reply to `models.list`
-// (docs/PROTOCOL.md, amendement 2026-10-07) — rendered the same way in three
-// places: the panel's model menu (next to « Connecté »), the tutorial step
-// « Télécharger un modèle » and the « Modèle » section of the settings page.
+// (docs/PROTOCOL.md, amendment 2026-10-07) — rendered the same way in three
+// places: the panel's model menu (next to "Connected"), the tutorial step
+// "Download a model" and the "Model" section of the settings page.
 //
 // No i18n import on purpose: the pure helpers below are unit-tested under
 // bun without a browser, and the renderer receives `t` / `providerLabel`
@@ -39,8 +39,8 @@ export function sizeInGb(bytes) {
 
 // --- Machine capacity (lot 4) -------------------------------------------------
 //
-// COPY of the local program's rule, docs/PROTOCOL.md amendement 2026-10-07,
-// « Capacité machine et classification `fit` » (broker/src/host.ts,
+// COPY of the local program's rule, docs/PROTOCOL.md amendment 2026-10-07,
+// "Machine capacity and `fit` classification" (broker/src/host.ts,
 // FIT_CONSTANTS / computeFit). The local program classifies INSTALLED
 // models; the extension needs the same verdict for models not downloaded
 // yet (tutorial suggestions). Change both together.
@@ -258,8 +258,8 @@ function el(tag, className, text) {
  * @param {(entry: object) => void} opts.onPick
  * @param {"menu"|"list"} [opts.mode]   "menu" = ARIA menu items (panel),
  *                                      "list" = plain toggle buttons (options)
- * @param {boolean} [opts.localOnly]    only « Sur cet ordinateur » (tutorial)
- * @param {(() => void)} [opts.onAdd]   adds « Ajouter un modèle… » last (menu)
+ * @param {boolean} [opts.localOnly]    only "On this computer" (tutorial)
+ * @param {(() => void)} [opts.onAdd]   adds "Add a model…" last (menu)
  * @param {string} [opts.idPrefix]      unique prefix for heading ids
  * @returns {HTMLElement[]} the focusable items, in order
  */
@@ -330,7 +330,7 @@ export function renderModelList(container, reply, opts) {
 
   function note(text) {
     if (menu) {
-      // A menu only announces its items: the calm « Ollama ne répond pas »
+      // A menu only announces its items: the calm "Ollama isn't responding"
       // line is an inert item so arrow keys reach it and read it.
       const item = itemButton("model-list-note", "menuitem");
       item.setAttribute("aria-disabled", "true");
@@ -377,8 +377,8 @@ export function renderModelList(container, reply, opts) {
 }
 
 /**
- * Older local program, no `models.list` support (amendement 2026-10-07 bis,
- * docs/PROTOCOL.md "Amendement 2026-10-07"): instead of the usual grouped
+ * Older local program, no `models.list` support (amendment 2026-10-07 bis,
+ * docs/PROTOCOL.md): instead of the usual grouped
  * list, one calm explanatory line plus a button to the settings page. Same
  * "menu" item shape as renderModelList() (focusable `<button>`s, roving
  * tabindex handled by the caller) so it drops into the same container and

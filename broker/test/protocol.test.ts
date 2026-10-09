@@ -302,7 +302,7 @@ describe("parseClientMessage", () => {
     }
   });
 
-  // Amendement 2026-09-29: `provider` is an open string (docs/PROTOCOL.md) —
+  // Amendment 2026-09-29: `provider` is an open string (docs/PROTOCOL.md) —
   // parseClientMessage only rejects a malformed SHAPE, not an id outside a
   // closed list (a well-shaped but unknown id is accepted here and reported
   // unavailable later, by settings.get/provider.status — see server.ts).
@@ -334,7 +334,7 @@ describe("parseClientMessage", () => {
   });
 });
 
-// Amendement 2026-10-08 bis ("historique", docs/PROTOCOL.md).
+// Amendment 2026-10-08 bis ("historique", docs/PROTOCOL.md).
 describe("parseClientMessage — chat.history", () => {
   function chat(history: unknown) {
     return parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "hi", history }));

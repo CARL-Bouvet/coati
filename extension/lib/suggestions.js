@@ -1,7 +1,7 @@
 // Site-aware suggestion lookup — pure ESM, no DOM, no chrome.*.
 // Importable by the panel (extension context) and by bun test (Node/Bun).
 //
-// Amendement 2026-09-28 ("Mes prompts par site" — docs/DECISIONS.md T27, T30, T31): no more
+// Amendment 2026-09-28 ("Mes prompts par site" — docs/DECISIONS.md T27, T30, T31): no more
 // generic fallback set. An unknown host, or a known popular-site host outside the path where
 // Coati has something to say (e.g. a YouTube channel page, not a video), gets `items: []` — the
 // panel shows only the user's own prompts for that site (T27 amendment).
@@ -41,7 +41,7 @@ function pathMatches(site, pathname) {
 }
 
 /** `www.` stripped once, lower-cased. `crisco4.unicaen.fr` and `unicaen.fr`
- * stay two distinct site keys — see docs/PROTOCOL.md "PromptEntry". */
+ * stay two distinct site keys — see docs/PROTOCOL.md. */
 function userSiteKey(host) {
   return host.startsWith("www.") ? host.slice(4) : host;
 }
@@ -70,7 +70,7 @@ function parseUrl(url) {
  * that site (any path), otherwise the lower-cased hostname with a leading
  * `www.` stripped, otherwise `null` (no url, unparsable, or non-http(s)).
  * Mirrors the broker's validation in protocol.ts's isValidSiteKey — see
- * docs/PROTOCOL.md "PromptEntry".
+ * docs/PROTOCOL.md.
  * @param {string | null | undefined} url
  * @returns {string | null}
  */
