@@ -27,11 +27,6 @@ export type ErrorCode =
   // provider's own 400 names the image as the problem while vision was
   // unknown — see docs/PROTOCOL.md §4.
   | "vision-unsupported"
-  // Amendement 2026-10-08 (lot C1, "Consulter la doc officielle" —
-  // docs/PROTOCOL.md §8): `chat.docSearch` present but no search provider
-  // configured, vs. configured-but-failed (see ErrorMessage.reason below).
-  | "search-not-configured"
-  | "search-unavailable"
   // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
   // on demand"): the client never answered a `page.request` (with
   // `page.content` or `page.decline`) within PAGE_REQUEST_TIMEOUT_MS.
@@ -84,23 +79,4 @@ export function isValidBaseUrl(value: string): boolean {
   if (url.protocol === "https:") return true;
   if (url.protocol === "http:") return LOOPBACK_HOSTNAMES.has(url.hostname);
   return false;
-}
-
-// Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §6): `chat.docSearch.origin`
-// must be an ORIGIN — scheme + host + optional port, nothing else. Checked
-// by round-tripping through URL and comparing `.origin` back to the input
-// verbatim: a value carrying a path/query/fragment, or anything `new URL`
-// can't parse, fails this (e.g. "https://a.b/x" has origin "https://a.b",
-// which does not equal the input).
-const ORIGIN_MAX_LEN = 512;
-export function isValidOrigin(value: unknown): value is string {
-  if (typeof value !== "string" || value.length === 0 || value.length > ORIGIN_MAX_LEN) return false;
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return false;
-  return url.origin === value;
 }

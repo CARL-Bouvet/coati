@@ -272,6 +272,30 @@ describe("lastModels — per-provider model memory", () => {
     expect(cfg.lastModels?.["ollama"]).toBe("llama3.2");
   });
 
+  test("older config.json carrying searchProvider/searchKeys still loads, the keys ignored", async () => {
+    const { writeFileSync, mkdirSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { loadConfig } = await import("../src/config.ts");
+
+    const configDir = makeTmpDir("coati-old-search-keys-");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(
+      join(configDir, "config.json"),
+      JSON.stringify({
+        port: 8787,
+        allowedExtensionIds: [ALLOWED_ID],
+        provider: "ollama",
+        model: "llama3.2",
+        searchProvider: "brave",
+        searchKeys: { brave: "BSA-secret" },
+      }),
+      { mode: 0o600 },
+    );
+    const cfg = loadConfig({ configDir, dataDir: configDir });
+    expect(cfg.model).toBe("llama3.2");
+    expect(JSON.stringify(cfg)).not.toContain("BSA-secret");
+  });
+
   // Amendment 2026-10-07 bis — bug report: "modèle configuré absent
   // d'Ollama" shown even though the model was installed, because switching
   // AWAY from a provider before it ever had a model recorded in lastModels

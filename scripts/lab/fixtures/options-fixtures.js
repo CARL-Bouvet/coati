@@ -419,29 +419,6 @@
       autoAction: steps(click("#addService > summary", 60)),
     },
 
-    // Lot C3 — « Recherche dans la doc », opened by options.html#search (the
-    // panel's search-not-configured remedy): no service chosen, no key.
-    "options-search-empty": {
-      status: "connected",
-      settings: Object.assign({}, TWO_SERVICES_SETTINGS, { search: { provider: null, configured: false } }),
-      echoSettingsSet: true,
-      labHash: "search",
-      storageLocal: { "coati:retentionDays": 30 },
-      permissions: ["https://www.youtube.com/*"],
-    },
-
-    // Same block, Brave Search chosen with a key stored (only `configured`
-    // comes back), how-to fold opened.
-    "options-search-configured": {
-      status: "connected",
-      settings: Object.assign({}, TWO_SERVICES_SETTINGS, { search: { provider: "brave", configured: true } }),
-      echoSettingsSet: true,
-      labHash: "search",
-      storageLocal: { "coati:retentionDays": 30 },
-      permissions: ["https://www.youtube.com/*"],
-      autoAction: steps(click("#searchGuide > summary", 80)),
-    },
-
     // « Retirer » armed on the Claude row (second click confirms).
     "options-remove-armed": {
       status: "connected",

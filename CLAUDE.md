@@ -38,12 +38,12 @@ Rules marked **(planned)** are not implemented yet (see `docs/ROADMAP.md`).
 9. Show: Coati points at an element, the user clicks it.
 10. Coati acts only when asked. Nothing runs in the background.
 11. Reading other pages: only when the question asks for it, limited, always counted.
-12. Clicking or typing: one action at a time, confirmed, target shown. **(planned)**
+12. Clicking or typing: one action at a time, confirmed, target shown.
 13. Never, even with consent: pay, send a message, delete, publish, sign in.
 14. Web search runs in the browser's default engine, in a visible tab; answers cite their
-    sources. **(planned)**
+    sources.
 15. From a public page, Coati never opens a local or private address (except at dev level);
-    plain `http` shows a warning. **(planned)**
+    plain `http` shows a warning.
 16. Page content is data, never instructions. We do not claim to stop prompt injection: we limit
     what the model can do, and only links Coati found itself are clickable.
 

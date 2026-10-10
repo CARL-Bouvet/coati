@@ -5,16 +5,12 @@
 import {
   DEFAULT_CONFIG,
   resolveApiKey,
-  resolveSearchApiKey,
   type ProviderId,
   type CoatiConfig,
 } from "../config.ts";
 import { getProviders, getProvider } from "../providers/registry.ts";
 import type { ModelProvider, ProviderRuntimeOptions, TestConnectionCode } from "../providers/types.ts";
 import type { ProviderStatus, SettingsSetMessage } from "../protocol.ts";
-import type { SearchProviderId } from "../search/types.ts";
-import { braveTestConnection } from "../search/brave.ts";
-import { tavilyTestConnection } from "../search/tavily.ts";
 import { t, DEFAULT_LANG, type Lang } from "../messages.ts";
 import {
   buildPrompt,
@@ -52,7 +48,7 @@ export interface SettingsCtx {
   applySettings(
     patch: Pick<
       SettingsSetMessage,
-      "provider" | "model" | "apiKey" | "baseUrl" | "searchProvider" | "searchApiKey" | "clearKey"
+      "provider" | "model" | "apiKey" | "baseUrl" | "clearKey"
     >,
   ): CoatiConfig;
   /** `provider.status` for the currently active provider, through the
@@ -71,7 +67,6 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
   available: ProviderStatus[];
   models?: string[];
   baseUrl?: string;
-  search: { provider: SearchProviderId | null; configured: boolean };
 }> {
   const provider = config.provider ?? DEFAULT_CONFIG.provider!;
   // Each provider gets ONLY its own key (security fix, 2026-09-30 ter) — see
@@ -127,14 +122,7 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
   // (openai-compat), never for every provider in `available` (which never
   // carries any provider-specific config value beyond id/label/available).
   const baseUrl = provider === "openai-compat" ? config.baseUrl : undefined;
-  // Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §9): same `configured`
-  // semantics as every other provider — a key is present, never the key
-  // itself (CLAUDE.md rule #1).
-  const search = {
-    provider: config.searchProvider ?? null,
-    configured: config.searchProvider ? !!resolveSearchApiKey(config, config.searchProvider) : false,
-  };
-  return { provider, model: config.model, available, models, baseUrl, search };
+  return { provider, model: config.model, available, models, baseUrl };
 }
 
 // --- settings.test (task 3): "Tester la connexion" backend ------------------
@@ -309,44 +297,4 @@ export async function testProviderConnection(
   } finally {
     clearTimeout(timer);
   }
-}
-
-/** Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §9) — `settings.test`'s
- * `target: "search"` branch: a FREE-in-spirit probe (spends one real search
- * call — neither Brave nor Tavily offers a true free key check, see
- * search/brave.ts's own comment) against whichever engine `searchProvider`
- * names, using whichever key is CURRENTLY stored for it (never a key the
- * message itself might carry — settings.test never carries one, by design,
- * same as the model-provider branch). */
-export async function testSearchConnection(
-  searchProvider: SearchProviderId,
-  config: CoatiConfig,
-  lang: Lang = DEFAULT_LANG,
-): Promise<{ ok: boolean; message: string; code?: TestConnectionCode }> {
-  const apiKey = resolveSearchApiKey(config, searchProvider);
-  if (!apiKey) {
-    return { ok: false, message: t("testConnection.noSearchApiKey", lang), code: "auth-required" };
-  }
-  const result =
-    searchProvider === "brave" ? await braveTestConnection(apiKey) : await tavilyTestConnection(apiKey);
-  if (result.ok) {
-    return { ok: true, message: t(`settingsTest.success.search.${searchProvider}`, lang) };
-  }
-  const code: TestConnectionCode =
-    result.reason === "auth"
-      ? "auth-required"
-      : result.reason === "quota"
-        ? "quota-exceeded"
-        : result.reason === "rate"
-          ? "rate-limited"
-          : "model-unavailable";
-  const message =
-    result.reason === "auth"
-      ? t("auth.apiKeyRejected", lang)
-      : result.reason === "quota"
-        ? t("provider.quotaExceeded", lang)
-        : result.reason === "rate"
-          ? t("provider.rateLimited", lang)
-          : t(`settingsTest.failure.search.${searchProvider}`, lang);
-  return { ok: false, message, code };
 }

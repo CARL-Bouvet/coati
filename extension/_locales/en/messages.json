@@ -563,61 +563,6 @@
   "panel_point_frame_limit": {
     "message": "Elements inside a frame (iframe) aren't tracked."
   },
-  "panel_docsearch_query": {
-    "message": "Searching: $QUERY$",
-    "placeholders": {
-      "query": {
-        "content": "$1",
-        "example": "export video kling ai tutorial"
-      }
-    }
-  },
-  "panel_docsearch_scope": {
-    "message": "Searching $SITE$ via $ENGINE$",
-    "placeholders": {
-      "site": {
-        "content": "$1",
-        "example": "help.kling.ai"
-      },
-      "engine": {
-        "content": "$2",
-        "example": "Brave Search"
-      }
-    }
-  },
-  "panel_docsearch_web": {
-    "message": "on the web via $ENGINE$",
-    "placeholders": {
-      "engine": {
-        "content": "$1",
-        "example": "Brave Search"
-      }
-    }
-  },
-  "panel_docsearch_reading": {
-    "message": "Reading the pages found…"
-  },
-  "panel_sources_title": {
-    "message": "Sources"
-  },
-  "error_search_not_configured": {
-    "message": "No search service is configured — add a Brave or Tavily key in settings."
-  },
-  "error_search_unavailable_auth": {
-    "message": "The search key was refused by the service."
-  },
-  "error_search_unavailable_quota": {
-    "message": "The search service's free quota is used up."
-  },
-  "error_search_unavailable_rate": {
-    "message": "The search service is getting too many requests right now."
-  },
-  "error_search_unavailable_network": {
-    "message": "The search service or the documentation couldn't be reached."
-  },
-  "error_search_unavailable_no_result": {
-    "message": "Nothing relevant was found."
-  },
   "panel_build_fingerprint": {
     "message": "v$VERSION$ · $FINGERPRINT$",
     "placeholders": {
@@ -1842,51 +1787,6 @@
   "options_current_default_model": {
     "message": "Service's default model"
   },
-  "options_search_title": {
-    "message": "Search in the docs"
-  },
-  "options_search_help": {
-    "message": "Coati searches the site's official documentation when you ask it from the panel. It needs a key from a search service; both have a free tier."
-  },
-  "options_search_provider_brave": {
-    "message": "Brave Search"
-  },
-  "options_search_provider_tavily": {
-    "message": "Tavily"
-  },
-  "options_search_test": {
-    "message": "Check"
-  },
-  "options_search_test_paid_note": {
-    "message": "The check uses one request of your free quota."
-  },
-  "setup_search_title": {
-    "message": "Get a free key"
-  },
-  "setup_search_intro": {
-    "message": "Both services have a free tier that covers personal use:"
-  },
-  "setup_search_brave": {
-    "message": "Brave Search: about 1,000 free searches a month (5 dollars of credits offered each month). Create an account and a key on the API dashboard."
-  },
-  "setup_search_brave_link": {
-    "message": "Brave Search API dashboard"
-  },
-  "setup_search_tavily": {
-    "message": "Tavily: 1,000 free credits a month. Create an account on Tavily's site, then a key."
-  },
-  "setup_search_paste": {
-    "message": "Pick the service above, paste the key, save it, then click “Check”."
-  },
-  "options_search_placeholder": {
-    "message": "$SERVICE$ API key",
-    "placeholders": {
-      "service": {
-        "content": "$1",
-        "example": "Brave Search"
-      }
-    }
-  },
   "panel_access_denied_sent": {
     "message": "⚠ Coati cannot access this page, so the question is sent without it. $HINT$",
     "placeholders": {
@@ -1933,5 +1833,104 @@
   },
   "sensitive_kind_iban": {
     "message": "IBAN"
+  },
+  "panel_search_status": {
+    "message": "Search: “$P1$”",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "panel_search_mention": {
+    "message": "Searched the web · $P1$ results, $P2$ pages read · $P3$ k tokens",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "3"
+      },
+      "p2": {
+        "content": "$2",
+        "example": "3"
+      },
+      "p3": {
+        "content": "$3",
+        "example": "3"
+      }
+    }
+  },
+  "panel_search_button": {
+    "message": "Search “$P1$”",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "panel_search_needs_access": {
+    "message": "To search the web, Coati needs access to all sites."
+  },
+  "panel_search_allow": {
+    "message": "Allow all sites"
+  },
+  "panel_sources_title": {
+    "message": "Sources"
+  },
+  "panel_source_http_warning": {
+    "message": "unencrypted connection (http)"
+  },
+  "panel_action_click": {
+    "message": "Coati wants to click “$P1$”",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "x"
+      }
+    }
+  },
+  "panel_action_type": {
+    "message": "Coati wants to type “$P1$” in “$P2$”",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "x"
+      },
+      "p2": {
+        "content": "$2",
+        "example": "x"
+      }
+    }
+  },
+  "panel_action_hint": {
+    "message": "Or click the highlighted element yourself."
+  },
+  "panel_action_allow": {
+    "message": "Allow"
+  },
+  "panel_action_refuse": {
+    "message": "Refuse"
+  },
+  "panel_action_needs_access": {
+    "message": "Coati lost access to the page after it changed. Allow all sites to continue."
+  },
+  "panel_action_refused_sensitive_field": {
+    "message": "Coati refused: this field is sensitive (password, card, code)."
+  },
+  "panel_action_refused_not_editable": {
+    "message": "Coati refused: this is not a text field."
+  },
+  "panel_action_refused_form_submit": {
+    "message": "Coati refused: this button submits a form."
+  },
+  "panel_action_refused_forbidden_label": {
+    "message": "Coati refused: it never pays, sends, deletes, publishes or signs in."
+  },
+  "panel_action_refused_link_target": {
+    "message": "Coati refused: this link leads to a local or private address."
+  },
+  "panel_action_refused_other": {
+    "message": "Coati refused this action."
   }
 }

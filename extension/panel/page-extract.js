@@ -201,11 +201,10 @@ export async function extractReadableFromTab(tabId) {
   if (isPdfUrl(tab?.url)) throw new UnreadablePageError(PDF_MESSAGE);
 
   const context = await extractFromTab(tabId);
-  // YouTube has its own path: without a transcript the page is "empty" on
-  // purpose (the caller opens the transcript on the user's click and reads
+  // YouTube has its own path: without a transcript the text is only the
+  // header (the caller opens the transcript on the user's gesture and reads
   // again), and a short video has a short transcript that is still the whole
-  // content. The unreadable-page check is for ordinary pages only — refusing
-  // here blocked "Summarize this video" (reported by Romain, 29/09).
+  // content. The unreadable-page check is for ordinary pages only.
   const message =
     context.kind === "youtube" || context.needsTranscript ? null : readabilityMessage(context.readability);
   if (message) throw new UnreadablePageError(message);
@@ -214,9 +213,10 @@ export async function extractReadableFromTab(tabId) {
 
 // Named exception to the gesture rule (DECISIONS.md, widened on 26/09). One
 // click, on the button YouTube already shows, only in response to the user
-// clicking "Summarize this video" or another video suggestion in the card,
-// on the tab they are watching. Never on load, never in a loop, never on
-// another video. This is not automated browsing: it tools the user's gesture.
+// clicking "Summarize this video", a video suggestion, or asking a question
+// the model answers by reading the page, on the tab they are watching. Never
+// on load, never in a loop, never on another video. This is not automated
+// browsing: it tools the user's gesture.
 export async function openYouTubeTranscript(tabId) {
   const results = await api.scripting.executeScript({
     target: { tabId },

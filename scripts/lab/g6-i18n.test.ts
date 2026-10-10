@@ -31,6 +31,8 @@ describe("_locales — every key exists in every language", () => {
       const en = Object.keys(messagesByLang.en).sort();
       const other = Object.keys(messagesByLang[lang]).sort();
       expect(other).toEqual(en);
+      // Chrome refuses to load the whole extension over a single bad key name.
+      expect(other.filter((k) => !/^[A-Za-z0-9_@]+$/.test(k))).toEqual([]);
     });
   }
 });

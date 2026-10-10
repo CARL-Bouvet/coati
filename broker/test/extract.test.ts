@@ -874,3 +874,23 @@ describe("extract.js — hasNumericValue edge cases via facts (ported from detec
     expect(result.pageKind).not.toBe("listing");
   });
 });
+
+describe("extract.js — YouTube text", () => {
+  const formatYouTubeText = new Function(`${EXTRACT_JS_DECLARATIONS}\nreturn formatYouTubeText;`)() as (
+    meta: { title: string; channel: string; description: string; chapters: string[] },
+    transcript?: string,
+  ) => string;
+  const meta = { title: "T", channel: "C", description: "d".repeat(5000), chapters: ["0:00 Intro", "0:05 End"] };
+
+  test("header only: says the transcript is not open, description capped", () => {
+    const text = formatYouTubeText(meta, undefined);
+    expect(text).toContain("Title: T\nChannel: C\nDescription: ddd");
+    expect(text).toContain("Chapters:\n0:00 Intro\n0:05 End");
+    expect(text.endsWith("Transcript: not open")).toBe(true);
+    expect(text.length).toBeLessThan(2200);
+  });
+
+  test("open transcript follows the header", () => {
+    expect(formatYouTubeText({ ...meta, chapters: [] }, "0:01 hello")).toMatch(/\nTranscript:\n0:01 hello$/);
+  });
+});

@@ -23,17 +23,19 @@ import { summarize, reportExtractionError } from "./page-extract.js";
 import { pendingRetries, lastHistoryKept } from "./chat-stream.js";
 import { currentConnState, modelsReply, switchFromTip, openOllamaSpeedup, hasFeature } from "./model-status.js";
 import { buildAuthRecoveryBlock } from "./request-watch.js";
+import { api } from "../lib/browser-compat.js";
+import { isClickableSource } from "../lib/search-results.js";
+import { ALL_SITES_ORIGINS } from "./read-button.js";
+import { refreshAllSitesGranted, refreshReadButton } from "./first-run-wiring.js";
 import {
   buildQuotaRecoveryBlock,
   buildModelUnavailableRecoveryBlock,
   buildProviderOverloadRecoveryBlock,
   buildModelMissingRecoveryBlock,
-  buildSearchNotConfiguredRecoveryBlock,
-  buildSearchStatusLine,
-  buildSourcesBlock,
   buildRateLimitRecoveryBlock,
 } from "./recovery-blocks.js";
 import { onPointButtonClick, seekActiveVideoTab } from "./point-at.js";
+import { buildActionCard } from "./action-card.js";
 
 export const PAGE_CONTENT_MARKER_SUFFIX = `\n\n${t("panel_with_page_content_marker")}`;
 
@@ -87,6 +89,81 @@ function buildRelaunchButton(msg) {
   return button;
 }
 
+// --- Web search ---------------------------------------------------------
+
+function appendLine(node, className, text) {
+  const p = document.createElement("p");
+  p.className = className;
+  p.textContent = text;
+  node.appendChild(p);
+}
+
+function buildSearchButton(msg, query) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "toolbar-button search-suggest-button";
+  button.textContent = t("panel_search_button", [query]);
+  button.addEventListener("click", () => {
+    if (panelState.activeRequestId) return;
+    msg.suggestSearch = undefined;
+    renderMessage(msg);
+    sendChatMessage(msg.question || query, undefined, undefined, query);
+  });
+  return button;
+}
+
+/** The model asked for a search but "all sites" is not granted: the click is
+ * the gesture the permission prompt needs. */
+function buildSearchAccessBlock(msg) {
+  const wrap = document.createElement("div");
+  wrap.className = "search-access";
+  appendLine(wrap, "search-status-line", t("panel_search_needs_access"));
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "toolbar-button";
+  button.textContent = t("panel_search_allow");
+  button.addEventListener("click", async () => {
+    const granted = await api.permissions.request({ origins: ALL_SITES_ORIGINS }).catch(() => false);
+    if (!granted) return;
+    msg.suggestSearch = msg.searchAccess;
+    msg.searchAccess = undefined;
+    renderMessage(msg);
+    await refreshAllSitesGranted();
+    await refreshReadButton();
+  });
+  wrap.appendChild(button);
+  return wrap;
+}
+
+/** Only the results Coati found itself are listed; a blocked address is text,
+ * not a link, and plain http carries a warning. */
+function buildSourcesBlock(sources) {
+  const wrap = document.createElement("div");
+  wrap.className = "search-sources";
+  appendLine(wrap, "search-sources-title", t("panel_sources_title"));
+  const list = document.createElement("ul");
+  list.className = "search-sources-list";
+  for (const source of sources) {
+    const li = document.createElement("li");
+    li.className = "search-sources-item";
+    li.appendChild(document.createTextNode(`[S${source.n}] `));
+    if (isClickableSource(source)) {
+      const a = document.createElement("a");
+      a.href = source.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = source.title;
+      li.appendChild(a);
+    } else {
+      li.appendChild(document.createTextNode(source.title));
+    }
+    if (source.verdict === "warn-http") li.appendChild(document.createTextNode(` — ${t("panel_source_http_warning")}`));
+    list.appendChild(li);
+  }
+  wrap.appendChild(list);
+  return wrap;
+}
+
 // --- Rendering ----------------------------------------------------------
 
 export function addMessage(msg) {
@@ -104,7 +181,7 @@ export function renderAll() {
   updateHistoryNotice();
 }
 
-// Amendement 2026-10-08 bis ("historique", docs/PROTOCOL.md §6). Recomputes
+// Recomputes
 // from `conversation` + `lastHistoryKept` on every renderAll() (addMessage,
 // init's first render, eraseConversation, a relaunch/retry replay) — always
 // in sync, cheap enough (conversation is capped at MAX_PERSISTED_MESSAGES).
@@ -170,7 +247,9 @@ export function renderMessage(msg, { append = false } = {}) {
     if (reading) {
       const line = document.createElement("p");
       line.className = "search-status-line message-page-reading";
-      line.textContent = t("panel_page_reading_status", [msg.pageReading.kTokens]);
+      line.textContent = msg.pageReading.searchQuery
+        ? t("panel_search_status", [msg.pageReading.searchQuery])
+        : t("panel_page_reading_status", [msg.pageReading.kTokens]);
       node.appendChild(line);
     }
     if (waiting) {
@@ -202,17 +281,6 @@ export function renderMessage(msg, { append = false } = {}) {
     if (msg.modelUnavailable) node.appendChild(buildModelUnavailableRecoveryBlock(msg));
     if (msg.providerOverloaded) node.appendChild(buildProviderOverloadRecoveryBlock(msg));
     if (msg.modelMissing) node.appendChild(buildModelMissingRecoveryBlock());
-    if (msg.searchNotConfigured) node.appendChild(buildSearchNotConfiguredRecoveryBlock());
-    // Lot C2 fix (admin review): the progress LINE ("Recherche dans …" /
-    // "Lecture…") is a WAITING indicator — same condition as `waiting`
-    // above (buildProgress) — and must disappear the moment real answer
-    // text exists or streaming ends, same as that other indicator. The
-    // "Sources" block is different: once sources exist, it's the citation
-    // record, kept even after the answer is done.
-    if (msg.role === "assistant" && msg.searchStatus) {
-      if (msg.streaming && !msg.text) node.appendChild(buildSearchStatusLine(msg.searchStatus));
-      if (msg.searchStatus.sources?.length) node.appendChild(buildSourcesBlock(msg.searchStatus.sources));
-    }
     // No retry payload survives a panel reload (pendingRetries is in-memory
     // only, same limitation as buildAuthRecoveryBlock() above) — in that case
     // the message text alone (already telling the user to try again) is the
@@ -235,6 +303,12 @@ export function renderMessage(msg, { append = false } = {}) {
       mention.className = "search-status-line message-page-mention";
       mention.textContent = msg.pageMention;
       node.appendChild(mention);
+    }
+    if (msg.actionCard) node.appendChild(buildActionCard(msg));
+    if (!msg.streaming) {
+      if (msg.sources?.length) node.appendChild(buildSourcesBlock(msg.sources));
+      if (msg.searchAccess) node.appendChild(buildSearchAccessBlock(msg));
+      else if (msg.suggestSearch) node.appendChild(buildSearchButton(msg, msg.suggestSearch));
     }
     if (msg.slowTip && !msg.streaming) {
       node.appendChild(

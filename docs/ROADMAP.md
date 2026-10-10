@@ -25,17 +25,17 @@ the panel shows a one-click accept (`extension/panel/screenshot.js` keeps the ca
 accessible, back to colour after the granting click. `extension/background/*.js`, grey icon
 variants.
 
-**L3 — Browser search (rules 14, 15, 16).** Search in the browser's default engine
-(`chrome.search.query` / Firefox `browser.search`), in a visible tab; read results plus 2-3
-pages; only links Coati found are clickable. Never opens a local/private address from a public
-page (except dev level); plain `http` shows a warning. Brave/Tavily search
-(`broker/src/search/*`) will be removed once this ships. Touches `extension/background/*.js`,
-`extension/panel/*.js`, `docs/PROTOCOL.md`, `broker/src/handlers|protocol|model`.
+**L3 — Browser search (rules 14, 15, 16). Shipped (Chromium).** The model emits `[[SEARCH: …]]`;
+the panel runs it in the default engine (`chrome.search.query`) in a background tab, reads the
+results and the first 2 pages, leaves the tabs open. Needs "all sites". Firefox
+(`browser.search`) is in "Help wanted".
 
-**L4 — Click and type, confirmed (rules 12, 13).** After v0.1.0. The model proposes one action;
-the panel shows the target and asks; the user confirms; one action at a time. Hard block list:
-pay, send, delete, publish, sign in. `docs/PROTOCOL.md`, `extension/content/*`,
-`extension/panel/*.js`.
+**L4 — Click and type, confirmed (rules 12, 13). Shipped (to be judged for intrusiveness).** The model
+emits `[[CLICK eN]]` or `[[TYPE eN: …]]`; the panel checks the element on the live page, refuses
+forbidden gestures (`extension/content/forbidden-gesture.js`), shows a card with the element
+highlighted, and acts only on "Allow". Clicking the highlighted element oneself counts as the
+action done. One action at a time, 5 per question, the page is re-read afterwards.
+`extension/panel/action-card.js`, `extension/content/pointer.js`.
 
 ## Risks
 

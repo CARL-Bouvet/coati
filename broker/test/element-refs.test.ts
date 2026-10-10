@@ -165,3 +165,88 @@ describe("prepareContextForWire", () => {
     expect(prepareContextForWire(null as any, true)).toBeNull();
   });
 });
+
+// --- Web search: results extraction and sources list ------------------------
+
+import { collectSearchResults, sourcesFromSearch, isClickableSource } from "../../extension/lib/search-results.js";
+import { checkOpen } from "../../extension/lib/open-guard.js";
+
+// Frozen page mirroring Google's structure: organic results are `a[href]` holding an `h3`, inside `#search`.
+const GOOGLE_LIKE = `<!doctype html><html><body>
+<div id="top"><a href="https://www.google.com/preferences"><h3>Settings</h3></a></div>
+<div id="search">
+  <div class="g"><a href="https://example.org/a"><h3>First result</h3></a>
+    <div>First result snippet that is long enough to count as a description of the page.</div></div>
+  <div class="g"><a href="https://www.google.com/url?q=https%3A%2F%2Fexample.net%2Fb&sa=U"><h3>Wrapped result</h3></a>
+    <div>Second snippet, also long enough to be kept as the description of this entry.</div></div>
+  <div class="g"><a href="https://www.google.com/search?q=related"><h3>Related searches</h3></a></div>
+  <div class="g"><a href="http://192.168.1.1/admin"><h3>Router</h3></a></div>
+  <div class="g"><a href="javascript:alert(1)"><h3>Script</h3></a></div>
+  <div class="g"><a href="https://example.org/a"><h3>First result again</h3></a></div>
+  <div class="g"><a href="https://example.org/no-title">no heading here</a></div>
+</div></body></html>`;
+
+const GENERIC = `<!doctype html><html><body><main>
+<article><a href="https://example.com/x"><h2>Plain engine result</h2></a><p>Some description text that is long enough to be a snippet here.</p></article>
+</main></body></html>`;
+
+async function runCollect(html: string): Promise<any[] | null> {
+  let browser: any;
+  try {
+    const { chromium } = await import("playwright");
+    browser = await chromium.launch();
+  } catch {
+    return null;
+  }
+  try {
+    const page = await browser.newPage();
+    await page.route("**/*", (r: any) => r.fulfill({ contentType: "text/html", body: html }));
+    await page.goto("https://www.google.com/search?q=test");
+    return await page.evaluate(collectSearchResults, 8);
+  } finally {
+    await browser.close();
+  }
+}
+
+describe("collectSearchResults", () => {
+  test("Google-like page: organic results only, redirect unwrapped, engine links and duplicates dropped", async () => {
+    const results = await runCollect(GOOGLE_LIKE);
+    if (!results) return; // no browser available here
+    expect(results.map((r) => r.url)).toEqual(["https://example.org/a", "https://example.net/b", "http://192.168.1.1/admin"]);
+    expect(results[0].title).toBe("First result");
+    expect(results[0].snippet).toContain("First result snippet");
+  });
+
+  test("other engines: a link with a heading is a result", async () => {
+    const results = await runCollect(GENERIC);
+    if (!results) return;
+    expect(results).toHaveLength(1);
+    expect(results[0].url).toBe("https://example.com/x");
+  });
+});
+
+describe("sourcesFromSearch", () => {
+  const results = [
+    { n: 1, title: "Public", url: "https://example.org/a", snippet: "" },
+    { n: 2, title: "Plain http", url: "http://example.org/b", snippet: "" },
+    { n: 3, title: "Router", url: "http://192.168.1.1/admin", snippet: "" },
+  ];
+  const sources = sourcesFromSearch(results, [{ n: 1, url: "https://example.org/a", title: "", text: "x" }], (u: string) =>
+    checkOpen("https://www.google.com/search?q=t", u, "text"),
+  );
+
+  test("lists only what Coati found; read pages are marked", () => {
+    expect(sources.map((s: any) => s.url)).toEqual(results.map((r) => r.url));
+    expect(sources[0].read).toBe(true);
+    expect(sources[1].read).toBe(false);
+  });
+
+  test("a local address is not clickable, plain http is clickable with a warning verdict, a URL from elsewhere has no entry", () => {
+    expect(isClickableSource(sources[0])).toBe(true);
+    expect(sources[1].verdict).toBe("warn-http");
+    expect(isClickableSource(sources[1])).toBe(true);
+    expect(isClickableSource(sources[2])).toBe(false);
+    const fromModel = sources.find((s: any) => s.url === "https://evil.example/");
+    expect(isClickableSource(fromModel)).toBe(false);
+  });
+});

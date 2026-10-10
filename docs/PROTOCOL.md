@@ -61,7 +61,7 @@ followed by WebSocket close code **4401**. The real reason goes only to the brok
 
 On success: `{ type: "hello-ok", v: 2, features: string[] }`. `features` is an open-ended list
 of capability words this broker build understands (currently `"elements"`, `"vision"`,
-`"docsearch"`, `"history"`, `"pageOnDemand"`) — the extension only offers a capability's UI when
+`"history"`, `"pageOnDemand"`, `"search"`, `"act"`) — the extension only offers a capability's UI when
 its word is present.
 
 ## Client → broker messages
@@ -70,9 +70,12 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 
 | Type | Key fields | Purpose |
 |---|---|---|
-| `chat` | `text`, `context?`, `image?`, `docSearch?`, `history?`, `page?`, `devMode?` | Ask the model a question. `context` carries page/selection content up front; `page` (title/url/kind?/chars), sent only when `context` is absent, offers the page's metadata only — see "Page on demand" below. |
+| `chat` | `text`, `context?`, `image?`, `history?`, `page?`, `devMode?`, `abilities?`, `searchQuery?` | Ask the model a question. `context` carries page/selection content up front; `page` (title/url/kind?/chars), sent only when `context` is absent, offers the page's metadata only — see "Page on demand" below. `abilities` (`"search"`, `"act"`) lists what the panel can do beyond reading; `searchQuery` (1–200 chars) asks the broker to search right away — see "Search"; `"act"` offers clicking and typing — see "Acting". |
 | `page.content` | `target` (the `chat`'s own id), `level` (`"text"`\|`"dev"`), `context` | Answers a `page.request`: the page's content, same `Context` shape a `chat` would have carried up front (for `level: "dev"`, `context.text` holds cleaned HTML). |
 | `page.decline` | `target` | Answers a `page.request`: the user declined to share the page. |
+| `search.content` | `target`, `query`, `results: [{ n, title, url, snippet }]`, `pages: [{ n, url, title, text }]` | Answers a `search.request`: results and the pages read. |
+| `search.decline` | `target`, `reason` (`"no-access"`\|`"no-result"`\|`"blocked"`\|`"failed"`) | Answers a `search.request`: nothing could be searched or read. |
+| `action.result` | `target`, `status` (`"done"`\|`"refused"`\|`"blocked"`\|`"stale"`\|`"no-access"`), `by?` (`"user"`), `reason?`, `context?` | Answers an `action.request` — see "Acting". |
 | `summarize` | `context` | Summarize a page/selection. |
 | `act` | `action` (`translate`\|`rewrite`\|`explain`\|`shorten`), `text`, `params?` | Transform a piece of text. |
 | `prompts.list` | — | List saved prompts. |
@@ -82,9 +85,9 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `prefs.get` | — | Read per-site preferences. |
 | `prefs.set` | `site`, `prefs` | Write per-site preferences. |
 | `cancel` | `target` (the `id` of an in-flight request) | Cancel a running `chat`/`summarize`/`act`. |
-| `settings.get` | — | Read current provider/model/search configuration. |
-| `settings.set` | `provider?`, `model?`, `apiKey?`, `baseUrl?`, `searchProvider?`, `searchApiKey?`, `clearKey?` | Change configuration. `apiKey`/`searchApiKey` are write-only (never echoed back); `""` forgets the stored value, omitted leaves it unchanged. |
-| `settings.test` | `target?` (`"model"`\|`"search"`), `provider` or `searchProvider` | Free connectivity probe for a provider or the search engine. |
+| `settings.get` | — | Read current provider/model configuration. |
+| `settings.set` | `provider?`, `model?`, `apiKey?`, `baseUrl?`, `clearKey?` | Change configuration. `apiKey` is write-only (never echoed back); `""` forgets the stored value, omitted leaves it unchanged. |
+| `settings.test` | `provider` | Free connectivity probe for a provider. |
 | `provider.status` | — | Check whether the active model provider will likely work right now (never billed). |
 | `models.list` | — | List every usable model across configured sources, plus host capacity. |
 | `model.warmup` | — | Ask the broker to pre-load the active Ollama model. |
@@ -94,33 +97,31 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | Type | Key fields | Purpose |
 |---|---|---|
 | `chunk` | `id`, `delta` | One streamed fragment of a model answer. |
-| `done` | `id`, `usage: { inputTokens, outputTokens }`, `historyKept?`, `page?` | End of stream; token usage (summed over every provider call this request made, see "Page on demand"); how many `history` entries were actually used; `page: { level, chars, sentChars, truncated }` present only when the page was actually read. |
+| `done` | `id`, `usage: { inputTokens, outputTokens }`, `historyKept?`, `page?`, `search?`, `suggest?`, `actions?` | End of stream; token usage (summed over every provider call this request made, see "Page on demand"); how many `history` entries were actually used; `page: { level, chars, sentChars, truncated }` present only when the page was actually read; `search: { query, results, pages, chars }` only when a search ran; `suggest: { search }` when the model asked for a further search that was not run; `actions` how many actions were requested of the client. |
 | `page.request` | `id` (the `chat`'s own id), `level` (`"text"`\|`"dev"`), `discard?` | The model asked to read the page — see "Page on demand" below. |
+| `search.request` | `id` (the `chat`'s own id), `query`, `discard?` | The model asked to search the web — see "Search" below. |
+| `action.request` | `id` (the `chat`'s own id), `action` (`"click"`\|`"type"`), `ref`, `text?`, `discard?` | The model asked to click or type — see "Acting" below. |
 | `error` | `id`, `code`, `message`, `retryAfterSec?`, `reason?` | A request failed — see error codes below. |
 | `prompts` | `id`, `items`, `prefs?` | Reply to `prompts.list`/`prompts.save`/`prompts.delete`/`prompts.move`. |
 | `prefs` | `id`, `sites` | Reply to `prefs.get`/`prefs.set`. |
 | `hello-ok` | `v: 2`, `features` | Handshake succeeded. |
 | `challenge` | `v: 2`, `nonce`, `proof` | Handshake step 2 (see above). |
-| `settings` | `id`, `provider`, `model?`, `available`, `models?`, `baseUrl?`, `search` | Reply to `settings.get`/`settings.set`. `available` lists every known provider, including unavailable ones, with a `reason`. |
+| `settings` | `id`, `provider`, `model?`, `available`, `models?`, `baseUrl?` | Reply to `settings.get`/`settings.set`. `available` lists every known provider, including unavailable ones, with a `reason`. |
 | `settings.test-result` | `id`, `provider`, `ok`, `message`, `code?`, `creditUnchecked?` | Reply to `settings.test`. |
 | `provider.status-result` | `id`, `provider`, `state` (`"ok"`\|`"ko"`\|`"unknown"`), `reason`, `checkedAt`, `baseUrl?` | Reply to `provider.status`. |
 | `models` | `id`, `current`, `entries`, `sources`, `host` | Reply to `models.list` — each entry carries `provider`, `model`, `local`, and when known `sizeBytes`, `thinks?`, `fit?` (`"gpu"`\|`"shared"`\|`"too-big"`), `gpuPercent?`, `contextTokens?`, `vision?`. `host` reports rounded `ramGb`/`vramGb`/`unifiedMemory?`, read locally, never sent anywhere external. |
 | `model.warmup-result` | `id`, `state` (`"loaded"`\|`"already"`\|`"skipped"`\|`"failed"`), `ms?` | Reply to `model.warmup`. |
 | `progress` | `id`, `stage` (`"loading"`\|`"reading"`\|`"thinking"`) | Sent before the first chunk, Ollama only. |
-| `search.status` | `id`, `stage` (`"query"`\|`"discovering"`\|`"searching"`\|`"reading"`), `scope`, `engine?`, `sources?`, `query?` | Progress of an in-flight doc search. A client that doesn't know this type ignores it, same as `progress`. |
 
 ## Error codes
 
 `bad-request`, `unauthorized`, `model-unavailable`, `auth-required`, `quota-exceeded`,
 `rate-limited`, `model-missing`, `provider-overloaded`, `context-too-large`, `cancelled`,
-`model-stalled`, `vision-unsupported`, `search-not-configured`, `search-unavailable`,
-`page-unavailable`, `internal`.
+`model-stalled`, `vision-unsupported`, `page-unavailable`, `internal`.
 
 `page-unavailable`: the client never answered a `page.request` (with `page.content` or
-`page.decline`) within `PAGE_REQUEST_TIMEOUT_MS`.
+`page.decline`) or a `search.request` (with `search.content` or `search.decline`) or an `action.request` (with `action.result`) within `PAGE_REQUEST_TIMEOUT_MS`.
 
-`search-unavailable` carries an extra `reason`: `"auth"`, `"quota"`, `"rate"`, `"network"`, or
-`"no-result"` — a stable code for the UI, not shown to a human verbatim.
 
 ## Limits
 
@@ -133,18 +134,19 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `MAX_CONTEXT_CHARS` | 40,000 | Largest page/selection text accepted; also the cap for a `page.content` at `level: "text"`. |
 | `MAX_DEV_CONTEXT_CHARS` | 400,000 | Largest `page.content` at `level: "dev"` (cleaned HTML) accepted — further fit to the active model's own context window, see "Page on demand". |
 | `PAGE_REQUEST_TIMEOUT_MS` | 120,000 | Time the broker waits for `page.content`/`page.decline` after a `page.request`. |
+| `SEARCH_MAX_PER_QUESTION` | 1 | Automatic searches per question. |
+| `SEARCH_MAX_RESULTS` | 8 | Results accepted in a `search.content`. |
+| `SEARCH_MAX_PAGES` | 2 | Pages accepted in a `search.content`. |
+| `SEARCH_MAX_TOTAL_CHARS` | 24,000 | Total characters of snippets and page text accepted in a `search.content`. |
+| `SEARCH_QUERY_MAX_CHARS` | 200 | Longest search query. |
+| `MAX_ACTIONS_PER_QUESTION` | 5 | Actions requested of the client per question. |
+| `ACTION_TEXT_MAX_CHARS` | 500 | Longest text of a `[[TYPE …]]`. |
 | `HISTORY_MAX_ENTRIES` | 20 | Largest `history` array accepted. |
 | `MAX_CONCURRENT_STREAMS` | 3 | Concurrent `chat`/`summarize`/`act` per connection. |
 | `FIRST_TOKEN_TIMEOUT_LOCAL_MS` | 300,000 | Time to first activity, local provider (Ollama). |
 | `FIRST_TOKEN_TIMEOUT_REMOTE_MS` | 120,000 | Time to first activity, remote provider. |
 | `INACTIVITY_TIMEOUT_MS` | 60,000 | Silence mid-answer before `model-stalled`. |
 | `SETTINGS_TEST_TIMEOUT_MS` | 20,000 | `settings.test` probe timeout. |
-| `DOC_SEARCH_MAX_CALLS` | 2 | Search engine calls per doc-search request. |
-| `DOC_SEARCH_MAX_PAGES` | 3 | Pages read per doc-search request. |
-| `DOC_SEARCH_MAX_RESULTS` | 5 | Search results considered. |
-| `DOC_SEARCH_MAX_TOTAL_CHARS` | 24,000 | Total text kept across read pages. |
-| `SAFE_FETCH_MAX_BYTES` | 2 MiB | Largest response body a doc-search fetch reads. |
-| `SAFE_FETCH_MAX_REDIRECTS` | 3 | Redirects followed per doc-search fetch (re-validated each hop — SSRF guard). |
 | `HOST_FRAME_TIMEOUT_MS` | 5000 | Native-host stdin read timeout. |
 | `MAX_FRAME_BYTES` | 4096 | Native Messaging frame length cap. |
 
@@ -186,10 +188,58 @@ the active model's context window — Ollama's own `contextTokens` tier when kno
 8192-token fallback on lookup failure; 200,000 tokens for `claude-api`/`claude-cli`, 32,768 for
 any other provider; ~3.5 chars/token, 2000 tokens reserved for the answer).
 
+## Search
+
+Offered to the model only when the `chat` carries `abilities` including `"search"` (the panel sets
+it when the browser can search). The model replies with `[[SEARCH: <query>]]` — one line, 1 to 200
+characters, no `]]`; anything else stays ordinary text. Detection, abort and `discard` work exactly
+as for the page markers (same detector, same place).
+
+- Broker → client `search.request { id, query, discard? }`. The client runs the query in the
+  browser's default engine, reads the results and at most `SEARCH_MAX_PAGES` pages, and answers
+  `search.content` or `search.decline`. No answer within `PAGE_REQUEST_TIMEOUT_MS` fails the
+  request with `page-unavailable`.
+- Re-run: results and pages are fenced as data, numbered `[S1]…`, with an instruction to cite
+  them; they are never instructions. `search.decline` replaces them with a trusted note giving
+  the reason. A `search.content` over the limits above is refused (`context-too-large`).
+- `chat.searchQuery`: the broker sends `search.request` at once, without a prior model call
+  (the button offered by `done.suggest`).
+- At most `SEARCH_MAX_PER_QUESTION` automatic search per question. A further `[[SEARCH: …]]` is
+  not run: it is stripped from the text and its query is reported in `done.suggest.search`, for
+  the user to launch.
+- `done.search { query, results, pages, chars }` is present when a search ran; `chars` is what
+  reached the model. Page markers and search markers share the same turn bound.
+
+## Acting
+
+Offered to the model only when the `chat` carries `abilities` including `"act"` and the page was
+read with its elements (`context.elements` non-empty, in the `chat` or a later `page.content`/
+`action.result`). Two markers, each alone in the reply: `[[CLICK eN]]` and `[[TYPE eN: <text>]]`
+(`eN` a reference from the element list; `<text>` one line, 1 to `ACTION_TEXT_MAX_CHARS`
+characters, no `]]`). A reference absent from the current element list, or any other shape, stays
+ordinary text. Detection, abort and `discard` work as for the other markers.
+
+- Broker → client `action.request { id, action, ref, text?, discard? }`; `text` only for `"type"`.
+  One action at a time. The client checks the element, may refuse, asks the user to confirm,
+  acts, and answers `action.result { target, status, by?, reason?, context? }`.
+- `status`: `done` (acted), `refused` (the user declined, or the client refused a forbidden
+  gesture), `blocked` (the client's rules forbid it), `stale` (the element is gone or changed),
+  `no-access` (the client lost access to the page, e.g. after navigation). `reason` is a short
+  line for the model, treated as data. `by: "user"` with `done`: the user performed the gesture
+  himself on the highlighted element; Coati did not act.
+- `context` (after `done`): the page re-read at `text` level, same shape as `page.content`'s. It
+  replaces the previous page content and element list; its characters count in `done.page.sentChars`.
+- Re-run: each outcome becomes a trusted note (what was done, refused, blocked, stale, or lost);
+  the typed text is not repeated. The model then answers or asks for one more action.
+- At most `MAX_ACTIONS_PER_QUESTION` actions per question. A further marker is stripped from the
+  text and ignored. `done.actions` counts the `action.request`s sent.
+- Never, whatever the model asks: paying, sending a message, deleting, publishing, signing in.
+  The client enforces it; the instruction to the model repeats it.
+
 ## Prompt construction
 
 The broker is the only place a prompt is assembled (`model.ts`'s `buildSystemPrompt`/
-`buildPrompt`). Page content, selection text, screenshots, doc-search results, and prior
+`buildPrompt`). Page content, selection text, screenshots, and prior
 `history` turns are all fenced with a per-request random nonce and explicitly labelled data —
 never instructions — in the system prompt. A model provider or external module receives the
 already-built prompt; it never sees raw, unfenced page content.

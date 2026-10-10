@@ -5,7 +5,7 @@
 // under protocol/ — shared.ts (wire limits, ErrorCode, validation
 // primitives), context.ts (Context/Fact/Item/Element + parser),
 // prompts-prefs.ts (PromptEntry/SitePrefs/PrefsData + validators), chat.ts
-// (ChatImage/ChatDocSearch/HistoryEntry + parsers), client-messages.ts /
+// (ChatImage/HistoryEntry + parsers), client-messages.ts /
 // server-messages.ts (the wire message shapes) and parse.ts
 // (parseClientMessage). This file re-exports all of it so every existing
 // import of "./protocol.ts" / "../protocol.ts" keeps working unchanged.
@@ -16,7 +16,6 @@ export {
   type ErrorCode,
   isValidApiKeyFormat,
   isValidBaseUrl,
-  isValidOrigin,
 } from "./protocol/shared.ts";
 
 export {
@@ -66,7 +65,6 @@ export {
   IMAGE_MAX_DECODED_BYTES,
   IMAGE_MAX_SIDE,
   type ChatImage,
-  type ChatDocSearch,
   type HistoryRole,
   type HistoryEntry,
   HISTORY_MAX_ENTRIES,
@@ -74,6 +72,23 @@ export {
   type PageMeta,
   PAGE_META_TITLE_MAX,
   PAGE_META_URL_MAX,
+  type ChatAbility,
+  type SearchBody,
+  type SearchResultEntry,
+  type SearchPageEntry,
+  type SearchDeclineReason,
+  SEARCH_QUERY_MAX_CHARS,
+  MAX_ACTIONS_PER_QUESTION,
+  ACTION_TEXT_MAX_CHARS,
+  ACTION_STATUSES,
+  ACTION_REASON_MAX_CHARS,
+  type ActionStatus,
+  SEARCH_MAX_PER_QUESTION,
+  SEARCH_MAX_RESULTS,
+  SEARCH_MAX_PAGES,
+  SEARCH_MAX_TOTAL_CHARS,
+  searchContentChars,
+  searchContentError,
 } from "./protocol/chat.ts";
 
 export {
@@ -98,6 +113,9 @@ export {
   type ModelWarmupMessage,
   type PageContentMessage,
   type PageDeclineMessage,
+  type SearchContentMessage,
+  type SearchDeclineMessage,
+  type ActionResultMessage,
   type ClientMessage,
 } from "./protocol/client-messages.ts";
 
@@ -120,9 +138,10 @@ export {
   type ModelsMessage,
   type ModelWarmupResultMessage,
   type ProgressMessage,
-  type SearchStatusMessage,
   type ChallengeMessage,
   type PageRequestMessage,
+  type SearchRequestMessage,
+  type ActionRequestMessage,
   type ServerMessage,
 } from "./protocol/server-messages.ts";
 

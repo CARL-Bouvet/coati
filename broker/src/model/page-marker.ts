@@ -1,15 +1,20 @@
-// Shared streamed-answer marker detector for "page on demand" (lot 7,
-// docs/PROTOCOL.md "Page on demand"). ONE implementation, used by
-// handlers/chat.ts regardless of which provider answered — marker detection
-// never lives inside a provider file (providers/*.ts), the same
-// provider-agnostic stance model/streaming.ts already takes for ThinkFilter.
+// Shared streamed-answer marker detector (docs/PROTOCOL.md "Page on demand",
+// "Search"). ONE implementation, used by handlers/chat.ts regardless of which
+// provider answered — marker detection never lives inside a provider file
+// (providers/*.ts), the same provider-agnostic stance model/streaming.ts
+// already takes for ThinkFilter.
 //
-// Two literal markers the model is instructed to reply with
-// (model/render.ts's pageOnDemandInstruction) when it needs page content it
-// wasn't given: MARKER_TEXT (always offered) and MARKER_DEV (offered only
-// when devMode is true). Neither is ever forwarded to the client as text —
-// that is the whole point of holding output back while it's still being
-// decided.
+// Markers the model is instructed to reply with (model/render.ts):
+//  - literals: MARKER_TEXT (always offered) and MARKER_DEV (devMode only);
+//  - parameterised: `[[SEARCH: <query>]]` (offered when the panel can search),
+//    one line, 1 to SEARCH_QUERY_MAX_CHARS characters, no `]]` inside;
+//    `[[CLICK eN]]` and `[[TYPE eN: <text>]]` (offered when the panel can act),
+//    where `eN` must be in the element list the detector was given and the
+//    text is one line of 1 to ACTION_TEXT_MAX_CHARS characters.
+// A new parameterised marker is one more entry in PARAM_MARKERS.
+// None is ever forwarded to the client as text — that is the whole point of
+// holding output back while it's still being decided. Text that merely looks
+// like a marker (a too-long query, a newline inside) stays ordinary text.
 //
 // Detection has two phases per detector instance (one instance = one
 // provider call):
@@ -32,34 +37,122 @@
 // at most one read per level, two per question) or must be silently
 // stripped once exhausted is handlers/chat.ts's own policy, not this one's.
 
+import { ACTION_TEXT_MAX_CHARS, SEARCH_QUERY_MAX_CHARS } from "../protocol/chat.ts";
+import { ELEMENT_REF_RE } from "../protocol/context.ts";
+
 export const MARKER_TEXT = "[[READ_PAGE]]";
 export const MARKER_DEV = "[[READ_PAGE_DEV]]";
 
 export type PageMarkerLevel = "text" | "dev";
 export type PageMarkerPosition = "start" | "mid";
 
+export type PageMarker =
+  | { type: "read"; level: PageMarkerLevel }
+  | { type: "search"; query: string }
+  | { type: "click"; ref: string }
+  | { type: "type"; ref: string; text: string };
+
 export type PageMarkerEvent =
   | { kind: "text"; text: string }
-  | { kind: "marker"; level: PageMarkerLevel; position: PageMarkerPosition };
+  | { kind: "marker"; marker: PageMarker; position: PageMarkerPosition };
 
-function levelOf(marker: string): PageMarkerLevel {
-  return marker === MARKER_DEV ? "dev" : "text";
+type Match = { len: number; marker: PageMarker } | "partial" | null;
+
+/** `prefix` + one-line body + `]]`: the body once complete, "partial" while it
+ * could still complete (retention is bounded by `maxBody`), null otherwise. */
+function paramBody(s: string, prefix: string, maxBody: number): { body: string; len: number } | "partial" | null {
+  if (s.length < prefix.length) return prefix.startsWith(s) ? "partial" : null;
+  if (!s.startsWith(prefix)) return null;
+  const rest = s.slice(prefix.length);
+  const end = rest.indexOf("]]");
+  const nl = rest.indexOf("\n");
+  if (nl !== -1 && (end === -1 || nl < end)) return null;
+  if (end === -1) return rest.length <= maxBody + 2 ? "partial" : null;
+  return { body: rest.slice(0, end), len: prefix.length + end + 2 };
 }
 
+const PARAM_MARKERS: readonly {
+  prefix: string;
+  needs: "search" | "refs";
+  maxBody: number;
+  build(body: string, refs: ReadonlySet<string> | undefined): PageMarker | null;
+}[] = [
+  {
+    prefix: "[[SEARCH:",
+    needs: "search",
+    maxBody: SEARCH_QUERY_MAX_CHARS,
+    build: (body) => {
+      const query = body.trim();
+      return query.length >= 1 && query.length <= SEARCH_QUERY_MAX_CHARS ? { type: "search", query } : null;
+    },
+  },
+  {
+    prefix: "[[CLICK ",
+    needs: "refs",
+    maxBody: 8,
+    build: (body, refs) => {
+      const ref = body.trim();
+      return ELEMENT_REF_RE.test(ref) && refs?.has(ref) ? { type: "click", ref } : null;
+    },
+  },
+  {
+    prefix: "[[TYPE ",
+    needs: "refs",
+    maxBody: ACTION_TEXT_MAX_CHARS + 8,
+    build: (body, refs) => {
+      const m = /^(e[1-9][0-9]{0,2}):(.*)$/.exec(body);
+      const text = m?.[2]?.trim() ?? "";
+      return m && refs?.has(m[1]!) && text.length >= 1 && text.length <= ACTION_TEXT_MAX_CHARS
+        ? { type: "type", ref: m[1]!, text }
+        : null;
+    },
+  },
+];
+
 export class PageMarkerDetector {
-  private readonly candidates: readonly string[];
-  private readonly maxLen: number;
+  private readonly literals: readonly string[];
+  private readonly search: boolean;
+  private readonly refs: ReadonlySet<string> | undefined;
   private atStart = true;
   private buf = "";
 
   /** `allowDev: false` means MARKER_DEV is never recognised at all for this
    * call — a model that emits it anyway (devMode wasn't offered to it, or it
-   * ignored the instruction) gets it treated as ordinary text, same as any
-   * other string that happens to look like one of these (docs/PROTOCOL.md:
-   * "dev marker refused when devMode false"). */
-  constructor(opts: { allowDev: boolean }) {
-    this.candidates = opts.allowDev ? [MARKER_TEXT, MARKER_DEV] : [MARKER_TEXT];
-    this.maxLen = Math.max(...this.candidates.map((m) => m.length));
+   * ignored the instruction) gets it treated as ordinary text (docs/PROTOCOL.md:
+   * "dev marker refused when devMode false"). Same for `allowSearch`; click
+   * and type are recognised only for a ref in `refs` (undefined = not offered). */
+  constructor(opts: { allowDev: boolean; allowSearch?: boolean; refs?: ReadonlySet<string> }) {
+    this.literals = opts.allowDev ? [MARKER_TEXT, MARKER_DEV] : [MARKER_TEXT];
+    this.search = opts.allowSearch === true;
+    this.refs = opts.refs;
+  }
+
+  /** Does `s` (starting at a candidate `[[`) hold a full marker at its start,
+   * a prefix that could still become one, or neither? */
+  private matchAt(s: string): Match {
+    let partial = false;
+    for (const m of this.literals) {
+      if (s.startsWith(m)) return { len: m.length, marker: { type: "read", level: m === MARKER_DEV ? "dev" : "text" } };
+      if (m.startsWith(s)) partial = true;
+    }
+    for (const pm of PARAM_MARKERS) {
+      if (pm.needs === "search" ? !this.search : this.refs === undefined) continue;
+      const r = paramBody(s, pm.prefix, pm.maxBody);
+      if (r === "partial") partial = true;
+      else if (r !== null) {
+        const marker = pm.build(r.body, this.refs);
+        if (marker) return { len: r.len, marker };
+      }
+    }
+    return partial ? "partial" : null;
+  }
+
+  private findMid(text: string): { index: number; match: Exclude<Match, null> } | null {
+    for (let i = text.indexOf("["); i !== -1; i = text.indexOf("[", i + 1)) {
+      const match = this.matchAt(text.slice(i));
+      if (match !== null) return { index: i, match };
+    }
+    return null;
   }
 
   /** Feed the next text delta from the provider. Returns zero or more
@@ -78,15 +171,14 @@ export class PageMarkerDetector {
           this.buf = text; // all whitespace so far — the decision isn't made yet
           return events;
         }
-        const full = this.candidates.find((m) => trimmed === m);
-        if (full) {
-          events.push({ kind: "marker", level: levelOf(full), position: "start" });
+        const m = this.matchAt(trimmed);
+        if (m !== null && m !== "partial" && m.len === trimmed.length) {
+          events.push({ kind: "marker", marker: m.marker, position: "start" });
           this.atStart = false;
           text = ""; // the whole buffered text (incl. leading whitespace) was the marker
           continue;
         }
-        const stillPossible = this.candidates.some((m) => m.startsWith(trimmed) && trimmed.length < m.length);
-        if (stillPossible) {
+        if (m === "partial") {
           this.buf = text; // could still complete into a marker — keep holding
           return events;
         }
@@ -98,38 +190,21 @@ export class PageMarkerDetector {
         continue;
       }
 
-      // Mid-stream: find the earliest full marker in `text`, if any.
-      let earliestIndex = -1;
-      let earliestMarker = "";
-      for (const m of this.candidates) {
-        const idx = text.indexOf(m);
-        if (idx !== -1 && (earliestIndex === -1 || idx < earliestIndex)) {
-          earliestIndex = idx;
-          earliestMarker = m;
-        }
+      // Mid-stream: the earliest position holding a full marker or a prefix
+      // of one. Text before it is forwarded; a prefix is held for the next delta.
+      const hit = this.findMid(text);
+      if (hit === null) {
+        events.push({ kind: "text", text });
+        text = "";
+      } else if (hit.match === "partial") {
+        if (hit.index > 0) events.push({ kind: "text", text: text.slice(0, hit.index) });
+        this.buf = text.slice(hit.index);
+        text = "";
+      } else {
+        if (hit.index > 0) events.push({ kind: "text", text: text.slice(0, hit.index) });
+        events.push({ kind: "marker", marker: hit.match.marker, position: "mid" });
+        text = text.slice(hit.index + hit.match.len);
       }
-      if (earliestIndex !== -1) {
-        if (earliestIndex > 0) events.push({ kind: "text", text: text.slice(0, earliestIndex) });
-        events.push({ kind: "marker", level: levelOf(earliestMarker), position: "mid" });
-        text = text.slice(earliestIndex + earliestMarker.length);
-        continue;
-      }
-      // No full marker in what we have. Hold back a trailing slice that
-      // could still be the START of one (split across this and the next
-      // delta); forward the rest now.
-      let holdLen = 0;
-      const maxHold = Math.min(this.maxLen - 1, text.length);
-      for (let k = maxHold; k > 0; k--) {
-        const suffix = text.slice(text.length - k);
-        if (this.candidates.some((m) => m.startsWith(suffix))) {
-          holdLen = k;
-          break;
-        }
-      }
-      if (holdLen > 0) events.push({ kind: "text", text: text.slice(0, text.length - holdLen) });
-      else events.push({ kind: "text", text });
-      this.buf = holdLen > 0 ? text.slice(text.length - holdLen) : "";
-      text = "";
     }
     return events;
   }

@@ -23,8 +23,6 @@ import {
   resolveApiKey,
   setApiKey,
   pruneStaleOpenAiCompatKey,
-  resolveSearchApiKey,
-  setSearchApiKey,
   type Dirs,
   type ProviderId,
   type CoatiConfig,
@@ -42,7 +40,6 @@ import { hardenDir } from "./fs-atomic.ts";
 import { ProviderStatusCache } from "./provider-status.ts";
 import { MAX_MESSAGE_BYTES, MAX_IMAGE_MESSAGE_BYTES, parseClientMessage } from "./protocol.ts";
 import { getProvider, getProviders, initRegistry } from "./providers/registry.ts";
-import { isSearchProviderId } from "./search/types.ts";
 import { DEFAULT_LANG, type Lang } from "./messages.ts";
 import type { PromptsDirs } from "./prompts.ts";
 import { checkUnitDriftAtStartup } from "./logging.ts";
@@ -87,7 +84,7 @@ export {
 } from "./handshake.ts";
 export { MAX_UNAUTH_CONNECTIONS } from "./http-admission.ts";
 export { MAX_CONCURRENT_STREAMS } from "./handlers/chat.ts";
-export { testProviderConnection, testSearchConnection, SETTINGS_TEST_TIMEOUT_MS } from "./handlers/settings.ts";
+export { testProviderConnection, SETTINGS_TEST_TIMEOUT_MS } from "./handlers/settings.ts";
 
 /** promptsDirs, widened with an optional configDir so startServer can persist
  * settings.set to config.json. Optional and separate from PromptsDirs (rather
@@ -241,38 +238,10 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           const targetProvider = patch.provider ?? currentConfig.provider ?? DEFAULT_CONFIG.provider!;
           currentConfig = { ...currentConfig, apiKeys: setApiKey(currentConfig, targetProvider, patch.apiKey) };
         }
-        // Amendment 2026-10-08 (lot C1, docs/PROTOCOL.md): independent of
-        // the model `provider`/`model`/`apiKey` fields above — "" forgets the
-        // stored choice, same convention as every other field here.
-        if (patch.searchProvider !== undefined) {
-          currentConfig = {
-            ...currentConfig,
-            searchProvider: patch.searchProvider === "" ? undefined : patch.searchProvider,
-          };
-        }
-        // Bound to whichever engine THIS SAME patch's searchProvider names,
-        // or the currently configured one otherwise — mirrors apiKey/provider
-        // above. A searchApiKey with neither a same-patch nor an already
-        // configured searchProvider has nowhere safe to bind to and is
-        // dropped, same reasoning as setApiKey's own "no baseUrl yet" case.
-        if (patch.searchApiKey !== undefined) {
-          const targetSearchProvider = patch.searchProvider || currentConfig.searchProvider;
-          if (targetSearchProvider) {
-            currentConfig = {
-              ...currentConfig,
-              searchKeys: setSearchApiKey(currentConfig, targetSearchProvider, patch.searchApiKey),
-            };
-          }
-        }
-        // Amendment 2026-10-08 (lot C1, EXTRA task, docs/PROTOCOL.mdis):
-        // forgets a stored key WITHOUT touching provider/model/searchProvider
-        // — independent of every other field in this same patch.
+        // Forgets a stored key WITHOUT touching provider/model, independent of
+        // every other field in this same patch.
         if (patch.clearKey !== undefined) {
-          if (isSearchProviderId(patch.clearKey)) {
-            currentConfig = { ...currentConfig, searchKeys: setSearchApiKey(currentConfig, patch.clearKey, "") };
-          } else {
-            currentConfig = { ...currentConfig, apiKeys: setApiKey(currentConfig, patch.clearKey, "") };
-          }
+          currentConfig = { ...currentConfig, apiKeys: setApiKey(currentConfig, patch.clearKey, "") };
         }
         if (dirs.configDir) saveConfig({ configDir: dirs.configDir }, currentConfig);
         // docs/PROTOCOL.md: "A successful settings.set
@@ -331,9 +300,8 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           hs: { stage: "awaiting-hello" },
           countedUnauth: false,
           lang: DEFAULT_LANG,
-          docSearching: false,
           closed: false,
-          pageRequests: new Map(),
+          clientRequests: new Map(),
         } satisfies ConnData,
       });
       if (!upgraded) {
@@ -445,7 +413,6 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           promptsDirs,
           settingsCtx(ws.data.lang),
           ws.data.lang,
-          dirs.dataDir,
           ws.data,
         );
       },

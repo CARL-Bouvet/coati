@@ -29,13 +29,10 @@ export function persistConversation() {
   // it from the COPY written to chrome.storage.local; the in-memory
   // `conversation` objects (and their buttons, already rendered) keep it.
   // `pageReading` (page-request.js's transient "Reading the page…" status)
-  // is mid-request-only, meaningless after a reload (activeRequestId itself
+  // and `actionCard` (action-card.js, holds an element label) are
+  // mid-request-only, meaningless after a reload (activeRequestId itself
   // isn't persisted either) — stripped same as elementsSnapshot.
-  const toStore = panelState.conversation.map((msg) => {
-    if (!msg.elementsSnapshot && !msg.pageReading) return msg;
-    const { elementsSnapshot, pageReading, ...rest } = msg;
-    return rest;
-  });
+  const toStore = panelState.conversation.map(({ elementsSnapshot, pageReading, actionCard, ...rest }) => rest);
   api.storage.local.set({
     [STORAGE_KEY]: toStore,
     [DEV_MODE_KEY]: panelState.devModePreference,

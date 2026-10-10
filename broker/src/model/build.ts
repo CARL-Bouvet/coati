@@ -14,33 +14,43 @@ import {
   stripReferenceTokens,
   LANGUAGE_NAME,
   renderContext,
-  renderSources,
-  sourcesInstruction,
-  ELEMENTS_INSTRUCTION,
+  renderSearch,
+  SEARCH_ANSWER_INSTRUCTION,
+  SEARCH_OFFER_INSTRUCTION,
+  searchDeclinedNote,
+  elementsInstruction,
+  actionOutcomeNote,
+  type ActionOutcome,
   renderPageMeta,
   pageOnDemandInstruction,
   pageDevEscalationInstruction,
   PAGE_READ_DECLINED_NOTE,
   type PromptSource,
+  type SearchContent,
   type PageMeta,
 } from "./render.ts";
 
 export type PromptInput =
   // Amendement 2026-10-08 (lot B1): `image` is chat-only (docs/PROTOCOL.md
   // §3 — neither summarize nor act ever carry one). Amendement 2026-10-08
-  // (lot C1): `sources`, same chat-only restriction, same reasoning.
+  // (lot C1): `search`, same chat-only restriction.
   | {
       kind: "chat";
       text: string;
       context?: Context;
       image?: ChatImage;
-      sources?: PromptSource[];
-      /** Security review (M2): true when `sources` came from a scoped
-       * search (a doc domain was found) — false for the open-web fallback.
-       * Ignored when `sources` is absent/empty. Defaults to true so an
-       * existing caller that doesn't (yet) know about this field keeps the
-       * "official documentation" wording it had before this amendment. */
-      sourcesScoped?: boolean;
+      /** Search results and pages found for this question (docs/PROTOCOL.md
+       * "Search"), fenced as data and numbered [S1]… */
+      search?: SearchContent;
+      /** Re-run after a search that could not be done: the reason, spliced in
+       * as a trusted note. */
+      declinedSearch?: string;
+      /** True when the panel announced the `search` ability and no search ran yet. */
+      offerSearch?: boolean;
+      /** True when the panel announced the `act` ability and the page's element list is present. */
+      offerAct?: boolean;
+      /** What the client reported for the actions already requested, oldest first. */
+      actions?: ActionOutcome[];
       /** Amendement 2026-10-08 (bis, "historique"): past turns of the
        * conversation shown in the panel, oldest first, TEXT only — never a
        * past page context/image/sources (docs/PROTOCOL.md). Already
@@ -299,12 +309,10 @@ export interface BuiltPrompt {
    */
   images?: ChatImage[];
   /**
-   * Amendement 2026-10-08 (lot C1, docs/MODULES.md "BuiltPrompt.sources").
-   * Official-documentation pages read for a `chat.docSearch` request; their
+   * Web pages read for the question (docs/MODULES.md "BuiltPrompt.sources"); their
    * text is already included in `prompt`, inside the fence (see
-   * renderSources below) — this field exists only for a module that wants
-   * to treat them separately. Absent when the request carried no docSearch
-   * (or it produced no readable source).
+   * renderSearch) — this field exists only for a module that wants
+   * to treat them separately. Absent when the request carried no source.
    */
   sources?: PromptSource[];
   /**
@@ -344,19 +352,17 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
       if (!input.context && input.page) {
         parts.push(renderPageMeta(input.page, nonce));
       }
-      // Amendement 2026-10-08 (lot C1): rendered in its own fence block,
-      // same nonce, right after any page context and before the user's own
-      // request — see renderSources's doc for why these are trusted no more
-      // and no less than page content.
-      const sources = input.sources && input.sources.length > 0 ? input.sources : undefined;
-      if (sources) parts.push(renderSources(sources, nonce));
+      const sources = input.search && input.search.pages.length > 0 ? input.search.pages : undefined;
+      if (input.search) parts.push(renderSearch(input.search, nonce));
       parts.push(`User request:\n${input.text}`);
-      if (sources) parts.push(sourcesInstruction(input.sourcesScoped !== false));
-      // Amendement 2026-10-08 (lot A1): trusted scaffolding, outside the
-      // fence, added only when elements survived validation non-empty.
+      if (input.search) parts.push(SEARCH_ANSWER_INSTRUCTION);
+      if (input.declinedSearch) parts.push(searchDeclinedNote(input.declinedSearch));
+      if (input.offerSearch) parts.push(SEARCH_OFFER_INSTRUCTION);
+      // Trusted scaffolding, outside the fence, only when elements survived validation.
       if (input.context?.elements && input.context.elements.length > 0) {
-        parts.push(ELEMENTS_INSTRUCTION);
+        parts.push(elementsInstruction(input.offerAct === true));
       }
+      for (const outcome of input.actions ?? []) parts.push(actionOutcomeNote(outcome));
       // Amendement 2026-10-09 (lot 7, "page on demand"): the instruction
       // naming the marker(s) — only when this is the metadata-only, no-content
       // call (never together with real `context`, never on the decline note
@@ -392,7 +398,7 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
         summarizeInstruction(input.context, lang),
       ];
       if (input.context.elements && input.context.elements.length > 0) {
-        parts.push(ELEMENTS_INSTRUCTION);
+        parts.push(elementsInstruction(false));
       }
       return { prompt: parts.join("\n\n"), nonce, lang };
     }
@@ -443,7 +449,7 @@ export function trimHistoryToCharBudget(
 // used only by the private claude-cli module (docs/MODULES.md), the one
 // provider that takes a single prompt rather than a `messages` array. Own
 // fence (same nonce as the rest of this request, same reasoning as
-// renderSources: these are untrusted-origin turns, fenced exactly like page
+// renderSearch: these are untrusted-origin turns, fenced exactly like page
 // content), placed BEFORE the current request text by the caller — never
 // inside the system prompt, never inside the page-data fence (a SEPARATE
 // fence instance, never merged with renderContext's own). Returns "" for an

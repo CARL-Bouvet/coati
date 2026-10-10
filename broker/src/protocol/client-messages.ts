@@ -4,7 +4,7 @@
 import type { ProviderId } from "../config.ts";
 import type { Context } from "./context.ts";
 import type { SitePrefs } from "./prompts-prefs.ts";
-import type { ChatImage, ChatDocSearch, HistoryEntry, PageMeta } from "./chat.ts";
+import type { ActionStatus, ChatAbility, ChatImage, HistoryEntry, PageMeta, SearchBody, SearchDeclineReason } from "./chat.ts";
 
 // v: 2 handshake — docs/PROTOCOL.md "Handshake `v: 2`" (amendement
 // 2026-09-30, G4). `v: 1` (secret-based) no longer exists anywhere in the
@@ -46,8 +46,6 @@ export interface ChatMessage {
   context?: Context;
   // Amendement 2026-10-08 (lot B1). See ChatImage above.
   image?: ChatImage;
-  // Amendement 2026-10-08 (lot C1). See ChatDocSearch above.
-  docSearch?: ChatDocSearch;
   // Amendement 2026-10-08 (bis, "historique"). See HistoryEntry above.
   history?: HistoryEntry[];
   // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
@@ -61,6 +59,10 @@ export interface ChatMessage {
    * dev marker is never offered, and a model that emits it anyway gets it
    * treated as ordinary text, never a trigger (docs/PROTOCOL.md). */
   devMode?: boolean;
+  /** What the panel can do beyond reading (docs/PROTOCOL.md "Search"). */
+  abilities?: ChatAbility[];
+  /** Search at once for this query, without a prior model call. */
+  searchQuery?: string;
 }
 
 // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
@@ -82,6 +84,32 @@ export interface PageDeclineMessage {
   type: "page.decline";
   id: string;
   target: string;
+}
+
+// The client's answer to a `search.request` (docs/PROTOCOL.md "Search").
+export interface SearchContentMessage extends SearchBody {
+  type: "search.content";
+  id: string;
+  target: string;
+}
+
+export interface SearchDeclineMessage {
+  type: "search.decline";
+  id: string;
+  target: string;
+  reason: SearchDeclineReason;
+}
+
+// The client's answer to an `action.request` (docs/PROTOCOL.md "Acting").
+// `by: "user"` (with `done`): the user did the gesture himself.
+export interface ActionResultMessage {
+  type: "action.result";
+  id: string;
+  target: string;
+  status: ActionStatus;
+  by?: "user";
+  reason?: string;
+  context?: Context;
 }
 
 export interface SummarizeMessage {
@@ -179,46 +207,25 @@ export interface SettingsSetMessage {
    */
   baseUrl?: string;
   /**
-   * Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §9). Which search engine
-   * `chat.docSearch` should use — `""` means "none chosen" (forgets the
-   * stored choice, same "" = forget convention as apiKey/baseUrl). Omitted
-   * means "leave unchanged". Independent of `provider` above (the MODEL
-   * provider).
-   */
-  searchProvider?: "brave" | "tavily" | "";
-  /**
-   * The user's own Brave/Tavily API key — WRITE-ONLY, same contract as
-   * `apiKey` above (CLAUDE.md rule #1): accepted, persisted to
-   * config.json's `searchKeys`, never echoed back. Bound to whichever
-   * engine THIS SAME patch's `searchProvider` names, or the currently
-   * configured one otherwise (mirrors apiKey/provider's own pairing). An
-   * empty string forgets the stored key for that engine. Omitted means
-   * "leave unchanged".
-   */
-  searchApiKey?: string;
-  /**
    * Amendement 2026-10-08 (lot C1, EXTRA task — docs/PROTOCOL.md §9bis).
    * Forgets a stored key WITHOUT touching the active provider/model or any
    * other field in this same patch — `"claude-api"` / `"openai-compat"`
-   * clear `apiKeys`, `"brave"` / `"tavily"` clear `searchKeys`; any other id
+   * clear `apiKeys`; any other id
    * is a no-op (no defined key storage for it, same as setApiKey's own
    * unknown-provider case). Lets the options page clear a key for a
    * provider that ISN'T the active one — the gap `apiKey: ""` doesn't cover,
-   * since `apiKey`/`searchApiKey` always bind to the *currently selected*
+   * since `apiKey` always binds to the *currently selected*
    * (or same-patch-selected) provider.
    */
   clearKey?: ProviderId;
 }
 
-// Added for task 3 (2026-09-21): backs the panel's "Tester la connexion"
-// button — see docs/PROTOCOL.md's settings.test amendment. Amendement
-// 2026-10-08 (lot C1, docs/PROTOCOL.md §9): a discriminated union on
-// `target` — `"search"` tests the search feature instead of a model
-// provider. Absent/`"model"` is today's shape, byte-for-byte unchanged
-// ("Compatibility").
-export type SettingsTestMessage =
-  | { type: "settings.test"; id: string; target?: "model"; provider: ProviderId }
-  | { type: "settings.test"; id: string; target: "search"; searchProvider: "brave" | "tavily" };
+// Backs the panel's "Tester la connexion" button (docs/PROTOCOL.md, settings.test).
+export interface SettingsTestMessage {
+  type: "settings.test";
+  id: string;
+  provider: ProviderId;
+}
 
 // Amendement 2026-09-25 — "Provider availability". Sent by the panel
 // once per panel open only (never automatically, never periodically — see
@@ -265,4 +272,7 @@ export type ClientMessage =
   | ModelsListMessage
   | ModelWarmupMessage
   | PageContentMessage
-  | PageDeclineMessage;
+  | PageDeclineMessage
+  | SearchContentMessage
+  | SearchDeclineMessage
+  | ActionResultMessage;

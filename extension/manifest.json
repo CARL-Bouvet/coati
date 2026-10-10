@@ -13,7 +13,8 @@
     "alarms",
     "contextMenus",
     "favicon",
-    "nativeMessaging"
+    "nativeMessaging",
+    "search"
   ],
   "optional_host_permissions": [
     "http://*/*",

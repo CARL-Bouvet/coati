@@ -1015,45 +1015,11 @@ textarea {
   color: var(--muted);
 }
 
-/* Lot C2/F — search.status progress line + "Sources" block, under an
- * assistant message. Discreet (muted), same family as .message-cut-notice. */
+/* Discreet status line (muted), same family as .message-cut-notice. */
 .search-status-line {
   margin: var(--space-2) 0 0;
   font-size: 0.85em;
   color: var(--muted);
-}
-
-.search-sources {
-  margin: var(--space-2) 0 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-
-.search-sources-title {
-  margin: 0 0 var(--space-1);
-  font-size: 0.85em;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.search-sources-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-/* Plain text, deliberately not a link (CLAUDE.md rule #3; product question
- * open — see buildSourcesBlock()'s own comment in panel.js): no --link
- * color here, just readable muted text that wraps at 320px like any prose. */
-.search-sources-item {
-  font-size: 0.85em;
-  color: var(--fg);
-  word-break: break-word;
 }
 
 /* Lot A2/F — "Montrer : …" button: inline, discreet, caramel (P24), wraps
@@ -1178,4 +1144,66 @@ html.mode-dev .message--assistant {
   :where(*, *::before, *::after) {
     transition: border-radius 250ms ease, box-shadow 250ms ease, opacity 250ms ease, font-family 250ms ease;
   }
+}
+
+/* Web search: sources under an answer, access prompt, targeted-search button. */
+.search-sources {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.search-sources-title {
+  margin: 0 0 var(--space-1);
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.search-sources-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.search-sources-item {
+  font-size: 0.85em;
+  color: var(--fg);
+  word-break: break-word;
+}
+
+.search-sources-item a {
+  color: var(--accent);
+}
+
+.search-access,
+.action-card,
+.search-suggest-button {
+  margin-top: var(--space-2);
+}
+
+.action-card {
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+}
+
+.action-card--refused {
+  border-color: var(--border);
+}
+
+.action-card-title {
+  margin: 0 0 var(--space-1, 4px);
+  font-weight: 600;
+}
+
+.action-card-buttons {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }

@@ -563,61 +563,6 @@
   "panel_point_frame_limit": {
     "message": "框架（iframe）内的元素不会被标注。"
   },
-  "panel_docsearch_query": {
-    "message": "搜索：$QUERY$",
-    "placeholders": {
-      "query": {
-        "content": "$1",
-        "example": "export video kling ai tutorial"
-      }
-    }
-  },
-  "panel_docsearch_scope": {
-    "message": "正在通过 $ENGINE$ 搜索 $SITE$",
-    "placeholders": {
-      "site": {
-        "content": "$1",
-        "example": "help.kling.ai"
-      },
-      "engine": {
-        "content": "$2",
-        "example": "Brave Search"
-      }
-    }
-  },
-  "panel_docsearch_web": {
-    "message": "通过 $ENGINE$ 在网络上搜索",
-    "placeholders": {
-      "engine": {
-        "content": "$1",
-        "example": "Brave Search"
-      }
-    }
-  },
-  "panel_docsearch_reading": {
-    "message": "正在阅读找到的页面…"
-  },
-  "panel_sources_title": {
-    "message": "来源"
-  },
-  "error_search_not_configured": {
-    "message": "未配置任何搜索服务——请在设置中添加 Brave 或 Tavily 密钥。"
-  },
-  "error_search_unavailable_auth": {
-    "message": "搜索密钥被服务拒绝。"
-  },
-  "error_search_unavailable_quota": {
-    "message": "搜索服务的免费额度已用完。"
-  },
-  "error_search_unavailable_rate": {
-    "message": "搜索服务目前收到的请求过多。"
-  },
-  "error_search_unavailable_network": {
-    "message": "无法访问搜索服务或文档页面。"
-  },
-  "error_search_unavailable_no_result": {
-    "message": "未找到相关内容。"
-  },
   "panel_build_fingerprint": {
     "message": "v$VERSION$ · $FINGERPRINT$",
     "placeholders": {
@@ -1842,51 +1787,6 @@
   "options_current_default_model": {
     "message": "服务的默认模型"
   },
-  "options_search_title": {
-    "message": "在文档中搜索"
-  },
-  "options_search_help": {
-    "message": "当您在面板中提出请求时，Coati 会在网站的官方文档中搜索。这需要一个搜索服务的密钥；两者都有免费额度。"
-  },
-  "options_search_provider_brave": {
-    "message": "Brave Search"
-  },
-  "options_search_provider_tavily": {
-    "message": "Tavily"
-  },
-  "options_search_test": {
-    "message": "检查"
-  },
-  "options_search_test_paid_note": {
-    "message": "检查会消耗免费额度中的一次请求。"
-  },
-  "setup_search_title": {
-    "message": "获取免费密钥"
-  },
-  "setup_search_intro": {
-    "message": "两个服务都有足以满足个人使用的免费额度："
-  },
-  "setup_search_brave": {
-    "message": "Brave Search：每月约 1,000 次免费搜索（每月赠送 5 美元额度）。请在 API 控制台创建账户和密钥。"
-  },
-  "setup_search_brave_link": {
-    "message": "Brave Search API 控制台"
-  },
-  "setup_search_tavily": {
-    "message": "Tavily：每月 1,000 个免费额度。请在 Tavily 网站创建账户，然后创建密钥。"
-  },
-  "setup_search_paste": {
-    "message": "在上方选择服务，粘贴密钥并保存，然后点击“检查”。"
-  },
-  "options_search_placeholder": {
-    "message": "$SERVICE$ API 密钥",
-    "placeholders": {
-      "service": {
-        "content": "$1",
-        "example": "Brave Search"
-      }
-    }
-  },
   "panel_access_denied_sent": {
     "message": "⚠ Coati 无法访问此页面，问题将在不附带页面的情况下发送。$HINT$",
     "placeholders": {
@@ -1933,5 +1833,104 @@
   },
   "sensitive_kind_iban": {
     "message": "IBAN"
+  },
+  "panel_search_status": {
+    "message": "搜索：“$P1$”",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "panel_search_mention": {
+    "message": "已搜索网页 · $P1$ 条结果，读取 $P2$ 个页面 · $P3$ k 个 token",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "3"
+      },
+      "p2": {
+        "content": "$2",
+        "example": "3"
+      },
+      "p3": {
+        "content": "$3",
+        "example": "3"
+      }
+    }
+  },
+  "panel_search_button": {
+    "message": "搜索“$P1$”",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "panel_search_needs_access": {
+    "message": "要搜索网页，Coati 需要访问所有网站。"
+  },
+  "panel_search_allow": {
+    "message": "允许所有网站"
+  },
+  "panel_sources_title": {
+    "message": "来源"
+  },
+  "panel_source_http_warning": {
+    "message": "未加密连接（http）"
+  },
+  "panel_action_click": {
+    "message": "Coati 想点击“$P1$”",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "x"
+      }
+    }
+  },
+  "panel_action_type": {
+    "message": "Coati 想在“$P2$”中输入“$P1$”",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "x"
+      },
+      "p2": {
+        "content": "$2",
+        "example": "x"
+      }
+    }
+  },
+  "panel_action_hint": {
+    "message": "或者自己点击被框出的元素。"
+  },
+  "panel_action_allow": {
+    "message": "允许"
+  },
+  "panel_action_refuse": {
+    "message": "拒绝"
+  },
+  "panel_action_needs_access": {
+    "message": "页面变化后 Coati 失去了访问权限。允许所有网站以继续。"
+  },
+  "panel_action_refused_sensitive_field": {
+    "message": "Coati 已拒绝：这是敏感字段（密码、银行卡、验证码）。"
+  },
+  "panel_action_refused_not_editable": {
+    "message": "Coati 已拒绝：这不是文本输入框。"
+  },
+  "panel_action_refused_form_submit": {
+    "message": "Coati 已拒绝：该按钮会提交表单。"
+  },
+  "panel_action_refused_forbidden_label": {
+    "message": "Coati 已拒绝：它从不付款、发送、删除、发布或登录。"
+  },
+  "panel_action_refused_link_target": {
+    "message": "Coati 已拒绝：该链接指向本地或内网地址。"
+  },
+  "panel_action_refused_other": {
+    "message": "Coati 已拒绝此操作。"
   }
 }

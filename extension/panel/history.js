@@ -40,8 +40,7 @@ function isFailedOrPending(msg) {
     msg.modelUnavailable ||
     msg.providerOverloaded ||
     msg.modelMissing ||
-    msg.modelStalled ||
-    msg.searchNotConfigured
+    msg.modelStalled
   );
 }
 

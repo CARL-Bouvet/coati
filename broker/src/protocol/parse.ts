@@ -15,9 +15,14 @@ import {
 import { parseContext } from "./context.ts";
 import {
   parseChatImage,
-  parseChatDocSearch,
   parseHistory,
   parsePageMeta,
+  parseAbilities,
+  parseSearchQuery,
+  ACTION_STATUSES,
+  ACTION_REASON_MAX_CHARS,
+  parseSearchBody,
+  SEARCH_DECLINE_REASONS,
   looksLikeChatWithImage,
   looksLikePageContent,
 } from "./chat.ts";
@@ -184,16 +189,16 @@ export function parseClientMessage(raw: string): ParseResult {
           },
         };
       }
-      // Amendement 2026-10-08 (lot C1): same drop-not-reject tolerance.
-      const docSearch = parseChatDocSearch(parsed.docSearch);
       // Amendement 2026-10-08 (bis, "historique"): same drop-not-reject
       // tolerance, per entry — see parseHistory's own doc.
       const history = parseHistory(parsed.history);
       // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md
-      // "Page on demand"): same drop-not-reject tolerance as image/docSearch.
+      // "Page on demand"): same drop-not-reject tolerance as image.
       const page = parsePageMeta(parsed.page);
       const devMode = typeof parsed.devMode === "boolean" ? parsed.devMode : undefined;
-      return { ok: true, message: { type: "chat", id, text: parsed.text, context, image, docSearch, history, page, devMode } };
+      const abilities = parseAbilities(parsed.abilities);
+      const searchQuery = parseSearchQuery(parsed.searchQuery);
+      return { ok: true, message: { type: "chat", id, text: parsed.text, context, image, history, page, devMode, abilities, searchQuery } };
     }
     case "summarize": {
       const context = parseContext(parsed.context);
@@ -348,23 +353,6 @@ export function parseClientMessage(raw: string): ParseResult {
           },
         };
       }
-      // Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §9).
-      const searchProviderRaw = parsed.searchProvider;
-      if (
-        searchProviderRaw !== undefined &&
-        searchProviderRaw !== "brave" &&
-        searchProviderRaw !== "tavily" &&
-        searchProviderRaw !== ""
-      ) {
-        return { ok: false, error: { code: "bad-request", message: "settings.set: invalid searchProvider", id } };
-      }
-      const searchApiKey = parsed.searchApiKey;
-      if (searchApiKey !== undefined && typeof searchApiKey !== "string") {
-        return { ok: false, error: { code: "bad-request", message: "settings.set: invalid searchApiKey", id } };
-      }
-      if (searchApiKey !== undefined && searchApiKey !== "" && !isValidApiKeyFormat(searchApiKey)) {
-        return { ok: false, error: { code: "bad-request", message: "settings.set: invalid searchApiKey format", id } };
-      }
       // Amendement 2026-10-08 (lot C1, EXTRA task, docs/PROTOCOL.md §9bis).
       const clearKey = parsed.clearKey;
       if (clearKey !== undefined && !isProviderId(clearKey)) {
@@ -379,29 +367,16 @@ export function parseClientMessage(raw: string): ParseResult {
           model,
           apiKey,
           baseUrl,
-          searchProvider: searchProviderRaw,
-          searchApiKey,
           clearKey,
         },
       };
     }
     case "settings.test": {
-      const target = parsed.target;
-      if (target !== undefined && target !== "model" && target !== "search") {
-        return { ok: false, error: { code: "bad-request", message: "settings.test: invalid target", id } };
-      }
-      if (target === "search") {
-        const searchProvider = parsed.searchProvider;
-        if (searchProvider !== "brave" && searchProvider !== "tavily") {
-          return { ok: false, error: { code: "bad-request", message: "settings.test: invalid searchProvider", id } };
-        }
-        return { ok: true, message: { type: "settings.test", id, target, searchProvider } };
-      }
       const provider = parsed.provider;
       if (!isProviderId(provider)) {
         return { ok: false, error: { code: "bad-request", message: "settings.test: invalid provider", id } };
       }
-      return { ok: true, message: { type: "settings.test", id, target, provider } };
+      return { ok: true, message: { type: "settings.test", id, provider } };
     }
     case "provider.status": {
       return { ok: true, message: { type: "provider.status", id } };
@@ -413,7 +388,7 @@ export function parseClientMessage(raw: string): ParseResult {
       return { ok: true, message: { type: "model.warmup", id } };
     }
     // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md
-    // "Page on demand"). Unlike image/docSearch/page (above), a malformed
+    // "Page on demand"). Unlike image/page (above), a malformed
     // `page.content`/`page.decline` IS a bad-request — there is no
     // "degrade gracefully, the request still goes through" fallback here:
     // these messages carry no text of their own to fall back to, they only
@@ -456,6 +431,30 @@ export function parseClientMessage(raw: string): ParseResult {
         return { ok: false, error: { code: "bad-request", message: "page.decline: missing target", id } };
       }
       return { ok: true, message: { type: "page.decline", id, target: parsed.target } };
+    }
+    case "search.content": {
+      const body = parseSearchBody(parsed);
+      if (!isNonEmptyString(parsed.target) || !body) {
+        return { ok: false, error: { code: "bad-request", message: "search.content: invalid", id } };
+      }
+      return { ok: true, message: { type: "search.content", id, target: parsed.target, ...body } };
+    }
+    case "search.decline": {
+      const reason = SEARCH_DECLINE_REASONS.find((r) => r === parsed.reason);
+      if (!isNonEmptyString(parsed.target) || !reason) {
+        return { ok: false, error: { code: "bad-request", message: "search.decline: invalid", id } };
+      }
+      return { ok: true, message: { type: "search.decline", id, target: parsed.target, reason } };
+    }
+    case "action.result": {
+      const status = ACTION_STATUSES.find((st) => st === parsed.status);
+      const context = parsed.context === undefined ? undefined : parseContext(parsed.context);
+      const reason = typeof parsed.reason === "string" ? parsed.reason.slice(0, ACTION_REASON_MAX_CHARS) : undefined;
+      if (!isNonEmptyString(parsed.target) || !status || (parsed.context !== undefined && !context)) {
+        return { ok: false, error: { code: "bad-request", message: "action.result: invalid", id } };
+      }
+      const by = parsed.by === "user" && status === "done" ? ("user" as const) : undefined;
+      return { ok: true, message: { type: "action.result", id, target: parsed.target, status, by, reason, context } };
     }
     default:
       return { ok: false, error: { code: "bad-request", message: `unknown type: ${type}`, id } };

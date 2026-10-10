@@ -53,11 +53,12 @@ function getYouTubeVideoId() {
 }
 
 // Reads the transcript only if it is already open in the DOM: either the
-// user opened the transcript panel themselves, or the panel's own "Summarize
-// this video" button did it on their behalf, in direct response to their
-// click — the one documented exception to the gesture rule (DECISIONS.md,
-// "Hard constraint — the gesture rule"). Either way this function itself
-// never opens the panel and never calls YouTube's internal endpoints.
+// user opened the transcript panel themselves, or the panel opened it on
+// their behalf in direct response to their own click (the suggestion, or the
+// question the model answers by asking for the page) — the named exception
+// to the gesture rule (DECISIONS.md, "Hard constraint — the gesture rule").
+// This function itself never opens the panel and never calls YouTube's
+// internal endpoints.
 function getYouTubeTranscript() {
   // YouTube migrated its transcript to the "view model" architecture; the
   // older custom element is kept as a fallback for slower rollouts.
@@ -97,6 +98,49 @@ function getYouTubeTranscript() {
   }
 
   return lines.length ? lines.join("\n") : undefined;
+}
+
+const YT_DESCRIPTION_MAX = 2000;
+const YT_CHAPTERS_MAX = 60;
+
+// Title, channel, description and chapters of the watch page. Read from
+// textContent, not rendered text: the description is clipped by CSS until
+// "show more" is pressed, but its full text is in the DOM.
+function readYouTubeMeta() {
+  const text = (selector) => {
+    const el = document.querySelector(selector);
+    return el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "";
+  };
+  const chapters = [];
+  for (const item of document.querySelectorAll("ytd-macro-markers-list-item-renderer")) {
+    const title = item.querySelector("h3.macro-markers");
+    const time = item.querySelector("#time");
+    if (!title || !time) continue;
+    const line = `${(time.textContent || "").trim()} ${(title.textContent || "").trim()}`;
+    // YouTube renders the same chapter list in several places.
+    if (!chapters.includes(line)) chapters.push(line);
+  }
+  return {
+    title: text("ytd-watch-metadata h1") || document.title || "",
+    channel: text("ytd-watch-metadata #owner ytd-channel-name yt-formatted-string#text"),
+    description: text("ytd-watch-metadata #description-inline-expander #attributed-snippet-text"),
+    chapters,
+  };
+}
+
+// The text sent for a YouTube watch page: a short header, then the
+// transcript — or an explicit "not open" line, so the model never presents a
+// summary of the description as if it had watched the video.
+function formatYouTubeText(meta, transcript) {
+  const lines = [];
+  if (meta.title) lines.push(`Title: ${meta.title}`);
+  if (meta.channel) lines.push(`Channel: ${meta.channel}`);
+  if (meta.description) lines.push(`Description: ${meta.description.slice(0, YT_DESCRIPTION_MAX)}`);
+  if (meta.chapters && meta.chapters.length) {
+    lines.push("Chapters:", ...meta.chapters.slice(0, YT_CHAPTERS_MAX));
+  }
+  lines.push(transcript ? `Transcript:\n${transcript}` : "Transcript: not open");
+  return lines.join("\n");
 }
 
 // The query string and hash can carry session tokens (?token=…,

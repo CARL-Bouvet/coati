@@ -103,26 +103,6 @@
           <p class="help help--tight" data-i18n="options_cap_text">Paid services bill by usage. Set a monthly cap on their site:</p>
           <p id="capLinks" class="cap-links"></p>
         </div>
-        <!-- Doc search (lot C3): the search service's key, kept by the local
-             program (write-only, only `configured` comes back). Deep link:
-             options.html#search (the panel's search-not-configured remedy). -->
-        <div id="search" class="tab-block search-block">
-          <h3 id="h-search" class="block-title" data-i18n="options_search_title">Search in the docs</h3>
-          <p class="help help--tight" data-i18n="options_search_help">Coati searches the site's official documentation when you ask it from the panel. It needs a key from a search service; both have a free tier.</p>
-          <div class="search-providers" role="radiogroup" aria-labelledby="h-search">
-            <label class="search-provider"><input type="radio" name="searchProvider" value="brave" /><span data-i18n="options_search_provider_brave">Brave Search</span></label>
-            <label class="search-provider"><input type="radio" name="searchProvider" value="tavily" /><span data-i18n="options_search_provider_tavily">Tavily</span></label>
-          </div>
-          <div id="searchKeySlot" class="search-key-slot"></div>
-          <div class="search-check-row">
-            <button id="searchTest" type="button" class="button-secondary button-small" data-i18n="options_search_test">Check</button>
-            <span class="help search-check-note" data-i18n="options_search_test_paid_note">The check uses one request of your free quota.</span>
-          </div>
-          <details id="searchGuide" class="fold fold--inner">
-            <summary data-i18n="setup_search_title">Get a free key</summary>
-            <div id="searchGuideBody" class="fold-body"></div>
-          </details>
-        </div>
       </div>
 
       <!-- Model name for the active provider: moved by options.js into the

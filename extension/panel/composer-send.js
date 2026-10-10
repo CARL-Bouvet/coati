@@ -3,7 +3,6 @@
 // "Read the page" switch it used to be gated on is gone), the shared
 // sendChatMessage() tail, site-card suggestions (lot F3 split of panel.js).
 import { t } from "../lib/i18n-page.js";
-import { api } from "../lib/browser-compat.js";
 import { els } from "./dom-refs.js";
 import { panelState, newId } from "./panel-state.js";
 import { ACCESS_DENIED_HINT } from "../lib/labels.js";
@@ -19,6 +18,7 @@ import { prepareContextForWire } from "./element-refs.js";
 import { pendingRetries } from "./chat-stream.js";
 import { updateSavePromptEnabled } from "./prompts-wiring.js";
 import { PAGE_CONTENT_MARKER_SUFFIX } from "./message-render.js";
+import { canSearch } from "./web-search.js";
 
 // Shown at most once per panel session (plan: "main frame only:
 // iframes are not numbered — announced limitation").
@@ -87,59 +87,25 @@ export async function sendChat() {
   }
 }
 
-/** Amendement 2026-10-08 bis ("recherche sur demande explicite" —
- * docs/PROTOCOL.md §6, no more "Search the docs" button): origin only
- * (§6 — "never the path nor the query string"), and only for an http(s) tab
- * (a chrome://, file:// or extension page has no "doc site" to search).
- * Resolved fresh at SEND time (called from sendChatMessage() below). */
-export async function activeTabDocSearchOrigin() {
-  if (currentTabId == null) return null;
-  let tab = null;
-  try {
-    tab = await api.tabs.get(currentTabId);
-  } catch {
-    return null;
-  }
-  try {
-    const url = new URL(tab?.url ?? "");
-    return url.protocol === "http:" || url.protocol === "https:" ? url.origin : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Builds the `page` metadata-only payload (docs/PROTOCOL.md "Page on
- * demand") from a full extraction — `kind` is the PageMeta variant
- * (list/listing/article/other), never Context.kind ("page"/"youtube"): a
- * YouTube extraction has no such field, so `kind` is simply omitted (the
- * broker's own parsePageMeta treats it as optional). */
+/** `page` metadata-only payload (docs/PROTOCOL.md "Page on demand"). `kind`
+ * is the PageMeta variant, omitted for a YouTube extraction. */
 function pageMetaFor(context) {
   const meta = { title: context.title || "", url: context.url || "", chars: (context.text || "").length };
   if (context.kind === "page" && typeof context.pageKind === "string") meta.kind = context.pageKind;
   return meta;
 }
 
-/** Shared tail of "send a chat message, with or without the page attached" —
- * used by sendChat() (the composer's Send button), runSuggestion() (a
- * site-card suggestion click, always attached — see its own comment) and
- * relaunchMessage() (message-render.js). `context` is sent as-is (today's
- * behaviour, full page content up front) UNLESS the broker offers
- * "pageOnDemand" and the caller passed none of its own screen/image —
- * sendChat() is the only caller that takes that branch, by never reaching
- * here with a direct `context` in the first place (see below).
- *
- * `extraction`, only ever set by sendChat() (summarize/suggestions/relaunch
- * never pass it — they keep sending `context` directly, "exactly as
- * today"), is the FULL extraction `context` came from; when `hasFeature
- * ("pageOnDemand")` is true, the wire gets `page` (metadata only) instead of
- * `context`, and `extraction` is stashed for a later `page.request`. */
-export async function sendChatMessage(text, context, extraction) {
+/** Shared tail of sendChat(), runSuggestion() and relaunchMessage(). When the
+ * broker offers "pageOnDemand" and `extraction` is passed (sendChat() only),
+ * the wire carries `page` metadata instead of `context`; `extraction` is kept
+ * for a later `page.request`. */
+export async function sendChatMessage(text, context, extraction, searchQuery) {
   const id = newId();
-  // Amendement 2026-10-08 bis ("historique", docs/PROTOCOL.md): computed
+  // History: computed
   // from `conversation` BEFORE the two addMessage() calls below push this
   // turn's own user/assistant placeholders onto it — history is the PAST
   // exchanges only, never this one. Gated on the negotiated capability,
-  // same pattern as `elements`/`vision`/`docsearch` above/below.
+  // same pattern as `elements`/`vision` above/below.
   const history = hasFeature("history") ? buildHistoryForWire(panelState.conversation) : null;
 
   // The page-on-demand branch: only sendChat() ever passes `extraction`, and
@@ -159,7 +125,8 @@ export async function sendChatMessage(text, context, extraction) {
   // CURRENT page fresh — never a cached copy of `context`, which can hold
   // page content (kept out of chrome.storage.local, same reasoning as
   // context.url elsewhere).
-  addMessage({ id: `${id}-u`, role: "user", text: `${text}${note}`, relaunch: { type: "chat", text } });
+  const shown = searchQuery ? t("panel_search_button", [searchQuery]) : `${text}${note}`;
+  addMessage({ id: `${id}-u`, role: "user", text: shown, relaunch: { type: "chat", text } });
   // elementsSnapshot: see its own comment above `frameLimitNoticeShown` —
   // THIS message's own {extractionId, elements}, computed now, never read
   // back from a shared variable later. `pageOnDemand` gates the done.page
@@ -171,6 +138,7 @@ export async function sendChatMessage(text, context, extraction) {
     id,
     role: "assistant",
     text: "",
+    question: text,
     streaming: true,
     readsPage: !pageOnDemand && !!context,
     pageOnDemand,
@@ -181,40 +149,27 @@ export async function sendChatMessage(text, context, extraction) {
   setStreamingUi(true);
   persistConversation();
 
-  // Amendment "page on demand": offers the dev marker on top of the text
+  // Offers the dev marker on top of the text
   // one — meaningless without `page`, so only ever sent alongside it.
   const wireDevMode = pageOnDemand ? panelState.devModePreference : undefined;
-  // Amendement 2026-10-08 bis: there is no more "Search the docs" button, so
-  // `chat.docSearch` is no longer a caller-supplied param — it's resolved
-  // fresh HERE, on every chat, straight from the current tab. It no longer
-  // requests a search; it only tells the broker a search is ALLOWED for this
-  // origin — whether one actually runs is decided broker-side.
-  const origin = hasFeature("docsearch") ? await activeTabDocSearchOrigin() : null;
-  const wireDocSearch = origin ? { origin } : undefined;
-  // Amendment 2026-10-08 bis: omitted entirely (never an empty array) when
+  // History is omitted entirely (never an empty array) when
   // there is nothing eligible yet — "the panel sends history only when
   // present" (docs/PROTOCOL.md).
   const wireHistory = history && history.entries.length > 0 ? history.entries : undefined;
 
-  pendingRetries.set(id, {
+  const abilities = canSearch() ? ["search", "act"] : ["act"];
+  const wire = {
     type: "chat",
     text,
     context: wireContext,
     page: wirePage,
     devMode: wireDevMode,
-    docSearch: wireDocSearch,
     history: wireHistory,
-  });
-  await sendClientMessage({
-    type: "chat",
-    id,
-    text,
-    context: wireContext,
-    page: wirePage,
-    devMode: wireDevMode,
-    docSearch: wireDocSearch,
-    history: wireHistory,
-  });
+    abilities,
+    searchQuery,
+  };
+  pendingRetries.set(id, wire);
+  await sendClientMessage({ ...wire, id });
 }
 
 /** Lot A2 (plan-montrer-voir-chercher-08-10.md §3A) — builds the
@@ -244,11 +199,11 @@ export function buildElementsSnapshot(context) {
 // YouTube video, the click may open YouTube's own transcript panel once, like
 // summarize() (named exception, widened on 26/09 — openTranscriptIfNeeded()).
 
-// YouTube loads its transcript asynchronously. After a user click (summarize
-// or video suggestion), we open the transcript panel once — named exception
-// to the gesture rule — then re-read. Without the transcript only the
-// description and comments would be available, which produces a plausible but
-// wrong answer: callers stop on reportMissingTranscript() in that case.
+// YouTube loads its transcript asynchronously. After a user click (summarize,
+// video suggestion) or a question that makes the model ask for the page, we
+// open the transcript panel once — named exception to the gesture rule — then
+// re-read. Summarize and suggestions stop on reportMissingTranscript() when it
+// stays closed: a summary from the description alone would be a wrong answer.
 export async function openTranscriptIfNeeded(context) {
   if (!context.needsTranscript) return context;
   const opened = await openYouTubeTranscript(currentTabId).catch(() => false);

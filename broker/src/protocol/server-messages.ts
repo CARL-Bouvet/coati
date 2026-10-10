@@ -41,6 +41,12 @@ export interface DoneMessage {
    * iff `sentChars < chars`.
    */
   page?: { level: "text" | "dev"; chars: number; sentChars: number; truncated: boolean };
+  /** Present only when a search ran (docs/PROTOCOL.md "Search"); `chars` is what reached the model. */
+  search?: { query: string; results: number; pages: number; chars: number };
+  /** A further search the model asked for and Coati did not run, for the user to launch. */
+  suggest?: { search: string };
+  /** Present only when the model asked for actions (docs/PROTOCOL.md "Acting"): how many were sent to the client. */
+  actions?: number;
 }
 
 export interface ErrorMessage {
@@ -51,13 +57,6 @@ export interface ErrorMessage {
   /** Only ever present for code "rate-limited", and only when the provider
    * sent a Retry-After header (docs/PROTOCOL.md, amendement 2026-10-01). */
   retryAfterSec?: number;
-  /** Only ever present for code "search-unavailable" (docs/PROTOCOL.md §8,
-   * lot C1) — "auth" (invalid key), "quota" (free quota exhausted), "rate"
-   * (too many requests), "network" (search service or doc page
-   * unreachable), "no-result" (nothing found, even without a domain
-   * filter). A stable English code, not shown to a human verbatim — same
-   * contract as ProviderStatusResultMessage.reason. */
-  reason?: "auth" | "quota" | "rate" | "network" | "no-result";
 }
 
 export interface PromptsMessage {
@@ -83,8 +82,7 @@ export interface HelloOkMessage {
   /**
    * Amendement 2026-10-08 (lot 0): open-ended capability strings this
    * broker understands on the wire — `"elements"` (context.elements,
-   * lot A1), `"vision"` (chat.image, lot B1), `"docsearch"` (chat.docSearch,
-   * lot C1 — see server.ts's BROKER_FEATURES, all three sent by this build).
+   * lot A1), `"vision"` (chat.image, lot B1) — see logging.ts's BROKER_FEATURES.
    * The extension only shows a
    * capability's UI when its word is present — absent word, or the whole
    * field absent (older broker), means "don't offer it", never an error at
@@ -127,13 +125,6 @@ export interface SettingsMessage {
    * secret (unlike apiKey, never included here): see config.ts's
    * CoatiConfig.baseUrl. Absent for every other provider. */
   baseUrl?: string;
-  /**
-   * Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §9) — same `configured`
-   * semantics as ProviderStatus.configured (a key is present, never the key
-   * itself). `provider: null` when none is chosen (searchProvider unset or
-   * "").
-   */
-  search: { provider: "brave" | "tavily" | null; configured: boolean };
 }
 
 // Reply to a settings.test request — a FREE connection probe as of amendement
@@ -284,31 +275,6 @@ export interface ProgressMessage {
   stage: "loading" | "reading" | "thinking";
 }
 
-// Amendement 2026-10-08 (lot C1, "Consulter la doc officielle" —
-// docs/PROTOCOL.md §7). Sent before the first `chunk` of a `chat.docSearch`
-// request, like `progress`. `scope: null` means "repli sur le web" (no doc
-// domain found for this site) — not an error, the search still runs, just
-// unscoped. `sources` only ever present at stage "reading" — the final list
-// of pages actually read (≤ 3), numbered exactly as the model's own [S1]…
-// citations (model.ts's renderSources). A client that doesn't know this
-// message type ignores it, same as `progress` (docs/PROTOCOL.md).
-// Amendement 2026-10-08 (bis, "recherche sur demande explicite" — see
-// docs/PROTOCOL.md 2026-10-08 amendment): stage "query" is sent once, BEFORE
-// "discovering", only when the search was triggered by detected intent — the
-// reformulated (or fallback) search query text, so the panel can render
-// "Recherche : <query>" instead of a bare spinner. `scope` is always `null`
-// at this stage (nothing filtered yet).
-export interface SearchStatusMessage {
-  type: "search.status";
-  id: string;
-  stage: "query" | "discovering" | "searching" | "reading";
-  scope: string | null;
-  engine?: "brave" | "tavily" | "llms.txt";
-  sources?: Array<{ n: number; url: string; title: string }>;
-  /** Present only at stage "query". */
-  query?: string;
-}
-
 // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
 // on demand"). Sent when the streamed answer's own text matched one of the
 // two markers (model/page-marker.ts) — `id` is the ORIGINATING `chat`'s own
@@ -322,6 +288,26 @@ export interface PageRequestMessage {
   type: "page.request";
   id: string;
   level: "text" | "dev";
+  discard?: true;
+}
+
+// The model asked to search the web (docs/PROTOCOL.md "Search"); same `id` and
+// `discard` conventions as PageRequestMessage.
+export interface SearchRequestMessage {
+  type: "search.request";
+  id: string;
+  query: string;
+  discard?: true;
+}
+
+// The model asked to click or type (docs/PROTOCOL.md "Acting"); same `id` and
+// `discard` conventions as PageRequestMessage. `text` only for "type".
+export interface ActionRequestMessage {
+  type: "action.request";
+  id: string;
+  action: "click" | "type";
+  ref: string;
+  text?: string;
   discard?: true;
 }
 
@@ -349,5 +335,6 @@ export type ServerMessage =
   | ModelsMessage
   | ModelWarmupResultMessage
   | ProgressMessage
-  | SearchStatusMessage
-  | PageRequestMessage;
+  | PageRequestMessage
+  | SearchRequestMessage
+  | ActionRequestMessage;

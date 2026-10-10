@@ -1,8 +1,7 @@
-// ChatImage / ChatDocSearch / HistoryEntry wire types and their parsers
-// (docs/PROTOCOL.md §3 "View screen", §6 "Look up official docs",
-// "history"). Split out of protocol.ts (lot F5).
+// ChatImage / HistoryEntry wire types and their parsers
+// (docs/PROTOCOL.md §3 "View screen", "history").
 
-import { isRecord, isValidOrigin } from "./shared.ts";
+import { isRecord } from "./shared.ts";
 import type { PageKind } from "./context.ts";
 
 // Amendement 2026-10-08 (lot B1, "View screen" — docs/PROTOCOL.md §3).
@@ -26,30 +25,10 @@ export interface ChatImage {
   height: number;
 }
 
-// Amendement 2026-10-08 (lot C1, "Look up official docs" —
-// docs/PROTOCOL.md §6). Origin ONLY — scheme + host + optional port, never a
-// path or query string (same reasoning as Context.url staying free-form
-// while this one is deliberately narrow: the broker turns this into a
-// documentation-site GUESS, docs/PROTOCOL.md "Discovery" — a path would add
-// nothing to that and only widen what a page can make the broker fetch).
-//
-// Amendement 2026-10-08 (bis, "explicit search on demand" — there is
-// no more "Search the docs" button). Meaning changed: this no longer
-// REQUESTS a search — it only means "search is ALLOWED for this origin",
-// sent by the panel on every `chat` whose tab is http(s) (never on a
-// chrome://, file:// or extension page). Whether a search actually runs is
-// decided by the broker ALONE, from the message's own TEXT (search/intent.ts
-// — fr/en/zh explicit phrases: "cherche dans la doc", "search the docs",
-// 搜索…文档, etc.). Absent entirely on a non-http(s) tab; a search can still
-// run in that case (unscoped, open web) if the text itself asks for one.
-export interface ChatDocSearch {
-  origin: string;
-}
-
 // Amendement 2026-10-08 (bis, "historique" — docs/PROTOCOL.md). One past
 // turn of the conversation shown in the panel. `text` only — never a past
 // page context, screenshot or source: those attach to the CURRENT turn
-// only (ChatMessage.context/image/docSearch above), never replayed. Closed
+// only (ChatMessage.context/image above), never replayed. Closed
 // role set: a role string outside {"user","assistant"} isn't a HistoryEntry,
 // same shape-tolerance stance as Element/ChatImage ("Compatibility").
 export type HistoryRole = "user" | "assistant";
@@ -129,18 +108,6 @@ export function parseChatImage(v: unknown): ChatImage | undefined {
 }
 
 /**
- * Validates `chat.docSearch` (docs/PROTOCOL.md §6). A malformed/invalid
- * value is DROPPED, never a bad-request — same tolerance as `image`: a chat
- * that mis-sent it just loses the doc-search capability for that one
- * question, the text still goes through.
- */
-export function parseChatDocSearch(v: unknown): ChatDocSearch | undefined {
-  if (!isRecord(v)) return undefined;
-  if (!isValidOrigin(v.origin)) return undefined;
-  return { origin: v.origin };
-}
-
-/**
  * Validates `chat.history` (docs/PROTOCOL.md, amendement 2026-10-08 bis).
  * Per-entry tolerant: an entry whose `role` isn't exactly "user"/"assistant",
  * or whose `text` isn't a non-empty string ≤ HISTORY_ENTRY_TEXT_MAX, is
@@ -192,7 +159,7 @@ function isPageMetaKind(v: unknown): v is PageKind {
 
 /**
  * Validates `chat.page` (docs/PROTOCOL.md "Page on demand"). Same
- * drop-not-reject tolerance as `image`/`docSearch`: a malformed value is
+ * drop-not-reject tolerance as `image`: a malformed value is
  * dropped whole — the chat still goes through as a normal (no-page) request,
  * never a bad-request.
  */
@@ -229,4 +196,101 @@ export function looksLikePageContent(parsed: unknown): boolean {
  */
 export function looksLikeChatWithImage(parsed: unknown): boolean {
   return isRecord(parsed) && parsed.type === "chat" && isRecord(parsed.image);
+}
+
+// docs/PROTOCOL.md "Search": the abilities a panel can announce, the limits on
+// a search, and the shape of what the client sends back.
+export const SEARCH_QUERY_MAX_CHARS = 200;
+export const SEARCH_MAX_PER_QUESTION = 1;
+export const SEARCH_MAX_RESULTS = 8;
+export const SEARCH_MAX_PAGES = 2;
+export const SEARCH_MAX_TOTAL_CHARS = 24_000;
+
+export type ChatAbility = "search" | "act";
+
+// docs/PROTOCOL.md "Acting": limits and the client's outcome vocabulary.
+export const MAX_ACTIONS_PER_QUESTION = 5;
+export const ACTION_TEXT_MAX_CHARS = 500;
+export const ACTION_STATUSES = ["done", "refused", "blocked", "stale", "no-access"] as const;
+export type ActionStatus = (typeof ACTION_STATUSES)[number];
+export const ACTION_REASON_MAX_CHARS = 200;
+
+export interface SearchResultEntry {
+  n: number;
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+export interface SearchPageEntry {
+  n: number;
+  url: string;
+  title: string;
+  text: string;
+}
+
+export const SEARCH_DECLINE_REASONS = ["no-access", "no-result", "blocked", "failed"] as const;
+export type SearchDeclineReason = (typeof SEARCH_DECLINE_REASONS)[number];
+
+/** `chat.abilities`: unknown words are dropped; none left → undefined. */
+export function parseAbilities(v: unknown): ChatAbility[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const known = (["search", "act"] as const).filter((a) => v.includes(a));
+  return known.length > 0 ? known : undefined;
+}
+
+/** `chat.searchQuery`: a single-line query of 1..SEARCH_QUERY_MAX_CHARS characters, else dropped. */
+export function parseSearchQuery(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const q = v.trim();
+  return q.length >= 1 && q.length <= SEARCH_QUERY_MAX_CHARS && !/[\r\n]/.test(q) && !q.includes("]]") ? q : undefined;
+}
+
+function parseEntries<T>(v: unknown, read: (r: Record<string, unknown>) => T | undefined): T[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: T[] = [];
+  for (const el of v) {
+    const entry = isRecord(el) ? read(el) : undefined;
+    if (entry === undefined) return undefined;
+    out.push(entry);
+  }
+  return out;
+}
+
+const isN = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0;
+const isStr = (v: unknown): v is string => typeof v === "string";
+
+/** Shape check of a `search.content` body; the limits are searchContentError's. */
+export function parseSearchBody(parsed: Record<string, unknown>): SearchBody | undefined {
+  if (!isStr(parsed.query)) return undefined;
+  const results = parseEntries(parsed.results, (r) =>
+    isN(r.n) && isStr(r.title) && isStr(r.url) && isStr(r.snippet)
+      ? { n: r.n, title: r.title, url: r.url, snippet: r.snippet }
+      : undefined,
+  );
+  const pages = parseEntries(parsed.pages, (r) =>
+    isN(r.n) && isStr(r.url) && isStr(r.title) && isStr(r.text)
+      ? { n: r.n, url: r.url, title: r.title, text: r.text }
+      : undefined,
+  );
+  return results && pages ? { query: parsed.query, results, pages } : undefined;
+}
+
+export interface SearchBody {
+  query: string;
+  results: SearchResultEntry[];
+  pages: SearchPageEntry[];
+}
+
+/** Characters a search puts in front of the model: result snippets plus page text. */
+export function searchContentChars(c: SearchBody): number {
+  return c.results.reduce((n, r) => n + r.snippet.length, 0) + c.pages.reduce((n, p) => n + p.text.length, 0);
+}
+
+/** The limit a `search.content` breaches, or undefined. The broker refuses, it never truncates. */
+export function searchContentError(c: SearchBody): string | undefined {
+  if (c.results.length > SEARCH_MAX_RESULTS) return `more than ${SEARCH_MAX_RESULTS} search results`;
+  if (c.pages.length > SEARCH_MAX_PAGES) return `more than ${SEARCH_MAX_PAGES} search pages`;
+  if (searchContentChars(c) > SEARCH_MAX_TOTAL_CHARS) return `search content exceeds ${SEARCH_MAX_TOTAL_CHARS} characters`;
+  return undefined;
 }

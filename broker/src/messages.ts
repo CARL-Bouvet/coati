@@ -221,34 +221,6 @@ const MESSAGES: Catalog = {
     fr: "impossible de joindre {url} : {detail}",
     zh_CN: "无法连接到 {url}：{detail}",
   },
-
-  // --- settings.test target "search" (docs/PROTOCOL.md, lot C1) — same
-  // contract as settingsTest.success/failure.* above, one pair per engine. --
-  "settingsTest.success.search.brave": {
-    en: "Connection to Brave Search succeeded.",
-    fr: "Connexion à Brave Search réussie.",
-    zh_CN: "连接到 Brave Search 成功。",
-  },
-  "settingsTest.success.search.tavily": {
-    en: "Connection to Tavily succeeded.",
-    fr: "Connexion à Tavily réussie.",
-    zh_CN: "连接到 Tavily 成功。",
-  },
-  "settingsTest.failure.search.brave": {
-    en: "Could not reach Brave Search — check your key or your network connection.",
-    fr: "Impossible de joindre Brave Search — vérifiez la clé ou votre connexion réseau.",
-    zh_CN: "无法连接到 Brave Search — 请检查密钥或网络连接。",
-  },
-  "settingsTest.failure.search.tavily": {
-    en: "Could not reach Tavily — check your key or your network connection.",
-    fr: "Impossible de joindre Tavily — vérifiez la clé ou votre connexion réseau.",
-    zh_CN: "无法连接到 Tavily — 请检查密钥或网络连接。",
-  },
-  "testConnection.noSearchApiKey": {
-    en: "No search API key configured — add one in settings.",
-    fr: "Aucune clé API de recherche configurée — ajoutez-la dans les réglages.",
-    zh_CN: "未配置搜索 API 密钥 — 请在设置中添加。",
-  },
 };
 
 export type MessageCode = keyof typeof MESSAGES;

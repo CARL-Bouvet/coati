@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseClientMessage, MAX_MESSAGE_BYTES } from "../src/protocol.ts";
+import { parseClientMessage, searchContentError, MAX_MESSAGE_BYTES } from "../src/protocol.ts";
 
 describe("parseClientMessage", () => {
   const NONCE = "a".repeat(64);
@@ -335,6 +335,22 @@ describe("parseClientMessage", () => {
 });
 
 // Amendment 2026-10-08 bis ("historique", docs/PROTOCOL.md).
+describe("parseClientMessage — removed search messages", () => {
+  test("a chat.docSearch message is a bad-request", () => {
+    const result = parseClientMessage(JSON.stringify({ type: "chat.docSearch", id: "d1", text: "hi" }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("bad-request");
+  });
+
+  test("a docSearch field on chat is ignored", () => {
+    const result = parseClientMessage(
+      JSON.stringify({ type: "chat", id: "d2", text: "hi", docSearch: { origin: "https://a.b" } }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect("docSearch" in result.message).toBe(false);
+  });
+});
+
 describe("parseClientMessage — chat.history", () => {
   function chat(history: unknown) {
     return parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "hi", history }));
@@ -409,5 +425,62 @@ describe("parseClientMessage — chat.history", () => {
     const result = chat("not-an-array");
     expect(result.ok).toBe(true);
     if (result.ok && result.message.type === "chat") expect(result.message.history).toBeUndefined();
+  });
+});
+
+describe("parseClientMessage — search", () => {
+  const body = { target: "c1", query: "q", results: [{ n: 1, title: "t", url: "https://a.b", snippet: "s" }], pages: [] };
+
+  test("chat.abilities keeps only known words; chat.searchQuery must be one short line", () => {
+    const ok = parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "hi", abilities: ["search", "x"], searchQuery: " best  phone " }));
+    expect(ok.ok && ok.message.type === "chat" && ok.message.abilities).toEqual(["search"]);
+    expect(ok.ok && ok.message.type === "chat" && ok.message.searchQuery).toBe("best  phone");
+    for (const searchQuery of ["", "a\nb", "x".repeat(201), "a]]b", 5]) {
+      const r = parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "hi", abilities: ["nope"], searchQuery }));
+      expect(r.ok && r.message.type === "chat" && [r.message.abilities, r.message.searchQuery]).toEqual([undefined, undefined]);
+    }
+  });
+
+  test("search.content and search.decline shapes", () => {
+    const content = parseClientMessage(JSON.stringify({ type: "search.content", id: "x1", ...body }));
+    expect(content.ok && content.message).toEqual({ type: "search.content", id: "x1", ...body });
+    const decline = parseClientMessage(JSON.stringify({ type: "search.decline", id: "x2", target: "c1", reason: "no-result" }));
+    expect(decline.ok && decline.message).toEqual({ type: "search.decline", id: "x2", target: "c1", reason: "no-result" });
+    for (const bad of [
+      { type: "search.content", id: "x", ...body, target: "" },
+      { type: "search.content", id: "x", ...body, results: [{ n: 0, title: "t", url: "u", snippet: "s" }] },
+      { type: "search.content", id: "x", ...body, pages: "no" },
+      { type: "search.decline", id: "x", target: "c1", reason: "because" },
+    ]) {
+      const r = parseClientMessage(JSON.stringify(bad));
+      expect(!r.ok && r.error.code).toBe("bad-request");
+    }
+  });
+
+  test("act ability and action.result shapes", () => {
+    const chat = parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "hi", abilities: ["act", "search", "x"] }));
+    expect(chat.ok && chat.message.type === "chat" && chat.message.abilities).toEqual(["search", "act"]);
+    const ok = parseClientMessage(JSON.stringify({ type: "action.result", id: "x1", target: "c1", status: "done", by: "user" }));
+    expect(ok.ok && ok.message).toMatchObject({ type: "action.result", target: "c1", status: "done", by: "user" });
+    // `by` only means something with `done`.
+    const refused = parseClientMessage(JSON.stringify({ type: "action.result", id: "x2", target: "c1", status: "refused", by: "user", reason: "no" }));
+    expect(refused.ok && refused.message).toMatchObject({ status: "refused", by: undefined, reason: "no" });
+    for (const bad of [
+      { type: "action.result", id: "x", target: "", status: "done" },
+      { type: "action.result", id: "x", target: "c1", status: "maybe" },
+      { type: "action.result", id: "x", target: "c1", status: "done", context: "nope" },
+    ]) {
+      const r = parseClientMessage(JSON.stringify(bad));
+      expect(!r.ok && r.error.code).toBe("bad-request");
+    }
+  });
+
+  test("searchContentError refuses what exceeds the limits", () => {
+    const page = (text: string) => ({ n: 1, url: "u", title: "t", text });
+    expect(searchContentError({ query: "q", results: [], pages: [page("x")] })).toBeUndefined();
+    expect(searchContentError({ query: "q", results: [], pages: [page("x"), page("x"), page("x")] })).toContain("pages");
+    expect(searchContentError({ query: "q", results: [], pages: [page("x".repeat(24_001))] })).toContain("24000");
+    const r = { n: 1, title: "t", url: "u", snippet: "" };
+    expect(searchContentError({ query: "q", results: Array(9).fill(r), pages: [] })).toContain("results");
   });
 });

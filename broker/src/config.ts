@@ -90,26 +90,6 @@ export interface CoatiConfig {
    * config.model (backward compat). Seeded from provider+model on first
    * load of an older config.json that lacks this field. */
   lastModels?: Record<ProviderId, string>;
-  /** Amendment 2026-10-08 (lot C1, "Look up official docs" —
-   * docs/PROTOCOL.md). Which search engine `chat.docSearch` should use —
-   * `undefined`/absent means "none chosen" (same as `""` on the wire, see
-   * SettingsSetMessage.searchProvider). Independent of `provider`/`model`
-   * above (the MODEL provider) — never confused with it. */
-  searchProvider?: "brave" | "tavily";
-  /**
-   * BYOK secrets for the search feature, one per engine — same WRITE-ONLY
-   * contract as `apiKeys` above (CLAUDE.md rule #1): accepted by
-   * `settings.set`'s `searchApiKey`, persisted here (0600), NEVER read back
-   * into a `settings`/`settings.set` response (see server.ts's
-   * buildSettingsPayload, which only ever echoes `search.configured`, a
-   * boolean). A key is only ever sent to the one service it was entered for
-   * (api.search.brave.com / api.tavily.com — see search/brave.ts,
-   * search/tavily.ts), never to the other.
-   */
-  searchKeys?: {
-    brave?: string;
-    tavily?: string;
-  };
 }
 
 export interface Dirs {
@@ -305,42 +285,6 @@ export function pruneStaleOpenAiCompatKey(config: CoatiConfig): CoatiConfig["api
   return Object.keys(apiKeys).length > 0 ? apiKeys : undefined;
 }
 
-/** Amendment 2026-10-08 (lot C1) — shape-tolerant parse of config.json's raw
- * `searchKeys`, mirroring parseApiKeys above: anything malformed is dropped
- * rather than throwing. Exported for tests. */
-export function parseSearchKeys(raw: unknown): CoatiConfig["searchKeys"] {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
-  const obj = raw as Record<string, unknown>;
-  const searchKeys: NonNullable<CoatiConfig["searchKeys"]> = {};
-  if (typeof obj.brave === "string" && obj.brave) searchKeys.brave = obj.brave;
-  if (typeof obj.tavily === "string" && obj.tavily) searchKeys.tavily = obj.tavily;
-  return Object.keys(searchKeys).length > 0 ? searchKeys : undefined;
-}
-
-/** Amendment 2026-10-08 (lot C1) — the search key a request should actually
- * use, NEVER the raw stored object (same reasoning as resolveApiKey above):
- * a search provider only ever gets its OWN key. */
-export function resolveSearchApiKey(config: CoatiConfig, provider: "brave" | "tavily"): string | undefined {
-  return config.searchKeys?.[provider];
-}
-
-/** Amendment 2026-10-08 (lot C1) — stores (or forgets, on `key === ""`) the
- * API key for one search provider, returning the new `searchKeys` object —
- * pure, does not mutate `config`. Mirrors setApiKey's "" = forget semantics. */
-export function setSearchApiKey(
-  config: CoatiConfig,
-  provider: "brave" | "tavily",
-  key: string,
-): CoatiConfig["searchKeys"] {
-  const searchKeys: NonNullable<CoatiConfig["searchKeys"]> = { ...config.searchKeys };
-  if (key === "") {
-    delete searchKeys[provider];
-  } else {
-    searchKeys[provider] = key;
-  }
-  return Object.keys(searchKeys).length > 0 ? searchKeys : undefined;
-}
-
 /** Pure: validates one raw `modules` array entry's shape (`path` a non-empty
  * string, `options` absent or a plain object) — malformed entries are dropped
  * rather than throwing, same "never crash on a bad config" stance as the rest
@@ -472,12 +416,6 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
     modules: parseModuleConfigEntries(obj.modules),
     legacyPairing,
     lastModels: parseLastModels(obj.lastModels, obj),
-    // Amendment 2026-10-08 (lot C1): a malformed/absent searchProvider
-    // value falls back to "none chosen" (undefined), never a default engine
-    // — unlike `provider` above, there is no sensible default search engine
-    // to pick for the user.
-    searchProvider: obj.searchProvider === "brave" || obj.searchProvider === "tavily" ? obj.searchProvider : undefined,
-    searchKeys: parseSearchKeys(obj.searchKeys),
   };
 }
 

@@ -108,8 +108,10 @@ import { redetectTab, redetectTabFromMetadata, openedFromGesture, lastRedetectTa
 import { updateSiteCard, onPromptsMessage, onPrefsMessage } from "./site-card.js";
 import { activeTabId } from "./page-extract.js";
 import { drainPendingAction } from "./pending-action.js";
-import { onChunk, onProgress, onSearchStatus, onDone, onError } from "./chat-stream.js";
+import { onChunk, onProgress, onDone, onError } from "./chat-stream.js";
 import { onPageRequest } from "./page-request.js";
+import { onSearchRequest } from "./web-search.js";
+import { onActionRequest, onUserClicked } from "./action-card.js";
 
 // Public repo doc, opened from the "no-host" banner (docs/PROTOCOL.md
 // amendment 2026-09-30, "États et bandeaux"). No local doc viewer in the
@@ -354,6 +356,11 @@ function onRuntimeMessage(message) {
     return;
   }
 
+  if (message.type === "coati:user-clicked") {
+    onUserClicked(message);
+    return;
+  }
+
   if (message.type === "coati:broker-message") {
     handleBrokerMessage(message.message);
   }
@@ -370,9 +377,6 @@ function handleBrokerMessage(message) {
     case "progress":
       onProgress(message);
       break;
-    case "search.status":
-      onSearchStatus(message);
-      break;
     case "model.warmup-result":
       onModelWarmupResult(message);
       break;
@@ -381,6 +385,12 @@ function handleBrokerMessage(message) {
       break;
     case "page.request":
       onPageRequest(message);
+      break;
+    case "search.request":
+      onSearchRequest(message);
+      break;
+    case "action.request":
+      onActionRequest(message);
       break;
     case "error":
       onError(message);

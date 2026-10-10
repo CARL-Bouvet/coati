@@ -27,34 +27,20 @@
 
     if (videoId) {
       const transcript = getYouTubeTranscript();
-      // Without a transcript, the densest block of a YouTube page is the
-      // description plus the recommendations plus the comments. Summarising that
-      // yields a plausible, wrong answer — worse than none. Say so instead, and
-      // let the caller tell the user which gesture is missing.
-      if (!transcript) {
-        return {
-          kind: "youtube",
-          url: safePageUrl(),
-          title: document.title || "",
-          videoId,
-          text: "",
-          needsTranscript: true,
-          hasVideoElement: hasVideoElement(),
-          hasArticleMarkup: false,
-          readability: "empty",
-        };
-      }
-      const transcriptText = truncate(transcript);
+      const text = truncate(formatYouTubeText(readYouTubeMeta(), transcript));
       return {
         kind: "youtube",
         url: safePageUrl(),
         title: document.title || "",
         videoId,
-        text: transcriptText,
+        text,
+        // Without the transcript the text is only title, channel, description
+        // and chapters: the caller opens the transcript on the user's gesture
+        // and reads again.
+        ...(transcript ? {} : { needsTranscript: true }),
         hasVideoElement: hasVideoElement(),
         hasArticleMarkup: false,
-        // A short video has a short transcript: still the whole content.
-        readability: transcriptText.trim() ? "ok" : "empty",
+        readability: text.trim() ? "ok" : "empty",
       };
     }
 

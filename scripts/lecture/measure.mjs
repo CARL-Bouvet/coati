@@ -4,7 +4,8 @@
 // visit per URL; one automatic click on "Accept all" consent banners.
 // Usage: node scripts/lecture/measure.mjs [key1,key2…]  (Playwright, run `bun install`
 // at the repo root first). Browser: $COATI_BROWSER (default /usr/bin/brave on Linux).
-// Output: $OUT (default .tmp/lecture/out): <key>.txt, <key>.png, index.json. Headless
+// LEVEL=text (default) injects the text pipeline; LEVEL=dev injects /content/extract-dev.js alone.
+// Output: $OUT (default .tmp/lecture/out): <key>.<level>.txt, <key>.png, index.json. Headless
 // by default; HEADFUL=1 xvfb-run -a node … for a "visible" browser off-screen.
 // Diagnose a miss: node scripts/lecture/why.mjs <key1,key2…> (reads $OUT, writes why.json).
 import { chromium } from "playwright";
@@ -15,7 +16,9 @@ import { EXTRACT_FILES } from "../../extension/content/extract-files.js";
 // Lot F4: content/extract.js is now split across several files, injected
 // together and in order (see extract-files.js) — same contract panel.js
 // uses, applied here to the extension copy this script loads into Brave.
-const EXTRACT_FILE_PATHS = EXTRACT_FILES.map((f) => `/${f}`);
+const LEVEL = process.env.LEVEL || "text";
+if (LEVEL !== "text" && LEVEL !== "dev") throw new Error("LEVEL must be text or dev");
+const EXTRACT_FILE_PATHS = LEVEL === "dev" ? ["/content/extract-dev.js"] : EXTRACT_FILES.map((f) => `/${f}`);
 const ROOT = path.resolve(fileURLToPath(import.meta.url), "../../..");
 const OUT = process.env.OUT || path.join(ROOT, ".tmp/lecture/out");
 mkdirSync(OUT, { recursive: true });
@@ -45,7 +48,12 @@ const PAGE_REPORT = () => {
   const vp = innerWidth * innerHeight;
   const canvasShare = Math.max(0, ...[...document.querySelectorAll("canvas")].map(c => (c.offsetWidth * c.offsetHeight) / vp));
   const scrollH = document.documentElement.scrollHeight;
-  return { title: document.title, url: location.href, bodyLen: body.length, shadowHosts, shadowText, bigIframes: iframes.length, crossOriginIframes: crossOrigin, canvasShare: +canvasShare.toFixed(2), screens: +(scrollH / innerHeight).toFixed(1), contentType: document.contentType };
+  const consentPage = /(^|\.)consent\.(google|youtube)\.com$/.test(location.hostname) || /^(avant d.acc|before you continue)/i.test(document.title);
+  const serpResults = document.querySelectorAll("a[href] h3").length;
+  const transcriptSegments = document.querySelectorAll("ytd-transcript-segment-renderer").length;
+  const tracks = window.ytInitialPlayerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+  const captionsAvailable = Array.isArray(tracks) ? tracks.length > 0 : null;
+  return { consentPage, serpResults, transcriptSegments, captionsAvailable, title: document.title, url: location.href, bodyLen: body.length, shadowHosts, shadowText, bigIframes: iframes.length, crossOriginIframes: crossOrigin, canvasShare: +canvasShare.toFixed(2), screens: +(scrollH / innerHeight).toFixed(1), contentType: document.contentType };
 };
 async function acceptConsent(page) {
   const re = /^(tout accepter|accepter (et fermer|tout)|accept all( cookies)?|j'accepte|accepter|agree|i agree|autoriser tous les cookies|allow all( cookies)?)$/i;
@@ -93,11 +101,11 @@ for (const e of entries) {
       facts: Array.isArray(ex.facts) ? ex.facts.length : 0, items: Array.isArray(ex.items) ? ex.items.length : 0, truncated: text.length >= 40000 });
     const facts = (ex.facts || []).map(f => `  fait   · ${f.label} : ${f.value}`);
     const items = (ex.items || []).map(it => `  item  · ${[it.title, it.price, it.location, it.detail].filter(Boolean).join(" | ")}`);
-    writeFileSync(`${OUT}/${e.key}.txt`, [`# ${e.key}`, `final url   : ${row.url}`, `title       : ${row.title}`,
+    writeFileSync(`${OUT}/${e.key}.${LEVEL}.txt`, [`# ${e.key}`, `final url   : ${row.url}`, `title       : ${row.title}`,
       `kind/pageKind: ${row.kind}/${row.pageKind}  facts ${row.facts}  items ${row.items}`,
       `visible page (body.innerText): ${row.bodyLen} chars; shadow DOM: ${row.shadowHosts} hosts, ${row.shadowText} chars; iframes ${row.bigIframes} (${row.crossOriginIframes} cross-origin); canvas ${row.canvasShare} of viewport; height ${row.screens} screens`,
       `extraction: ${row.extractedLen} chars (${row.kept}%), ${row.extractMs} ms${row.extractError ? " — ERROR " + row.extractError : ""}`,
-      `consent clicked: ${row.consent ?? "none"}`, ...facts, ...items, "", "--- extracted text ---", text].join("\n"));
+      `consent clicked: ${row.consent ?? "none"}  consent page: ${row.consentPage}  serp results: ${row.serpResults}  transcript segments: ${row.transcriptSegments}  captions: ${row.captionsAvailable}`, ...facts, ...items, "", "--- extracted text ---", text].join("\n"));
   } catch (err) { row.error = String(err.message).split("\n")[0]; }
   index.push(row);
   await page.close();

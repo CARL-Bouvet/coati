@@ -1,6 +1,5 @@
 // chat / summarize / act streaming — gating (size/budget/concurrency/vision),
-// the provider stream loop, and the `chat.docSearch` pipeline. Split out of
-// server.ts (lot F5).
+// the provider stream loop, and the page-on-demand loop.
 
 import { send } from "../ws-send.ts";
 import {
@@ -11,7 +10,7 @@ import {
   MAX_CONTEXT_CHARS,
   MAX_DEV_CONTEXT_CHARS,
 } from "../logging.ts";
-import { DEFAULT_OLLAMA_URL, resolveSearchApiKey } from "../config.ts";
+import { DEFAULT_OLLAMA_URL } from "../config.ts";
 import { fetchPsEntries, matchesModel, listModelEntries as listOllamaModelEntries } from "../providers/ollama.ts";
 import type { ModelProvider, ProviderRuntimeOptions } from "../providers/types.ts";
 import {
@@ -28,16 +27,26 @@ import {
   RateLimitedError,
   PageMarkerDetector,
   type BuiltPrompt,
+  type PageMarker,
+  type PageMarkerPosition,
+  type SearchContent,
+  type ActionOutcome,
 } from "../model.ts";
-import type { Context, ChatImage, HistoryEntry, PageMeta, ErrorCode } from "../protocol.ts";
 import {
-  runDocSearch,
-  isSearchNotConfiguredError,
-  isSearchUnavailableError,
-  type DocSearchStatusEvent,
-} from "../search/doc-search.ts";
-import { reformulateSearchQuery } from "../search/reformulate.ts";
-import { registrableDomain } from "../search/discover.ts";
+  SEARCH_MAX_PER_QUESTION,
+  MAX_ACTIONS_PER_QUESTION,
+  type ActionStatus,
+  searchContentChars,
+  searchContentError,
+  type Context,
+  type ChatImage,
+  type ChatAbility,
+  type HistoryEntry,
+  type PageMeta,
+  type ErrorCode,
+  type SearchBody,
+  type SearchDeclineReason,
+} from "../protocol.ts";
 import type { Lang } from "../messages.ts";
 import type { SettingsCtx } from "./settings.ts";
 
@@ -241,14 +250,11 @@ async function resolveVisionSupport(
 }
 
 /** Shared SYNCHRONOUS preamble for every streaming request type
- * (chat/summarize/act, including a `chat.docSearch`): log receipt, reject an
+ * (chat/summarize/act): log receipt, reject an
  * oversized payload, reject a full concurrency cap, reject an unknown
  * configured provider. Returns the resolved provider/opts/startedAt on
  * success, or `undefined` once it has already sent an error and logged the
- * outcome itself (caller just returns in that case — amendement 2026-10-08
- * lot C1 split this out of the old handleStreamingRequest so a
- * `chat.docSearch` request can run its own async steps, unlike
- * summarize/act, between this gate and buildPrompt/runStream). */
+ * outcome itself (caller just returns in that case). */
 function gateStreamingRequest(
   ws: { send(data: string): unknown },
   message: { id: string },
@@ -329,11 +335,8 @@ async function gateVisionSupport(
 }
 
 /** Shared preamble for the two SYNCHRONOUS-build streaming request types
- * (summarize/act, and a `chat` with no `docSearch`): gate, then optionally
- * gate vision, then buildPrompt/runStream. A `chat.docSearch` request uses
- * gateStreamingRequest/gateVisionSupport directly instead — see
- * handleChatDocSearch below, which also needs search.status/doc-search
- * between the gate and the build. */
+ * (summarize/act, and a `chat` with no `page`): gate, then optionally
+ * gate vision, then buildPrompt/runStream. */
 export function handleStreamingRequest(
   ws: { send(data: string): unknown },
   message: { id: string },
@@ -365,215 +368,6 @@ export function handleStreamingRequest(
   }
   const built = opts.build();
   void runStream(ws, active, message.id, built, provider, providerOpts, startedAt);
-}
-
-/** Best-effort site name for reformulate.ts's fallback query ("+ nom du
- * site") — the origin's registrable domain, or its bare hostname when it
- * has none (e.g. a single-label host), or "" when `origin` is empty/invalid
- * (no http(s) tab — chat.docSearch wasn't sent at all). Never throws. */
-function siteNameForOrigin(origin: string): string {
-  if (!origin) return "";
-  try {
-    const hostname = new URL(origin).hostname;
-    return registrableDomain(hostname) ?? hostname;
-  } catch {
-    return "";
-  }
-}
-
-/**
- * Amendement 2026-10-08 (lot C1 + bis "recherche sur demande explicite" —
- * docs/PROTOCOL.md §6/§7/§8). Called only once handleMessage's own
- * detectSearchIntent() found an explicit search request in the message
- * text. Gates the request exactly like any other chat (size, budget,
- * concurrency, provider, vision if an image is also attached), enforces
- * "une seule recherche en cours par connexion" (R5), reformulates the
- * question into a short search query (search/reformulate.ts, emits
- * `search.status` stage "query"), then runs discover → search → read
- * (search/doc-search.ts), emitting `search.status` before the first `chunk`
- * at each remaining stage, and only THEN builds the prompt (with `sources`)
- * and streams the answer. `search-not-configured`/`search-unavailable`
- * (with `reason`) are sent as a normal `error` message — the request does
- * NOT silently fall back to answering without sources, same "hard error,
- * never a silent degrade" stance as `vision-unsupported`.
- */
-export function handleChatDocSearch(
-  ws: { send(data: string): unknown },
-  message: {
-    id: string;
-    text: string;
-    context?: Context;
-    image?: ChatImage;
-    history?: HistoryEntry[];
-    docSearch: { origin: string };
-  },
-  active: Map<string, AbortController>,
-  settingsCtx: SettingsCtx,
-  lang: Lang,
-  dataDir: string,
-  connState: { docSearching: boolean; closed: boolean },
-): void {
-  const gated = gateStreamingRequest(ws, message, active, settingsCtx, {
-    logType: "chat",
-    logContextKind: message.context?.kind,
-    logTextLength: message.text.length + (message.context?.text?.length ?? 0),
-    logPageKind: message.context?.pageKind,
-    logFactsCount: message.context?.facts?.length ?? 0,
-    logItemsCount: message.context?.items?.length ?? 0,
-    hasImage: message.image !== undefined,
-    tooLargeText: message.text,
-    budgetContext: message.context,
-  });
-  if (!gated) return;
-  const { provider, providerOpts, startedAt } = gated;
-
-  if (connState.docSearching) {
-    send(ws, {
-      type: "error",
-      id: message.id,
-      code: "bad-request",
-      message: "a documentation search is already in progress on this connection",
-    });
-    logRequestCompleted(message.id, "error:bad-request", Date.now() - startedAt);
-    return;
-  }
-
-  // Set BEFORE the first `await` (synchronously, in this same tick) so a
-  // second `chat.docSearch` arriving while this one is still gating on
-  // vision support can never slip past the check above — R5.
-  connState.docSearching = true;
-  // Security review (L9): registered in `active` for the WHOLE search phase
-  // (discover/search/read), not just once runStream() eventually starts —
-  // without this, a `cancel` for this id arriving mid-search found nothing
-  // to abort (handleMessage's "cancel" case is a bare `active.get(target)
-  // ?.abort()`), and the search ran to completion regardless. `close()`'s
-  // existing "abort everything in `active`" loop now reaches it too. If the
-  // request DOES reach runStream(), that function `active.set`s its OWN
-  // controller under the same id — overwriting this one — and owns the
-  // entry's lifecycle from then on; the `finally` below only ever deletes
-  // this controller's OWN entry, never one runStream already replaced it with.
-  const searchController = new AbortController();
-  active.set(message.id, searchController);
-  void (async () => {
-    try {
-      if (message.image) {
-        const proceed = await gateVisionSupport(ws, message, provider, providerOpts, startedAt);
-        if (!proceed) return;
-      }
-      if (searchController.signal.aborted || connState.closed) {
-        if (!connState.closed) {
-          send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
-        }
-        logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
-        return;
-      }
-
-      const config = settingsCtx.getConfig();
-      const searchProvider = config.searchProvider;
-      const searchApiKey = searchProvider ? resolveSearchApiKey(config, searchProvider) : undefined;
-
-      // Amendement 2026-10-08 (bis, "recherche sur demande explicite" §3):
-      // one short extra model call turns the question into a standalone
-      // search query BEFORE the pipeline runs — skipped when no provider is
-      // configured at all (runDocSearch below throws SearchNotConfiguredError
-      // immediately in that case; a reformulation call would be wasted work
-      // for a search that can never run).
-      let query = message.text;
-      if (searchProvider && searchApiKey) {
-        query = await reformulateSearchQuery({
-          provider,
-          providerOpts,
-          question: message.text,
-          pageTitle: message.context?.title,
-          pageUrl: message.context?.url,
-          history: message.history,
-          lang,
-          siteName: siteNameForOrigin(message.docSearch.origin),
-          signal: searchController.signal,
-        });
-        if (searchController.signal.aborted || connState.closed) {
-          if (!connState.closed) {
-            send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
-          }
-          logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
-          return;
-        }
-        if (!connState.closed) {
-          send(ws, { type: "search.status", id: message.id, stage: "query", scope: null, query });
-        }
-      }
-
-      const result = await runDocSearch({
-        origin: message.docSearch.origin,
-        question: query,
-        dataDir,
-        searchProvider,
-        apiKey: searchApiKey,
-        onStatus: (event: DocSearchStatusEvent) => {
-          // Security review (L9): never write to a connection that already
-          // closed while the (potentially long) search phase was running.
-          if (connState.closed) return;
-          send(ws, { type: "search.status", id: message.id, ...event });
-        },
-      });
-
-      // Security review (L9): re-checked AFTER the search phase too — a
-      // `cancel`/close that arrived WHILE runDocSearch was awaiting network
-      // calls must still stop this request from starting a model stream
-      // (runDocSearch itself isn't signal-aware mid-flight — its own
-      // network calls run to their own completion/timeout regardless — but
-      // nothing downstream of it ever reaches the model or the socket).
-      if (searchController.signal.aborted || connState.closed) {
-        if (!connState.closed) {
-          send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
-        }
-        logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
-        return;
-      }
-
-      const built = buildPrompt(
-        {
-          kind: "chat",
-          text: message.text,
-          context: message.context,
-          image: message.image,
-          sources: result.sources,
-          sourcesScoped: result.scope !== null,
-        },
-        lang,
-      );
-      void runStream(ws, active, message.id, built, provider, providerOpts, startedAt);
-    } catch (err) {
-      if (connState.closed) return; // nobody left to tell
-      // Security review (L9): a cancel that arrived WHILE runDocSearch's own
-      // network calls were in flight surfaces here as whatever error those
-      // calls happened to end up throwing (e.g. "no-result") — that's an
-      // artifact of timing, not the real outcome; report the cancellation
-      // the user actually asked for instead.
-      if (searchController.signal.aborted) {
-        send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
-        logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
-        return;
-      }
-      if (isSearchNotConfiguredError(err)) {
-        const msg = "no search provider is configured — open settings to add a Brave Search or Tavily key";
-        send(ws, { type: "error", id: message.id, code: "search-not-configured", message: msg });
-        logRequestCompleted(message.id, "error:search-not-configured", Date.now() - startedAt, msg);
-        return;
-      }
-      if (isSearchUnavailableError(err)) {
-        send(ws, { type: "error", id: message.id, code: "search-unavailable", message: err.message, reason: err.reason });
-        logRequestCompleted(message.id, "error:search-unavailable", Date.now() - startedAt, err.message);
-        return;
-      }
-      const msg = err instanceof Error ? err.message : String(err);
-      send(ws, { type: "error", id: message.id, code: "internal", message: msg });
-      logRequestCompleted(message.id, "error:internal", Date.now() - startedAt, msg);
-    } finally {
-      connState.docSearching = false;
-      if (active.get(message.id) === searchController) active.delete(message.id);
-    }
-  })();
 }
 
 // ---------------------------------------------------------------------------
@@ -654,42 +448,48 @@ export async function resolveActiveContextTokens(
   }
 }
 
-type PageAnswer = { kind: "content"; level: "text" | "dev"; context: Context } | { kind: "decline" };
+/** What the client answered to a `page.request`, `search.request` or `action.request`. */
+export type ClientAnswer =
+  | { kind: "content"; level: "text" | "dev"; context: Context }
+  | { kind: "decline" }
+  | { kind: "search"; content: SearchBody }
+  | { kind: "search-decline"; reason: SearchDeclineReason }
+  | { kind: "action"; status: ActionStatus; by?: "user"; reason?: string; context?: Context };
 
 /** Per-connection state this module needs beyond `active` — a slice of
  * handshake.ts's ConnData, kept narrow so tests can pass a bare object
  * literal rather than a full connection. */
 export interface PageOnDemandConnState {
   closed: boolean;
-  pageRequests: Map<string, (answer: PageAnswer) => void>;
+  clientRequests: Map<string, (answer: ClientAnswer) => void>;
 }
 
-/** Resolves once a `page.content`/`page.decline` naming `id` as its `target`
- * arrives (dispatch.ts calls the resolver this registers), the wait times
- * out (PAGE_REQUEST_TIMEOUT_MS), or `signal` aborts (connection closed, or a
- * `cancel` for this id). Removes its own entry from `pageRequests` exactly
+/** Resolves once an answer naming `id` as its `target` arrives (dispatch.ts
+ * calls the resolver this registers), the wait times out
+ * (PAGE_REQUEST_TIMEOUT_MS), or `signal` aborts (connection closed, or a
+ * `cancel` for this id). Removes its own entry from `clientRequests` exactly
  * once, however it resolves — never leaves a stale resolver behind. */
-function awaitPageAnswer(
+function awaitClientAnswer(
   connState: PageOnDemandConnState,
   id: string,
   signal: AbortSignal,
-): Promise<PageAnswer | "timeout" | "aborted"> {
+): Promise<ClientAnswer | "timeout" | "aborted"> {
   return new Promise((resolve) => {
     let settled = false;
     const timer = setTimeout(() => finish("timeout"), PAGE_REQUEST_TIMEOUT_MS);
-    function finish(result: PageAnswer | "timeout" | "aborted"): void {
+    function finish(result: ClientAnswer | "timeout" | "aborted"): void {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       signal.removeEventListener("abort", onAbort);
-      connState.pageRequests.delete(id);
+      connState.clientRequests.delete(id);
       resolve(result);
     }
     function onAbort(): void {
       finish("aborted");
     }
     signal.addEventListener("abort", onAbort);
-    connState.pageRequests.set(id, (answer) => finish(answer));
+    connState.clientRequests.set(id, (answer) => finish(answer));
   });
 }
 
@@ -739,26 +539,22 @@ interface OnDemandCallResult {
   outcome: "ok" | "cancelled" | "error" | "marker";
   usage: { inputTokens: number; outputTokens: number };
   historyKept?: number;
-  marker?: { level: "text" | "dev"; position: "start" | "mid" };
+  marker?: { marker: PageMarker; position: PageMarkerPosition };
   err?: unknown;
 }
 
 /**
  * Runs exactly ONE provider call for the page-on-demand loop below, through
  * the shared marker detector (model/page-marker.ts) — the ONE place a
- * streamed answer is scanned for either marker, regardless of which
- * provider is active (docs/PROTOCOL.md "Page on demand": "all providers,
- * one shared place — not per provider"). Thinking/reasoning events are
- * never fed to the detector (never scanned, per the same spec line) — same
- * treatment as the plain chat path above. `canTrigger` is the caller's own
- * read-cap policy (at most one read per level, two per question): a marker
- * this returns false for is still never forwarded as text, but does NOT
- * abort the stream — it is simply stripped, and the rest of the stream
- * keeps flowing normally ("a marker beyond that is stripped and ignored").
- * Amendement (lot 7 fix): Ollama's loading/reading/thinking `progress`
- * notifications (startProgressTracking above) fire for THIS call exactly as
- * they do in the plain chat path — every provider call the on-demand loop
- * makes (the metadata-only call and any re-run) gets its own tracker.
+ * streamed answer is scanned for markers, regardless of which provider is
+ * active (docs/PROTOCOL.md "Page on demand": "all providers, one shared
+ * place — not per provider"). Thinking/reasoning events are never fed to
+ * the detector — same treatment as the plain chat path above. `canTrigger`
+ * is the caller's own cap policy: a marker it returns false for is still
+ * never forwarded as text, but does NOT abort the stream — it is stripped,
+ * handed to `onIgnored`, and the rest of the stream keeps flowing. Ollama's
+ * `progress` notifications (startProgressTracking above) fire for every
+ * call the on-demand loop makes.
  */
 async function runOnDemandCall(
   ws: { send(data: string): unknown },
@@ -767,13 +563,14 @@ async function runOnDemandCall(
   built: BuiltPrompt,
   provider: ModelProvider,
   providerOpts: ProviderRuntimeOptions,
-  allowDevMarker: boolean,
-  canTrigger: (level: "text" | "dev") => boolean,
+  detectorOpts: { allowDev: boolean; allowSearch: boolean; refs?: ReadonlySet<string> },
+  canTrigger: (marker: PageMarker) => boolean,
+  onIgnored: (marker: PageMarker) => void,
 ): Promise<OnDemandCallResult> {
   const controller = new AbortController();
   active.set(id, controller);
   const progress = await startProgressTracking(ws, id, provider, providerOpts, controller.signal);
-  const detector = new PageMarkerDetector({ allowDev: allowDevMarker });
+  const detector = new PageMarkerDetector(detectorOpts);
   let usage = { inputTokens: 0, outputTokens: 0 };
   let historyKept: number | undefined;
   try {
@@ -794,12 +591,13 @@ async function runOnDemandCall(
           if (ev.text.length > 0) send(ws, { type: "chunk", id, delta: ev.text });
           continue;
         }
-        if (canTrigger(ev.level)) {
+        if (canTrigger(ev.marker)) {
           controller.abort();
-          return { outcome: "marker", usage, historyKept, marker: { level: ev.level, position: ev.position } };
+          return { outcome: "marker", usage, historyKept, marker: { marker: ev.marker, position: ev.position } };
         }
-        // Beyond the read caps: stripped and ignored — keep consuming the
-        // rest of this same stream, never aborting, never requesting again.
+        // Beyond the caps: stripped and ignored — keep consuming the rest of
+        // this same stream, never aborting, never requesting again.
+        onIgnored(ev.marker);
       }
     }
     if (controller.signal.aborted) return { outcome: "cancelled", usage, historyKept };
@@ -823,15 +621,27 @@ function addUsage(
   return { inputTokens: a.inputTokens + b.inputTokens, outputTokens: a.outputTokens + b.outputTokens };
 }
 
+/** What the page-on-demand loop needs from a `chat`. */
+export interface OnDemandChat {
+  id: string;
+  text: string;
+  page?: PageMeta;
+  context?: Context;
+  devMode?: boolean;
+  history?: HistoryEntry[];
+  abilities?: ChatAbility[];
+  searchQuery?: string;
+}
+
 /**
- * Entry point for a `chat` carrying `page` and no `context` — see
- * handleMessage's "chat" case (handlers/dispatch.ts), the only caller. Gates
- * exactly like any other chat/summarize/act (size, concurrency, provider),
- * then hands off to the async loop below.
+ * Entry point for a `chat` the model may answer by asking for the page or a
+ * web search — see handleMessage's "chat" case (handlers/dispatch.ts), the
+ * only caller. Gates exactly like any other chat/summarize/act (size,
+ * concurrency, provider), then hands off to the async loop below.
  */
 export function handleChatPageOnDemand(
   ws: { send(data: string): unknown },
-  message: { id: string; text: string; page: PageMeta; devMode?: boolean; history?: HistoryEntry[] },
+  message: OnDemandChat,
   active: Map<string, AbortController>,
   settingsCtx: SettingsCtx,
   lang: Lang,
@@ -839,9 +649,9 @@ export function handleChatPageOnDemand(
 ): void {
   const gated = gateStreamingRequest(ws, message, active, settingsCtx, {
     logType: "chat",
-    logContextKind: "page",
+    logContextKind: message.context ? message.context.kind : "page",
     logTextLength: message.text.length,
-    logPageKind: message.page.kind,
+    logPageKind: message.page?.kind ?? message.context?.pageKind,
     logFactsCount: 0,
     logItemsCount: 0,
     hasImage: false,
@@ -852,9 +662,12 @@ export function handleChatPageOnDemand(
   void runChatPageOnDemandLoop(ws, message, active, provider, providerOpts, lang, connState, startedAt);
 }
 
+type PageReport = { level: "text" | "dev"; chars: number; sentChars: number; truncated: boolean };
+type SearchReport = { query: string; results: number; pages: number; chars: number };
+
 async function runChatPageOnDemandLoop(
   ws: { send(data: string): unknown },
-  message: { id: string; text: string; page: PageMeta; devMode?: boolean; history?: HistoryEntry[] },
+  message: OnDemandChat,
   active: Map<string, AbortController>,
   provider: ModelProvider,
   providerOpts: ProviderRuntimeOptions,
@@ -863,66 +676,148 @@ async function runChatPageOnDemandLoop(
   startedAt: number,
 ): Promise<void> {
   const devMode = message.devMode === true;
+  const canSearch = message.abilities?.includes("search") === true || message.searchQuery !== undefined;
   let totalUsage = { inputTokens: 0, outputTokens: 0 };
   let historyKept: number | undefined;
   let reads = 0;
+  let searches = 0;
+  const canAct = message.abilities?.includes("act") === true;
+  // Actions requested so far, with the client's outcome once known.
+  const actions: ActionOutcome[] = [];
   const usedLevels = new Set<"text" | "dev">();
-  const canTrigger = (level: "text" | "dev") => reads < 2 && !usedLevels.has(level);
+  const canTriggerRead = (level: "text" | "dev") => reads < 2 && !usedLevels.has(level);
+  const canTrigger = (m: PageMarker) =>
+    m.type === "read" ? canTriggerRead(m.level) : m.type === "search" ? searches < SEARCH_MAX_PER_QUESTION : actions.length < MAX_ACTIONS_PER_QUESTION;
 
-  let built = buildPrompt(
-    { kind: "chat", text: message.text, page: message.page, devMode, history: message.history },
-    lang,
-  );
-  let pageReport: { level: "text" | "dev"; chars: number; sentChars: number; truncated: boolean } | undefined;
+  // What the re-run prompt is made of; every answer below updates one field.
+  let pageContext = message.context;
+  let pageRead = false;
+  let declinedPageRead = false;
+  let search: SearchContent | undefined;
+  let declinedSearch: string | undefined;
+  let pageReport: PageReport | undefined;
+  let searchReport: SearchReport | undefined;
+  let suggest: string | undefined;
 
-  // At most two round trips (reads<2 above already enforces this at the
-  // policy level) — this outer bound is belt-and-braces against a runaway
-  // loop should canTrigger ever be miscomputed.
-  for (let turn = 0; turn < 4; turn++) {
-    const result = await runOnDemandCall(ws, active, message.id, built, provider, providerOpts, devMode, canTrigger);
-    totalUsage = addUsage(totalUsage, result.usage);
-    if (result.historyKept !== undefined) historyKept = result.historyKept;
+  // Click and type are offered only against a page read with its elements.
+  const elementRefs = () => (canAct && pageContext?.elements?.length ? new Set(pageContext.elements.map((e) => e.ref)) : undefined);
 
-    if (result.outcome === "cancelled") {
-      if (!connState.closed) send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
-      logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
-      return;
+  const rebuild = () =>
+    buildPrompt(
+      {
+        kind: "chat",
+        text: message.text,
+        page: pageContext || declinedPageRead ? undefined : message.page,
+        context: pageContext,
+        devMode,
+        declinedPageRead,
+        // After a text read, still offer the dev marker when devMode allows
+        // it and dev hasn't been used yet; never after a dev read.
+        offerDevRead: pageRead && devMode && canTriggerRead("dev"),
+        search,
+        declinedSearch,
+        offerSearch: canSearch && searches < SEARCH_MAX_PER_QUESTION,
+        offerAct: elementRefs() !== undefined && actions.length < MAX_ACTIONS_PER_QUESTION,
+        actions,
+        history: message.history,
+      },
+      lang,
+    );
+
+  // A search the user asked for (the button) skips the first model call.
+  let forced: PageMarker | undefined = message.searchQuery !== undefined ? { type: "search", query: message.searchQuery } : undefined;
+  let built = rebuild();
+
+  // Two reads, one search and the actions at most, plus the final answer; the bound is belt-and-braces.
+  for (let turn = 0; turn < 2 + SEARCH_MAX_PER_QUESTION + MAX_ACTIONS_PER_QUESTION + 1; turn++) {
+    let marker: PageMarker;
+    let position: PageMarkerPosition = "start";
+    if (forced) {
+      marker = forced;
+      forced = undefined;
+    } else {
+      const result = await runOnDemandCall(
+        ws,
+        active,
+        message.id,
+        built,
+        provider,
+        providerOpts,
+        { allowDev: devMode, allowSearch: canSearch, refs: elementRefs() },
+        canTrigger,
+        (ignored) => {
+          if (ignored.type === "search" && suggest === undefined) suggest = ignored.query;
+        },
+      );
+      totalUsage = addUsage(totalUsage, result.usage);
+      if (result.historyKept !== undefined) historyKept = result.historyKept;
+
+      if (result.outcome === "cancelled") {
+        if (!connState.closed) send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
+        logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
+        return;
+      }
+      if (result.outcome === "error") {
+        const { code, retryAfterSec, outcome, message: msg } = classifyProviderError(result.err);
+        send(ws, { type: "error", id: message.id, code, message: msg, ...(retryAfterSec !== undefined ? { retryAfterSec } : {}) });
+        logRequestCompleted(message.id, outcome, Date.now() - startedAt, msg);
+        return;
+      }
+      if (result.outcome === "ok") {
+        send(ws, {
+          type: "done",
+          id: message.id,
+          usage: totalUsage,
+          ...(historyKept !== undefined ? { historyKept } : {}),
+          ...(pageReport ? { page: pageReport } : {}),
+          ...(searchReport ? { search: searchReport } : {}),
+          ...(suggest !== undefined ? { suggest: { search: suggest } } : {}),
+          ...(actions.length > 0 ? { actions: actions.length } : {}),
+        });
+        logRequestCompleted(message.id, "ok", Date.now() - startedAt);
+        return;
+      }
+      marker = result.marker!.marker;
+      position = result.marker!.position;
     }
-    if (result.outcome === "error") {
-      const { code, retryAfterSec, outcome, message: msg } = classifyProviderError(result.err);
-      send(ws, { type: "error", id: message.id, code, message: msg, ...(retryAfterSec !== undefined ? { retryAfterSec } : {}) });
-      logRequestCompleted(message.id, outcome, Date.now() - startedAt, msg);
-      return;
-    }
-    if (result.outcome === "ok") {
-      send(ws, {
-        type: "done",
-        id: message.id,
-        usage: totalUsage,
-        ...(historyKept !== undefined ? { historyKept } : {}),
-        ...(pageReport ? { page: pageReport } : {}),
-      });
-      logRequestCompleted(message.id, "ok", Date.now() - startedAt);
-      return;
-    }
 
-    // result.outcome === "marker": ask the client for the page.
-    const marker = result.marker!;
-    reads++;
-    usedLevels.add(marker.level);
+    // A marker: ask the client for the page, the search or the action.
+    if (marker.type === "read") {
+      reads++;
+      usedLevels.add(marker.level);
+    } else if (marker.type === "search") {
+      searches++;
+    } else {
+      actions.push({ action: marker.type, ref: marker.ref, status: "no-access" }); // outcome set on the answer
+    }
     if (connState.closed) {
       logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
       return;
     }
-    send(ws, { type: "page.request", id: message.id, level: marker.level, ...(marker.position === "mid" ? { discard: true as const } : {}) });
+    const discard = position === "mid" ? { discard: true as const } : {};
+    send(
+      ws,
+      marker.type === "read"
+        ? { type: "page.request", id: message.id, level: marker.level, ...discard }
+        : marker.type === "search"
+          ? { type: "search.request", id: message.id, query: marker.query, ...discard }
+          : {
+              type: "action.request",
+              id: message.id,
+              action: marker.type,
+              ref: marker.ref,
+              ...(marker.type === "type" ? { text: marker.text } : {}),
+              ...discard,
+            },
+    );
 
     const waitController = new AbortController();
     active.set(message.id, waitController);
-    const answer = await awaitPageAnswer(connState, message.id, waitController.signal);
+    const answer = await awaitClientAnswer(connState, message.id, waitController.signal);
     if (active.get(message.id) === waitController) active.delete(message.id);
 
     if (answer === "timeout") {
-      send(ws, { type: "error", id: message.id, code: "page-unavailable", message: "the client did not answer the page request in time" });
+      send(ws, { type: "error", id: message.id, code: "page-unavailable", message: "the client did not answer the request in time" });
       logRequestCompleted(message.id, "error:page-unavailable", Date.now() - startedAt);
       return;
     }
@@ -931,47 +826,65 @@ async function runChatPageOnDemandLoop(
       logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
       return;
     }
-    if (answer.kind === "decline") {
-      built = buildPrompt({ kind: "chat", text: message.text, declinedPageRead: true, history: message.history }, lang);
-      continue;
-    }
 
-    // Protocol breach: the client answered with a level other than the one
-    // the broker actually requested (`marker.level`, sent in page.request
-    // above) — never silently accepted or coerced, same stance as every
-    // other wire-shape mismatch (docs/PROTOCOL.md "bad-request").
-    if (answer.level !== marker.level) {
-      send(ws, {
-        type: "error",
-        id: message.id,
-        code: "bad-request",
-        message: `page.content level "${answer.level}" does not match the requested level "${marker.level}"`,
-      });
+    // Protocol breach: an answer of the wrong kind, or a page level other than
+    // the one requested — never silently accepted or coerced, same stance as
+    // every other wire-shape mismatch (docs/PROTOCOL.md "bad-request").
+    const mismatch =
+      marker.type === "read"
+        ? answer.kind === "content"
+          ? answer.level !== marker.level && `page.content level "${answer.level}" does not match the requested level "${marker.level}"`
+          : answer.kind !== "decline" && "expected page.content or page.decline"
+        : marker.type === "search"
+          ? answer.kind !== "search" && answer.kind !== "search-decline" && "expected search.content or search.decline"
+          : answer.kind !== "action" && "expected action.result";
+    if (mismatch) {
+      send(ws, { type: "error", id: message.id, code: "bad-request", message: mismatch });
       logRequestCompleted(message.id, "error:bad-request", Date.now() - startedAt);
       return;
     }
 
-    const fit = await fitPageContent(answer.level, answer.context, provider, providerOpts);
-    if (fit.error) {
-      send(ws, { type: "error", id: message.id, code: "context-too-large", message: fit.error });
-      logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
-      return;
+    if (answer.kind === "decline") {
+      declinedPageRead = true;
+    } else if (answer.kind === "search-decline") {
+      declinedSearch = answer.reason;
+    } else if (answer.kind === "action") {
+      const outcome = actions[actions.length - 1]!;
+      outcome.status = answer.status;
+      if (answer.by) outcome.by = answer.by;
+      if (answer.reason) outcome.reason = answer.reason;
+      if (answer.context) {
+        const fit = await fitPageContent("text", answer.context, provider, providerOpts);
+        if (fit.error) {
+          send(ws, { type: "error", id: message.id, code: "context-too-large", message: fit.error });
+          logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
+          return;
+        }
+        pageContext = fit.context;
+        pageRead = true;
+        pageReport = { ...fit.report, sentChars: (pageReport?.sentChars ?? 0) + fit.report.sentChars };
+      }
+    } else if (answer.kind === "search") {
+      const error = searchContentError(answer.content);
+      if (error) {
+        send(ws, { type: "error", id: message.id, code: "context-too-large", message: error });
+        logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
+        return;
+      }
+      const { query, results, pages } = answer.content;
+      search = { query, results, pages };
+      searchReport = { query, results: results.length, pages: pages.length, chars: searchContentChars(answer.content) };
+    } else {
+      const fit = await fitPageContent(answer.level, answer.context, provider, providerOpts);
+      if (fit.error) {
+        send(ws, { type: "error", id: message.id, code: "context-too-large", message: fit.error });
+        logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
+        return;
+      }
+      pageReport = fit.report;
+      pageContext = fit.context;
+      pageRead = true;
     }
-    pageReport = fit.report;
-    // Amendement (lot 7 fix): after a TEXT read, still offer the dev marker
-    // when devMode allows it and dev hasn't been used yet — canTrigger("dev")
-    // already encodes both conditions (and naturally returns false right
-    // after a DEV read itself, since usedLevels now has "dev" — symmetric,
-    // no instruction offered at all in that case).
-    built = buildPrompt(
-      {
-        kind: "chat",
-        text: message.text,
-        context: fit.context,
-        history: message.history,
-        offerDevRead: devMode && canTrigger("dev"),
-      },
-      lang,
-    );
+    built = rebuild();
   }
 }

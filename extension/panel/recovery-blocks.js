@@ -177,83 +177,6 @@ export function authKindFor(provider) {
   return SESSION_AUTH_PROVIDERS.has(provider) ? "session" : "key";
 }
 
-// Lot C2 (plan-montrer-voir-chercher-08-10.md §3C) — "Search the docs".
-
-/** Open settings on the "En ligne" tab's search card — same pattern as
- * openProviderSettings() above (api.tabs.create + a deep-link hash); the
- * anchor itself is lot C3's (options page), harmless if it doesn't exist
- * yet (options.html just opens, unscrolled). */
-export function buildSearchNotConfiguredRecoveryBlock() {
-  const block = document.createElement("div");
-  block.className = "recovery-block";
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "recovery-copy";
-  button.textContent = t("panel_open_settings");
-  button.addEventListener("click", () => api.tabs.create({ url: api.runtime.getURL("options.html#search") }));
-  block.appendChild(button);
-  return block;
-}
-
-const SEARCH_ENGINE_LABELS = { brave: "Brave Search", tavily: "Tavily", "llms.txt": "llms.txt" };
-
-/** docs/PROTOCOL.md §7 (+ 2026-10-08 ter amendment) — `search.status`'s
- * progress line. `sources` is rendered separately (buildSourcesBlock) only
- * once sources exist. Stage "query" shows the reformulated search query
- * text verbatim (it's a search-engine query, not a UI sentence — never
- * translated, same stance as a doc source's own title/url). */
-export function buildSearchStatusLine(status) {
-  const engineLabel = SEARCH_ENGINE_LABELS[status.engine] ?? status.engine ?? "";
-  const line = document.createElement("p");
-  line.className = "search-status-line";
-  line.textContent =
-    status.stage === "query"
-      ? t("panel_docsearch_query", [status.query ?? ""])
-      : status.stage === "reading"
-        ? t("panel_docsearch_reading")
-        : status.scope
-          ? t("panel_docsearch_scope", [status.scope, engineLabel])
-          : t("panel_docsearch_web", [engineLabel]);
-  return line;
-}
-
-/** Plain text only — no `<a>`, no innerHTML (CLAUDE.md rule #3): sources
- * are page content the model/local program named, not something this
- * panel decided to make clickable yet (product question open, plan §6.5 —
- * conservative default, same rule markdown.js already applies to every
- * link/image a model writes). One text node per source: "title — url". */
-export function buildSourcesBlock(sources) {
-  const wrap = document.createElement("div");
-  wrap.className = "search-sources";
-  const title = document.createElement("p");
-  title.className = "search-sources-title";
-  title.textContent = t("panel_sources_title");
-  wrap.appendChild(title);
-  const list = document.createElement("ul");
-  list.className = "search-sources-list";
-  for (const source of sources) {
-    const li = document.createElement("li");
-    li.className = "search-sources-item";
-    const label = typeof source?.title === "string" && source.title ? source.title : source?.url ?? "";
-    li.textContent = source?.url ? `${label} — ${source.url}` : label;
-    list.appendChild(li);
-  }
-  wrap.appendChild(list);
-  return wrap;
-}
-
-// Lot C2 — docs/PROTOCOL.md §8: "auth"|"quota"|"rate"|"network"|"no-result".
-// An unrecognized/absent reason (older broker, or a future addition) falls
-// back to the "network" wording in describeBrokerError() above — the most
-// neutral of the five, rather than guessing.
-const SEARCH_UNAVAILABLE_KEYS = {
-  auth: "error_search_unavailable_auth",
-  quota: "error_search_unavailable_quota",
-  rate: "error_search_unavailable_rate",
-  network: "error_search_unavailable_network",
-  "no-result": "error_search_unavailable_no_result",
-};
-
 /** Maps a terminal broker `error` to a French message that names its own
  * remedy (deliverable B5, third banner: "broker reachable but the model
  * failed"). The other two B5 causes — broker unreachable, no pairing token —
@@ -308,16 +231,6 @@ export function describeBrokerError(message) {
     case "model-timeout":
       // Plain words, no "Detail" line: the reason is fully known.
       return `⚠ ${describeError(message.code)}`;
-    // Lot C2 (plan-montrer-voir-chercher-08-10.md §3C, docs/PROTOCOL.md §8).
-    // Not in extension/lib/labels.js's ERROR_CODE_KEYS: that table is keyed
-    // on `code` alone, and search-unavailable needs a DIFFERENT sentence per
-    // `reason` — handled here instead, same as quota/rate-limited above.
-    case "search-not-configured":
-      return `⚠ ${t("error_search_not_configured")}`;
-    case "search-unavailable": {
-      const key = SEARCH_UNAVAILABLE_KEYS[message.reason] ?? "error_search_unavailable_network";
-      return `⚠ ${t(key)}`;
-    }
     default:
       // Covers "bad-request" and any other/unknown code: a localised label
       // keyed on `code` (extension/lib/labels.js, shared with options.js),

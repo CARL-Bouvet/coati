@@ -9,10 +9,9 @@ import { listPrompts, savePrompt, deletePrompt, setPromptSite, withDirLock, type
 import { getPrefs, setSitePrefs, moveInPrefs, type PrefsDirs } from "../prefs.ts";
 import { DEFAULT_OLLAMA_URL } from "../config.ts";
 import { listModelEntries as listOllamaModelEntries, matchesModel, warmupModel } from "../providers/ollama.ts";
-import { detectSearchIntent } from "../search/intent.ts";
 import type { Lang } from "../messages.ts";
-import { handleStreamingRequest, handleChatDocSearch, handleChatPageOnDemand, type PageOnDemandConnState } from "./chat.ts";
-import { buildSettingsPayload, testProviderConnection, testSearchConnection, type SettingsCtx } from "./settings.ts";
+import { handleStreamingRequest, handleChatPageOnDemand, type PageOnDemandConnState } from "./chat.ts";
+import { buildSettingsPayload, testProviderConnection, type SettingsCtx } from "./settings.ts";
 import { buildModelsPayload } from "./models.ts";
 
 export function handleMessage(
@@ -22,12 +21,7 @@ export function handleMessage(
   promptsDirs: PromptsDirs,
   settingsCtx: SettingsCtx,
   lang: Lang,
-  // Amendement 2026-10-08 (lot C1): only ever used by a `chat.docSearch`
-  // request — dataDir for discover.ts's cache, connState for the "one
-  // search in flight per connection" rule (R5). Every other message type
-  // ignores both.
-  dataDir: string,
-  connState: { docSearching: boolean; closed: boolean } & PageOnDemandConnState,
+  connState: PageOnDemandConnState,
 ): void {
   switch (message.type) {
     case "hello":
@@ -35,34 +29,16 @@ export function handleMessage(
       // Duplicate hello/auth after an already-authed handshake: no-op.
       return;
     case "chat": {
-      // Amendement 2026-10-08 (bis, "explicit search on demand" —
-      // docs/PROTOCOL.md): the panel no longer has a search button —
-      // `chat.docSearch.origin` now just means "this chat's tab is http(s),
-      // a search is ALLOWED for this origin" and is sent on every chat for
-      // such a tab. Whether a search actually runs is decided HERE, on the
-      // message TEXT alone (fr/en/zh intent phrases, search/intent.ts) —
-      // never on the mere presence of `docSearch`. `docSearch.origin` can be
-      // "" (no http(s) tab) and intent can still be detected: the pipeline
-      // then runs unscoped (open web), see doc-search.ts's ladder.
-      if (detectSearchIntent(message.text, lang)) {
-        handleChatDocSearch(
-          ws,
-          { ...message, docSearch: message.docSearch ?? { origin: "" } },
-          active,
-          settingsCtx,
-          lang,
-          dataDir,
-          connState,
-        );
-        return;
-      }
       // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md
       // "Page on demand", point 2): `page` only ever takes effect when
       // `context` is ABSENT — a `chat` carrying both behaves exactly as
       // before this amendment (byte-identical: `context` wins, `page` is
       // simply never looked at).
-      if (message.page && !message.context) {
-        handleChatPageOnDemand(ws, { ...message, page: message.page }, active, settingsCtx, lang, connState);
+      // A chat that may ask for a search (`abilities`) or run one at once
+      // (`searchQuery`) takes the same path, with or without a page.
+      const asksSearch = !message.image && (message.abilities !== undefined || message.searchQuery !== undefined);
+      if ((message.page && !message.context) || asksSearch) {
+        handleChatPageOnDemand(ws, message, active, settingsCtx, lang, connState);
         return;
       }
       handleStreamingRequest(ws, message, active, settingsCtx, {
@@ -92,11 +68,29 @@ export function handleMessage(
       // arrival after PAGE_REQUEST_TIMEOUT_MS, or one that never had a
       // matching request) is silently ignored, same tolerance as `cancel`
       // naming an unknown id.
-      connState.pageRequests.get(message.target)?.({ kind: "content", level: message.level, context: message.context });
+      connState.clientRequests.get(message.target)?.({ kind: "content", level: message.level, context: message.context });
       return;
     }
     case "page.decline": {
-      connState.pageRequests.get(message.target)?.({ kind: "decline" });
+      connState.clientRequests.get(message.target)?.({ kind: "decline" });
+      return;
+    }
+    case "search.content": {
+      connState.clientRequests.get(message.target)?.({ kind: "search", content: message });
+      return;
+    }
+    case "search.decline": {
+      connState.clientRequests.get(message.target)?.({ kind: "search-decline", reason: message.reason });
+      return;
+    }
+    case "action.result": {
+      connState.clientRequests.get(message.target)?.({
+        kind: "action",
+        status: message.status,
+        by: message.by,
+        reason: message.reason,
+        context: message.context,
+      });
       return;
     }
     case "summarize": {
@@ -197,8 +191,6 @@ export function handleMessage(
         model: message.model,
         apiKey: message.apiKey,
         baseUrl: message.baseUrl,
-        searchProvider: message.searchProvider,
-        searchApiKey: message.searchApiKey,
         clearKey: message.clearKey,
       });
       void buildSettingsPayload(updated, lang).then((payload) => {
@@ -207,26 +199,6 @@ export function handleMessage(
       return;
     }
     case "settings.test": {
-      // Amendement 2026-10-08 (lot C1, docs/PROTOCOL.md §9): target "search"
-      // tests a search engine instead of a model provider. The reply keeps
-      // the exact same shape either way ("shape is unchanged") — the
-      // engine id (open-ended ProviderId shape already, see
-      // search/types.ts's SearchProviderId) is echoed back in `provider`.
-      if (message.target === "search") {
-        void testSearchConnection(message.searchProvider, settingsCtx.getConfig(), lang).then(
-          ({ ok, message: resultMessage, code }) => {
-            send(ws, {
-              type: "settings.test-result",
-              id: message.id,
-              provider: message.searchProvider,
-              ok,
-              message: resultMessage,
-              code,
-            });
-          },
-        );
-        return;
-      }
       void testProviderConnection(message.provider, settingsCtx.getConfig(), lang).then(
         ({ ok, message: resultMessage, code, creditUnchecked }) => {
           send(ws, {

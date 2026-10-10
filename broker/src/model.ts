@@ -19,6 +19,9 @@ export {
   LANGUAGE_NAME,
   buildSystemPrompt,
   type PromptSource,
+  type SearchContent,
+  type ActionOutcome,
+  type SearchResult,
   type PageMeta,
   renderPageMeta,
   pageOnDemandInstruction,
@@ -65,6 +68,7 @@ export {
 export {
   MARKER_TEXT,
   MARKER_DEV,
+  type PageMarker,
   type PageMarkerLevel,
   type PageMarkerPosition,
   type PageMarkerEvent,

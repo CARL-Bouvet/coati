@@ -15,6 +15,9 @@ import { currentTabId } from "./panel.js";
 // Escape, a click on the page) — out of scope, no message channel back.
 let activePointButton = null;
 
+/** Content scripts injected together, in this order, before `__coatiPoint`/`__coatiAct` are called. */
+export const POINTER_FILES = ["/content/forbidden-gesture.js", "/content/pointer.js"];
+
 // immediately; clicking a DIFFERENT one just replaces it (pointer.js's own
 // "one highlight at a time" already handles that case). Escape /
 // a click on the page still dismiss on the content-script side — this
@@ -41,8 +44,8 @@ export function onPointButtonClick(button, entry) {
 
 // Highlights the element a "Montrer : …" button names, on the CURRENT page
 // of `tabId` — a real click just happened (CLAUDE.md rule #5: this tools the
-// user's own gesture, it never fires on its own). Two separate injections,
-// per the plan (§3A flow (5)): first `pointer.js` itself (defines
+// user's own gesture, it never fires on its own). Two separate injections:
+// first `pointer.js` itself (defines
 // `globalThis.__coatiPoint` in that tab's isolated world, does nothing on
 // its own), then a `func` call that invokes it with the ref/role/label/
 // extractionId `entry` already carries (built by renderElementRefs(), from
@@ -54,7 +57,7 @@ export function onPointButtonClick(button, entry) {
 // @returns {Promise<boolean>} true on "ok", false on "stale"/any failure —
 // used by onPointButtonClick() above to decide whether the button stays
 // pressed.
-export async function pointAtElement(tabId, entry) {
+export async function pointAtElement(tabId, entry, follow = false) {
   if (!entry || tabId == null) {
     addMessage({ id: newId(), role: "system", text: t("panel_point_failed") });
     return false;
@@ -64,11 +67,11 @@ export async function pointAtElement(tabId, entry) {
     // apply to the very next "Montrer : …" click, not the next panel open.
     const stored = await api.storage.local.get([POINT_EFFECT_KEY]).catch(() => ({}));
     const effect = parseStoredPointEffect(stored[POINT_EFFECT_KEY]);
-    await api.scripting.executeScript({ target: { tabId }, files: ["/content/pointer.js"] });
+    await api.scripting.executeScript({ target: { tabId }, files: POINTER_FILES });
     const results = await api.scripting.executeScript({
       target: { tabId },
       func: (opts) => (typeof globalThis.__coatiPoint === "function" ? globalThis.__coatiPoint(opts) : "stale"),
-      args: [{ ...entry, effect }],
+      args: [{ ...entry, effect, follow }],
     });
     const status = results?.[0]?.result;
     if (status === "stale") {
@@ -92,7 +95,7 @@ export async function pointAtElement(tabId, entry) {
 export async function clearPointer(tabId) {
   if (tabId == null) return;
   try {
-    await api.scripting.executeScript({ target: { tabId }, files: ["/content/pointer.js"] });
+    await api.scripting.executeScript({ target: { tabId }, files: POINTER_FILES });
     await api.scripting.executeScript({
       target: { tabId },
       func: () => (typeof globalThis.__coatiPoint === "function" ? globalThis.__coatiPoint({ clear: true }) : "stale"),

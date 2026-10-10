@@ -15,8 +15,12 @@ amazon-fiche https://www.amazon.fr/dp/2070612759
 leboncoin-annonce https://www.leboncoin.fr/recherche?category=9&locations=Caen a[href*="/ad/ventes_immobilieres/"]
 immo-pap https://www.pap.fr/annonce/vente-appartements-caen-14-g43612 a[href*="/annonces/appartement-"]
 google-recherche https://www.google.com/search?q=coati+animal&hl=fr
+google-produits https://www.google.com/search?q=meilleur+aspirateur+robot+2026&hl=fr
+google-technique https://www.google.com/search?q=rust+borrow+checker+error+E0502&hl=fr
+google-actualite https://www.google.com/search?q=actualit%C3%A9+%C3%A9lections&hl=fr
 wikipedia https://fr.wikipedia.org/wiki/Coati
 youtube-video https://www.youtube.com/watch?v=jNQXAC9IVRw
+youtube-soustitres https://www.youtube.com/watch?v=arj7oStGLkU
 x-profil https://x.com/NASA
 linkedin-entreprise https://www.linkedin.com/company/anthropicresearch/
 pdf-arxiv https://arxiv.org/pdf/1706.03762

@@ -150,13 +150,13 @@ describe("PageMarkerDetector", () => {
   test("whole answer is exactly the text marker — reported as start, nothing forwarded", () => {
     const d = new PageMarkerDetector({ allowDev: false });
     const events = feedAll(d, [MARKER_TEXT]);
-    expect(events).toEqual([{ kind: "marker", level: "text", position: "start" }]);
+    expect(events).toEqual([{ kind: "marker", marker: { type: "read", level: "text" }, position: "start" }]);
   });
 
   test("marker split across chunk boundaries at the start is still detected", () => {
     const d = new PageMarkerDetector({ allowDev: false });
     const events = feedAll(d, ["[[READ_", "PAGE]]"]);
-    expect(events).toEqual([{ kind: "marker", level: "text", position: "start" }]);
+    expect(events).toEqual([{ kind: "marker", marker: { type: "read", level: "text" }, position: "start" }]);
   });
 
   test("normal text with no marker is forwarded untouched", () => {
@@ -170,7 +170,7 @@ describe("PageMarkerDetector", () => {
     const d = new PageMarkerDetector({ allowDev: false });
     const events = feedAll(d, ["Let me check. ", MARKER_TEXT, " more"]);
     expect(events[0]).toEqual({ kind: "text", text: "Let me check. " });
-    expect(events.some((e) => e.kind === "marker" && e.position === "mid" && e.level === "text")).toBe(true);
+    expect(events.some((e) => e.kind === "marker" && e.position === "mid" && e.marker.type === "read")).toBe(true);
   });
 
   test("marker split across chunks mid-answer is still detected", () => {
@@ -182,7 +182,7 @@ describe("PageMarkerDetector", () => {
   test("dev marker is recognised when allowDev is true", () => {
     const d = new PageMarkerDetector({ allowDev: true });
     const events = feedAll(d, [MARKER_DEV]);
-    expect(events).toEqual([{ kind: "marker", level: "dev", position: "start" }]);
+    expect(events).toEqual([{ kind: "marker", marker: { type: "read", level: "dev" }, position: "start" }]);
   });
 
   test("dev marker is treated as plain text when allowDev is false (devMode false)", () => {
@@ -192,10 +192,37 @@ describe("PageMarkerDetector", () => {
     expect(events.map((e) => (e.kind === "text" ? e.text : "")).join("")).toBe(MARKER_DEV);
   });
 
+  test("search marker split across chunks yields its query", () => {
+    const d = new PageMarkerDetector({ allowDev: false, allowSearch: true });
+    const events = feedAll(d, ["[[SEA", "RCH: best ", "laptops 2026]", "]"]);
+    expect(events).toEqual([{ kind: "marker", marker: { type: "search", query: "best laptops 2026" }, position: "start" }]);
+  });
+
+  test("search marker mid-answer is reported as mid", () => {
+    const d = new PageMarkerDetector({ allowDev: false, allowSearch: true });
+    const events = feedAll(d, ["I will look. [[SEARCH: bun test]", "] ok"]);
+    expect(events[0]).toEqual({ kind: "text", text: "I will look. " });
+    expect(events[1]).toEqual({ kind: "marker", marker: { type: "search", query: "bun test" }, position: "mid" });
+  });
+
+  test("too-long, multi-line, empty or unoffered search markers stay text", () => {
+    const cases: [string, boolean][] = [
+      [`[[SEARCH: ${"x".repeat(201)}]]`, true],
+      ["[[SEARCH: a\nb]]", true],
+      ["[[SEARCH:  ]]", true],
+      ["[[SEARCH: hello]]", false],
+    ];
+    for (const [text, allowSearch] of cases) {
+      const events = feedAll(new PageMarkerDetector({ allowDev: false, allowSearch }), [text.slice(0, 20), text.slice(20)]);
+      expect(events.every((e) => e.kind === "text")).toBe(true);
+      expect(events.map((e) => (e.kind === "text" ? e.text : "")).join("")).toBe(text);
+    }
+  });
+
   test("leading whitespace before the marker is held and consumed with it", () => {
     const d = new PageMarkerDetector({ allowDev: false });
     const events = feedAll(d, ["  \n" + MARKER_TEXT]);
-    expect(events).toEqual([{ kind: "marker", level: "text", position: "start" }]);
+    expect(events).toEqual([{ kind: "marker", marker: { type: "read", level: "text" }, position: "start" }]);
   });
 });
 
@@ -751,5 +778,198 @@ describe("page on demand — fix 4 (Ollama progress notifications in the loop)",
     expect(progressAfterReq.length).toBe(2);
 
     ws.close();
+  });
+});
+
+describe("search — [[SEARCH: …]] marker, search.request/content/decline", () => {
+  const SEARCH_CONTENT = {
+    type: "search.content",
+    id: "sc1",
+    query: "q",
+    results: [{ n: 1, title: "Title one", url: "https://a.example/x", snippet: "snippet one" }],
+    pages: [{ n: 1, url: "https://a.example/x", title: "Title one", text: "PAGE_TEXT_ONE" }],
+  };
+
+  function searchProvider(id: string, firstReply: string[], prompts: string[]): ModelProvider {
+    return {
+      id,
+      label: id,
+      async isAvailable() {
+        return { available: true };
+      },
+      async checkStatus() {
+        return { state: "ok", reason: "ready" };
+      },
+      async *streamAnswer(built: any) {
+        prompts.push(built.prompt);
+        const searched = built.prompt.includes("Web search results");
+        const declined = built.prompt.includes("could not be done");
+        if (searched) {
+          // Asks for a second search: must become a suggestion, never a request.
+          yield { kind: "delta", text: "Per [S1]. [[SEARCH: some" };
+          yield { kind: "delta", text: "thing else]]" };
+        } else if (declined) {
+          yield { kind: "delta", text: "no search, answering anyway" };
+        } else {
+          for (const d of firstReply) yield { kind: "delta", text: d };
+        }
+        yield { kind: "usage", usage: { inputTokens: 5, outputTokens: 2 } };
+      },
+    };
+  }
+
+  test("search.content -> re-run with fenced [S1] data; 2nd marker -> done.suggest; done.search counted", async () => {
+    const prompts: string[] = [];
+    const server = boot(searchProvider("fixture-search-1", ["[[SEARCH: be", "st laptops]]"], prompts));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "s1", text: "which laptop?", abilities: ["search"] }));
+
+    const req = await waitFor(messages, (m) => m.type === "search.request");
+    expect(req).toMatchObject({ id: "s1", query: "best laptops" });
+    expect((req as any).discard).toBeUndefined();
+    ws.send(JSON.stringify({ ...SEARCH_CONTENT, target: "s1" }));
+
+    const done = await waitFor(messages, (m) => m.type === "done");
+    expect(done).toMatchObject({
+      search: { query: "q", results: 1, pages: 1, chars: "snippet one".length + "PAGE_TEXT_ONE".length },
+      suggest: { search: "something else" },
+    });
+    expect(prompts[0]).toContain("[[SEARCH:");
+    expect(prompts[1]).toContain("[S1]");
+    expect(prompts[1]).toContain("PAGE_TEXT_ONE");
+    // A second search is not offered once one ran.
+    expect(prompts[1]).not.toContain("reply with EXACTLY [[SEARCH");
+    const chunks = messages.filter((m) => m.type === "chunk").map((m: any) => m.delta).join("");
+    expect(chunks).not.toContain("SEARCH");
+    expect(messages.filter((m) => m.type === "search.request")).toHaveLength(1);
+    ws.close();
+  });
+
+  test("search.decline -> trusted note in the re-run, no done.search", async () => {
+    const prompts: string[] = [];
+    const server = boot(searchProvider("fixture-search-2", ["[[SEARCH: q]]"], prompts));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "s2", text: "hi", abilities: ["search"] }));
+    await waitFor(messages, (m) => m.type === "search.request");
+    ws.send(JSON.stringify({ type: "search.decline", id: "sd", target: "s2", reason: "no-access" }));
+    const done = await waitFor(messages, (m) => m.type === "done");
+    expect((done as any).search).toBeUndefined();
+    expect(prompts[1]).toContain("could not be done (no-access)");
+    ws.close();
+  });
+
+  test("chat.searchQuery sends search.request without a prior model call", async () => {
+    const prompts: string[] = [];
+    const server = boot(searchProvider("fixture-search-3", ["unused"], prompts));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "s3", text: "hi", searchQuery: "targeted query" }));
+    const req = await waitFor(messages, (m) => m.type === "search.request");
+    expect(req).toMatchObject({ id: "s3", query: "targeted query" });
+    expect(prompts).toHaveLength(0);
+    ws.send(JSON.stringify({ ...SEARCH_CONTENT, target: "s3" }));
+    const done = await waitFor(messages, (m) => m.type === "done");
+    expect((done as any).search).toMatchObject({ query: "q" });
+    ws.close();
+  });
+
+  test("a too-long query stays text; without abilities the marker is never offered", async () => {
+    const long = `[[SEARCH: ${"x".repeat(201)}]]`;
+    const prompts: string[] = [];
+    const server = boot(searchProvider("fixture-search-4", [long], prompts));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "s4", text: "hi", abilities: ["search"] }));
+    await waitFor(messages, (m) => m.type === "done");
+    expect(messages.some((m) => m.type === "search.request")).toBe(false);
+    expect(messages.filter((m) => m.type === "chunk").map((m: any) => m.delta).join("")).toBe(long);
+
+    ws.send(JSON.stringify({ type: "chat", id: "s5", text: "hi", page: { title: "T", url: "https://e.com", chars: 1 } }));
+    await waitFor(messages, (m) => m.type === "done" && (m as any).id === "s5");
+    expect(prompts[1]).not.toContain("[[SEARCH");
+    ws.close();
+  });
+});
+
+describe("act — [[CLICK eN]] / [[TYPE eN: …]] markers, action.request/result", () => {
+  const refs = new Set(["e1", "e2"]);
+  const det = () => new PageMarkerDetector({ allowDev: false, refs });
+  const CTX = { kind: "page", text: "BEFORE", elements: [{ ref: "e1", role: "button", label: "Go" }] };
+
+  test("click and type markers split across chunks; unknown ref, long text, no refs stay text", () => {
+    expect(feedAll(det(), ["[[CLI", "CK e", "2]]"])).toEqual([{ kind: "marker", marker: { type: "click", ref: "e2" }, position: "start" }]);
+    expect(feedAll(det(), ["ok [[TYPE e1: hel", "lo wor", "ld]] bye"])[1]).toEqual({
+      kind: "marker",
+      marker: { type: "type", ref: "e1", text: "hello world" },
+      position: "mid",
+    });
+    for (const [text, d] of [
+      ["[[CLICK e9]]", det()],
+      [`[[TYPE e1: ${"x".repeat(501)}]]`, det()],
+      ["[[TYPE e1: a\nb]]", det()],
+      ["[[CLICK e1]]", new PageMarkerDetector({ allowDev: false })],
+    ] as const) {
+      const events = feedAll(d, [text.slice(0, 9), text.slice(9)]);
+      expect(events.map((e) => (e.kind === "text" ? e.text : "")).join("")).toBe(text);
+    }
+  });
+
+  test("one action at a time: every status becomes a note, the 6th action is ignored, done.actions counts", async () => {
+    const prompts: string[] = [];
+    const replies = ["[[CLI", "[[TYPE e1: hello]]", "[[CLICK e1]]", "[[CLICK e1]]", "[[CLICK e1]]", "fin [[CLICK e1]] end"];
+    let call = 0;
+    const provider: ModelProvider = {
+      ...fakeOnDemandProvider("fixture-act-1"),
+      async *streamAnswer(built: any) {
+        prompts.push(built.prompt);
+        const r = replies[call++]!;
+        yield { kind: "delta", text: r };
+        if (r === "[[CLI") yield { kind: "delta", text: "CK e1]]" };
+        yield { kind: "usage", usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    };
+    const ws = await connect(boot(provider));
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "a1", text: "go", context: CTX, abilities: ["act"] }));
+    const results: object[] = [
+      { status: "done", context: { kind: "page", text: "AFTER", elements: CTX.elements } },
+      { status: "done", by: "user" },
+      { status: "blocked", reason: "looks like a payment" },
+      { status: "refused" },
+      { status: "no-access" },
+    ];
+    for (let i = 0; i < results.length; i++) {
+      const reqs = () => messages.filter((x) => x.type === "action.request");
+      await waitFor(messages, () => reqs().length === i + 1);
+      const req = reqs()[i];
+      expect(req).toMatchObject(i === 1 ? { action: "type", ref: "e1", text: "hello" } : { action: "click", ref: "e1" });
+      ws.send(JSON.stringify({ type: "action.result", id: `r${i}`, target: "a1", ...results[i] }));
+    }
+    const done = await waitFor(messages, (m) => m.type === "done");
+    expect(done).toMatchObject({ actions: 5, page: { sentChars: "AFTER".length } });
+    expect(messages.filter((m) => m.type === "action.request")).toHaveLength(5);
+    expect(prompts[0]).toContain("[[CLICK e12]]");
+    expect(prompts[1]).toContain("Done with the user's consent");
+    expect(prompts[1]).toContain("AFTER");
+    expect(prompts[2]).toContain('himself');
+    expect(prompts[3]).toContain("Coati does not allow this gesture");
+    expect(prompts[3]).toContain("looks like a payment");
+    expect(prompts[4]).toContain("the user refused");
+    expect(prompts[5]).toContain("lost access");
+    expect(prompts[5]).not.toContain("[[CLICK e12]]");
+    expect(messages.filter((m) => m.type === "chunk").map((m: any) => m.delta).join("")).toBe("fin  end");
+    ws.close();
+  });
+
+  test("stale note; abilities without elements never offers act", () => {
+    const stale = buildPrompt(
+      { kind: "chat", text: "x", context: CTX as any, offerAct: true, actions: [{ action: "click", ref: "e1", status: "stale" }] },
+      "en",
+    ).prompt;
+    expect(stale).toContain("no longer on the page");
+    const bare = buildPrompt({ kind: "chat", text: "x", context: { kind: "page", text: "t" } as any, offerAct: true }, "en").prompt;
+    expect(bare).not.toContain("[[CLICK");
   });
 });

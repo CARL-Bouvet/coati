@@ -9,7 +9,7 @@ import { estimateTokensFromChars, formatTokensK } from "../lib/labels.js";
 import { panelState, newId } from "./panel-state.js";
 import { renderMessage } from "./message-render.js";
 import { sendClientMessage } from "./request-watch.js";
-import { pendingPageExtractions } from "./composer-send.js";
+import { pendingPageExtractions, buildElementsSnapshot, openTranscriptIfNeeded } from "./composer-send.js";
 import { prepareContextForWire } from "./element-refs.js";
 import { hasFeature, currentGroupedModels } from "./model-status.js";
 import { isCurrentLocal } from "../lib/model-list.js";
@@ -55,14 +55,21 @@ export async function onPageRequest(message) {
   }
 
   if (level === "text") {
-    const extraction = pendingPageExtractions.get(id);
+    let extraction = pendingPageExtractions.get(id);
     // At most one read per level (docs/PROTOCOL.md) — the stash is single-use.
     pendingPageExtractions.delete(id);
     if (!extraction) {
       await declinePage(id);
       return;
     }
+    // YouTube without its transcript open: the user's own question is the
+    // gesture for the one click that opens it (the named exception in
+    // DECISIONS.md), then the page is read again. If it stays closed, the
+    // text says "Transcript: not open" and is sent as is.
+    extraction = await openTranscriptIfNeeded(extraction);
     const wireContext = prepareContextForWire(extraction, hasFeature("elements"));
+    // The element list the model will see: what "Show" links and actions resolve against.
+    if (msg) msg.elementsSnapshot = buildElementsSnapshot(extraction);
     showReadingStatus(msg, (extraction.text || "").length);
     await sendClientMessage({ type: "page.content", id: newId(), target: id, level: "text", context: wireContext });
     return;

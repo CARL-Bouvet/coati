@@ -1,5 +1,5 @@
 // Coati options page — connection status, tabs, deep links (#setup,
-// #provider-<id>, #search), settings.get/models.list, and the "Model"
+// #provider-<id>), settings.get/models.list, and the "Model"
 // section's current-model + installed-list rendering (lot F3 split of
 // options.js). Owns the shared connection/model state that
 // model-services.js and provider-tests.js only ever read.
@@ -22,9 +22,7 @@ import {
   renderServices,
   placeModelField,
   renderAddService,
-  renderSearch,
   setProvider,
-  setupSearch,
   renderCapLinks,
   baseUrlField,
 } from "./model-services.js";
@@ -91,13 +89,10 @@ export function applyStatus(state) {
 // #setup arrived before the first `settings`: the side is not known yet;
 // opened on the local side now, re-aimed once `settings` arrives.
 let setupHashPending = false;
-let searchHashPending = false;
 
 export function setupOpenOnHash() {
   const openIfAsked = () => {
     if (location.hash === "#setup") openSetup();
-    // The panel's search-not-configured remedy (lot C3).
-    else if (location.hash === "#search") openSearch();
     // The panel's slow-answer tip (plan-ollama-rapide-07-10.md, point 6).
     else if (location.hash === "#setup-ollama-speedup") {
       tabChosen = true;
@@ -124,16 +119,6 @@ function openSetup() {
   els.addService.open = true;
   els.addService.scrollIntoView?.({ block: "start" });
   els.addService.querySelector("summary")?.focus({ preventScroll: true });
-}
-
-/** options.html#search: the "Online" tab, scrolled to this block. */
-function openSearch() {
-  tabChosen = true;
-  searchHashPending = !lastSettings;
-  selectTab("online");
-  els.searchBlock.scrollIntoView?.({ block: "start" });
-  const radio = els.searchRadios.find((input) => input.checked) ?? els.searchRadios[0];
-  radio?.focus({ preventScroll: true });
 }
 
 // Deep link from the panel's error banner (amendement 2026-10-02,
@@ -336,7 +321,6 @@ function renderModelSection({ fromModels = false } = {}) {
   lastServicesSignature = signature;
   placeModelField(settings);
   renderAddService(settings);
-  renderSearch(settings);
   if (!settings) return;
   if (!tabChosen) {
     tabChosen = true;
@@ -346,7 +330,6 @@ function renderModelSection({ fromModels = false } = {}) {
   // or more, it stays folded under the list.
   if (!addServiceHeld) els.addService.open = onlineServices(settings).length === 0;
   if (setupHashPending && location.hash === "#setup") openSetup();
-  if (searchHashPending && location.hash === "#search") openSearch();
   applyProviderHash();
 }
 
@@ -464,7 +447,7 @@ export function handleBrokerMessage(reply) {
   if (reply?.type === "settings.test-result") applyTestResult(reply);
 }
 
-/** "Model" tab/services/search wiring, moved here verbatim from
+/** "Model" tab/services wiring, moved here verbatim from
  * options.js's init(). */
 export function wireModelSettings() {
   setupTabs();
@@ -480,6 +463,5 @@ export function wireModelSettings() {
   els.modelSave.addEventListener("click", () => setProvider(undefined, els.modelInput.value.trim()));
   els.otherAddressBody.append(baseUrlField.element);
   renderCapLinks();
-  setupSearch();
   setupOpenOnHash();
 }

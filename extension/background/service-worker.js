@@ -408,7 +408,7 @@ function broadcast(message) {
 }
 
 // Lot 0 / A2 (plan-montrer-voir-chercher-08-10.md §2 + §3A) — hello-ok gains
-// an optional `features` list (e.g. ["elements", "vision", "docsearch"]);
+// an optional `features` list (e.g. ["elements", "vision"]);
 // an old broker never sets it. Captured once per handshake (below) and
 // relayed on the SAME "coati:status" broadcast the panel already listens to
 // for connection state — no new message type. Cleared on every disconnect:

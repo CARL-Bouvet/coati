@@ -1,10 +1,9 @@
 // Coati options page — online services list, key management, "Add a
-// service", model name field, and "Search the docs" (lot C3)
-// (lot F3 split of options.js).
+// service", model name field.
 
 import { t } from "../lib/i18n-page.js";
 import { createKeyInput } from "../lib/key-input.js";
-import { ONLINE_PROVIDERS, SEARCH_PROVIDERS } from "../lib/setup-data.js";
+import { ONLINE_PROVIDERS } from "../lib/setup-data.js";
 import { MODEL_PROVIDER_PRESETS, isAllowedBaseUrl } from "../lib/model-provider-presets.js";
 import { sameModel } from "../lib/model-list.js";
 import { els } from "./dom-refs.js";
@@ -23,75 +22,6 @@ import {
   keyInputs,
   openServiceDetails,
 } from "./model-core.js";
-
-// --- "Search the docs" (lot C3) ----------------------------------------------
-//
-// The search service (Brave Search first, or Tavily) and its key, kept by the
-// local program: the key goes once through lib/key-input.js (kind "search")
-// and only `settings.search.configured` ever comes back. "Check" is on
-// demand: it spends one request of the free quota.
-
-let selectedSearch = null;
-
-export function setupSearch() {
-  for (const radio of els.searchRadios) {
-    radio.addEventListener("change", () => {
-      if (!radio.checked) return;
-      selectedSearch = radio.value;
-      if (status === "connected") sendClientMessage({ type: "settings.set", id: newId(), searchProvider: radio.value });
-      renderSearch(status === "connected" ? lastSettings : null);
-    });
-  }
-  els.searchTest.addEventListener("click", () => searchKeyInputFor(selectedSearch ?? "brave").verify());
-
-  const brave = SEARCH_PROVIDERS.find((service) => service.id === "brave");
-  const steps = el("ol", "setup-os-list search-guide-steps");
-  const braveStep = el("li", null, t("setup_search_brave"));
-  if (brave?.keysUrl) {
-    const link = el("a", "link", t("setup_search_brave_link"));
-    link.href = brave.keysUrl;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    braveStep.append(" ", link);
-  }
-  steps.append(braveStep, el("li", null, t("setup_search_tavily")));
-  els.searchGuideBody.append(el("p", "setup-text", t("setup_search_intro")), steps, el("p", "setup-text", t("setup_search_paste")));
-  renderSearch(null);
-}
-
-function searchKeyInputFor(providerId) {
-  const cacheKey = `search:${providerId}`;
-  let keyInput = keyInputs.get(cacheKey);
-  if (!keyInput) {
-    const service = SEARCH_PROVIDERS.find((entry) => entry.id === providerId);
-    keyInput = createKeyInput({
-      provider: providerId,
-      kind: "search",
-      send: sendClientMessage,
-      newId,
-      placeholder: t("options_search_placeholder", [service?.name ?? providerId]),
-    });
-    keyInput.setConnected(status === "connected");
-    keyInputs.set(cacheKey, keyInput);
-  }
-  return keyInput;
-}
-
-export function renderSearch(settings) {
-  const search = settings?.search ?? null;
-  // The service the local program uses wins until the user picks another.
-  if (search?.provider && (selectedSearch === null || !settings)) selectedSearch = search.provider;
-  const chosen = selectedSearch ?? "brave";
-  for (const radio of els.searchRadios) {
-    radio.checked = radio.value === chosen;
-    radio.disabled = !settings;
-  }
-  const keyInput = searchKeyInputFor(chosen);
-  const configured = Boolean(search && search.provider === chosen && search.configured);
-  keyInput.update({ configured });
-  if (keyInput.element.parentNode !== els.searchKeySlot) els.searchKeySlot.replaceChildren(keyInput.element);
-  els.searchTest.disabled = !(settings && configured);
-}
 
 // --- Tab "Online": configured services (zone Z2d) ------------------------
 
