@@ -165,6 +165,14 @@ describe("model-list helpers", () => {
     expect(shortModelName(undefined)).toBe("");
   });
 
+  test("shortModelName shows Claude ids as family and version", () => {
+    expect(shortModelName("claude-sonnet-5-5")).toBe("Sonnet 5.5");
+    expect(shortModelName("claude-haiku-4-5-20251001")).toBe("Haiku 4.5");
+    expect(shortModelName("claude-fable-5")).toBe("Fable 5");
+    expect(shortModelName("anthropic/claude-opus-4-1")).toBe("Opus 4.1");
+    expect(shortModelName("claude-3-5-sonnet-20241022")).toBe("claude-3-5-sonnet-20241022");
+  });
+
   test("sizeInGb rounds to one decimal, null when unknown", () => {
     expect(sizeInGb(2_600_000_000)).toBe(2.6);
     expect(sizeInGb(2_049_999_999)).toBe(2);

@@ -11,7 +11,8 @@
 //   3. claude-api and loaded module providers — if configured: their own
 //      listModels() when they have one (nothing when it fails), else the
 //      remembered model or defaultModel. A current model absent from that
-//      list is replaced by the provider's default in `current`.
+//      list is replaced by the model it names ("sonnet") or else the
+//      provider's default in `current`.
 // `host: null` until lot 4 fills it.
 
 import { DEFAULT_CONFIG, DEFAULT_OLLAMA_URL, resolveApiKey, type ProviderId, type CoatiConfig } from "../config.ts";
@@ -127,7 +128,9 @@ export async function buildModelsPayload(config: CoatiConfig): Promise<{
       for (const model of listed) entries.push({ provider: p.id, model, local: false, ...vision });
       sources.push({ provider: p.id, state: "ok" });
       if (p.id === currentProvider && (!config.model || !listed.includes(config.model))) {
-        currentModel = p.defaultModel && listed.includes(p.defaultModel) ? p.defaultModel : listed[0];
+        // An alias the list spells out in full ("sonnet" -> "claude-sonnet-5-5") keeps its choice.
+        const alias = (m?: string) => (m ? listed.find((id) => id.split("-").includes(m)) : undefined);
+        currentModel = alias(config.model) ?? (p.defaultModel && listed.includes(p.defaultModel) ? p.defaultModel : alias(p.defaultModel) ?? listed[0]);
       }
       continue;
     }

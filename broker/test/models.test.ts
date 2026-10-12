@@ -349,6 +349,18 @@ describe("models.list — claude-api offers only what the API returns", () => {
     ws.close();
   });
 
+  test("a remembered alias keeps its choice once the list spells it out", async () => {
+    __setOllamaFetch(makeFakeOllamaFetch({ tags: [] }));
+    __setClaudeApiFetch(fakeClaudeModelsFetch(200, ["claude-haiku-5-5", "claude-sonnet-5-5"]));
+    const server = boot({ provider: "claude-api", model: "sonnet" });
+    const ws = await connectAndAuth(server);
+    ws.send(JSON.stringify({ type: "settings.set", id: "fa1", provider: "claude-api", apiKey: "sk-ant-good" }));
+    await nextMessage(ws);
+    ws.send(JSON.stringify({ type: "models.list", id: "fa2" }));
+    expect(((await nextMessage(ws)) as ModelsMessage).current.model).toBe("claude-sonnet-5-5");
+    ws.close();
+  });
+
   test("a failing key offers no claude-api entry", async () => {
     __setOllamaFetch(makeFakeOllamaFetch({ tags: [] }));
     __setClaudeApiFetch(fakeClaudeModelsFetch(401));

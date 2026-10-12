@@ -21,12 +21,15 @@ export function sameModel(a, b) {
 }
 
 /** Name shown to a human: no ":latest", no "vendor/" prefix (OpenRouter-style
- * ids). The full id stays available as a tooltip. */
+ * ids), Claude ids as family and version ("claude-sonnet-5-5" -> "Sonnet 5.5").
+ * The full id stays available as a tooltip. */
 export function shortModelName(model) {
   if (typeof model !== "string" || !model) return "";
   let name = model.endsWith(":latest") ? model.slice(0, -":latest".length) : model;
   const slash = name.lastIndexOf("/");
   if (slash !== -1 && slash < name.length - 1) name = name.slice(slash + 1);
+  const claude = name.match(/^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?$/);
+  if (claude) return `${claude[1][0].toUpperCase()}${claude[1].slice(1)} ${claude[2]}${claude[3] ? `.${claude[3]}` : ""}`;
   return name;
 }
 
