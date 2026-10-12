@@ -44,15 +44,14 @@ function collectUntilClose(ws: WebSocket): Promise<{ messages: ServerMessage[]; 
 }
 
 describe("unauthorized error emission on bad handshake", () => {
-  test("wrong Origin: emits error(unauthorized) then closes 4401", async () => {
+  test("wrong Origin: refused before the upgrade, no WebSocket message at all", async () => {
     const { server } = boot();
     const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
       headers: { Origin: "chrome-extension://wrong-id-wrong-id-wrong-id-wro" },
     } as any);
     const { messages, code } = await collectUntilClose(ws);
-    expect(code).toBe(4401);
-    expect(messages).toHaveLength(1);
-    expect(messages[0]).toMatchObject({ type: "error", code: "unauthorized" });
+    expect(code).not.toBe(4401);
+    expect(messages).toHaveLength(0);
   });
 
   // A wrong `auth` proof: 4401 generic failure — docs/PROTOCOL.md

@@ -95,7 +95,7 @@ export interface ConnData {
 
 // A local process on the machine (not the intended extension) can open a
 // WebSocket and probe the handshake. Distinct client-visible messages for
-// "wrong Origin" / "wrong secret" / "no hello in time" would let it tell
+// "wrong secret" / "no hello in time" would let it tell
 // those apart — an oracle. Every failure gets this one generic message on the
 // wire; the real reason goes to the broker's own stderr only.
 const HANDSHAKE_FAILURE_MESSAGE = "unauthorized";
@@ -106,16 +106,6 @@ function sendUnauthorizedAndClose(ws: {
 }): void {
   send(ws, { type: "error", id: "hello", code: "unauthorized", message: HANDSHAKE_FAILURE_MESSAGE });
   ws.close(4401, HANDSHAKE_FAILURE_MESSAGE);
-}
-
-/** Origin check failure — `reject stage=origin` (docs/PROTOCOL.md
- * "Journalisation"). */
-export function rejectOrigin(
-  ws: { close(code: number, reason: string): unknown; send(data: string): unknown },
-  origin: string | null | undefined,
-): void {
-  console.error(`coati-broker: reject stage=origin origin=${sanitizeLogValue(origin)}`);
-  sendUnauthorizedAndClose(ws);
 }
 
 /** Anything past the origin check (bad/missing hello, wrong secret, timeout)

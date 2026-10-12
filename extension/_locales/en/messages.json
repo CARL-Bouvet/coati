@@ -1832,6 +1832,21 @@
   "panel_search_allow": {
     "message": "Allow all sites"
   },
+  "panel_search_confirm": {
+    "message": "The model wants to search “$P1$”",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "weather"
+      }
+    }
+  },
+  "panel_search_confirm_allow": {
+    "message": "Allow"
+  },
+  "panel_search_confirm_refuse": {
+    "message": "Refuse"
+  },
   "panel_sources_title": {
     "message": "Sources"
   },

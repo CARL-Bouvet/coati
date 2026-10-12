@@ -46,7 +46,6 @@ import { checkUnitDriftAtStartup } from "./logging.ts";
 import {
   isOriginAllowed,
   handleHandshakeMessage,
-  rejectOrigin,
   rejectHandshake,
   type ConnData,
 } from "./handshake.ts";
@@ -275,6 +274,16 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       // not the requested one — matters for tests (`port: 0`, OS-assigned) —
       // see docs/PROTOCOL.md: "All checks that reference the port
       // use the port actually listened on."
+      //
+      // Origin comes first and costs nothing: a missing or foreign Origin never
+      // reaches the upgrade, so it can't hold an unauthenticated slot, and the
+      // /proc/net/tcp reads below are skipped.
+      const origin = req.headers.get("origin");
+      if (!isOriginAllowed(origin, config.allowedExtensionIds)) {
+        console.error(`coati-broker: reject stage=origin origin=${sanitizeLogValue(origin)}`);
+        return new Response("forbidden", { status: 403, headers: FORBIDDEN_RESPONSE_HEADERS });
+      }
+
       const admission = admitRequest(req, server, server.port);
       if (!admission.ok) {
         logAdmissionRejection(admission);
@@ -290,7 +299,6 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
         return new Response("not found", { status: 404 });
       }
 
-      const origin = req.headers.get("origin");
       const upgraded = server.upgrade(req, {
         data: {
           origin,
@@ -323,8 +331,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       // lives (docs/PROTOCOL.md) — this is only the hard backstop.
       maxPayloadLength: MAX_IMAGE_MESSAGE_BYTES + 4096,
       open(ws) {
-        // docs/PROTOCOL.md: checked FIRST,
-        // before the origin step — a 17th unauthenticated connection is refused
+        // docs/PROTOCOL.md: a 17th unauthenticated connection is refused
         // immediately, before any message (not even the generic error frame).
         if (unauthCount >= MAX_UNAUTH_CONNECTIONS) {
           logUnauthCapRejection();
@@ -340,11 +347,6 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
         ws.data.helloTimer = setTimeout(() => {
           rejectHandshake(ws, ws.data.origin, "handshake timeout: no auth within 3s");
         }, 3000);
-
-        if (!isOriginAllowed(ws.data.origin, config.allowedExtensionIds)) {
-          rejectOrigin(ws, ws.data.origin);
-          return;
-        }
       },
       message(ws, raw) {
         // Final security review: the raw frame's byte length is checked

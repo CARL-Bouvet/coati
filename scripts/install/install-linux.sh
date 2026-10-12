@@ -101,6 +101,11 @@ else
   SYSTEMD_DIR="$PREFIX/.config/systemd/user"
   UNIT_DEST="$SYSTEMD_DIR/coati-broker.service"
   ensure_dir "$DRY_RUN" "$SYSTEMD_DIR" 0755
+  # The unit's ReadWritePaths target these; create them private up front.
+  for d in "$PREFIX/.config/coati" "$PREFIX/.local/share/coati"; do
+    ensure_dir "$DRY_RUN" "$d" 0700
+    if [ "$DRY_RUN" != "1" ]; then chmod 700 "$d"; fi
+  done
   RENDERED="$(replace_literal @@BINARY_PATH@@ "$(systemd_escape "$BIN_DEST")" < "$UNIT_SRC")"
   write_file "$DRY_RUN" "$UNIT_DEST" "$RENDERED" 0644
   say "$DRY_RUN" "systemd unit written: $UNIT_DEST"

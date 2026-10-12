@@ -15,7 +15,7 @@ import {
 } from "../src/protocol.ts";
 import { buildPrompt } from "../src/model.ts";
 import { PageMarkerDetector, MARKER_TEXT, MARKER_DEV } from "../src/model/page-marker.ts";
-import { devContentCharBudget, resolveActiveContextTokens, searchCharBudget, PAGE_REQUEST_TIMEOUT_MS } from "../src/handlers/chat.ts";
+import { devContentCharBudget, resolveActiveContextTokens, searchCharBudget, PAGE_REQUEST_TIMEOUT_MS, SEARCH_REQUEST_TIMEOUT_MS } from "../src/handlers/chat.ts";
 import { startServer, MAX_DEV_CONTEXT_CHARS } from "../src/server.ts";
 import { __setProvidersForTests, __resetProvidersForTests } from "../src/providers/registry.ts";
 import { __setFetchImplForTests, __resetFetchImplForTests } from "../src/providers/ollama.ts";
@@ -437,6 +437,9 @@ describe("page on demand — re-run flow with a fake provider", () => {
 describe("constants", () => {
   test("PAGE_REQUEST_TIMEOUT_MS is 120000", () => {
     expect(PAGE_REQUEST_TIMEOUT_MS).toBe(120_000);
+  });
+  test("a search.request waits longer than a page.request (the user may be deciding)", () => {
+    expect(SEARCH_REQUEST_TIMEOUT_MS).toBeGreaterThan(PAGE_REQUEST_TIMEOUT_MS);
   });
 });
 
@@ -1000,6 +1003,20 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     const done = await waitFor(messages, (m) => m.type === "done");
     expect((done as any).search).toBeUndefined();
     expect(prompts[1]).toContain("could not be done (no-access)");
+    ws.close();
+  });
+
+  test("search.decline blocked (refused by the user) -> note telling the model not to ask again", async () => {
+    const prompts: string[] = [];
+    const server = boot(scriptedProvider("fixture-search-refused", [["[[SEARCH: q]]"], ["answering without it"]], prompts));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "s5", text: "hi", abilities: ["search"] }));
+    await waitFor(messages, (m) => m.type === "search.request");
+    ws.send(JSON.stringify({ type: "search.decline", id: "sd5", target: "s5", reason: "blocked" }));
+    const done = await waitFor(messages, (m) => m.type === "done");
+    expect((done as any).search).toBeUndefined();
+    expect(prompts[1]).toContain("The user refused this web search");
     ws.close();
   });
 

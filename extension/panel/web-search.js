@@ -7,11 +7,13 @@
 // the answer is `search.decline` / `open.decline` "no-access".
 import { api } from "../lib/browser-compat.js";
 import { checkOpen } from "../lib/open-guard.js";
+import { openedPageReadable } from "../lib/link-safety.js";
 import { collectSearchResults, sourcesFromSearch } from "../lib/search-results.js";
 import { readStructuredData } from "../lib/structured-data.js";
 import { panelState, newId } from "./panel-state.js";
 import { renderMessage } from "./message-render.js";
-import { sendClientMessage } from "./request-watch.js";
+import { pageReadIn } from "./history.js";
+import { sendClientMessage, armRequestDeadline } from "./request-watch.js";
 import { extractFromTab } from "./page-extract.js";
 import { currentPageUrl } from "./page-detect.js";
 import { ALL_SITES_ORIGINS } from "./read-button.js";
@@ -20,6 +22,8 @@ const SEARCH_MAX_RESULTS = 8;
 const SEARCH_MAX_PER_QUESTION = 4;
 const OPEN_PAGE_MAX_CHARS = 6000;
 const TAB_LOAD_TIMEOUT_MS = 15_000;
+// How long the card waits for the user; the broker waits longer (docs/PROTOCOL.md "Search").
+const SEARCH_CONFIRM_TIMEOUT_MS = 180_000;
 
 /** True when the browser can run a query in its default engine. */
 export function canSearch() {
@@ -84,7 +88,9 @@ async function readResults(query, slots) {
   return Array.isArray(found) ? found.map((r, i) => ({ n: i + 1, ...r })) : [];
 }
 
-async function readPage(url, slots) {
+/** Loads `url` in the reused tab and reads it, or returns null when the page
+ * the tab ended on (after redirects) fails `mayRead`. */
+async function readPage(url, slots, mayRead) {
   const existing = await liveTab(slots.pages);
   let tab = existing;
   if (existing) {
@@ -96,12 +102,13 @@ async function readPage(url, slots) {
     await waitForLoad(tab.id, TAB_LOAD_TIMEOUT_MS, false);
   }
   slots.pages = tab.id;
+  if (!mayRead((await liveTab(tab.id))?.url)) return null;
   const page = await extractFromTab(tab.id);
   const injected = await api.scripting.executeScript({ target: { tabId: tab.id }, func: readStructuredData }).catch(() => undefined);
   const data = injected?.[0]?.result;
   const text = `${typeof data === "string" && data ? `${data}\n\n` : ""}${page.text || ""}`.slice(0, OPEN_PAGE_MAX_CHARS);
-  const final = (await liveTab(tab.id))?.url;
-  return { title: page.title || "", text, finalUrl: /^https?:\/\//i.test(final || "") ? final : url };
+  const finalUrl = (await liveTab(tab.id))?.url;
+  return mayRead(finalUrl) ? { title: page.title || "", text, finalUrl } : null;
 }
 
 async function decline(type, id, reason) {
@@ -125,6 +132,41 @@ async function begin(message, retryQuery) {
   return { msg, allSites };
 }
 
+// Searches waiting for the user's answer, by message id (never persisted).
+const pendingConfirms = new Map();
+
+/** The query a card is asking about for this message, or undefined. */
+export function pendingSearchQuery(id) {
+  return pendingConfirms.get(id)?.query;
+}
+
+/** The card's buttons: resolves the wait of `confirmSearch`. */
+export function answerSearchConfirm(id, allowed) {
+  pendingConfirms.get(id)?.resolve(allowed);
+}
+
+/** Once a page was read in this conversation, the model's page-derived words
+ * could carry its content out in a query: the user decides each search. */
+async function confirmSearch(msg, query) {
+  armRequestDeadline(msg.id, SEARCH_CONFIRM_TIMEOUT_MS + 70_000);
+  const answer = new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), SEARCH_CONFIRM_TIMEOUT_MS);
+    pendingConfirms.set(msg.id, {
+      query,
+      resolve: (allowed) => {
+        clearTimeout(timer);
+        pendingConfirms.delete(msg.id);
+        resolve(allowed);
+      },
+    });
+  });
+  renderMessage(msg);
+  const allowed = await answer;
+  renderMessage(msg);
+  armRequestDeadline(msg.id, 70_000);
+  return allowed;
+}
+
 function setStatus(msg, status) {
   if (!msg) return;
   msg.pageReading = status;
@@ -137,6 +179,15 @@ export async function onSearchRequest(message) {
   if (!allSites) {
     await decline("search.decline", id, "no-access");
     return;
+  }
+
+  if (msg?.approvedSearch !== query && pageReadIn(panelState.conversation)) {
+    const allowed = msg ? await confirmSearch(msg, query) : false;
+    if (panelState.activeRequestId !== id) return;
+    if (!allowed) {
+      await decline("search.decline", id, "blocked");
+      return;
+    }
   }
 
   if (msg) {
@@ -184,14 +235,14 @@ export async function onOpenRequest(message) {
     const pages = [];
     for (const ref of allowed) {
       try {
-        const page = await readPage(ref.url, slots);
-        const url = check(page.finalUrl).verdict === "blocked" ? ref.url : page.finalUrl;
-        if (page.text) pages.push({ n: ref.n, url, title: page.title || ref.url, text: page.text });
+        const page = await readPage(ref.url, slots, (final) => openedPageReadable(check, ref.url, final));
+        if (page?.text) pages.push({ n: ref.n, url: page.finalUrl, title: page.title || ref.url, text: page.text });
       } catch {
         // an unreadable page is simply not read
       }
     }
     if (msg) {
+      if (pages.length > 0) msg.pageRead = true;
       msg.sources = sourcesFromSearch(msg.sources ?? [], [], pages, check);
       msg.openedPages = [...(msg.openedPages ?? []), ...pages.map((p) => ({ n: p.n, title: p.title, url: p.url }))];
     }

@@ -123,47 +123,51 @@ foreach ($entry in $RegistryKeys) {
     Write-Host "Registry: $($entry.Key) -> $($entry.Manifest)"
 }
 
-# Data dir ACL - docs/PROTOCOL.md, "ACL explicite". The broker's
-# data dir (broker-key.json, pairing.txt, etc.) is under the profile
-# (%USERPROFILE%\.local\share\coati) and already inherits a default ACL that
-# lets in only this user, SYSTEM and Administrators. In defense in depth, the
-# installer additionally strips inheritance and grants full control to only
-# those three principals (by SID - locale independent), then reads the ACL
-# back to confirm no other principal remains. The broker itself never touches
-# this ACL (it only creates the dir if missing). Skipped under -DryRun:
-# icacls performs a real ACL change, never simulated.
-$DataDir = Join-Path $env:USERPROFILE ".local\share\coati"
+# Private folder ACL - docs/PROTOCOL.md, "ACL explicite". The broker's data dir
+# (broker-key.json, pairing.txt, etc.) and config dir are under the profile
+# (%USERPROFILE%\.local\share\coati, %USERPROFILE%\.config\coati) and already
+# inherit a default ACL that lets in only this user, SYSTEM and Administrators.
+# In defense in depth, the installer additionally strips inheritance and grants
+# full control to only those three principals (by SID - locale independent),
+# then reads the ACL back to confirm no other principal remains. The broker
+# itself never touches these ACLs (it only creates the dirs if missing).
+# Skipped under -DryRun: icacls performs a real ACL change, never simulated.
 $CurrentUserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
 $SystemSid = "S-1-5-18"
 $AdministratorsSid = "S-1-5-32-544"
 
-if ($DryRun) {
-    Write-Host "[dry-run] mkdir $DataDir"
-    Write-Host "[dry-run] icacls `"$DataDir`" /inheritance:r /grant:r *${CurrentUserSid}:(OI)(CI)F /grant:r *${SystemSid}:(OI)(CI)F /grant:r *${AdministratorsSid}:(OI)(CI)F"
-} else {
-    Ensure-Dir $DataDir
+function Set-PrivateDirAcl([string]$Dir) {
+    if ($DryRun) {
+        Write-Host "[dry-run] mkdir $Dir"
+        Write-Host "[dry-run] icacls `"$Dir`" /inheritance:r /grant:r *${CurrentUserSid}:(OI)(CI)F /grant:r *${SystemSid}:(OI)(CI)F /grant:r *${AdministratorsSid}:(OI)(CI)F"
+        return
+    }
+    Ensure-Dir $Dir
 
-    & icacls.exe $DataDir /inheritance:r `
+    & icacls.exe $Dir /inheritance:r `
         /grant:r "*${CurrentUserSid}:(OI)(CI)F" `
         /grant:r "*${SystemSid}:(OI)(CI)F" `
         /grant:r "*${AdministratorsSid}:(OI)(CI)F" | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "icacls failed (exit code $LASTEXITCODE) on $DataDir"
+        Write-Error "icacls failed (exit code $LASTEXITCODE) on $Dir"
         exit 1
     }
 
     $AllowedSids = @($CurrentUserSid, $SystemSid, $AdministratorsSid)
-    $Acl = Get-Acl -LiteralPath $DataDir
+    $Acl = Get-Acl -LiteralPath $Dir
     $ActualSids = $Acl.Access | ForEach-Object {
         $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value
     } | Sort-Object -Unique
     $Unexpected = $ActualSids | Where-Object { $AllowedSids -notcontains $_ }
     if ($Unexpected) {
-        Write-Error "ACL of $DataDir contains unexpected entries after icacls: $($Unexpected -join ', ')"
+        Write-Error "ACL of $Dir contains unexpected entries after icacls: $($Unexpected -join ', ')"
         exit 1
     }
-    Write-Host "ACL verified: $DataDir -> $($ActualSids -join ', ')"
+    Write-Host "ACL verified: $Dir -> $($ActualSids -join ', ')"
 }
+
+Set-PrivateDirAcl (Join-Path $env:USERPROFILE ".local\share\coati")
+Set-PrivateDirAcl (Join-Path $env:USERPROFILE ".config\coati")
 
 if ($NoService) {
     Write-Step "scheduled task skipped (-NoService)"

@@ -299,6 +299,9 @@ export const SEARCH_BUDGET_NOTE =
 
 // Spliced into the re-run prompt when a search could not run.
 export function searchDeclinedNote(reason: string): string {
+  if (reason === "blocked") {
+    return "The user refused this web search. Do not search again for it: answer without it if you can, or say plainly that you need a search and the user declined.";
+  }
   return `A web search for this request could not be done (${reason}). Answer without it if you can, or say plainly that you need a search and cannot answer without it — never pretend to have searched.`;
 }
 

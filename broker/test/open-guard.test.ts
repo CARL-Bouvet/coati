@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 // @ts-ignore plain browser JS
 import { checkOpen, isLocalHostname } from "../../extension/lib/open-guard.js";
 // @ts-ignore plain browser JS
-import { linkContext, linkVerdict } from "../../extension/lib/link-safety.js";
+import { linkContext, linkVerdict, openedPageReadable } from "../../extension/lib/link-safety.js";
+// @ts-ignore plain browser JS
+import { pageReadIn, readUntrustedIn } from "../../extension/panel/history.js";
 
 describe("linkVerdict (docs/DECISIONS.md T61)", () => {
   const sources = ["https://github.com/comfyanonymous/ComfyUI/", "https://www.google.com/search"];
@@ -28,10 +30,18 @@ describe("linkVerdict (docs/DECISIONS.md T61)", () => {
     }
   });
 
-  test("a source link is clickable; fragment and trailing slash do not matter", () => {
+  test("a source link is clickable; a trailing slash does not matter", () => {
     expect(v("https://github.com/comfyanonymous/ComfyUI")).toEqual({ verdict: "clickable", host: "github.com" });
-    expect(v("https://github.com/comfyanonymous/ComfyUI/#readme").verdict).toBe("clickable");
-    expect(v("https://example.org/page#top").verdict).toBe("clickable");
+    expect(v("https://example.org/page")).toEqual({ verdict: "clickable", host: "example.org" });
+  });
+
+  test("a fragment the source does not carry makes the link a non-source", () => {
+    expect(v("https://github.com/comfyanonymous/ComfyUI/#readme")).toMatchObject({ verdict: "refused", reason: "not-in-sources" });
+    expect(v("https://example.org/page#c2VjcmV0")).toMatchObject({ verdict: "refused", reason: "not-in-sources" });
+    expect(v("https://example.org/page#c2VjcmV0", nothingRead).verdict).toBe("memory");
+    const withFragment = linkContext(["https://docs.example.net/guide#install"], null, true);
+    expect(v("https://docs.example.net/guide#install", withFragment).verdict).toBe("clickable");
+    expect(v("https://docs.example.net/guide#other", withFragment).verdict).toBe("refused");
   });
 
   test("absent from the sources: refused after a read, from memory otherwise", () => {
@@ -142,5 +152,47 @@ describe("isLocalHostname", () => {
     expect(isLocalHostname("x.home.arpa")).toBe(true);
     expect(isLocalHostname("notlocal.com")).toBe(false);
     expect(isLocalHostname("locally.example")).toBe(false);
+  });
+});
+
+describe("openedPageReadable: final address of an opened result", () => {
+  const guard = (url: string) => checkOpen("https://example.com/page", url, "text");
+  const readable = (final: unknown, result = "https://shop.example.org/a") => openedPageReadable(guard, result, final);
+
+  test("same site stays readable: www, http to https, other path", () => {
+    expect(readable("https://shop.example.org/b?x=1#y")).toBe(true);
+    expect(readable("https://www.example.org/a")).toBe(true);
+    expect(readable("https://shop.example.org/a", "http://shop.example.org/a")).toBe(true);
+    expect(readable("https://www.bbc.co.uk/n", "https://bbc.co.uk/n")).toBe(true);
+  });
+
+  test("a redirect to another site, a private address or a non-web page is not read", () => {
+    expect(readable("https://attacker.example/x")).toBe(false);
+    expect(readable("http://127.0.0.1:11434/api/tags")).toBe(false);
+    expect(readable("http://192.168.1.1/")).toBe(false);
+    expect(readable("chrome-error://chromewebdata/")).toBe(false);
+    expect(readable("about:blank")).toBe(false);
+    expect(readable(undefined)).toBe(false);
+  });
+
+  test("a local result address stays read-blocked even in dev: the sites differ", () => {
+    const devGuard = (url: string) => checkOpen("https://example.com/", url, "dev");
+    expect(openedPageReadable(devGuard, "https://example.org/a", "http://127.0.0.1/")).toBe(false);
+  });
+});
+
+describe("conversation flags", () => {
+  test("pageReadIn: only a real read counts, earlier turns included", () => {
+    expect(pageReadIn([])).toBe(false);
+    expect(pageReadIn([{ pageOnDemand: true }, { searchMention: {} }, { sources: [{ n: 1 }] }])).toBe(false);
+    expect(pageReadIn([{ readsPage: true }, { text: "later" }])).toBe(true);
+    expect(pageReadIn([{ pageRead: true }])).toBe(true);
+  });
+
+  test("readUntrustedIn: the metadata-only turn counts as untrusted", () => {
+    expect(readUntrustedIn([{ role: "assistant", pageOnDemand: true }])).toBe(true);
+    expect(readUntrustedIn([{ role: "assistant", pageOnDemand: false }])).toBe(false);
+    const ctx = linkContext([], "https://example.org/", readUntrustedIn([{ pageOnDemand: true }]));
+    expect(linkVerdict("https://evil.example/fix", "fix", ctx)).toMatchObject({ verdict: "refused", reason: "not-in-sources" });
   });
 });

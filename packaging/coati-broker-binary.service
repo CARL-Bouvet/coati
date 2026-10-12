@@ -21,7 +21,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 # Config and data dirs the broker reads/writes at runtime
-ReadWritePaths=%h/.config/coati %h/.local/share/coati
+ReadWritePaths=-%h/.config/coati -%h/.local/share/coati
 
 [Install]
 WantedBy=default.target

@@ -141,6 +141,7 @@ export async function sendChatMessage(text, context, extraction, searchQuery) {
     question: text,
     streaming: true,
     readsPage: !pageOnDemand && !!context,
+    approvedSearch: searchQuery,
     pageOnDemand,
     elementsSnapshot: buildElementsSnapshot(context),
   });

@@ -17,7 +17,7 @@ import { buildProgress, buildSlowTip } from "./model-advice.js";
 import { isNearBottom } from "./scroll.js";
 import { parseTimestamps } from "./timestamps.js";
 import { parseElementRefs, resolveElementClick } from "./element-refs.js";
-import { buildHistoryForWire, historyAlertState } from "./history.js";
+import { buildHistoryForWire, historyAlertState, readUntrustedIn } from "./history.js";
 import { extractForChat, sendChatMessage } from "./composer-send.js";
 import { summarize, reportExtractionError } from "./page-extract.js";
 import { pendingRetries, lastHistoryKept } from "./chat-stream.js";
@@ -28,6 +28,7 @@ import { isClickableSource } from "../lib/search-results.js";
 import { linkContext } from "../lib/link-safety.js";
 import { currentPageUrl } from "./page-detect.js";
 import { ALL_SITES_ORIGINS } from "./read-button.js";
+import { pendingSearchQuery, answerSearchConfirm } from "./web-search.js";
 import { refreshAllSitesGranted, refreshReadButton } from "./first-run-wiring.js";
 import {
   buildQuotaRecoveryBlock,
@@ -133,6 +134,22 @@ function buildSearchAccessBlock(msg) {
     await refreshReadButton();
   });
   wrap.appendChild(button);
+  return wrap;
+}
+
+/** The model's search waits for the user: the full query as text, then Allow / Refuse. */
+function buildSearchConfirmBlock(msg, query) {
+  const wrap = document.createElement("div");
+  wrap.className = "search-access search-confirm";
+  appendLine(wrap, "search-status-line search-confirm-query", t("panel_search_confirm", [query]));
+  for (const [allowed, key] of [[true, "panel_search_confirm_allow"], [false, "panel_search_confirm_refuse"]]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = allowed ? "toolbar-button toolbar-button--primary" : "toolbar-button";
+    button.textContent = t(key);
+    button.addEventListener("click", () => answerSearchConfirm(msg.id, allowed));
+    wrap.appendChild(button);
+  }
   return wrap;
 }
 
@@ -250,14 +267,13 @@ export function wasNearBottom() {
 
 /** What an answer's links are checked against (docs/DECISIONS.md T61): the
  * sources found so far in the conversation, the current page, and whether this
- * answer or an earlier one read the page or searched. */
+ * answer or an earlier one read the page, searched, or sent the page's title
+ * and address (untrusted page data). */
 function answerLinks(msg) {
   const conversation = panelState.conversation;
   const idx = conversation.indexOf(msg);
   const upTo = [...conversation.slice(0, idx === -1 ? conversation.length : idx), msg];
-  const readUntrusted = upTo.some(
-    (m) => m.readsPage === true || m.readContent === true || !!m.pageReading || !!m.sources?.length || !!m.searchMention,
-  );
+  const readUntrusted = readUntrustedIn(upTo);
   const urls = upTo.flatMap((m) => (m.sources ?? []).map((s) => s.url));
   return { ctx: linkContext(urls, currentPageUrl, readUntrusted), t };
 }
@@ -356,6 +372,8 @@ export function renderMessage(msg, { append = false } = {}) {
     // docs/PROTOCOL.md "Page on demand", task brief point 5 — discreet, one
     // line, only on a finished metadata-path chat answer (buildPageMention(),
     // chat-stream.js's onDone, gates this to msg.pageOnDemand already).
+    const confirming = msg.streaming ? pendingSearchQuery(msg.id) : undefined;
+    if (confirming !== undefined) node.appendChild(buildSearchConfirmBlock(msg, confirming));
     if (msg.pageMention && !msg.streaming) {
       const mention = document.createElement("p");
       mention.className = "search-status-line message-page-mention";

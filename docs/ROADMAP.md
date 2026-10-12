@@ -9,7 +9,8 @@ the generic page reader. One lot = one worker = one review.
 - Acts only when asked; other pages limited and counted (rules 10, 11).
 - No pay/send/delete/publish/sign-in action exists (rule 13).
 - Password fields skipped (rule 6, text level).
-- Model links never clickable — Markdown rendering shows links as text (rule 16, half).
+- Links in answers clickable only under the link rules; searches asked once a page was read need
+  the user's Allow (rule 16, T61, T62).
 - Page on demand: the model asks for the page (text or dev level), every answer says whether
   it read the page and how many tokens it used (rules 1, 2, 5, 8 — see `docs/PROTOCOL.md`).
 - Dev mode switch, confirmed once; sensitive-data warning before sending dev-level content to
@@ -36,6 +37,27 @@ DuckDuckGo; Firefox (`browser.search`) and other engines are in "Help wanted".
 click or type marker; the panel would check the element on the live page, refuse forbidden gestures
 (paying, sending, deleting, publishing, signing in), show the element highlighted, and act only on
 "Allow", one action at a time. Removed from v0.1.0 to be judged for intrusiveness first.
+
+## Security hardening
+
+Low-severity items, none blocking.
+
+- Search: an engine `!bang` in a model-written query can redirect the results tab; `[[eN]]` and
+  `<think>` tokens echoed from page text are not stripped; a question's cost and tabs (up to 4
+  searches, 6 pages, 2 tabs left open) have no user gate.
+- Pairing: the legacy secret is permanent and travels through the clipboard; the Firefox caller
+  check is weak (defense in depth); the extension clears its key on a 4401 received before
+  `hello`; a crash can leave a stale `broker-key.json`; secrets are not zeroized; origin and key
+  rejections differ in timing.
+- Broker: credentials in a URL reach the logs; `modules` paths are not validated; provider
+  responses are not size-capped; the openai-compat reachability error echoes `baseUrl`; `act.params`
+  is not validated broker-side.
+- Extension: the open guard misses single-label hosts and private TLDs; the optional `<all_urls>`
+  permission is unused; saved prompts have no cap; extraction loops have no element or time cap;
+  dev extraction keeps `contenteditable` drafts; a hostile page can close the connection at dev
+  level; history is plaintext in `storage.local` (30 days).
+- Packaging: systemd/launchd hardening and macOS log permissions; installers trust the checkout;
+  signed releases and build provenance.
 
 ## Risks
 

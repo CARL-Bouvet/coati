@@ -39,6 +39,7 @@ async function declinePage(target) {
  * stage: the broker has no token count to give us yet at this point. */
 function showReadingStatus(msg, chars) {
   if (!msg) return;
+  msg.pageRead = true;
   msg.pageReading = { kTokens: formatTokensK(estimateTokensFromChars(chars)) };
   renderMessage(msg);
 }

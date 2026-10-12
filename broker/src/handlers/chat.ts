@@ -391,6 +391,10 @@ export function handleStreamingRequest(
  * `page-unavailable` (docs/PROTOCOL.md "Page on demand"). */
 export const PAGE_REQUEST_TIMEOUT_MS = 120_000;
 
+/** Same wait for a `search.request`, long enough for the user to answer the
+ * panel's Allow / Refuse card (docs/PROTOCOL.md "Search"). */
+export const SEARCH_REQUEST_TIMEOUT_MS = 300_000;
+
 // Amendement 2026-10-09 (lot 7): fits dev-level content (already bounded to
 // MAX_DEV_CONTEXT_CHARS by the protocol) to the ACTIVE model's own context
 // window — "whatever models.ts/ollama.ts already know", i.e. Ollama's own
@@ -472,17 +476,18 @@ export interface PageOnDemandConnState {
 
 /** Resolves once an answer naming `id` as its `target` arrives (dispatch.ts
  * calls the resolver this registers), the wait times out
- * (PAGE_REQUEST_TIMEOUT_MS), or `signal` aborts (connection closed, or a
+ * (`timeoutMs`), or `signal` aborts (connection closed, or a
  * `cancel` for this id). Removes its own entry from `clientRequests` exactly
  * once, however it resolves — never leaves a stale resolver behind. */
 function awaitClientAnswer(
   connState: PageOnDemandConnState,
   id: string,
   signal: AbortSignal,
+  timeoutMs: number,
 ): Promise<ClientAnswer | "timeout" | "aborted"> {
   return new Promise((resolve) => {
     let settled = false;
-    const timer = setTimeout(() => finish("timeout"), PAGE_REQUEST_TIMEOUT_MS);
+    const timer = setTimeout(() => finish("timeout"), timeoutMs);
     function finish(result: ClientAnswer | "timeout" | "aborted"): void {
       if (settled) return;
       settled = true;
@@ -876,7 +881,12 @@ async function runChatPageOnDemandLoop(
 
     const waitController = new AbortController();
     active.set(message.id, waitController);
-    const answer = await awaitClientAnswer(connState, message.id, waitController.signal);
+    const answer = await awaitClientAnswer(
+      connState,
+      message.id,
+      waitController.signal,
+      marker.type === "search" ? SEARCH_REQUEST_TIMEOUT_MS : PAGE_REQUEST_TIMEOUT_MS,
+    );
     if (active.get(message.id) === waitController) active.delete(message.id);
 
     if (answer === "timeout") {

@@ -9,14 +9,14 @@
 // tested with fixtures; only the thin wrapper that actually reads /proc and
 // calls process.getuid() is impure (server.ts's admitConnection).
 
-/** Pure: true iff `hostHeader`, lower-cased, is exactly `127.0.0.1:<port>` or
- * `localhost:<port>`. Absent, empty, without a port, or any other host/port
+/** Pure: true iff `hostHeader`, lower-cased, is exactly `127.0.0.1:<port>`
+ * (the only host the extension's CSP pins). Absent, empty, without a port, or any other host/port
  * is refused — this is what stops DNS rebinding (a hostile page's request
  * carries `Host: attacker.tld:8787`, not `127.0.0.1:8787`). */
 export function isHostAllowed(hostHeader: string | null | undefined, port: number): boolean {
   if (!hostHeader) return false;
   const h = hostHeader.trim().toLowerCase();
-  return h === `127.0.0.1:${port}` || h === `localhost:${port}`;
+  return h === `127.0.0.1:${port}`;
 }
 
 function ipv4Bytes(ip: string): number[] | null {

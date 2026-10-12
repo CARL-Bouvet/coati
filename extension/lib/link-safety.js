@@ -41,11 +41,10 @@ function parse(href) {
   }
 }
 
-/** Comparable form of an address: no fragment, no trailing slash. Null when unparsable. */
+/** Comparable form of an address: fragment kept (a link may not add one), no trailing slash. Null when unparsable. */
 export function normalizeUrl(href) {
   const url = typeof href === "string" ? parse(href.trim()) : null;
   if (!url) return null;
-  url.hash = "";
   return url.href.endsWith("/") ? url.href.slice(0, -1) : url.href;
 }
 
@@ -64,6 +63,19 @@ export function registrableDomain(host) {
   const labels = host.replace(/\.$/, "").split(".");
   const lastTwo = labels.slice(-2).join(".");
   return TWO_LABEL_SUFFIXES.has(lastTwo) && labels.length > 2 ? labels.slice(-3).join(".") : lastTwo;
+}
+
+/**
+ * True when a page opened from the search result `resultUrl` may be read after
+ * the tab ended on `finalUrl`: an http(s) address the open guard lets through
+ * (`guard(url)` returns its verdict), on the result's own site. `www.` and
+ * http→https redirects stay on that site; a redirect to another site does not.
+ */
+export function openedPageReadable(guard, resultUrl, finalUrl) {
+  const from = parse(resultUrl);
+  const to = typeof finalUrl === "string" ? parse(finalUrl) : null;
+  if (!from || !to || (to.protocol !== "https:" && to.protocol !== "http:")) return false;
+  return guard(finalUrl).verdict !== "blocked" && registrableDomain(to.hostname) === registrableDomain(from.hostname);
 }
 
 function splitDomain(domain) {

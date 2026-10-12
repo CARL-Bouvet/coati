@@ -14,11 +14,13 @@ The broker builds the prompt, calls the configured model provider, and streams t
 - WebSocket, `ws://127.0.0.1:8787/ws`. Port 8787 is fixed in the broker (`config.ts`'s
   `FIXED_PORT`) and in the extension's CSP — not configurable.
 - Every HTTP/WebSocket request is checked, before any routing: the `Host` header must exactly
-  match `127.0.0.1:8787` (or `[::1]:8787`); on Linux, the connecting process's UID must equal the
-  broker's own (`/proc/net/tcp[6]` lookup) — not enforced on macOS/Windows.
+  match `127.0.0.1:8787` (`localhost` and `[::1]` are refused); on Linux, the connecting
+  process's UID must equal the broker's own (`/proc/net/tcp[6]` lookup) — not enforced on
+  macOS/Windows.
 - `Origin` must be `chrome-extension://<an allowed id>` or a well-formed
   `moz-extension://<uuid>` (any uuid — the handshake key is what actually authenticates, not the
-  origin).
+  origin). A missing or other `Origin` gets a plain HTTP 403 before the WebSocket upgrade and
+  before the peer-UID lookup; such a request never counts toward the connection cap below.
 - Up to `MAX_UNAUTH_CONNECTIONS` = 16 connections may be open and not yet authenticated at once;
   further ones are rejected and logged (rate-limited log line, one per 10 s window).
 
@@ -52,7 +54,7 @@ Mutual HMAC challenge-response. The key never crosses the wire; the broker prove
    Mismatch, malformed nonce/proof, wrong message order, or no `hello` within 3 s (armed at
    connection open, never reset) → the one generic failure below.
 
-Every handshake failure — bad `Origin`, wrong key, timeout — produces the exact same wire
+Every handshake failure — wrong key, malformed or out-of-order message, timeout — produces the exact same wire
 message, so a probing client can't tell them apart:
 ```json
 {"type":"error","id":"hello","code":"unauthorized","message":"unauthorized"}
@@ -74,7 +76,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `page.content` | `target` (the `chat`'s own id), `level` (`"text"`\|`"dev"`), `context` | Answers a `page.request`: the page's content, same `Context` shape a `chat` would have carried up front (for `level: "dev"`, `context.text` holds cleaned HTML). |
 | `page.decline` | `target` | Answers a `page.request`: the user declined to share the page. |
 | `search.content` | `target`, `query`, `results: [{ n, title, url, snippet }]` | Answers a `search.request`: the results, no page. |
-| `search.decline` | `target`, `reason` (`"no-access"`\|`"no-result"`\|`"blocked"`\|`"failed"`) | Answers a `search.request`: nothing could be searched or read. |
+| `search.decline` | `target`, `reason` (`"no-access"`\|`"no-result"`\|`"blocked"`\|`"failed"`) | Answers a `search.request`: nothing could be searched or read (`"blocked"`: the user refused the search). |
 | `open.content` | `target`, `pages: [{ n, url, title, text }]` | Answers an `open.request`: the pages read. |
 | `open.decline` | `target`, `reason` (`"no-access"`\|`"blocked"`\|`"failed"`) | Answers an `open.request`: no page could be opened. |
 | `summarize` | `context` | Summarize a page/selection. |
@@ -121,7 +123,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 `model-stalled`, `vision-unsupported`, `page-unavailable`, `internal`.
 
 `page-unavailable`: the client never answered a `page.request` (with `page.content` or
-`page.decline`) or a `search.request` (with `search.content` or `search.decline`) or an `open.request` (with `open.content` or `open.decline`) within `PAGE_REQUEST_TIMEOUT_MS`.
+`page.decline`) or a `search.request` (with `search.content` or `search.decline`) or an `open.request` (with `open.content` or `open.decline`) within `PAGE_REQUEST_TIMEOUT_MS` (`SEARCH_REQUEST_TIMEOUT_MS` for a `search.request`).
 
 
 ## Limits
@@ -135,6 +137,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `MAX_CONTEXT_CHARS` | 40,000 | Largest page/selection text accepted; also the cap for a `page.content` at `level: "text"`. |
 | `MAX_DEV_CONTEXT_CHARS` | 400,000 | Largest `page.content` at `level: "dev"` (cleaned HTML) accepted — further fit to the active model's own context window, see "Page on demand". |
 | `PAGE_REQUEST_TIMEOUT_MS` | 120,000 | Time the broker waits for `page.content`/`page.decline` after a `page.request`. |
+| `SEARCH_REQUEST_TIMEOUT_MS` | 300,000 | Wait for the answer to a `search.request` (the user may be deciding). |
 | `SEARCH_MAX_PER_QUESTION` | 4 | Automatic searches per question. |
 | `SEARCH_MAX_RESULTS` | 8 | Results accepted in a `search.content`. |
 | `SEARCH_MAX_OPENED` | 6 | Pages opened per question. |
@@ -201,13 +204,17 @@ the page markers (same detector, same place).
 - `[[SEARCH: <query>]]` — one line, 1 to 200 characters, no `]]`. Broker → client
   `search.request { id, query, discard? }`. The client runs the query in the browser's default
   engine and answers `search.content { target, query, results }` (results and snippets only; it
-  opens no page on its own) or `search.decline`.
+  opens no page on its own) or `search.decline`. Once a page was read in the conversation, the
+  client first asks the user to allow the query and answers `search.decline "blocked"` on a
+  refusal; the wait for that answer is `SEARCH_REQUEST_TIMEOUT_MS`.
 - `[[OPEN: S<n> S<m> …]]` — 1 to `OPEN_MAX_REFS` result numbers already received in this
   question, separated by spaces or commas. Broker → client `open.request { id, refs: [{ n, url }],
   discard? }`, `url` being the one the client reported for result `S<n>`. The client opens those
   pages and answers `open.content { target, pages: [{ n, url, title, text }] }` (`n` among the
   requested refs, each at most once; `url` the page's final address; a page it could not read is
   simply absent) or `open.decline { target, reason }` (`"no-access"`\|`"blocked"`\|`"failed"`).
+  A page whose final address (after redirects) fails the open guard or is on another site than
+  the result is not read: it is absent.
   Unknown refs and refs already opened are dropped; with none left, the marker is stripped and
   ignored. Refs beyond the pages still allowed are dropped from the request.
 - `S<n>` numbering is continuous over every search of the question: a result's number is the

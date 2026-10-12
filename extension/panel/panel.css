@@ -1198,6 +1198,18 @@ html.mode-dev .message--assistant {
   margin-top: var(--space-2);
 }
 
+.search-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.search-confirm-query {
+  flex-basis: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .search-mention > summary {
   cursor: pointer;
 }

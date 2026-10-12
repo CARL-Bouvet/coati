@@ -3,7 +3,7 @@
 // the legacy-mode permanent secret S) is what authenticates a connection.
 
 import { describe, expect, test, afterEach } from "bun:test";
-import { checkOrigin, isOriginAllowed, parseMozExtensionOrigin, startServer } from "../src/server.ts";
+import { checkOrigin, isOriginAllowed, parseMozExtensionOrigin, startServer, MAX_UNAUTH_CONNECTIONS } from "../src/server.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
 import { connectAndAuthV2 } from "./helpers/handshake-v2.ts";
 
@@ -109,15 +109,15 @@ describe("v: 2 handshake — integration", () => {
     result.ws.close();
   });
 
-  test("a chrome-extension origin NOT in allowedExtensionIds never reaches hello — rejected at Origin", async () => {
+  test("a chrome-extension origin NOT in allowedExtensionIds never reaches hello — 403 before the upgrade", async () => {
     const server = boot();
     const result = await connectAndAuthV2(
       `ws://127.0.0.1:${server.port}/ws`,
       "chrome-extension://cccccccccccccccccccccccccccccccc",
       KEY,
     );
-    expect(result.closeCode).toBe(4401);
     expect(result.ok).toBe(false);
+    expect(result.closeCode).not.toBe(4401);
   });
 
   test("a wrong extension proof is rejected (4401), never an exception", async () => {
@@ -216,34 +216,52 @@ describe("v: 2 handshake — integration", () => {
   });
 });
 
-// L2-equivalent (amendment 2026-09-30, G4): open() no longer does any file
-// I/O for the origin check (it's pure now — no Firefox pin list to read), so
-// there is nothing left to "fail closed" against at that step. This is a
-// regression guard: an unrelated origin must still be rejected outright.
-describe("origin check has no I/O left to fail on", () => {
+describe("Origin gate before the upgrade", () => {
   const ALLOWED_ID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const KEY = Buffer.alloc(32, 1);
   let servers: ReturnType<typeof startServer>[] = [];
   afterEach(() => {
     for (const s of servers) s.stop(true);
     servers = [];
   });
 
-  test("an unrelated origin is rejected at open(), even against a dataDir that cannot be written to further", async () => {
-    const dataDir = makeTmpDir("coati-l2-open-");
-    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID] }, Buffer.alloc(32, 1), { dataDir });
-    servers.push(server);
-
-    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
-      headers: { Origin: "https://example.com" },
-    } as any);
-    const closeCode = await new Promise<number>((resolve) => {
-      ws.addEventListener("close", (event) => resolve(event.code));
-      ws.addEventListener("message", (event) => {
-        if (JSON.parse(event.data as string).type === "hello-ok") {
-          throw new Error("must never reach hello-ok — open() should have rejected first");
-        }
-      });
+  function boot() {
+    const server = startServer({ port: 0, allowedExtensionIds: [ALLOWED_ID] }, KEY, {
+      dataDir: makeTmpDir("coati-origin-gate-"),
     });
-    expect(closeCode).toBe(4401);
+    servers.push(server);
+    return server;
+  }
+
+  test("a foreign or missing Origin gets a plain 403, on /ws and on any other route", async () => {
+    const server = boot();
+    for (const headers of [{ Origin: "https://example.com" }, {}] as Record<string, string>[]) {
+      for (const path of ["/ws", "/"]) {
+        const res = await fetch(`http://127.0.0.1:${server.port}${path}`, { headers });
+        expect(res.status).toBe(403);
+      }
+    }
+  });
+
+  test("foreign-Origin WebSockets are refused before the upgrade and never consume an unauthenticated slot", async () => {
+    const server = boot();
+    const attempts: Promise<number>[] = [];
+    for (let i = 0; i < MAX_UNAUTH_CONNECTIONS + 4; i++) {
+      const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
+        headers: { Origin: "https://example.com" },
+      } as any);
+      attempts.push(
+        new Promise((resolve) => {
+          ws.addEventListener("open", () => resolve(-1));
+          ws.addEventListener("close", (event) => resolve(event.code));
+        }),
+      );
+    }
+    const codes = await Promise.all(attempts);
+    expect(codes.every((c) => c !== -1 && c !== 4401)).toBe(true);
+
+    const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `chrome-extension://${ALLOWED_ID}`, KEY);
+    expect(result.ok).toBe(true);
+    result.ws.close();
   });
 });

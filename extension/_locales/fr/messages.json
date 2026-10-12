@@ -1832,6 +1832,21 @@
   "panel_search_allow": {
     "message": "Autoriser tous les sites"
   },
+  "panel_search_confirm": {
+    "message": "Le modèle veut chercher « $P1$ »",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "weather"
+      }
+    }
+  },
+  "panel_search_confirm_allow": {
+    "message": "Autoriser"
+  },
+  "panel_search_confirm_refuse": {
+    "message": "Refuser"
+  },
   "panel_sources_title": {
     "message": "Sources"
   },

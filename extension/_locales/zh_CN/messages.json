@@ -1832,6 +1832,21 @@
   "panel_search_allow": {
     "message": "允许所有网站"
   },
+  "panel_search_confirm": {
+    "message": "模型想要搜索“$P1$”",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "weather"
+      }
+    }
+  },
+  "panel_search_confirm_allow": {
+    "message": "允许"
+  },
+  "panel_search_confirm_refuse": {
+    "message": "拒绝"
+  },
   "panel_sources_title": {
     "message": "来源"
   },

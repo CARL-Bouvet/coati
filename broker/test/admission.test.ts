@@ -15,13 +15,10 @@ import {
 } from "../src/admission.ts";
 
 describe("isHostAllowed", () => {
-  test("accepts 127.0.0.1:<port> and localhost:<port>, exact port", () => {
+  test("accepts 127.0.0.1:<port>, exact port, nothing else", () => {
     expect(isHostAllowed("127.0.0.1:8787", 8787)).toBe(true);
-    expect(isHostAllowed("localhost:8787", 8787)).toBe(true);
-  });
-
-  test("is case-insensitive", () => {
-    expect(isHostAllowed("LOCALHOST:8787", 8787)).toBe(true);
+    expect(isHostAllowed("localhost:8787", 8787)).toBe(false);
+    expect(isHostAllowed("[::1]:8787", 8787)).toBe(false);
   });
 
   test("trims surrounding whitespace", () => {

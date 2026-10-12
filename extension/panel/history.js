@@ -141,3 +141,17 @@ export function historyAlertState({ totalExchanges, sentExchanges, historyKept }
   if (totalExchanges >= LONG_CONVERSATION_FROM_EXCHANGES) return "long";
   return null;
 }
+
+/** True when anything untrusted reached the model in `messages`: a page read,
+ * a search, or the title and address of a page offered on demand. */
+export function readUntrustedIn(messages) {
+  return messages.some(
+    (m) => m.readsPage === true || m.pageOnDemand === true || m.pageRead === true || m.readContent === true || !!m.pageReading || !!m.sources?.length || !!m.searchMention,
+  );
+}
+
+/** True when a page's content was read in `messages`: attached up front,
+ * read on request, or an opened result. */
+export function pageReadIn(messages) {
+  return messages.some((m) => m.readsPage === true || m.pageRead === true);
+}
