@@ -9,6 +9,8 @@
 // markdown.js is allowed to use.
 import { describe, expect, test } from "bun:test";
 import { parseMarkdown, parseInline, renderMarkdown } from "../../extension/panel/markdown.js";
+// @ts-ignore plain browser JS
+import { linkContext } from "../../extension/lib/link-safety.js";
 
 // --- minimal DOM shim ------------------------------------------------------
 
@@ -100,15 +102,14 @@ describe("parseInline", () => {
     expect(parseInline("`**not bold**`")).toEqual([{ type: "code", value: "**not bold**" }]);
   });
 
-  test("link becomes plain text, never a link node", () => {
+  test("link and bare URL become link nodes; underscores in a URL are not emphasis", () => {
     expect(parseInline("[label](https://example.com)")).toEqual([
-      { type: "text", value: "label (https://example.com)" },
+      { type: "link", label: "label", href: "https://example.com" },
     ]);
-  });
-
-  test("bare URL stays untouched text", () => {
-    expect(parseInline("see https://example.com/x for details")).toEqual([
-      { type: "text", value: "see https://example.com/x for details" },
+    expect(parseInline("see https://example.com/a_b_c. Done")).toEqual([
+      { type: "text", value: "see " },
+      { type: "link", label: "https://example.com/a_b_c", href: "https://example.com/a_b_c", bare: true },
+      { type: "text", value: ". Done" },
     ]);
   });
 
@@ -208,10 +209,34 @@ describe("renderMarkdown", () => {
     expect(code.attrs["data-lang"]).toBe("js");
   });
 
-  test("link renders as plain text, never an <a>", () => {
+  test("without a link context, a link renders as plain text, never an <a>", () => {
     const frag = renderMarkdown(doc, "See [my site](https://example.com) for more.");
     expect(tagsOf(frag, "a").length).toBe(0);
     expect(dump(frag)).toContain("my site (https://example.com)");
+  });
+
+  test("links follow their verdict: source, memory, refused", () => {
+    const t = (key: string, subs?: string[]) => (subs ? `${key}:${subs.join(",")}` : key);
+    const links = { ctx: linkContext(["https://github.com/comfyanonymous/ComfyUI"], null, false), t };
+    const frag = renderMarkdown(
+      doc,
+      "[ComfyUI](https://github.com/comfyanonymous/ComfyUI) [docs](https://other.org) [x](javascript:alert(1)) [y](https://githuh.com/z)",
+      links,
+    );
+    const anchors = tagsOf(frag, "a");
+    expect(anchors.map((a: any) => [a.href, a.target, a.rel, a.textContent])).toEqual([
+      ["https://github.com/comfyanonymous/ComfyUI", "_blank", "noopener noreferrer", "ComfyUI"],
+      ["https://other.org", "_blank", "noopener noreferrer", "docs"],
+    ]);
+    const text = dump(frag);
+    expect(text).toContain("ComfyUI</a><span> · github.com</span>");
+    expect(text).toContain("docs</a><span> · other.org</span><span> (panel_link_from_memory)</span>");
+    expect(text).toContain("x (javascript:alert(1)<span> — panel_link_refused_form</span>");
+    expect(text).toContain("y (https://githuh.com/z)<span> — panel_link_refused_lookalike:github.com</span>");
+    const afterRead = { ctx: linkContext([], null, true), t };
+    const refused = renderMarkdown(doc, "see https://other.org/x", afterRead);
+    expect(tagsOf(refused, "a").length).toBe(0);
+    expect(dump(refused)).toContain("https://other.org/x<span> — panel_link_refused_not_in_sources</span>");
   });
 
   test("raw HTML in the source renders as literal text", () => {

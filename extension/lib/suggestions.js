@@ -65,8 +65,8 @@ function parseUrl(url) {
 }
 
 /**
- * The site key for `url`: one of the five popular-site keys (`@youtube`,
- * `@google`, `@wikipedia`, `@reddit`, `@amazon`) when the host belongs to
+ * The site key for `url`: one of the popular-site keys (`@youtube`,
+ * `@google`, `@wikipedia`, `@reddit`) when the host belongs to
  * that site (any path), otherwise the lower-cased hostname with a leading
  * `www.` stripped, otherwise `null` (no url, unparsable, or non-http(s)).
  * Mirrors the broker's validation in protocol.ts's isValidSiteKey — see

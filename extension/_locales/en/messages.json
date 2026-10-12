@@ -927,6 +927,9 @@
   "keyInput_refused": {
     "message": "The service refused this key: check that it was copied in full, or create a new one on its website."
   },
+  "keyInput_bad_format": {
+    "message": "This does not look like an API key for this service: check that you pasted the key itself, with no extra text."
+  },
   "keyInput_remedy_credit": {
     "message": "Add credit on the service's website, then click “Check again”."
   },
@@ -1464,35 +1467,11 @@
   "sugg_wikipedia_name": {
     "message": "Wikipedia"
   },
-  "sugg_youtube_key_points_label": {
-    "message": "Timestamped key points"
-  },
-  "sugg_youtube_key_points_prompt": {
-    "message": "List the video's key points, each with its timestamp."
-  },
-  "sugg_youtube_fact_check_label": {
-    "message": "Worth checking"
-  },
-  "sugg_youtube_fact_check_prompt": {
-    "message": "Point out the claims in the video that would be worth checking, and say why."
-  },
-  "sugg_google_refine_label": {
-    "message": "Refine my search"
-  },
-  "sugg_google_refine_prompt": {
-    "message": "Turn my search visible on this page into an advanced search: quotes for an exact phrase, site:, filetype:, exclusions with -, and a before:/after: bound if a time period is relevant."
-  },
   "sugg_google_compare_label": {
     "message": "Compare these results"
   },
   "sugg_google_compare_prompt": {
     "message": "Compare the results on this page: what they have in common, what sets them apart, and which best answers my search."
-  },
-  "sugg_google_sources_label": {
-    "message": "Who are these sources?"
-  },
-  "sugg_google_sources_prompt": {
-    "message": "For each result on this page, say who the source is and whether it looks reliable on this topic."
   },
   "sugg_wikipedia_essentials_label": {
     "message": "The essentials in 5 points"
@@ -1500,41 +1479,11 @@
   "sugg_wikipedia_essentials_prompt": {
     "message": "Summarize this article in 5 essential points, in order of importance."
   },
-  "sugg_wikipedia_explain_label": {
-    "message": "Explain it simply"
-  },
-  "sugg_wikipedia_explain_prompt": {
-    "message": "Explain this article's topic simply, as if to someone discovering it."
-  },
-  "sugg_wikipedia_dates_label": {
-    "message": "Key dates"
-  },
-  "sugg_wikipedia_dates_prompt": {
-    "message": "List the key dates mentioned in this article, with what happened at each."
-  },
   "sugg_reddit_thread_gist_label": {
     "message": "What the thread says"
   },
   "sugg_reddit_thread_gist_prompt": {
     "message": "Summarize what this thread says: the dominant opinion and the most-discussed points."
-  },
-  "sugg_reddit_opposing_label": {
-    "message": "Opposing views"
-  },
-  "sugg_reddit_opposing_prompt": {
-    "message": "Point out the opposing views in this thread, and each side's main argument."
-  },
-  "sugg_amazon_reviews_label": {
-    "message": "What the reviews say"
-  },
-  "sugg_amazon_reviews_prompt": {
-    "message": "Summarize this product's reviews: the strengths and the most frequently reported flaws."
-  },
-  "sugg_amazon_weaknesses_label": {
-    "message": "Reported weaknesses"
-  },
-  "sugg_amazon_weaknesses_prompt": {
-    "message": "Point out the weaknesses reported in this product's reviews, even minority ones."
   },
   "model_list_title": {
     "message": "Available models"
@@ -1835,16 +1784,24 @@
     "message": "IBAN"
   },
   "panel_search_status": {
-    "message": "Search: “$P1$”",
+    "message": "Searching $P1$/$P2$: “$P3$”",
     "placeholders": {
       "p1": {
         "content": "$1",
+        "example": "3"
+      },
+      "p2": {
+        "content": "$2",
+        "example": "3"
+      },
+      "p3": {
+        "content": "$3",
         "example": "3"
       }
     }
   },
   "panel_search_mention": {
-    "message": "Searched the web · $P1$ results, $P2$ pages read · $P3$ k tokens",
+    "message": "Web search · searches: $P1$ · pages read: $P2$ · $P3$ k tokens",
     "placeholders": {
       "p1": {
         "content": "$1",
@@ -1881,56 +1838,61 @@
   "panel_source_http_warning": {
     "message": "unencrypted connection (http)"
   },
-  "panel_action_click": {
-    "message": "Coati wants to click “$P1$”",
+  "panel_link_from_memory": {
+    "message": "from memory, check it"
+  },
+  "panel_link_refused_form": {
+    "message": "link not opened: not a plain https address"
+  },
+  "panel_link_refused_not_in_sources": {
+    "message": "link not opened: not in the sources"
+  },
+  "panel_link_refused_lookalike": {
+    "message": "link not opened: looks like $P1$",
     "placeholders": {
       "p1": {
         "content": "$1",
-        "example": "x"
+        "example": "github.com"
       }
     }
   },
-  "panel_action_type": {
-    "message": "Coati wants to type “$P1$” in “$P2$”",
+  "panel_link_refused_label": {
+    "message": "link not opened: the text names another site"
+  },
+  "panel_open_status": {
+    "message": "Reading pages: $P1$",
     "placeholders": {
       "p1": {
         "content": "$1",
-        "example": "x"
-      },
-      "p2": {
-        "content": "$2",
-        "example": "x"
+        "example": "3"
       }
     }
   },
-  "panel_action_hint": {
-    "message": "Or click the highlighted element yourself."
+  "panel_search_capped": {
+    "message": "limit reached"
   },
-  "panel_action_allow": {
-    "message": "Allow"
+  "panel_search_capped_detail": {
+    "message": "Coati reached its limit of searches or pages for one question."
   },
-  "panel_action_refuse": {
-    "message": "Refuse"
+  "panel_search_queries_title": {
+    "message": "Searches"
   },
-  "panel_action_needs_access": {
-    "message": "Coati lost access to the page after it changed. Allow all sites to continue."
+  "panel_search_pages_title": {
+    "message": "Pages opened"
   },
-  "panel_action_refused_sensitive_field": {
-    "message": "Coati refused: this field is sensitive (password, card, code)."
+  "setup_search_title": {
+    "message": "Ask for a search"
   },
-  "panel_action_refused_not_editable": {
-    "message": "Coati refused: this is not a text field."
+  "setup_search_example_1": {
+    "message": "Find 3 open-source projects on GitHub to generate professional images without a subscription, with links"
   },
-  "panel_action_refused_form_submit": {
-    "message": "Coati refused: this button submits a form."
+  "setup_search_example_2": {
+    "message": "Compare small hydro turbines for a stream under 2,000 €, table with prices and links"
   },
-  "panel_action_refused_forbidden_label": {
-    "message": "Coati refused: it never pays, sends, deletes, publishes or signs in."
+  "setup_search_text": {
+    "message": "Ask in your question: Coati searches the web, opens the pages it picks and cites its sources. Searching needs the \"all sites\" permission."
   },
-  "panel_action_refused_link_target": {
-    "message": "Coati refused: this link leads to a local or private address."
-  },
-  "panel_action_refused_other": {
-    "message": "Coati refused this action."
+  "setup_search_model": {
+    "message": "For searches and comparisons, an online model (Claude, GPT, Mistral…) does far better. Local models up to 8B usually run a single search and may invent details such as prices; llama3.2 almost never searches."
   }
 }

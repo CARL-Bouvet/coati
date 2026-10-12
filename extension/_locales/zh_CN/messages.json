@@ -927,6 +927,9 @@
   "keyInput_refused": {
     "message": "服务拒绝了此密钥：请确认已完整复制，或在其网站上新建一个。"
   },
+  "keyInput_bad_format": {
+    "message": "这看起来不是该服务的 API 密钥：请确认粘贴的是密钥本身，没有多余文字。"
+  },
   "keyInput_remedy_credit": {
     "message": "请在该服务网站上充值，然后点击“重新验证”。"
   },
@@ -1464,35 +1467,11 @@
   "sugg_wikipedia_name": {
     "message": "维基百科"
   },
-  "sugg_youtube_key_points_label": {
-    "message": "带时间戳的要点"
-  },
-  "sugg_youtube_key_points_prompt": {
-    "message": "列出视频的要点，每条附上对应时间戳。"
-  },
-  "sugg_youtube_fact_check_label": {
-    "message": "值得核查的内容"
-  },
-  "sugg_youtube_fact_check_prompt": {
-    "message": "指出视频中值得核查的说法，并说明原因。"
-  },
-  "sugg_google_refine_label": {
-    "message": "优化我的搜索"
-  },
-  "sugg_google_refine_prompt": {
-    "message": "将此页面上显示的搜索词转换为高级搜索：使用引号表示精确短语，使用 site:、filetype:、用 - 排除词，以及在时间范围相关时添加 before:/after: 限定。"
-  },
   "sugg_google_compare_label": {
     "message": "对比这些结果"
   },
   "sugg_google_compare_prompt": {
     "message": "对比此页面上的搜索结果：共同点、差异点，以及哪个最能回答我的搜索需求。"
-  },
-  "sugg_google_sources_label": {
-    "message": "这些来源是谁？"
-  },
-  "sugg_google_sources_prompt": {
-    "message": "对此页面上的每个结果，说明来源是谁，以及其在该主题上是否可靠。"
   },
   "sugg_wikipedia_essentials_label": {
     "message": "5 个要点"
@@ -1500,41 +1479,11 @@
   "sugg_wikipedia_essentials_prompt": {
     "message": "按重要性顺序将本文总结为 5 个要点。"
   },
-  "sugg_wikipedia_explain_label": {
-    "message": "简单解释"
-  },
-  "sugg_wikipedia_explain_prompt": {
-    "message": "简单解释本文的主题，如同向初次接触的人介绍一样。"
-  },
-  "sugg_wikipedia_dates_label": {
-    "message": "重要日期"
-  },
-  "sugg_wikipedia_dates_prompt": {
-    "message": "列出本文提到的重要日期，以及每个日期发生的事情。"
-  },
   "sugg_reddit_thread_gist_label": {
     "message": "帖子的主要观点"
   },
   "sugg_reddit_thread_gist_prompt": {
     "message": "总结此帖子的内容：主流观点和讨论最多的话题。"
-  },
-  "sugg_reddit_opposing_label": {
-    "message": "对立观点"
-  },
-  "sugg_reddit_opposing_prompt": {
-    "message": "指出此帖子中的对立观点，以及各方的主要论据。"
-  },
-  "sugg_amazon_reviews_label": {
-    "message": "评论说了什么"
-  },
-  "sugg_amazon_reviews_prompt": {
-    "message": "总结此产品的评论：优点和最常提及的缺点。"
-  },
-  "sugg_amazon_weaknesses_label": {
-    "message": "已报告的缺点"
-  },
-  "sugg_amazon_weaknesses_prompt": {
-    "message": "指出此产品评论中报告的缺点，即使是少数意见。"
   },
   "model_list_title": {
     "message": "可用模型"
@@ -1835,16 +1784,24 @@
     "message": "IBAN"
   },
   "panel_search_status": {
-    "message": "搜索：“$P1$”",
+    "message": "搜索 $P1$/$P2$：“$P3$”",
     "placeholders": {
       "p1": {
         "content": "$1",
+        "example": "3"
+      },
+      "p2": {
+        "content": "$2",
+        "example": "3"
+      },
+      "p3": {
+        "content": "$3",
         "example": "3"
       }
     }
   },
   "panel_search_mention": {
-    "message": "已搜索网页 · $P1$ 条结果，读取 $P2$ 个页面 · $P3$ k 个 token",
+    "message": "网页搜索 · $P1$ 次搜索 · $P2$ 个页面 · $P3$ k 个 token",
     "placeholders": {
       "p1": {
         "content": "$1",
@@ -1881,56 +1838,61 @@
   "panel_source_http_warning": {
     "message": "未加密连接（http）"
   },
-  "panel_action_click": {
-    "message": "Coati 想点击“$P1$”",
+  "panel_link_from_memory": {
+    "message": "凭记忆给出，请核实"
+  },
+  "panel_link_refused_form": {
+    "message": "链接未开放：不是普通的 https 地址"
+  },
+  "panel_link_refused_not_in_sources": {
+    "message": "链接未开放：不在来源中"
+  },
+  "panel_link_refused_lookalike": {
+    "message": "链接未开放：与 $P1$ 相似",
     "placeholders": {
       "p1": {
         "content": "$1",
-        "example": "x"
+        "example": "github.com"
       }
     }
   },
-  "panel_action_type": {
-    "message": "Coati 想在“$P2$”中输入“$P1$”",
+  "panel_link_refused_label": {
+    "message": "链接未开放：文字指向另一个网站"
+  },
+  "panel_open_status": {
+    "message": "正在读取 $P1$ 个页面",
     "placeholders": {
       "p1": {
         "content": "$1",
-        "example": "x"
-      },
-      "p2": {
-        "content": "$2",
-        "example": "x"
+        "example": "3"
       }
     }
   },
-  "panel_action_hint": {
-    "message": "或者自己点击被框出的元素。"
+  "panel_search_capped": {
+    "message": "已达上限"
   },
-  "panel_action_allow": {
-    "message": "允许"
+  "panel_search_capped_detail": {
+    "message": "Coati 已达到单个问题的搜索或页面数量上限。"
   },
-  "panel_action_refuse": {
-    "message": "拒绝"
+  "panel_search_queries_title": {
+    "message": "搜索"
   },
-  "panel_action_needs_access": {
-    "message": "页面变化后 Coati 失去了访问权限。允许所有网站以继续。"
+  "panel_search_pages_title": {
+    "message": "已打开的页面"
   },
-  "panel_action_refused_sensitive_field": {
-    "message": "Coati 已拒绝：这是敏感字段（密码、银行卡、验证码）。"
+  "setup_search_title": {
+    "message": "请求搜索"
   },
-  "panel_action_refused_not_editable": {
-    "message": "Coati 已拒绝：这不是文本输入框。"
+  "setup_search_example_1": {
+    "message": "在 GitHub 上找 3 个无需订阅、可生成专业图片的开源项目，并附上链接"
   },
-  "panel_action_refused_form_submit": {
-    "message": "Coati 已拒绝：该按钮会提交表单。"
+  "setup_search_example_2": {
+    "message": "比较适用于小溪、价格低于 2,000 € 的小型水轮机，用表格列出价格和链接"
   },
-  "panel_action_refused_forbidden_label": {
-    "message": "Coati 已拒绝：它从不付款、发送、删除、发布或登录。"
+  "setup_search_text": {
+    "message": "直接在问题里提出要求：Coati 会搜索网页、打开它选中的页面并引用来源。搜索需要“所有网站”权限。"
   },
-  "panel_action_refused_link_target": {
-    "message": "Coati 已拒绝：该链接指向本地或内网地址。"
-  },
-  "panel_action_refused_other": {
-    "message": "Coati 已拒绝此操作。"
+  "setup_search_model": {
+    "message": "搜索和比较时，在线模型（Claude、GPT、Mistral…）效果好得多。8B 及以下的本地模型通常只搜索一次，并可能编造价格等细节；llama3.2 几乎从不搜索。"
   }
 }

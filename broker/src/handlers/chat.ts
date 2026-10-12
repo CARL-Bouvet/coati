@@ -12,6 +12,7 @@ import {
 } from "../logging.ts";
 import { DEFAULT_OLLAMA_URL } from "../config.ts";
 import { fetchPsEntries, matchesModel, listModelEntries as listOllamaModelEntries } from "../providers/ollama.ts";
+import { isLoopbackHost } from "../providers/openai-compat.ts";
 import type { ModelProvider, ProviderRuntimeOptions } from "../providers/types.ts";
 import {
   buildPrompt,
@@ -29,15 +30,19 @@ import {
   type BuiltPrompt,
   type PageMarker,
   type PageMarkerPosition,
-  type SearchContent,
-  type ActionOutcome,
+  type SearchRun,
+  searchDeclinedNote,
+  openFailedNote,
+  SEARCH_BUDGET_NOTE,
 } from "../model.ts";
 import {
   SEARCH_MAX_PER_QUESTION,
-  MAX_ACTIONS_PER_QUESTION,
-  type ActionStatus,
-  searchContentChars,
+  SEARCH_MAX_OPENED,
+  SEARCH_BUDGET_LOCAL_CHARS,
+  SEARCH_BUDGET_ONLINE_CHARS,
+  CHAT_MAX_MODEL_TURNS,
   searchContentError,
+  openContentError,
   type Context,
   type ChatImage,
   type ChatAbility,
@@ -46,6 +51,8 @@ import {
   type ErrorCode,
   type SearchBody,
   type SearchDeclineReason,
+  type SearchPageEntry,
+  type OpenDeclineReason,
 } from "../protocol.ts";
 import type { Lang } from "../messages.ts";
 import type { SettingsCtx } from "./settings.ts";
@@ -371,14 +378,12 @@ export function handleStreamingRequest(
 }
 
 // ---------------------------------------------------------------------------
-// Lot 7, "page on demand" — docs/PROTOCOL.md "Page on demand". A `chat` that
-// carries `page` and no `context` at all shows the model only the page's
-// metadata (title/url/kind/chars); if the model's own streamed answer
-// matches one of the two markers (model/page-marker.ts), the broker asks
-// the client for the real content (or accepts a decline), re-runs the exact
-// same question with it, and repeats — up to two round trips total, at most
-// one per level. See handleMessage's own "chat" case (handlers/dispatch.ts)
-// for the branch that only ever reaches this file when `context` is absent.
+// The marker loop — docs/PROTOCOL.md "Page on demand" and "Search". A
+// `chat` that carries `page` and no `context` shows the model only the page's
+// metadata; a `chat` with abilities may search, open results, or act. When the
+// model's streamed answer holds a marker (model/page-marker.ts), the broker asks
+// the client (page, search, open), re-runs the same question with the
+// answer, and repeats within the per-question caps and CHAT_MAX_MODEL_TURNS.
 // ---------------------------------------------------------------------------
 
 /** How long the broker waits for a `page.content`/`page.decline` after
@@ -448,13 +453,14 @@ export async function resolveActiveContextTokens(
   }
 }
 
-/** What the client answered to a `page.request`, `search.request` or `action.request`. */
+/** What the client answered to a `page.request`, `search.request` or `open.request`. */
 export type ClientAnswer =
   | { kind: "content"; level: "text" | "dev"; context: Context }
   | { kind: "decline" }
   | { kind: "search"; content: SearchBody }
   | { kind: "search-decline"; reason: SearchDeclineReason }
-  | { kind: "action"; status: ActionStatus; by?: "user"; reason?: string; context?: Context };
+  | { kind: "open"; pages: SearchPageEntry[] }
+  | { kind: "open-decline"; reason: OpenDeclineReason };
 
 /** Per-connection state this module needs beyond `active` — a slice of
  * handshake.ts's ConnData, kept narrow so tests can pass a bare object
@@ -541,6 +547,8 @@ interface OnDemandCallResult {
   historyKept?: number;
   marker?: { marker: PageMarker; position: PageMarkerPosition };
   err?: unknown;
+  /** "ok" with no visible text: the reply was only markers that were stripped. */
+  empty?: boolean;
 }
 
 /**
@@ -573,6 +581,12 @@ async function runOnDemandCall(
   const detector = new PageMarkerDetector(detectorOpts);
   let usage = { inputTokens: 0, outputTokens: 0 };
   let historyKept: number | undefined;
+  let sent = false;
+  const sendText = (text: string) => {
+    if (text.length === 0) return;
+    if (text.trim()) sent = true;
+    send(ws, { type: "chunk", id, delta: text });
+  };
   try {
     for await (const event of provider.streamAnswer(built, { signal: controller.signal, ...providerOpts })) {
       if (controller.signal.aborted) break;
@@ -588,7 +602,7 @@ async function runOnDemandCall(
       progress.markFirstChunk();
       for (const ev of detector.feed(event.text)) {
         if (ev.kind === "text") {
-          if (ev.text.length > 0) send(ws, { type: "chunk", id, delta: ev.text });
+          sendText(ev.text);
           continue;
         }
         if (canTrigger(ev.marker)) {
@@ -602,9 +616,9 @@ async function runOnDemandCall(
     }
     if (controller.signal.aborted) return { outcome: "cancelled", usage, historyKept };
     for (const ev of detector.flush()) {
-      if (ev.kind === "text" && ev.text.length > 0) send(ws, { type: "chunk", id, delta: ev.text });
+      if (ev.kind === "text") sendText(ev.text);
     }
-    return { outcome: "ok", usage, historyKept };
+    return { outcome: "ok", usage, historyKept, empty: !sent };
   } catch (err) {
     if (controller.signal.aborted) return { outcome: "cancelled", usage, historyKept };
     return { outcome: "error", usage, historyKept, err };
@@ -663,7 +677,27 @@ export function handleChatPageOnDemand(
 }
 
 type PageReport = { level: "text" | "dev"; chars: number; sentChars: number; truncated: boolean };
-type SearchReport = { query: string; results: number; pages: number; chars: number };
+type SearchReport = { queries: string[]; results: number; pages: number; chars: number; capped?: true };
+
+/** The per-question budget of snippet and page characters: the smaller one for
+ * a local model (Ollama, or an openai-compat server on a loopback address).
+ * Exported for tests. */
+export function searchCharBudget(provider: ModelProvider, providerOpts: ProviderRuntimeOptions): number {
+  const local = provider.id === "ollama" || (provider.id === "openai-compat" && isLoopbackHost(providerOpts.baseUrl ?? ""));
+  return local ? SEARCH_BUDGET_LOCAL_CHARS : SEARCH_BUDGET_ONLINE_CHARS;
+}
+
+/** Keeps the entries that still fit in `room` characters, in order; never cuts one. */
+function fitBudget<T>(items: readonly T[], size: (t: T) => number, room: number): { kept: T[]; used: number; dropped: number } {
+  const kept: T[] = [];
+  let used = 0;
+  for (const it of items) {
+    if (used + size(it) > room) continue;
+    kept.push(it);
+    used += size(it);
+  }
+  return { kept, used, dropped: items.length - kept.length };
+}
 
 async function runChatPageOnDemandLoop(
   ws: { send(data: string): unknown },
@@ -679,28 +713,48 @@ async function runChatPageOnDemandLoop(
   const canSearch = message.abilities?.includes("search") === true || message.searchQuery !== undefined;
   let totalUsage = { inputTokens: 0, outputTokens: 0 };
   let historyKept: number | undefined;
+  let calls = 0;
   let reads = 0;
   let searches = 0;
-  const canAct = message.abilities?.includes("act") === true;
-  // Actions requested so far, with the client's outcome once known.
-  const actions: ActionOutcome[] = [];
   const usedLevels = new Set<"text" | "dev">();
+
+  // Search state: S<n> numbers are the broker's, continuous over the question.
+  const budget = searchCharBudget(provider, providerOpts);
+  let searchChars = 0;
+  const runs: SearchRun[] = [];
+  const pages: SearchPageEntry[] = [];
+  const queries: string[] = [];
+  const resultUrls = new Map<number, string>();
+  let resultCount = 0;
+  const opened = new Set<number>();
+  const searchNotes: string[] = [];
+  let capped = false;
+
+  // The last model call allowed is offered no marker, and any it writes is stripped.
+  // `answerNow`: a reply made only of stripped markers gets one more call, offered none.
+  let answerNow = false;
+  const turnsLeft = () => !answerNow && calls < CHAT_MAX_MODEL_TURNS - 1;
+  const roomLeft = () => searchChars < budget;
   const canTriggerRead = (level: "text" | "dev") => reads < 2 && !usedLevels.has(level);
-  const canTrigger = (m: PageMarker) =>
-    m.type === "read" ? canTriggerRead(m.level) : m.type === "search" ? searches < SEARCH_MAX_PER_QUESTION : actions.length < MAX_ACTIONS_PER_QUESTION;
+  const openable = (refs: readonly number[]) =>
+    refs.filter((n) => resultUrls.has(n) && !opened.has(n)).slice(0, Math.max(0, SEARCH_MAX_OPENED - opened.size));
+  const canTrigger = (m: PageMarker) => {
+    if (!turnsLeft()) return false;
+    if (m.type === "read") return canTriggerRead(m.level);
+    if (m.type === "search") return searches < SEARCH_MAX_PER_QUESTION && roomLeft();
+    return openable(m.refs).length > 0 && roomLeft();
+  };
 
   // What the re-run prompt is made of; every answer below updates one field.
   let pageContext = message.context;
   let pageRead = false;
   let declinedPageRead = false;
-  let search: SearchContent | undefined;
-  let declinedSearch: string | undefined;
   let pageReport: PageReport | undefined;
-  let searchReport: SearchReport | undefined;
   let suggest: string | undefined;
 
-  // Click and type are offered only against a page read with its elements.
-  const elementRefs = () => (canAct && pageContext?.elements?.length ? new Set(pageContext.elements.map((e) => e.ref)) : undefined);
+  const noteBudget = () => {
+    if (!searchNotes.includes(SEARCH_BUDGET_NOTE)) searchNotes.push(SEARCH_BUDGET_NOTE);
+  };
 
   const rebuild = () =>
     buildPrompt(
@@ -713,12 +767,11 @@ async function runChatPageOnDemandLoop(
         declinedPageRead,
         // After a text read, still offer the dev marker when devMode allows
         // it and dev hasn't been used yet; never after a dev read.
-        offerDevRead: pageRead && devMode && canTriggerRead("dev"),
-        search,
-        declinedSearch,
-        offerSearch: canSearch && searches < SEARCH_MAX_PER_QUESTION,
-        offerAct: elementRefs() !== undefined && actions.length < MAX_ACTIONS_PER_QUESTION,
-        actions,
+        offerDevRead: turnsLeft() && pageRead && devMode && canTriggerRead("dev"),
+        search: runs.length > 0 ? { searches: runs, pages } : undefined,
+        searchNotes,
+        offerSearch: canSearch && turnsLeft() && searches < SEARCH_MAX_PER_QUESTION && roomLeft(),
+        offerOpen: canSearch && turnsLeft() && openable([...resultUrls.keys()]).length > 0 && roomLeft(),
         history: message.history,
       },
       lang,
@@ -728,8 +781,7 @@ async function runChatPageOnDemandLoop(
   let forced: PageMarker | undefined = message.searchQuery !== undefined ? { type: "search", query: message.searchQuery } : undefined;
   let built = rebuild();
 
-  // Two reads, one search and the actions at most, plus the final answer; the bound is belt-and-braces.
-  for (let turn = 0; turn < 2 + SEARCH_MAX_PER_QUESTION + MAX_ACTIONS_PER_QUESTION + 1; turn++) {
+  while (calls < CHAT_MAX_MODEL_TURNS) {
     let marker: PageMarker;
     let position: PageMarkerPosition = "start";
     if (forced) {
@@ -743,12 +795,18 @@ async function runChatPageOnDemandLoop(
         built,
         provider,
         providerOpts,
-        { allowDev: devMode, allowSearch: canSearch, refs: elementRefs() },
+        { allowDev: devMode, allowSearch: canSearch },
         canTrigger,
         (ignored) => {
-          if (ignored.type === "search" && suggest === undefined) suggest = ignored.query;
+          if (ignored.type === "search") {
+            capped = true;
+            if (suggest === undefined) suggest = ignored.query;
+          } else if (ignored.type === "open" && ignored.refs.some((n) => resultUrls.has(n) && !opened.has(n))) {
+            capped = true;
+          }
         },
       );
+      calls++;
       totalUsage = addUsage(totalUsage, result.usage);
       if (result.historyKept !== undefined) historyKept = result.historyKept;
 
@@ -763,7 +821,16 @@ async function runChatPageOnDemandLoop(
         logRequestCompleted(message.id, outcome, Date.now() - startedAt, msg);
         return;
       }
+      if (result.outcome === "ok" && result.empty && !answerNow && calls < CHAT_MAX_MODEL_TURNS && (runs.length > 0 || pageRead)) {
+        answerNow = true;
+        built = rebuild();
+        continue;
+      }
       if (result.outcome === "ok") {
+        const searchReport: SearchReport | undefined =
+          queries.length > 0
+            ? { queries, results: resultUrls.size, pages: pages.length, chars: searchChars, ...(capped ? { capped: true as const } : {}) }
+            : undefined;
         send(ws, {
           type: "done",
           id: message.id,
@@ -772,7 +839,6 @@ async function runChatPageOnDemandLoop(
           ...(pageReport ? { page: pageReport } : {}),
           ...(searchReport ? { search: searchReport } : {}),
           ...(suggest !== undefined ? { suggest: { search: suggest } } : {}),
-          ...(actions.length > 0 ? { actions: actions.length } : {}),
         });
         logRequestCompleted(message.id, "ok", Date.now() - startedAt);
         return;
@@ -781,14 +847,18 @@ async function runChatPageOnDemandLoop(
       position = result.marker!.position;
     }
 
-    // A marker: ask the client for the page, the search or the action.
+    // A marker: ask the client for the page, the search or the pages.
+    let openRefs: number[] = [];
+    let searchQuery = "";
     if (marker.type === "read") {
       reads++;
       usedLevels.add(marker.level);
     } else if (marker.type === "search") {
       searches++;
+      searchQuery = marker.query;
     } else {
-      actions.push({ action: marker.type, ref: marker.ref, status: "no-access" }); // outcome set on the answer
+      openRefs = openable(marker.refs);
+      for (const n of openRefs) opened.add(n);
     }
     if (connState.closed) {
       logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
@@ -801,14 +871,7 @@ async function runChatPageOnDemandLoop(
         ? { type: "page.request", id: message.id, level: marker.level, ...discard }
         : marker.type === "search"
           ? { type: "search.request", id: message.id, query: marker.query, ...discard }
-          : {
-              type: "action.request",
-              id: message.id,
-              action: marker.type,
-              ref: marker.ref,
-              ...(marker.type === "type" ? { text: marker.text } : {}),
-              ...discard,
-            },
+          : { type: "open.request", id: message.id, refs: openRefs.map((n) => ({ n, url: resultUrls.get(n)! })), ...discard },
     );
 
     const waitController = new AbortController();
@@ -837,7 +900,7 @@ async function runChatPageOnDemandLoop(
           : answer.kind !== "decline" && "expected page.content or page.decline"
         : marker.type === "search"
           ? answer.kind !== "search" && answer.kind !== "search-decline" && "expected search.content or search.decline"
-          : answer.kind !== "action" && "expected action.result";
+          : answer.kind !== "open" && answer.kind !== "open-decline" && "expected open.content or open.decline";
     if (mismatch) {
       send(ws, { type: "error", id: message.id, code: "bad-request", message: mismatch });
       logRequestCompleted(message.id, "error:bad-request", Date.now() - startedAt);
@@ -847,23 +910,9 @@ async function runChatPageOnDemandLoop(
     if (answer.kind === "decline") {
       declinedPageRead = true;
     } else if (answer.kind === "search-decline") {
-      declinedSearch = answer.reason;
-    } else if (answer.kind === "action") {
-      const outcome = actions[actions.length - 1]!;
-      outcome.status = answer.status;
-      if (answer.by) outcome.by = answer.by;
-      if (answer.reason) outcome.reason = answer.reason;
-      if (answer.context) {
-        const fit = await fitPageContent("text", answer.context, provider, providerOpts);
-        if (fit.error) {
-          send(ws, { type: "error", id: message.id, code: "context-too-large", message: fit.error });
-          logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
-          return;
-        }
-        pageContext = fit.context;
-        pageRead = true;
-        pageReport = { ...fit.report, sentChars: (pageReport?.sentChars ?? 0) + fit.report.sentChars };
-      }
+      searchNotes.push(searchDeclinedNote(answer.reason));
+    } else if (answer.kind === "open-decline") {
+      searchNotes.push(openFailedNote(openRefs, answer.reason));
     } else if (answer.kind === "search") {
       const error = searchContentError(answer.content);
       if (error) {
@@ -871,9 +920,30 @@ async function runChatPageOnDemandLoop(
         logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
         return;
       }
-      const { query, results, pages } = answer.content;
-      search = { query, results, pages };
-      searchReport = { query, results: results.length, pages: pages.length, chars: searchContentChars(answer.content) };
+      // Every result received takes a number, shown or not, so the client
+      // can number its sources the same way (results received so far + rank).
+      const numbered = answer.content.results.map((r, i) => ({ ...r, n: resultCount + i + 1 }));
+      resultCount += numbered.length;
+      const fit = fitBudget(numbered, (r) => r.snippet.length, budget - searchChars);
+      searchChars += fit.used;
+      if (fit.dropped > 0) noteBudget();
+      const results = fit.kept;
+      for (const r of results) resultUrls.set(r.n, r.url);
+      runs.push({ query: searchQuery, results });
+      if (results.length > 0) queries.push(searchQuery);
+    } else if (answer.kind === "open") {
+      const error = openContentError(answer.pages, openRefs);
+      if (error) {
+        send(ws, { type: "error", id: message.id, code: error.code, message: error.message });
+        logRequestCompleted(message.id, `error:${error.code}`, Date.now() - startedAt);
+        return;
+      }
+      const fit = fitBudget(answer.pages, (p) => p.text.length, budget - searchChars);
+      searchChars += fit.used;
+      pages.push(...fit.kept);
+      if (fit.dropped > 0) noteBudget();
+      const missing = openRefs.filter((n) => !answer.pages.some((p) => p.n === n));
+      if (missing.length > 0) searchNotes.push(openFailedNote(missing, "not read"));
     } else {
       const fit = await fitPageContent(answer.level, answer.context, provider, providerOpts);
       if (fit.error) {
@@ -887,4 +957,7 @@ async function runChatPageOnDemandLoop(
     }
     built = rebuild();
   }
+  // Unreachable: the last allowed call can trigger nothing, so it ends the loop above.
+  send(ws, { type: "error", id: message.id, code: "internal", message: "too many model calls for one question" });
+  logRequestCompleted(message.id, "error:internal", Date.now() - startedAt);
 }

@@ -67,6 +67,12 @@ const MESSAGES: Catalog = {
     zh_CN: "API 密钥被拒绝 — 请在设置中检查。",
   },
 
+  "auth.apiKeyFormat": {
+    en: "This does not look like an API key for this service: check that you pasted the key itself.",
+    fr: "Ce texte ne ressemble pas à une clé API de ce service : vérifiez que vous avez collé la clé elle-même.",
+    zh_CN: "这看起来不是该服务的 API 密钥:请确认粘贴的是密钥本身。",
+  },
+
   // --- quota-exceeded / rate-limited (docs/PROTOCOL.md,
   // amendment 2026-10-01, goal U1) — same contract as
   // auth.apiKeyRejected above: shown verbatim to a human, never

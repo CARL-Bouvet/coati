@@ -41,12 +41,11 @@ export interface DoneMessage {
    * iff `sentChars < chars`.
    */
   page?: { level: "text" | "dev"; chars: number; sentChars: number; truncated: boolean };
-  /** Present only when a search ran (docs/PROTOCOL.md "Search"); `chars` is what reached the model. */
-  search?: { query: string; results: number; pages: number; chars: number };
+  /** Present only when a search returned results (docs/PROTOCOL.md "Search"): what reached the
+   * model; `capped` when a search or open marker was stripped by a limit. */
+  search?: { queries: string[]; results: number; pages: number; chars: number; capped?: true };
   /** A further search the model asked for and Coati did not run, for the user to launch. */
   suggest?: { search: string };
-  /** Present only when the model asked for actions (docs/PROTOCOL.md "Acting"): how many were sent to the client. */
-  actions?: number;
 }
 
 export interface ErrorMessage {
@@ -291,23 +290,21 @@ export interface PageRequestMessage {
   discard?: true;
 }
 
+// The model asked to open search results (docs/PROTOCOL.md "Search"); `n` is the
+// broker's S<n> number, `url` the one the client reported for it.
+export interface OpenRequestMessage {
+  type: "open.request";
+  id: string;
+  refs: { n: number; url: string }[];
+  discard?: true;
+}
+
 // The model asked to search the web (docs/PROTOCOL.md "Search"); same `id` and
 // `discard` conventions as PageRequestMessage.
 export interface SearchRequestMessage {
   type: "search.request";
   id: string;
   query: string;
-  discard?: true;
-}
-
-// The model asked to click or type (docs/PROTOCOL.md "Acting"); same `id` and
-// `discard` conventions as PageRequestMessage. `text` only for "type".
-export interface ActionRequestMessage {
-  type: "action.request";
-  id: string;
-  action: "click" | "type";
-  ref: string;
-  text?: string;
   discard?: true;
 }
 
@@ -337,4 +334,4 @@ export type ServerMessage =
   | ProgressMessage
   | PageRequestMessage
   | SearchRequestMessage
-  | ActionRequestMessage;
+  | OpenRequestMessage;

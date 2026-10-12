@@ -25,6 +25,25 @@ import { t } from "./i18n-page.js";
 
 const DELETE_CONFIRM_MS = 5000;
 
+/** True when `key` can be a key for the service: no whitespace, and the
+ * service's own prefix where it has one (the local program re-checks). */
+export function isValidKeyFormat(provider, baseUrl, key) {
+  if (!key || /\s/.test(key)) return false;
+  let prefix = "";
+  if (provider === "claude-api") {
+    prefix = "sk-ant-";
+  } else if (provider === "openai-compat" && baseUrl) {
+    try {
+      const host = new URL(baseUrl).hostname;
+      if (host === "openrouter.ai") prefix = "sk-or-";
+      else if (host === "api.openai.com") prefix = "sk-";
+    } catch {
+      // unparsable address: no fixed prefix
+    }
+  }
+  return key.startsWith(prefix);
+}
+
 /** `settings.test-result.code` -> sentence(s). Reuses the U1 `common_error_*`
  * texts as the first sentence where they exist, plus a remedy that fits the
  * settings page (the panel's own texts say "go to the settings"). */
@@ -52,12 +71,13 @@ function describeTestFailure(code, brokerMessage) {
  * @param {() => string} opts.newId     fresh request id
  * @param {string} [opts.placeholder]   placeholder when no key is stored yet
  * @param {string} [opts.limitsUrl]     paid provider: page where a monthly cap is set
+ * @param {() => (string|undefined)} [opts.getBaseUrl]  address of an openai-compat service (selects the key format)
  * @param {(ok: boolean) => void} [opts.onVerified]  called after each verification
  * @returns {{ element: HTMLElement, update(entry: object|null): void,
  *   handleBrokerMessage(message: object): void, setConnected(connected: boolean): void,
  *   verify(): void }}
  */
-export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, onVerified }) {
+export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, getBaseUrl, onVerified }) {
   let configured = false;
   let connected = true;
   // "idle" | "saving" | "verifying" | "accepted" | "failed" | "save-failed" | "deleting" | "deleted"
@@ -170,6 +190,12 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     input.value = "";
     setRevealed(false);
     if (!value || !connected) return;
+    if (!isValidKeyFormat(provider, getBaseUrl?.(), value)) {
+      state = "save-failed";
+      failureText = t("keyInput_bad_format");
+      render();
+      return;
+    }
     saveId = newId();
     state = "saving";
     render();

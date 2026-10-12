@@ -8,16 +8,19 @@
 //
 // Two entry points:
 //   parseMarkdown(text)      -> block AST, pure, DOM-free (unit-testable).
-//   renderMarkdown(doc, text) -> DocumentFragment built against `doc`
+//   renderMarkdown(doc, text, links?) -> DocumentFragment built against `doc`
 //                                 (passed in, not the global `document`,
 //                                 so tests can supply a minimal DOM shim).
 //
 // Supported: ATX headings, paragraphs with soft line breaks, unordered/
 // ordered lists (indent-based nesting), blockquotes (nested), fenced code
 // blocks, inline code, **bold**, *italic*/_italic_, GFM pipe tables
-// (header + alignment row), horizontal rules. Links `[label](url)` and
-// bare URLs are rendered as plain text ("label (url)") — never an <a>,
-// never an href — and images `![alt](url)` render as their alt text only.
+// (header + alignment row), horizontal rules. Links `[label](url)` and bare
+// `http(s)://` URLs become an <a> only when `links` ({ ctx, t }) is given and
+// lib/link-safety.js says so (docs/DECISIONS.md T61): the host follows the
+// label, a "from memory" link is marked, a refused one stays text with its
+// reason. Without `links` they stay text ("label (url)"). Images
+// `![alt](url)` render as their alt text only.
 // Raw HTML in the source text is not parsed at all: it just flows through
 // as literal characters in a text node.
 //
@@ -25,6 +28,8 @@
 // on every chunk. An unclosed fenced code block runs to the end of input
 // (rendered as a code block); a table header row with no separator row
 // yet is rendered as an ordinary paragraph until the separator arrives.
+
+import { linkVerdict } from "../lib/link-safety.js";
 
 // --- Block parsing --------------------------------------------------------
 
@@ -235,11 +240,13 @@ function parseTable(lines) {
 
 // --- Inline parsing --------------------------------------------------------
 
-// `[label](url)` / bare autolinks stay text (never an <a>, CLAUDE.md #3);
-// `![alt](url)` keeps only the alt text. Matched before delimiter scanning
-// so their brackets never get mistaken for emphasis markers.
+// `[label](url)` and bare URLs become "link" nodes (their verdict is decided
+// at render time); `![alt](url)` keeps only the alt text. Matched before
+// delimiter scanning so their brackets and underscores never get mistaken
+// for emphasis markers.
 const IMAGE_RE = /^!\[([^\]]*)\]\(([^)]*)\)/;
 const LINK_RE = /^\[([^\]]*)\]\(([^)]*)\)/;
+const BARE_URL_RE = /^https?:\/\/[^\s<>"'`()[\]]+/i;
 
 /** Parses one run of inline markdown into an inline AST. Pure, DOM-free. */
 export function parseInline(text) {
@@ -278,9 +285,23 @@ export function parseInline(text) {
 
     const linkMatch = rest.match(LINK_RE);
     if (linkMatch) {
-      flush();
-      buf += linkMatch[2] ? `${linkMatch[1]} (${linkMatch[2]})` : linkMatch[1];
+      const href = linkMatch[2].trim();
+      if (href) {
+        flush();
+        nodes.push({ type: "link", label: linkMatch[1], href });
+      } else {
+        buf += linkMatch[1];
+      }
       i += linkMatch[0].length;
+      continue;
+    }
+
+    const bareMatch = /[\w/]$/.test(buf) ? null : rest.match(BARE_URL_RE);
+    if (bareMatch) {
+      const href = bareMatch[0].replace(/[.,;:!?*_~]+$/, "");
+      flush();
+      nodes.push({ type: "link", label: href, href, bare: true });
+      i += href.length;
       continue;
     }
 
@@ -323,7 +344,44 @@ function headingTag(level) {
   return `h${Math.min(level + 2, 5)}`;
 }
 
-function renderInlineInto(doc, container, inlineNodes) {
+const REFUSED_KEYS = {
+  form: "panel_link_refused_form",
+  "not-in-sources": "panel_link_refused_not_in_sources",
+  lookalike: "panel_link_refused_lookalike",
+  "misleading-label": "panel_link_refused_label",
+};
+
+function appendSpan(doc, container, className, text) {
+  const span = doc.createElement("span");
+  span.className = className;
+  span.textContent = text;
+  container.appendChild(span);
+}
+
+function renderLinkInto(doc, container, node, links) {
+  const asText = node.bare ? node.href : `${node.label} (${node.href})`;
+  if (!links) {
+    container.appendChild(doc.createTextNode(asText));
+    return;
+  }
+  const v = linkVerdict(node.href, node.label, links.ctx);
+  if (v.verdict === "refused") {
+    container.appendChild(doc.createTextNode(asText));
+    appendSpan(doc, container, "md-link-refused", ` — ${links.t(REFUSED_KEYS[v.reason], v.like ? [v.like] : undefined)}`);
+    return;
+  }
+  const a = doc.createElement("a");
+  a.className = "md-link";
+  a.href = node.href;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  a.textContent = node.label;
+  container.appendChild(a);
+  appendSpan(doc, container, "md-link-host", ` · ${v.host}`);
+  if (v.verdict === "memory") appendSpan(doc, container, "md-link-memory", ` (${links.t("panel_link_from_memory")})`);
+}
+
+function renderInlineInto(doc, container, inlineNodes, links) {
   for (const node of inlineNodes) {
     if (node.type === "text") {
       container.appendChild(doc.createTextNode(node.value));
@@ -333,27 +391,29 @@ function renderInlineInto(doc, container, inlineNodes) {
       container.appendChild(code);
     } else if (node.type === "strong") {
       const strong = doc.createElement("strong");
-      renderInlineInto(doc, strong, node.children);
+      renderInlineInto(doc, strong, node.children, links);
       container.appendChild(strong);
     } else if (node.type === "em") {
       const em = doc.createElement("em");
-      renderInlineInto(doc, em, node.children);
+      renderInlineInto(doc, em, node.children, links);
       container.appendChild(em);
+    } else if (node.type === "link") {
+      renderLinkInto(doc, container, node, links);
     }
   }
 }
 
-function renderBlockInto(doc, container, block) {
+function renderBlockInto(doc, container, block, links) {
   switch (block.type) {
     case "heading": {
       const heading = doc.createElement(headingTag(block.level));
-      renderInlineInto(doc, heading, block.inline);
+      renderInlineInto(doc, heading, block.inline, links);
       container.appendChild(heading);
       break;
     }
     case "paragraph": {
       const p = doc.createElement("p");
-      renderInlineInto(doc, p, block.inline);
+      renderInlineInto(doc, p, block.inline, links);
       container.appendChild(p);
       break;
     }
@@ -372,7 +432,7 @@ function renderBlockInto(doc, container, block) {
     }
     case "blockquote": {
       const bq = doc.createElement("blockquote");
-      for (const child of block.children) renderBlockInto(doc, bq, child);
+      for (const child of block.children) renderBlockInto(doc, bq, child, links);
       container.appendChild(bq);
       break;
     }
@@ -381,9 +441,9 @@ function renderBlockInto(doc, container, block) {
       for (const item of block.items) {
         const li = doc.createElement("li");
         if (item.blocks.length === 1 && item.blocks[0].type === "paragraph") {
-          renderInlineInto(doc, li, item.blocks[0].inline);
+          renderInlineInto(doc, li, item.blocks[0].inline, links);
         } else {
-          for (const child of item.blocks) renderBlockInto(doc, li, child);
+          for (const child of item.blocks) renderBlockInto(doc, li, child, links);
         }
         list.appendChild(li);
       }
@@ -401,7 +461,7 @@ function renderBlockInto(doc, container, block) {
       block.header.forEach((cellInline, idx) => {
         const th = doc.createElement("th");
         if (block.align[idx]) th.style.textAlign = block.align[idx];
-        renderInlineInto(doc, th, cellInline);
+        renderInlineInto(doc, th, cellInline, links);
         headRow.appendChild(th);
       });
       thead.appendChild(headRow);
@@ -413,7 +473,7 @@ function renderBlockInto(doc, container, block) {
         row.forEach((cellInline, idx) => {
           const td = doc.createElement("td");
           if (block.align[idx]) td.style.textAlign = block.align[idx];
-          renderInlineInto(doc, td, cellInline);
+          renderInlineInto(doc, td, cellInline, links);
           tr.appendChild(td);
         });
         tbody.appendChild(tr);
@@ -434,10 +494,12 @@ function renderBlockInto(doc, container, block) {
  * (never the implicit global `document` — tests pass their own DOM shim).
  * Every node is created via doc.createElement/createTextNode: no
  * innerHTML/outerHTML/insertAdjacentHTML/DOMParser anywhere in this file.
+ * `links`: { ctx (lib/link-safety.js linkContext), t (locale lookup) }, or
+ * nothing to keep every link as text.
  */
-export function renderMarkdown(doc, text) {
+export function renderMarkdown(doc, text, links) {
   const fragment = doc.createDocumentFragment();
   const blocks = parseMarkdown(text);
-  for (const block of blocks) renderBlockInto(doc, fragment, block);
+  for (const block of blocks) renderBlockInto(doc, fragment, block, links);
   return fragment;
 }

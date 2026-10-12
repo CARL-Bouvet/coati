@@ -85,3 +85,17 @@ describe("extension/ static invariants (docs/PROTOCOL.md, amendment 2026-09-30 G
     expect(offenders).toEqual([]);
   });
 });
+
+describe("key input format check", () => {
+  test("a pasted command is refused; each service's prefix is required", async () => {
+    const { isValidKeyFormat } = await import("../../extension/lib/key-input.js");
+    expect(isValidKeyFormat("claude-api", undefined, "claude /login")).toBe(false);
+    expect(isValidKeyFormat("claude-api", undefined, "sk-ant-abc")).toBe(true);
+    expect(isValidKeyFormat("claude-api", undefined, "sk-abc")).toBe(false);
+    expect(isValidKeyFormat("openai-compat", "https://openrouter.ai/api/v1", "sk-abc")).toBe(false);
+    expect(isValidKeyFormat("openai-compat", "https://openrouter.ai/api/v1", "sk-or-abc")).toBe(true);
+    expect(isValidKeyFormat("openai-compat", "https://api.openai.com/v1", "sk-abc")).toBe(true);
+    expect(isValidKeyFormat("openai-compat", "http://localhost:1234/v1", "anything")).toBe(true);
+    expect(isValidKeyFormat("openai-compat", "http://localhost:1234/v1", "a b")).toBe(false);
+  });
+});

@@ -25,6 +25,8 @@ import { currentConnState, modelsReply, switchFromTip, openOllamaSpeedup, hasFea
 import { buildAuthRecoveryBlock } from "./request-watch.js";
 import { api } from "../lib/browser-compat.js";
 import { isClickableSource } from "../lib/search-results.js";
+import { linkContext } from "../lib/link-safety.js";
+import { currentPageUrl } from "./page-detect.js";
 import { ALL_SITES_ORIGINS } from "./read-button.js";
 import { refreshAllSitesGranted, refreshReadButton } from "./first-run-wiring.js";
 import {
@@ -35,7 +37,6 @@ import {
   buildRateLimitRecoveryBlock,
 } from "./recovery-blocks.js";
 import { onPointButtonClick, seekActiveVideoTab } from "./point-at.js";
-import { buildActionCard } from "./action-card.js";
 
 export const PAGE_CONTENT_MARKER_SUFFIX = `\n\n${t("panel_with_page_content_marker")}`;
 
@@ -135,6 +136,46 @@ function buildSearchAccessBlock(msg) {
   return wrap;
 }
 
+/** "Web search · 3 searches · 5 pages · 14 k tokens", expandable to the
+ * queries and the pages opened (title and domain). */
+function buildSearchMentionBlock(msg) {
+  const { text, queries, capped } = msg.searchMention;
+  const details = document.createElement("details");
+  details.className = "search-mention";
+  const summary = document.createElement("summary");
+  summary.className = "search-status-line";
+  summary.textContent = capped ? `${text} · ${t("panel_search_capped")}` : text;
+  details.appendChild(summary);
+  const addList = (title, items) => {
+    if (items.length === 0) return;
+    appendLine(details, "search-sources-title", title);
+    const list = document.createElement("ul");
+    list.className = "search-sources-list";
+    for (const item of items) {
+      const li = document.createElement("li");
+      li.className = "search-sources-item";
+      li.textContent = item;
+      list.appendChild(li);
+    }
+    details.appendChild(list);
+  };
+  addList(t("panel_search_queries_title"), queries);
+  addList(
+    t("panel_search_pages_title"),
+    (msg.openedPages ?? []).map((p) => {
+      let host = "";
+      try {
+        host = new URL(p.url).hostname.replace(/^www\./, "");
+      } catch {
+        // no domain to show
+      }
+      return host ? `${p.title} — ${host}` : p.title;
+    }),
+  );
+  if (capped) appendLine(details, "search-status-line", t("panel_search_capped_detail"));
+  return details;
+}
+
 /** Only the results Coati found itself are listed; a blocked address is text,
  * not a link, and plain http carries a warning. */
 function buildSourcesBlock(sources) {
@@ -207,6 +248,20 @@ export function wasNearBottom() {
   return isNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight);
 }
 
+/** What an answer's links are checked against (docs/DECISIONS.md T61): the
+ * sources found so far in the conversation, the current page, and whether this
+ * answer or an earlier one read the page or searched. */
+function answerLinks(msg) {
+  const conversation = panelState.conversation;
+  const idx = conversation.indexOf(msg);
+  const upTo = [...conversation.slice(0, idx === -1 ? conversation.length : idx), msg];
+  const readUntrusted = upTo.some(
+    (m) => m.readsPage === true || m.readContent === true || !!m.pageReading || !!m.sources?.length || !!m.searchMention,
+  );
+  const urls = upTo.flatMap((m) => (m.sources ?? []).map((s) => s.url));
+  return { ctx: linkContext(urls, currentPageUrl, readUntrusted), t };
+}
+
 export function renderMessage(msg, { append = false } = {}) {
   let node = document.getElementById(`msg-${msg.id}`);
   // Capture BEFORE mutating the DOM: appending/growing the node can itself
@@ -222,7 +277,7 @@ export function renderMessage(msg, { append = false } = {}) {
   // "Reading the page…" (page-request.js) takes priority over the ordinary
   // progress stage while both could apply — it's a MORE specific thing
   // Coati is doing right now than "thinking"/"loading".
-  const reading = msg.streaming && !msg.text && !!msg.pageReading;
+  const reading = msg.streaming && !!msg.pageReading;
   const waiting = !reading && msg.streaming && !msg.text && !!msg.progress;
   node.className = `message message--${msg.role}${msg.streaming ? " message--streaming" : ""}${waiting || reading ? " message--progress" : ""}`;
 
@@ -243,13 +298,16 @@ export function renderMessage(msg, { append = false } = {}) {
     node.appendChild(bubble);
     node.appendChild(buildRelaunchButton(msg));
   } else {
-    node.replaceChildren(renderMarkdown(document, msg.text));
+    node.replaceChildren(renderMarkdown(document, msg.text, msg.role === "assistant" ? answerLinks(msg) : undefined));
     if (reading) {
       const line = document.createElement("p");
       line.className = "search-status-line message-page-reading";
-      line.textContent = msg.pageReading.searchQuery
-        ? t("panel_search_status", [msg.pageReading.searchQuery])
-        : t("panel_page_reading_status", [msg.pageReading.kTokens]);
+      const r = msg.pageReading;
+      line.textContent = r.searchQuery
+        ? t("panel_search_status", [String(r.searchIndex), String(r.searchMax), r.searchQuery])
+        : r.openCount
+          ? t("panel_open_status", [String(r.openCount)])
+          : t("panel_page_reading_status", [r.kTokens]);
       node.appendChild(line);
     }
     if (waiting) {
@@ -304,8 +362,8 @@ export function renderMessage(msg, { append = false } = {}) {
       mention.textContent = msg.pageMention;
       node.appendChild(mention);
     }
-    if (msg.actionCard) node.appendChild(buildActionCard(msg));
     if (!msg.streaming) {
+      if (msg.searchMention) node.appendChild(buildSearchMentionBlock(msg));
       if (msg.sources?.length) node.appendChild(buildSourcesBlock(msg.sources));
       if (msg.searchAccess) node.appendChild(buildSearchAccessBlock(msg));
       else if (msg.suggestSearch) node.appendChild(buildSearchButton(msg, msg.suggestSearch));

@@ -7,7 +7,7 @@
 | `extension/panel/` | ~7,500 | side panel: chat, page reading, "Show", screenshot, history (40 files) |
 | `extension/` root + `options/` | ~4,100 | settings page (`options.css` ~1,500, setup tutorial ~790) |
 | `extension/content/` | ~2,600 | page reading (`extract/`, 9 files; `extract-dev.js`, dev level) + "Show" pointer |
-| `extension/lib/` | ~2,500 | shared helpers: i18n, pairing, key entry, model list |
+| `extension/lib/` | ~2,500 | shared helpers: i18n, pairing, key entry, model list, `structured-data.js` (JSON-LD/microdata product data read from opened result pages) |
 | `extension/_locales/` | ~2,700 | en/fr/zh_CN text (~890 each) |
 | `extension/prompts/` | ~1,300 | "My prompts" page |
 | `extension/background/` | ~760 | service worker (connection to the local program) |
@@ -43,6 +43,8 @@
    and sends `page.request`; the panel answers `page.content` (text level: the extraction it
    already has; dev level: `content/extract-dev.js`) — `panel/page-request.js` — and the broker
    runs the question again with the page.
+   Likewise `[[SEARCH: …]]` becomes `search.request` and `[[OPEN: …]]` becomes `open.request`: the panel
+   opens the chosen result pages in background tabs and answers `open.content` (text plus structured data).
 5. Each fragment comes back as a `chunk`; a final `done` carries token usage and, when the page
    was read, `done.page` — the line under the answer says which.
 
@@ -76,7 +78,6 @@ interface and example: `docs/PROTOCOL.md`, "Model providers".
   a system instruction.
 - **The broker is structurally local.** `127.0.0.1` and port 8787 are literal, not configuration
   — opening the broker to the network is a threat-model change, not a setting.
-- **The model never acts on a page directly.** The protocol carries a reference and a verb
-  (`action.request`: `click`/`type` on an element Coati listed), never DOM coordinates or a script;
-  the extension re-checks the live element and its rules, and the user confirms each action — see the
-  gesture rule in `DECISIONS.md`.
+- **The model never acts on a page.** It can only point at an element Coati listed ("Show": a
+  reference, never DOM coordinates or a script); the extension re-checks the live element and the
+  user clicks — see the gesture rule in `DECISIONS.md`.

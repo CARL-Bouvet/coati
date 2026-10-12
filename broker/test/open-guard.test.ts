@@ -1,6 +1,70 @@
 import { describe, expect, test } from "bun:test";
 // @ts-ignore plain browser JS
 import { checkOpen, isLocalHostname } from "../../extension/lib/open-guard.js";
+// @ts-ignore plain browser JS
+import { linkContext, linkVerdict } from "../../extension/lib/link-safety.js";
+
+describe("linkVerdict (docs/DECISIONS.md T61)", () => {
+  const sources = ["https://github.com/comfyanonymous/ComfyUI/", "https://www.google.com/search"];
+  const afterRead = linkContext(sources, "https://example.org/page", true);
+  const nothingRead = linkContext([], null, false);
+  const v = (href: string, ctx = afterRead, label = "x") => linkVerdict(href, label, ctx);
+
+  test("only plain https to a domain name", () => {
+    for (const href of [
+      "javascript:alert(1)",
+      "data:text/html,<b>x</b>",
+      "http://github.com/comfyanonymous/ComfyUI",
+      "https://93.184.216.34/",
+      "https://[2606:4700::1]/",
+      "https://github.com:8443/",
+      "https://user@github.com/",
+      "https://localhost/",
+      "https://printer.local/",
+      "https://wiki.internal/",
+      `https://example.com/${"a".repeat(2048)}`,
+    ]) {
+      expect(v(href, nothingRead)).toMatchObject({ verdict: "refused", reason: "form" });
+    }
+  });
+
+  test("a source link is clickable; fragment and trailing slash do not matter", () => {
+    expect(v("https://github.com/comfyanonymous/ComfyUI")).toEqual({ verdict: "clickable", host: "github.com" });
+    expect(v("https://github.com/comfyanonymous/ComfyUI/#readme").verdict).toBe("clickable");
+    expect(v("https://example.org/page#top").verdict).toBe("clickable");
+  });
+
+  test("absent from the sources: refused after a read, from memory otherwise", () => {
+    expect(v("https://other.org/x")).toEqual({ verdict: "refused", reason: "not-in-sources", host: "other.org" });
+    expect(v("https://other.org/x", nothingRead)).toEqual({ verdict: "memory", host: "other.org" });
+  });
+
+  test("the host is shown as URL gives it: punycode stays punycode", () => {
+    expect(v("https://аpple.com/", nothingRead).host).toBe("xn--pple-43d.com");
+  });
+
+  test("look-alikes of a source or of the current page are refused", () => {
+    expect(v("https://githuh.com/x")).toMatchObject({ verdict: "refused", reason: "lookalike", like: "github.com" });
+    expect(v("https://gooogle.fr/")).toMatchObject({ verdict: "refused", reason: "lookalike", like: "www.google.com" });
+    expect(v("https://example.net/")).toMatchObject({ verdict: "refused", reason: "lookalike", like: "example.org" });
+    const page = linkContext([], "https://github.com/", false);
+    expect(v("https://github.co/", page).reason).toBe("lookalike");
+    expect(v("https://gist.github.com/x", page).verdict).toBe("memory");
+    expect(v("https://gitlab.com/x", page).verdict).toBe("memory");
+    expect(v("https://ign.com/", linkContext([], "https://ibm.com/", false)).verdict).toBe("memory");
+  });
+
+  test("a file name label is not a domain", () => {
+    expect(v("https://github.com/comfyanonymous/ComfyUI", afterRead, "README.md").verdict).toBe("clickable");
+  });
+
+  test("a label naming another domain is refused", () => {
+    expect(v("https://evil.com/", nothingRead, "paypal.com")).toMatchObject({ verdict: "refused", reason: "misleading-label" });
+    expect(v("https://evil.com/", nothingRead, "https://paypal.com/login").reason).toBe("misleading-label");
+    expect(v("https://github.com/comfyanonymous/ComfyUI", afterRead, "github.com/comfyanonymous/ComfyUI").verdict).toBe("clickable");
+    expect(v("https://nodejs.org/", nothingRead, "Node.js").verdict).toBe("memory");
+  });
+});
 
 const PUBLIC = "https://example.com/page";
 const verdict = (from: string, to: string, level = "text") => checkOpen(from, to, level).verdict;

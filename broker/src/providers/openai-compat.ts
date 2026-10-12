@@ -179,7 +179,7 @@ async function fetchModelIds(baseUrl: string, apiKey: string | undefined): Promi
   return body.data.map((m) => m.id).filter((id): id is string => typeof id === "string" && id.length > 0);
 }
 
-function isLoopbackHost(baseUrl: string): boolean {
+export function isLoopbackHost(baseUrl: string): boolean {
   try {
     const u = new URL(baseUrl);
     return u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "[::1]";

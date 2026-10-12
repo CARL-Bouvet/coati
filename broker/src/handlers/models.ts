@@ -8,9 +8,10 @@
 //   1. Ollama — always queried, regardless of the active provider.
 //   2. openai-compat — if config.baseUrl is loopback, list via /models; if
 //      remote with a stored key and a remembered model, one static entry.
-//   3. claude-api — if key is configured and a model was remembered.
-//   4. Any loaded module provider — if configured (isAvailable sans model)
-//      and a model was remembered.
+//   3. claude-api and loaded module providers — if configured: their own
+//      listModels() when they have one (nothing when it fails), else the
+//      remembered model or defaultModel. A current model absent from that
+//      list is replaced by the provider's default in `current`.
 // `host: null` until lot 4 fills it.
 
 import { DEFAULT_CONFIG, DEFAULT_OLLAMA_URL, resolveApiKey, type ProviderId, type CoatiConfig } from "../config.ts";
@@ -19,23 +20,6 @@ import { fetchOpenAiCompatVisionMap } from "../providers/openai-compat.ts";
 import { listModelEntries as listOllamaModelEntries, fetchPsEntries } from "../providers/ollama.ts";
 import { readHostCapacity, computeFit } from "../host.ts";
 import type { HostCapacity, ModelEntry, ModelSource } from "../protocol.ts";
-import type { ModelProvider, ProviderRuntimeOptions } from "../providers/types.ts";
-
-// Amendement 2026-10-07 bis: a sensible model for a configured provider with
-// no remembered model — its own listModels() (first entry) when it has one,
-// else its declared defaultModel. Never throws: a listModels() failure just
-// falls through to defaultModel, same as having none.
-async function resolveFallbackModel(provider: ModelProvider, opts: ProviderRuntimeOptions): Promise<string | undefined> {
-  if (provider.listModels) {
-    try {
-      const models = await provider.listModels(opts);
-      if (models.length > 0) return models[0];
-    } catch {
-      // fall through to defaultModel
-    }
-  }
-  return provider.defaultModel;
-}
 
 function isLoopbackUrl(url: string): boolean {
   try {
@@ -55,6 +39,7 @@ export async function buildModelsPayload(config: CoatiConfig): Promise<{
   const currentProvider = config.provider ?? DEFAULT_CONFIG.provider!;
   const entries: ModelEntry[] = [];
   const sources: ModelSource[] = [];
+  let currentModel = config.model;
 
   // --- Source 1: Ollama — always queried -----------------------------------
   try {
@@ -129,26 +114,29 @@ export async function buildModelsPayload(config: CoatiConfig): Promise<{
       baseUrl: config.baseUrl,
     };
     const configured = await p.isAvailable(pOpts).then((r) => r.available).catch(() => false);
-    if (configured) {
-      const remembered = config.lastModels?.[p.id];
-      // Amendement 2026-10-07 bis: a configured provider with no remembered
-      // model yet (never switched to with an explicit model) still gets a
-      // sensible entry — its own listModels() when it has one, else its
-      // declared defaultModel — instead of vanishing from the list. Without
-      // this, a configured-but-never-explicitly-set provider (e.g. claude-api
-      // right after its key is entered) reported "not-configured" even
-      // though it is perfectly usable.
-      const model = remembered ?? (await resolveFallbackModel(p, pOpts));
-      if (model) {
-        // Amendement 2026-10-08 (lot B1): the provider's static `vision`
-        // field (claude-api: true; an external module: whatever it
-        // declared, docs/MODULES.md) — never a per-model lookup here, this
-        // loop never knows the model's own capabilities beyond its name.
-        entries.push({ provider: p.id, model, local: false, ...(p.vision !== undefined ? { vision: p.vision } : {}) });
-        sources.push({ provider: p.id, state: "ok" });
-      } else {
-        sources.push({ provider: p.id, state: "not-configured" });
+    if (!configured) continue;
+    const vision = p.vision !== undefined ? { vision: p.vision } : {};
+    if (p.listModels) {
+      // The provider's own list is the whole menu for it: a failing list
+      // (refused key, unreachable service) offers nothing.
+      const listed = await p.listModels(pOpts).catch(() => []);
+      if (listed.length === 0) {
+        sources.push({ provider: p.id, state: "unreachable" });
+        continue;
       }
+      for (const model of listed) entries.push({ provider: p.id, model, local: false, ...vision });
+      sources.push({ provider: p.id, state: "ok" });
+      if (p.id === currentProvider && (!config.model || !listed.includes(config.model))) {
+        currentModel = p.defaultModel && listed.includes(p.defaultModel) ? p.defaultModel : listed[0];
+      }
+      continue;
+    }
+    const model = config.lastModels?.[p.id] ?? p.defaultModel;
+    if (model) {
+      entries.push({ provider: p.id, model, local: false, ...vision });
+      sources.push({ provider: p.id, state: "ok" });
+    } else {
+      sources.push({ provider: p.id, state: "not-configured" });
     }
   }
 
@@ -179,7 +167,7 @@ export async function buildModelsPayload(config: CoatiConfig): Promise<{
   }
 
   return {
-    current: { provider: currentProvider, model: config.model },
+    current: { provider: currentProvider, model: currentModel },
     entries,
     sources,
     host,

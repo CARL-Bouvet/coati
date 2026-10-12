@@ -97,6 +97,15 @@ function externalLink(href, text, className = "link") {
   return a;
 }
 
+/** "Ask for a search" block shown under the last step of both guides. */
+function searchTip() {
+  const box = el("div", "setup-search-tip");
+  box.append(el("h4", "setup-subtitle", t("setup_search_title")));
+  box.append(commandLine(t("setup_search_example_1")), commandLine(t("setup_search_example_2")));
+  box.append(el("p", "setup-text", t("setup_search_text")), el("p", "setup-text", t("setup_search_model")));
+  return box;
+}
+
 /** A command line + "Copy" button. Writing to the clipboard on a click is
  * fine; Coati never READS the clipboard. `block`: several lines, kept as typed. */
 function commandLine(command, { block = false } = {}) {
@@ -383,7 +392,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   model.body.append(modelCheck);
 
   // Step 4 — try it.
-  tryLocal.body.append(el("p", "setup-text", t("setup_try_text")));
+  tryLocal.body.append(el("p", "setup-text", t("setup_try_text")), searchTip());
   guide.body.append(localList);
 
   // LM Studio (local server speaking the OpenAI format).
@@ -618,7 +627,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
 
   account.body.append(el("p", "setup-text", t("setup_online_pick_first")));
   key.body.append(el("p", "setup-text", t("setup_online_pick_first")));
-  tryOnline.body.append(el("p", "setup-text", t("setup_try_text")));
+  tryOnline.body.append(el("p", "setup-text", t("setup_try_text")), searchTip());
 
   function chooseService(entry, { fromSettings = false } = {}) {
     chosenService = entry;
@@ -675,6 +684,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
       provider: entry.provider,
       send,
       newId,
+      getBaseUrl: () => entry.baseUrl,
       limitsUrl: entry.group === "free" || entry.prepaid ? undefined : entry.limitsUrl,
       onVerified(ok) {
         if (ok) {

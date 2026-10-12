@@ -7,9 +7,10 @@ import { send } from "../ws-send.ts";
 import { buildPrompt } from "../model.ts";
 import { listPrompts, savePrompt, deletePrompt, setPromptSite, withDirLock, type PromptsDirs } from "../prompts.ts";
 import { getPrefs, setSitePrefs, moveInPrefs, type PrefsDirs } from "../prefs.ts";
-import { DEFAULT_OLLAMA_URL } from "../config.ts";
+import { DEFAULT_CONFIG, DEFAULT_OLLAMA_URL } from "../config.ts";
+import { isValidKeyFormat } from "../key-format.ts";
 import { listModelEntries as listOllamaModelEntries, matchesModel, warmupModel } from "../providers/ollama.ts";
-import type { Lang } from "../messages.ts";
+import { t, type Lang } from "../messages.ts";
 import { handleStreamingRequest, handleChatPageOnDemand, type PageOnDemandConnState } from "./chat.ts";
 import { buildSettingsPayload, testProviderConnection, type SettingsCtx } from "./settings.ts";
 import { buildModelsPayload } from "./models.ts";
@@ -83,14 +84,12 @@ export function handleMessage(
       connState.clientRequests.get(message.target)?.({ kind: "search-decline", reason: message.reason });
       return;
     }
-    case "action.result": {
-      connState.clientRequests.get(message.target)?.({
-        kind: "action",
-        status: message.status,
-        by: message.by,
-        reason: message.reason,
-        context: message.context,
-      });
+    case "open.content": {
+      connState.clientRequests.get(message.target)?.({ kind: "open", pages: message.pages });
+      return;
+    }
+    case "open.decline": {
+      connState.clientRequests.get(message.target)?.({ kind: "open-decline", reason: message.reason });
       return;
     }
     case "summarize": {
@@ -186,6 +185,14 @@ export function handleMessage(
       return;
     }
     case "settings.set": {
+      if (message.apiKey) {
+        const cfg = settingsCtx.getConfig();
+        const provider = message.provider ?? cfg.provider ?? DEFAULT_CONFIG.provider!;
+        if (!isValidKeyFormat(provider, message.baseUrl ?? cfg.baseUrl, message.apiKey)) {
+          send(ws, { type: "error", id: message.id, code: "bad-request", message: t("auth.apiKeyFormat", lang) });
+          return;
+        }
+      }
       const updated = settingsCtx.applySettings({
         provider: message.provider,
         model: message.model,
@@ -239,6 +246,10 @@ export function handleMessage(
       // source, regardless of the active provider (root-cause fix for Ollama
       // models disappearing when active provider is claude-cli).
       void buildModelsPayload(settingsCtx.getConfig()).then((payload) => {
+        // A remembered model the provider no longer lists is forgotten.
+        if (payload.current.model && payload.current.model !== settingsCtx.getConfig().model) {
+          settingsCtx.applySettings({ model: payload.current.model });
+        }
         send(ws, { type: "models", id: message.id, ...payload });
       });
       return;

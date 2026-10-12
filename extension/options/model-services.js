@@ -149,6 +149,7 @@ function keyInputFor(providerId) {
       provider: providerId,
       send: sendClientMessage,
       newId,
+      getBaseUrl: () => lastSettings?.baseUrl,
       placeholder:
         providerId === "openai-compat" ? t("options_apikey_placeholder_optional") : t("options_apikey_placeholder_anthropic"),
     });

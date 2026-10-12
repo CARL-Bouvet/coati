@@ -110,8 +110,7 @@ import { activeTabId } from "./page-extract.js";
 import { drainPendingAction } from "./pending-action.js";
 import { onChunk, onProgress, onDone, onError } from "./chat-stream.js";
 import { onPageRequest } from "./page-request.js";
-import { onSearchRequest } from "./web-search.js";
-import { onActionRequest, onUserClicked } from "./action-card.js";
+import { onSearchRequest, onOpenRequest } from "./web-search.js";
 
 // Public repo doc, opened from the "no-host" banner (docs/PROTOCOL.md
 // amendment 2026-09-30, "États et bandeaux"). No local doc viewer in the
@@ -356,11 +355,6 @@ function onRuntimeMessage(message) {
     return;
   }
 
-  if (message.type === "coati:user-clicked") {
-    onUserClicked(message);
-    return;
-  }
-
   if (message.type === "coati:broker-message") {
     handleBrokerMessage(message.message);
   }
@@ -389,8 +383,8 @@ function handleBrokerMessage(message) {
     case "search.request":
       onSearchRequest(message);
       break;
-    case "action.request":
-      onActionRequest(message);
+    case "open.request":
+      onOpenRequest(message);
       break;
     case "error":
       onError(message);

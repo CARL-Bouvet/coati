@@ -20,8 +20,8 @@
   // stateIdsFromFixtureFile() (build-lab.ts) greps top-level fixture keys
   // with exactly that shape, and would otherwise mistake "sites" or
   // "@youtube" here for a state id.
-  // The user's prompt is placed 2nd, between two Coati suggestions.
-  var SAMPLE_PREFS = { sites: { "@youtube": { order: ["coati:youtube:summarize", "p_yt_1", "coati:youtube:key-points", "coati:youtube:fact-check"] } } };
+  // The user's prompt is placed after the Coati suggestion.
+  var SAMPLE_PREFS = { sites: { "@youtube": { order: ["coati:youtube:summarize", "p_yt_1"] } } };
 
   window.__COATI_LAB_FIXTURES__ = {
     // No user prompt anywhere: six cases (Tous les sites + the five popular
@@ -46,7 +46,7 @@
     removed: {
       status: "connected",
       prompts: [],
-      prefs: { sites: { "@youtube": { removed: ["coati:youtube:fact-check"] } } },
+      prefs: { sites: { "@youtube": { removed: ["coati:youtube:summarize"] } } },
     },
 
     // La ligne du prompt utilisateur de "Tous les sites" est ouverte.
@@ -57,13 +57,13 @@
       autoAction: { steps: [{ type: "click", selector: '[data-key="p_star_1"] .prompt-row-label', delayMs: 30 }] },
     },
 
-    // La ligne d'une suggestion de Coati (YouTube, "Points clés minutés")
+    // La ligne d'une suggestion de Coati (Google, "Comparer")
     // est ouverte — même éditeur, titre vide au départ.
     "editing-coati": {
       status: "connected",
       prompts: SAMPLE_PROMPTS,
       prefs: SAMPLE_PREFS,
-      autoAction: { steps: [{ type: "click", selector: '[data-key="coati:youtube:key-points"] .prompt-row-label', delayMs: 30 }] },
+      autoAction: { steps: [{ type: "click", selector: '[data-key="coati:google:compare"] .prompt-row-label', delayMs: 30 }] },
     },
 
     // Premier clic sur "Effacer" un prompt utilisateur — confirmation en attente.

@@ -77,18 +77,19 @@ export {
   type SearchResultEntry,
   type SearchPageEntry,
   type SearchDeclineReason,
+  type OpenDeclineReason,
+  OPEN_DECLINE_REASONS,
   SEARCH_QUERY_MAX_CHARS,
-  MAX_ACTIONS_PER_QUESTION,
-  ACTION_TEXT_MAX_CHARS,
-  ACTION_STATUSES,
-  ACTION_REASON_MAX_CHARS,
-  type ActionStatus,
   SEARCH_MAX_PER_QUESTION,
   SEARCH_MAX_RESULTS,
-  SEARCH_MAX_PAGES,
-  SEARCH_MAX_TOTAL_CHARS,
-  searchContentChars,
+  SEARCH_MAX_OPENED,
+  OPEN_MAX_REFS,
+  OPEN_PAGE_MAX_CHARS,
+  SEARCH_BUDGET_LOCAL_CHARS,
+  SEARCH_BUDGET_ONLINE_CHARS,
+  CHAT_MAX_MODEL_TURNS,
   searchContentError,
+  openContentError,
 } from "./protocol/chat.ts";
 
 export {
@@ -115,7 +116,8 @@ export {
   type PageDeclineMessage,
   type SearchContentMessage,
   type SearchDeclineMessage,
-  type ActionResultMessage,
+  type OpenContentMessage,
+  type OpenDeclineMessage,
   type ClientMessage,
 } from "./protocol/client-messages.ts";
 
@@ -141,7 +143,7 @@ export {
   type ChallengeMessage,
   type PageRequestMessage,
   type SearchRequestMessage,
-  type ActionRequestMessage,
+  type OpenRequestMessage,
   type ServerMessage,
 } from "./protocol/server-messages.ts";
 

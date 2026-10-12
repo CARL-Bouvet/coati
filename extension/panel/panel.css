@@ -1177,33 +1177,27 @@ html.mode-dev .message--assistant {
   word-break: break-word;
 }
 
-.search-sources-item a {
+.search-sources-item a,
+.md-link {
   color: var(--accent);
 }
 
+.md-link-host,
+.md-link-memory,
+.md-link-refused {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.md-link-memory {
+  font-style: italic;
+}
+
 .search-access,
-.action-card,
 .search-suggest-button {
   margin-top: var(--space-2);
 }
 
-.action-card {
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  padding: var(--space-2);
-}
-
-.action-card--refused {
-  border-color: var(--border);
-}
-
-.action-card-title {
-  margin: 0 0 var(--space-1, 4px);
-  font-weight: 600;
-}
-
-.action-card-buttons {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
+.search-mention > summary {
+  cursor: pointer;
 }

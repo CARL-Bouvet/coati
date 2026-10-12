@@ -15,8 +15,7 @@ import { currentTabId } from "./panel.js";
 // Escape, a click on the page) — out of scope, no message channel back.
 let activePointButton = null;
 
-/** Content scripts injected together, in this order, before `__coatiPoint`/`__coatiAct` are called. */
-export const POINTER_FILES = ["/content/forbidden-gesture.js", "/content/pointer.js"];
+const POINTER_FILES = ["/content/pointer.js"];
 
 // immediately; clicking a DIFFERENT one just replaces it (pointer.js's own
 // "one highlight at a time" already handles that case). Escape /
@@ -57,7 +56,7 @@ export function onPointButtonClick(button, entry) {
 // @returns {Promise<boolean>} true on "ok", false on "stale"/any failure —
 // used by onPointButtonClick() above to decide whether the button stays
 // pressed.
-export async function pointAtElement(tabId, entry, follow = false) {
+export async function pointAtElement(tabId, entry) {
   if (!entry || tabId == null) {
     addMessage({ id: newId(), role: "system", text: t("panel_point_failed") });
     return false;
@@ -71,7 +70,7 @@ export async function pointAtElement(tabId, entry, follow = false) {
     const results = await api.scripting.executeScript({
       target: { tabId },
       func: (opts) => (typeof globalThis.__coatiPoint === "function" ? globalThis.__coatiPoint(opts) : "stale"),
-      args: [{ ...entry, effect, follow }],
+      args: [{ ...entry, effect }],
     });
     const status = results?.[0]?.result;
     if (status === "stale") {

@@ -4,7 +4,7 @@
 import type { ProviderId } from "../config.ts";
 import type { Context } from "./context.ts";
 import type { SitePrefs } from "./prompts-prefs.ts";
-import type { ActionStatus, ChatAbility, ChatImage, HistoryEntry, PageMeta, SearchBody, SearchDeclineReason } from "./chat.ts";
+import type { ChatAbility, ChatImage, HistoryEntry, OpenDeclineReason, PageMeta, SearchBody, SearchDeclineReason, SearchPageEntry } from "./chat.ts";
 
 // v: 2 handshake — docs/PROTOCOL.md "Handshake `v: 2`" (amendement
 // 2026-09-30, G4). `v: 1` (secret-based) no longer exists anywhere in the
@@ -100,16 +100,19 @@ export interface SearchDeclineMessage {
   reason: SearchDeclineReason;
 }
 
-// The client's answer to an `action.request` (docs/PROTOCOL.md "Acting").
-// `by: "user"` (with `done`): the user did the gesture himself.
-export interface ActionResultMessage {
-  type: "action.result";
+// The client's answer to an `open.request` (docs/PROTOCOL.md "Search").
+export interface OpenContentMessage {
+  type: "open.content";
   id: string;
   target: string;
-  status: ActionStatus;
-  by?: "user";
-  reason?: string;
-  context?: Context;
+  pages: SearchPageEntry[];
+}
+
+export interface OpenDeclineMessage {
+  type: "open.decline";
+  id: string;
+  target: string;
+  reason: OpenDeclineReason;
 }
 
 export interface SummarizeMessage {
@@ -275,4 +278,5 @@ export type ClientMessage =
   | PageDeclineMessage
   | SearchContentMessage
   | SearchDeclineMessage
-  | ActionResultMessage;
+  | OpenContentMessage
+  | OpenDeclineMessage;

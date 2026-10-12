@@ -1,6 +1,5 @@
-// Per-site suggestion data (Coati's free tier — docs/DECISIONS.md T30 amendment 2026-09-28,
-// T31, plan-mes-prompts-28-09.md §4). Exactly five sites: no generic fallback and no niche sites
-// (real estate, Leboncoin, shopping) anymore — those moved to paid (P25/T30).
+// Per-site suggestion data (docs/DECISIONS.md T30, T31). Exactly four sites, one suggestion
+// each, no generic fallback.
 //
 // Each SITES entry's `id` also doubles as the popular-site key suffix used by
 // suggestions.js's siteKeyFor(): "@" + id (e.g. "@youtube").
@@ -39,40 +38,19 @@ export const SITES = [
       // (lot 4) must special-case `action` items and skip the edit/delete UI
       // that applies to prompt-backed items.
       { id: "coati:youtube:summarize", label: t("panel_summarize_video"), action: "summarize" },
-      {
-        id: "coati:youtube:key-points",
-        label: t("sugg_youtube_key_points_label"),
-        prompt: t("sugg_youtube_key_points_prompt"),
-      },
-      {
-        id: "coati:youtube:fact-check",
-        label: t("sugg_youtube_fact_check_label"),
-        prompt: t("sugg_youtube_fact_check_prompt"),
-      },
     ],
   },
   {
     id: "google",
     name: "Google",
-    // Assumption (worker, 28/09): explicit TLD list, same size/spirit as the
-    // Amazon list given in the brief — not exhaustive of every Google ccTLD.
+    // Explicit TLD list, not every Google ccTLD.
     hosts: ["google.com", "google.fr", "google.de", "google.co.uk", "google.es", "google.it", "google.ca", "google.be", "google.nl"],
     paths: [/^\/search$/],
     items: [
       {
-        id: "coati:google:refine",
-        label: t("sugg_google_refine_label"),
-        prompt: t("sugg_google_refine_prompt"),
-      },
-      {
         id: "coati:google:compare",
         label: t("sugg_google_compare_label"),
         prompt: t("sugg_google_compare_prompt"),
-      },
-      {
-        id: "coati:google:sources",
-        label: t("sugg_google_sources_label"),
-        prompt: t("sugg_google_sources_prompt"),
       },
     ],
   },
@@ -87,16 +65,6 @@ export const SITES = [
         label: t("sugg_wikipedia_essentials_label"),
         prompt: t("sugg_wikipedia_essentials_prompt"),
       },
-      {
-        id: "coati:wikipedia:explain",
-        label: t("sugg_wikipedia_explain_label"),
-        prompt: t("sugg_wikipedia_explain_prompt"),
-      },
-      {
-        id: "coati:wikipedia:dates",
-        label: t("sugg_wikipedia_dates_label"),
-        prompt: t("sugg_wikipedia_dates_prompt"),
-      },
     ],
   },
   {
@@ -109,29 +77,6 @@ export const SITES = [
         id: "coati:reddit:thread-gist",
         label: t("sugg_reddit_thread_gist_label"),
         prompt: t("sugg_reddit_thread_gist_prompt"),
-      },
-      {
-        id: "coati:reddit:opposing",
-        label: t("sugg_reddit_opposing_label"),
-        prompt: t("sugg_reddit_opposing_prompt"),
-      },
-    ],
-  },
-  {
-    id: "amazon",
-    name: "Amazon",
-    hosts: ["amazon.com", "amazon.fr", "amazon.de", "amazon.co.uk", "amazon.es", "amazon.it", "amazon.ca", "amazon.be", "amazon.nl"],
-    paths: [/\/dp\//, /\/gp\/product\//],
-    items: [
-      {
-        id: "coati:amazon:reviews",
-        label: t("sugg_amazon_reviews_label"),
-        prompt: t("sugg_amazon_reviews_prompt"),
-      },
-      {
-        id: "coati:amazon:weaknesses",
-        label: t("sugg_amazon_weaknesses_label"),
-        prompt: t("sugg_amazon_weaknesses_prompt"),
       },
     ],
   },
@@ -157,9 +102,9 @@ function permissionPatternForHost(host, scheme) {
  * Match patterns to request/check with chrome.permissions for a given site key
  * (docs/DECISIONS.md T42/T43, internal design plan, 28/09, lot 1). Pure — no chrome.*.
  *
- * - A popular-site key (`@youtube`, `@google`, `@wikipedia`, `@reddit`, `@amazon`): an `https://`
+ * - A popular-site key (`@youtube`, `@google`, `@wikipedia`, `@reddit`): an `https://`
  *   pattern for every host of that site, so activating a popular site covers all its domains at
- *   once (Google/Amazon: every TLD already in SITES). These sites are HTTPS-only.
+ *   once (Google: every TLD already in SITES). These sites are HTTPS-only.
  * - A user hostname key (e.g. `crisco4.unicaen.fr`): `https://` and `http://` patterns matching
  *   that host and its subdomains, including `www.` (the key has `www.` stripped, but the granted
  *   permission still covers `www.<key>`); a small site may still be served over plain HTTP.

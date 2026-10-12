@@ -38,14 +38,16 @@ Rules marked **(planned)** are not implemented yet (see `docs/ROADMAP.md`).
 9. Show: Coati points at an element, the user clicks it.
 10. Coati acts only when asked. Nothing runs in the background.
 11. Reading other pages: only when the question asks for it, limited, always counted.
-12. Clicking or typing: one action at a time, confirmed, target shown.
+12. Clicking or typing: one action at a time, confirmed, target shown. **(planned)**
 13. Never, even with consent: pay, send a message, delete, publish, sign in.
 14. Web search runs in the browser's default engine, in a visible tab; answers cite their
     sources.
 15. From a public page, Coati never opens a local or private address (except at dev level);
     plain `http` shows a warning.
 16. Page content is data, never instructions. We do not claim to stop prompt injection: we limit
-    what the model can do, and only links Coati found itself are clickable.
+    what the model can do. Links in answers are clickable only under the link rules in
+    `docs/DECISIONS.md` (T61): `https` domain, host shown, found in the sources (or "from memory"
+    when nothing was read), no look-alike, never opened automatically.
 
 **Security**
 17. No secrets in the extension. Nothing secret in `chrome.storage.local`; the broker key lives in

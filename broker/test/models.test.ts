@@ -17,6 +17,7 @@ import {
   __resetFetchImplForTests as __resetOllamaFetch,
   __resetShowCacheForTests,
 } from "../src/providers/ollama.ts";
+import { __setFetchImplForTests as __setClaudeApiFetch, __resetFetchImplForTests as __resetClaudeApiFetch } from "../src/providers/claude-api.ts";
 import { __setFetchImplForTests as __setOpenAiFetch, __resetFetchImplForTests as __resetOpenAiFetch } from "../src/providers/openai-compat.ts";
 import { connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
 import {
@@ -51,6 +52,7 @@ afterEach(() => {
   servers = [];
   __resetOllamaFetch();
   __resetOpenAiFetch();
+  __resetClaudeApiFetch();
   __resetShowCacheForTests();
   __resetHostForTests();
 });
@@ -319,25 +321,61 @@ describe("lastModels — per-provider model memory", () => {
   });
 });
 
-// --- Configured provider, no lastModels yet: fallback to defaultModel ------
+// --- claude-api: the menu is the API's own list ---------------------------
 
-describe("models.list — configured provider with no lastModels falls back to defaultModel", () => {
-  test("claude-api with a key but never explicitly given a model still appears, using its defaultModel", async () => {
+function fakeClaudeModelsFetch(status: number, ids: string[] = []): typeof fetch {
+  return (async () =>
+    new Response(JSON.stringify({ data: ids.map((id) => ({ id })) }), { status })) as unknown as typeof fetch;
+}
+
+describe("models.list — claude-api offers only what the API returns", () => {
+  test("lists the API's models; a remembered model absent from them is forgotten", async () => {
     __setOllamaFetch(makeFakeOllamaFetch({ tags: [] }));
+    __setClaudeApiFetch(fakeClaudeModelsFetch(200, ["claude-sonnet-x", "claude-haiku-x"]));
 
-    const server = boot({ provider: "claude-api" });
+    const server = boot({ provider: "claude-api", model: "claude-opus-5" });
     const ws = await connectAndAuth(server);
-
-    ws.send(JSON.stringify({ type: "settings.set", id: "fm1", provider: "claude-api", apiKey: "sk-ant-fallback" }));
+    ws.send(JSON.stringify({ type: "settings.set", id: "fm1", provider: "claude-api", apiKey: "sk-ant-good" }));
     await nextMessage(ws);
 
     ws.send(JSON.stringify({ type: "models.list", id: "fm2" }));
     const msg = (await nextMessage(ws)) as ModelsMessage;
 
-    const claudeEntry = msg.entries.find((e) => e.provider === "claude-api");
-    expect(claudeEntry?.model).toBe("claude-opus-5");
-    expect(msg.sources.find((s) => s.provider === "claude-api")?.state).toBe("ok");
+    expect(msg.entries.filter((e) => e.provider === "claude-api").map((e) => e.model)).toEqual([
+      "claude-sonnet-x",
+      "claude-haiku-x",
+    ]);
+    expect(msg.current.model).toBe("claude-sonnet-x");
+    ws.close();
+  });
 
+  test("a failing key offers no claude-api entry", async () => {
+    __setOllamaFetch(makeFakeOllamaFetch({ tags: [] }));
+    __setClaudeApiFetch(fakeClaudeModelsFetch(401));
+
+    const server = boot({ provider: "claude-api" });
+    const ws = await connectAndAuth(server);
+    ws.send(JSON.stringify({ type: "settings.set", id: "fm1", provider: "claude-api", apiKey: "sk-ant-bad" }));
+    await nextMessage(ws);
+
+    ws.send(JSON.stringify({ type: "models.list", id: "fm2" }));
+    const msg = (await nextMessage(ws)) as ModelsMessage;
+
+    expect(msg.entries.some((e) => e.provider === "claude-api")).toBe(false);
+    ws.close();
+  });
+
+  test('a key that is not a key ("claude /login") is refused and not stored', async () => {
+    const server = boot({ provider: "claude-api" });
+    const ws = await connectAndAuth(server);
+    ws.send(JSON.stringify({ type: "settings.set", id: "fk1", provider: "claude-api", apiKey: "claude /login" }));
+    const reply = (await nextMessage(ws)) as { type: string; code?: string };
+    expect(reply.type).toBe("error");
+    expect(reply.code).toBe("bad-request");
+
+    ws.send(JSON.stringify({ type: "settings.get", id: "fk2" }));
+    const settings = (await nextMessage(ws)) as SettingsMessage;
+    expect(settings.available.find((p) => p.id === "claude-api")?.configured).toBe(false);
     ws.close();
   });
 });

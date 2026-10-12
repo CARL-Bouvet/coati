@@ -17,10 +17,11 @@ import {
   renderSearch,
   SEARCH_ANSWER_INSTRUCTION,
   SEARCH_OFFER_INSTRUCTION,
-  searchDeclinedNote,
+  OPEN_OFFER_INSTRUCTION,
+  SEARCH_METHOD_INSTRUCTION,
+  SEARCH_LIMIT_NOTE,
+  SEARCH_CONTINUE_NOTE,
   elementsInstruction,
-  actionOutcomeNote,
-  type ActionOutcome,
   renderPageMeta,
   pageOnDemandInstruction,
   pageDevEscalationInstruction,
@@ -31,26 +32,22 @@ import {
 } from "./render.ts";
 
 export type PromptInput =
-  // Amendement 2026-10-08 (lot B1): `image` is chat-only (docs/PROTOCOL.md
-  // §3 — neither summarize nor act ever carry one). Amendement 2026-10-08
-  // (lot C1): `search`, same chat-only restriction.
+  // `image` and `search` are chat-only (docs/PROTOCOL.md §3 — neither
+  // summarize nor act ever carry one).
   | {
       kind: "chat";
       text: string;
       context?: Context;
       image?: ChatImage;
-      /** Search results and pages found for this question (docs/PROTOCOL.md
+      /** Search results and pages opened for this question (docs/PROTOCOL.md
        * "Search"), fenced as data and numbered [S1]… */
       search?: SearchContent;
-      /** Re-run after a search that could not be done: the reason, spliced in
-       * as a trusted note. */
-      declinedSearch?: string;
-      /** True when the panel announced the `search` ability and no search ran yet. */
+      /** Trusted notes on searches or pages that could not be done, read or shown. */
+      searchNotes?: string[];
+      /** True when the panel announced the `search` ability and a search is still allowed. */
       offerSearch?: boolean;
-      /** True when the panel announced the `act` ability and the page's element list is present. */
-      offerAct?: boolean;
-      /** What the client reported for the actions already requested, oldest first. */
-      actions?: ActionOutcome[];
+      /** True when results are in and a page may still be opened. */
+      offerOpen?: boolean;
       /** Amendement 2026-10-08 (bis, "historique"): past turns of the
        * conversation shown in the panel, oldest first, TEXT only — never a
        * past page context/image/sources (docs/PROTOCOL.md). Already
@@ -356,13 +353,17 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
       if (input.search) parts.push(renderSearch(input.search, nonce));
       parts.push(`User request:\n${input.text}`);
       if (input.search) parts.push(SEARCH_ANSWER_INSTRUCTION);
-      if (input.declinedSearch) parts.push(searchDeclinedNote(input.declinedSearch));
+      for (const note of input.searchNotes ?? []) parts.push(note);
       if (input.offerSearch) parts.push(SEARCH_OFFER_INSTRUCTION);
+      if (input.offerOpen) parts.push(OPEN_OFFER_INSTRUCTION);
+      if (input.offerSearch || input.offerOpen) {
+        parts.push(SEARCH_METHOD_INSTRUCTION);
+        if (input.search) parts.push(SEARCH_CONTINUE_NOTE);
+      } else if (input.search) parts.push(SEARCH_LIMIT_NOTE);
       // Trusted scaffolding, outside the fence, only when elements survived validation.
       if (input.context?.elements && input.context.elements.length > 0) {
-        parts.push(elementsInstruction(input.offerAct === true));
+        parts.push(elementsInstruction());
       }
-      for (const outcome of input.actions ?? []) parts.push(actionOutcomeNote(outcome));
       // Amendement 2026-10-09 (lot 7, "page on demand"): the instruction
       // naming the marker(s) — only when this is the metadata-only, no-content
       // call (never together with real `context`, never on the decline note

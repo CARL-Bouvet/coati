@@ -19,9 +19,9 @@ import {
   parsePageMeta,
   parseAbilities,
   parseSearchQuery,
-  ACTION_STATUSES,
-  ACTION_REASON_MAX_CHARS,
   parseSearchBody,
+  parseOpenPages,
+  OPEN_DECLINE_REASONS,
   SEARCH_DECLINE_REASONS,
   looksLikeChatWithImage,
   looksLikePageContent,
@@ -446,15 +446,19 @@ export function parseClientMessage(raw: string): ParseResult {
       }
       return { ok: true, message: { type: "search.decline", id, target: parsed.target, reason } };
     }
-    case "action.result": {
-      const status = ACTION_STATUSES.find((st) => st === parsed.status);
-      const context = parsed.context === undefined ? undefined : parseContext(parsed.context);
-      const reason = typeof parsed.reason === "string" ? parsed.reason.slice(0, ACTION_REASON_MAX_CHARS) : undefined;
-      if (!isNonEmptyString(parsed.target) || !status || (parsed.context !== undefined && !context)) {
-        return { ok: false, error: { code: "bad-request", message: "action.result: invalid", id } };
+    case "open.content": {
+      const pages = parseOpenPages(parsed.pages);
+      if (!isNonEmptyString(parsed.target) || !pages) {
+        return { ok: false, error: { code: "bad-request", message: "open.content: invalid", id } };
       }
-      const by = parsed.by === "user" && status === "done" ? ("user" as const) : undefined;
-      return { ok: true, message: { type: "action.result", id, target: parsed.target, status, by, reason, context } };
+      return { ok: true, message: { type: "open.content", id, target: parsed.target, pages } };
+    }
+    case "open.decline": {
+      const reason = OPEN_DECLINE_REASONS.find((r) => r === parsed.reason);
+      if (!isNonEmptyString(parsed.target) || !reason) {
+        return { ok: false, error: { code: "bad-request", message: "open.decline: invalid", id } };
+      }
+      return { ok: true, message: { type: "open.decline", id, target: parsed.target, reason } };
     }
     default:
       return { ok: false, error: { code: "bad-request", message: `unknown type: ${type}`, id } };

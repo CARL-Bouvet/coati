@@ -19,7 +19,6 @@ import { renderFirstRun, renderNeverConnected } from "./first-run-wiring.js";
 import { MODEL_EVER_ANSWERED_KEY } from "./first-run.js";
 import { api } from "../lib/browser-compat.js";
 import { clearPendingPageExtraction } from "./composer-send.js";
-import { dropActionCard } from "./action-card.js";
 
 // Replay payloads for the "I restarted it, retry" recovery button
 // (deliverable D1) — keyed by request id, in-memory only (never persisted to
@@ -34,12 +33,13 @@ export let lastHistoryKept;
 export function onChunk(message) {
   const msg = panelState.conversation.find((m) => m.id === message.id);
   if (msg) {
-    if (!msg.text && message.delta) {
-      onFirstWord(msg);
-      // The "Reading the page…" status (page-request.js) is a stand-in for
-      // the empty bubble, same lifetime as the progress stage it sits
-      // alongside — real text arriving ends it.
+    if (!msg.text && message.delta) onFirstWord(msg);
+    // The "Reading the page…" / "Searching…" status (page-request.js,
+    // web-search.js) lasts until the model writes again. `readContent` keeps
+    // the fact that something was read: its links are checked as such (T61).
+    if (message.delta && msg.pageReading) {
       msg.pageReading = undefined;
+      msg.readContent = true;
     }
     msg.text += message.delta ?? "";
     renderMessage(msg);
@@ -85,15 +85,16 @@ function buildPageMention(msg, message) {
   return base + t("panel_page_mention_truncated_suffix", [percent]);
 }
 
-/** Count under an answer that used a web search (docs/PROTOCOL.md "Search"). */
+/** Count and details under an answer that used a web search (docs/PROTOCOL.md "Search"). */
 function buildSearchMention(message) {
   const s = message.search;
   if (!s) return undefined;
-  return t("panel_search_mention", [String(s.results), String(s.pages), formatTokensK(estimateTokensFromChars(s.chars))]);
+  const queries = Array.isArray(s.queries) ? s.queries : [];
+  const text = t("panel_search_mention", [String(queries.length), String(s.pages), formatTokensK(estimateTokensFromChars(s.chars))]);
+  return { text, queries, capped: s.capped === true };
 }
 
 export function onDone(message) {
-  dropActionCard(message.id);
   pendingRetries.delete(message.id);
   requestStarts.delete(message.id);
   clearPendingPageExtraction(message.id);
@@ -103,7 +104,8 @@ export function onDone(message) {
     msg.streaming = false;
     msg.progress = undefined;
     msg.pageReading = undefined;
-    msg.pageMention = [buildPageMention(msg, message), buildSearchMention(message)].filter(Boolean).join(" · ") || undefined;
+    msg.pageMention = buildPageMention(msg, message) || undefined;
+    msg.searchMention = buildSearchMention(message);
     msg.suggestSearch = typeof message.suggest?.search === "string" ? message.suggest.search : undefined;
     renderMessage(msg);
     updateHistoryNotice();
@@ -124,7 +126,6 @@ export function onDone(message) {
 export function onError(message) {
   if (interceptOwnError(message)) return;
 
-  dropActionCard(message.id);
   const text = describeBrokerError(message);
   const authRequired = message.code === "auth-required";
   const authKind = authRequired ? authKindFor(currentProvider) : undefined;

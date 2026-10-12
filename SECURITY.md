@@ -41,8 +41,18 @@ is outside what Coati protects against.
 - Never sends model credentials — it never holds any.
 - Never reads a password field's value, at any reading level.
 - Never executes page-sourced HTML (no `innerHTML` from page content).
-- Never makes a clickable link out of anything the page itself provided — only links Coati found
-  are clickable.
+- Never opens a link on its own: a link in an answer opens only when you click it, in a new tab.
+
+## Links in answers
+
+A page or a search result can hide an instruction that makes the model write a fake link (a fake
+support page, a fake download). A link in an answer is clickable only if it is `https` to a domain
+name (no IP address, port or `user@`, nothing local), and its domain is always shown next to it,
+in `xn--…` form when it uses look-alike characters. Once the conversation has read a page or
+searched, only links found in the sources or the current page are clickable; any other stays text,
+marked "not in the sources". A domain imitating a source or the current page, or a label that
+reads as another domain, stays text too. With nothing read, a link can only come from the model's
+memory: clickable, marked "from memory, check it". The rules: `docs/DECISIONS.md` (T61).
 
 ## Prompt injection
 

@@ -25,17 +25,17 @@ the panel shows a one-click accept (`extension/panel/screenshot.js` keeps the ca
 accessible, back to colour after the granting click. `extension/background/*.js`, grey icon
 variants.
 
-**L3 — Browser search (rules 14, 15, 16). Shipped (Chromium).** The model emits `[[SEARCH: …]]`;
-the panel runs it in the default engine (`chrome.search.query`) in a background tab, reads the
-results and the first 2 pages, leaves the tabs open. Needs "all sites". Firefox
-(`browser.search`) is in "Help wanted".
+**L3 — Advanced browser search (rules 14, 15, 16). Shipped (Chromium).** The model emits
+`[[SEARCH: …]]` up to 4 times per question; the panel runs each in the default engine
+(`chrome.search.query`) in a background tab and returns the results. The model then picks up to 6
+result pages with `[[OPEN: …]]`, and the panel returns their text plus structured product data
+(prices, ratings). Needs "all sites". Results are read on Google, Bing, Brave Search and
+DuckDuckGo; Firefox (`browser.search`) and other engines are in "Help wanted".
 
-**L4 — Click and type, confirmed (rules 12, 13). Shipped (to be judged for intrusiveness).** The model
-emits `[[CLICK eN]]` or `[[TYPE eN: …]]`; the panel checks the element on the live page, refuses
-forbidden gestures (`extension/content/forbidden-gesture.js`), shows a card with the element
-highlighted, and acts only on "Allow". Clicking the highlighted element oneself counts as the
-action done. One action at a time, 5 per question, the page is re-read afterwards.
-`extension/panel/action-card.js`, `extension/content/pointer.js`.
+**L4 — Click and type, confirmed (rules 12, 13). Planned, after v0.1.0.** The model would emit a
+click or type marker; the panel would check the element on the live page, refuse forbidden gestures
+(paying, sending, deleting, publishing, signing in), show the element highlighted, and act only on
+"Allow", one action at a time. Removed from v0.1.0 to be judged for intrusiveness first.
 
 ## Risks
 
@@ -51,7 +51,7 @@ action done. One action at a time, 5 per question, the page is re-read afterward
 ## Help wanted
 
 - **Firefox and other search engines** for browser search (L3) — `browser.search` coverage and
-  non-Google default engines.
+  engines beyond Google, Bing, Brave Search and DuckDuckGo (Qwant, Startpage, Ecosia…).
 - **Windows testing** — the installer and native-host path are least exercised there.
 - **Chinese translation review** — `extension/_locales/zh_CN` is machine-translated and needs a
   native speaker's pass.

@@ -199,21 +199,19 @@ export function looksLikeChatWithImage(parsed: unknown): boolean {
 }
 
 // docs/PROTOCOL.md "Search": the abilities a panel can announce, the limits on
-// a search, and the shape of what the client sends back.
+// searching and opening pages, and the shape of what the client sends back.
 export const SEARCH_QUERY_MAX_CHARS = 200;
-export const SEARCH_MAX_PER_QUESTION = 1;
+export const SEARCH_MAX_PER_QUESTION = 4;
 export const SEARCH_MAX_RESULTS = 8;
-export const SEARCH_MAX_PAGES = 2;
-export const SEARCH_MAX_TOTAL_CHARS = 24_000;
+export const SEARCH_MAX_OPENED = 6;
+export const OPEN_MAX_REFS = 3;
+export const OPEN_PAGE_MAX_CHARS = 6000;
+export const SEARCH_BUDGET_LOCAL_CHARS = 32_000;
+export const SEARCH_BUDGET_ONLINE_CHARS = 64_000;
+/** Model calls per question, whatever markers it uses. */
+export const CHAT_MAX_MODEL_TURNS = 10;
 
-export type ChatAbility = "search" | "act";
-
-// docs/PROTOCOL.md "Acting": limits and the client's outcome vocabulary.
-export const MAX_ACTIONS_PER_QUESTION = 5;
-export const ACTION_TEXT_MAX_CHARS = 500;
-export const ACTION_STATUSES = ["done", "refused", "blocked", "stale", "no-access"] as const;
-export type ActionStatus = (typeof ACTION_STATUSES)[number];
-export const ACTION_REASON_MAX_CHARS = 200;
+export type ChatAbility = "search";
 
 export interface SearchResultEntry {
   n: number;
@@ -231,11 +229,13 @@ export interface SearchPageEntry {
 
 export const SEARCH_DECLINE_REASONS = ["no-access", "no-result", "blocked", "failed"] as const;
 export type SearchDeclineReason = (typeof SEARCH_DECLINE_REASONS)[number];
+export const OPEN_DECLINE_REASONS = ["no-access", "blocked", "failed"] as const;
+export type OpenDeclineReason = (typeof OPEN_DECLINE_REASONS)[number];
 
 /** `chat.abilities`: unknown words are dropped; none left → undefined. */
 export function parseAbilities(v: unknown): ChatAbility[] | undefined {
   if (!Array.isArray(v)) return undefined;
-  const known = (["search", "act"] as const).filter((a) => v.includes(a));
+  const known = (["search"] as const).filter((a) => v.includes(a));
   return known.length > 0 ? known : undefined;
 }
 
@@ -268,29 +268,38 @@ export function parseSearchBody(parsed: Record<string, unknown>): SearchBody | u
       ? { n: r.n, title: r.title, url: r.url, snippet: r.snippet }
       : undefined,
   );
-  const pages = parseEntries(parsed.pages, (r) =>
-    isN(r.n) && isStr(r.url) && isStr(r.title) && isStr(r.text)
-      ? { n: r.n, url: r.url, title: r.title, text: r.text }
-      : undefined,
+  return results ? { query: parsed.query, results } : undefined;
+}
+
+/** Shape check of `open.content`'s `pages`; the limits are openContentError's. */
+export function parseOpenPages(v: unknown): SearchPageEntry[] | undefined {
+  return parseEntries(v, (r) =>
+    isN(r.n) && isStr(r.url) && isStr(r.title) && isStr(r.text) ? { n: r.n, url: r.url, title: r.title, text: r.text } : undefined,
   );
-  return results && pages ? { query: parsed.query, results, pages } : undefined;
 }
 
 export interface SearchBody {
   query: string;
   results: SearchResultEntry[];
-  pages: SearchPageEntry[];
-}
-
-/** Characters a search puts in front of the model: result snippets plus page text. */
-export function searchContentChars(c: SearchBody): number {
-  return c.results.reduce((n, r) => n + r.snippet.length, 0) + c.pages.reduce((n, p) => n + p.text.length, 0);
 }
 
 /** The limit a `search.content` breaches, or undefined. The broker refuses, it never truncates. */
 export function searchContentError(c: SearchBody): string | undefined {
-  if (c.results.length > SEARCH_MAX_RESULTS) return `more than ${SEARCH_MAX_RESULTS} search results`;
-  if (c.pages.length > SEARCH_MAX_PAGES) return `more than ${SEARCH_MAX_PAGES} search pages`;
-  if (searchContentChars(c) > SEARCH_MAX_TOTAL_CHARS) return `search content exceeds ${SEARCH_MAX_TOTAL_CHARS} characters`;
+  return c.results.length > SEARCH_MAX_RESULTS ? `more than ${SEARCH_MAX_RESULTS} search results` : undefined;
+}
+
+/** What an `open.content` answering a request for `refs` breaches, or undefined. */
+export function openContentError(
+  pages: readonly SearchPageEntry[],
+  refs: readonly number[],
+): { code: "bad-request" | "context-too-large"; message: string } | undefined {
+  const seen = new Set<number>();
+  for (const p of pages) {
+    if (!refs.includes(p.n) || seen.has(p.n)) return { code: "bad-request", message: `open.content: page S${p.n} was not requested` };
+    seen.add(p.n);
+    if (p.text.length > OPEN_PAGE_MAX_CHARS) {
+      return { code: "context-too-large", message: `open.content: page S${p.n} exceeds ${OPEN_PAGE_MAX_CHARS} characters` };
+    }
+  }
   return undefined;
 }

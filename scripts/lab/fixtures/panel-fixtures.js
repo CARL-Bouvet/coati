@@ -1159,8 +1159,8 @@
 
     // --- New states (plan-mes-prompts-28-09.md, lot 5, panel half) --------
 
-    // YouTube : suggestions Coati + 1 prompt utilisateur du site, réordonné
-    // ENTRE elles via prefs.sites (order mêle coati:… et p_…).
+    // YouTube : suggestion Coati + 1 prompt utilisateur du site, réordonné
+    // avant elle via prefs.sites (order mêle coati:… et p_…).
     "youtube-mixed": {
       status: "connected",
       tab: YOUTUBE_TAB,
@@ -1172,10 +1172,8 @@
         sites: {
           "@youtube": {
             order: [
-              "coati:youtube:key-points",
               YOUTUBE_MIXED_USER_PROMPT.id,
               "coati:youtube:summarize",
-              "coati:youtube:fact-check",
             ],
           },
         },

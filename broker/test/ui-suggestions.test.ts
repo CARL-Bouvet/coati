@@ -59,7 +59,7 @@ describe("YouTube", () => {
     const r = suggestionsFor({ url: "https://youtube.com/watch?v=abc" });
     expect(r.site?.id).toBe("youtube");
     expect(r.siteKey).toBe("@youtube");
-    expect(r.items.length).toBe(3);
+    expect(r.items.length).toBe(1);
   });
 
   test("subdomain www.youtube.com", () => {
@@ -81,7 +81,7 @@ describe("YouTube", () => {
   test("any path matches — no path restriction", () => {
     const r = suggestionsFor({ url: "https://www.youtube.com/feed/subscriptions" });
     expect(r.site?.id).toBe("youtube");
-    expect(r.items.length).toBe(3);
+    expect(r.items.length).toBe(1);
   });
 
   test("first item is the summarize action, not a chat prompt", () => {
@@ -108,7 +108,7 @@ describe("Google", () => {
     const r = suggestionsFor({ url: "https://www.google.com/search?q=x" });
     expect(r.site?.id).toBe("google");
     expect(r.siteKey).toBe("@google");
-    expect(r.items.length).toBe(3);
+    expect(r.items.length).toBe(1);
   });
 
   test("google.co.uk /search matches", () => {
@@ -149,7 +149,7 @@ describe("Wikipédia", () => {
     const r = suggestionsFor({ url: "https://fr.wikipedia.org/wiki/Coati" });
     expect(r.site?.id).toBe("wikipedia");
     expect(r.siteKey).toBe("@wikipedia");
-    expect(r.items.length).toBe(3);
+    expect(r.items.length).toBe(1);
   });
 
   test("en.wikipedia.org matches too (any subdomain)", () => {
@@ -177,7 +177,7 @@ describe("Reddit", () => {
     const r = suggestionsFor({ url: "https://www.reddit.com/r/aww/comments/abc123/cute_thing/" });
     expect(r.site?.id).toBe("reddit");
     expect(r.siteKey).toBe("@reddit");
-    expect(r.items.length).toBe(2);
+    expect(r.items.length).toBe(1);
   });
 
   test("old.reddit.com matches", () => {
@@ -203,46 +203,6 @@ describe("Reddit", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Amazon — product pages only, several country TLDs
-// ---------------------------------------------------------------------------
-describe("Amazon", () => {
-  test("amazon.fr /dp/... matches", () => {
-    const r = suggestionsFor({ url: "https://www.amazon.fr/dp/B000123456" });
-    expect(r.site?.id).toBe("amazon");
-    expect(r.siteKey).toBe("@amazon");
-    expect(r.items.length).toBe(2);
-  });
-
-  test("amazon.com /gp/product/... matches", () => {
-    const r = suggestionsFor({ url: "https://www.amazon.com/gp/product/B000123456" });
-    expect(r.site?.id).toBe("amazon");
-  });
-
-  for (const tld of ["de", "co.uk", "es", "it", "ca", "be", "nl"]) {
-    test(`amazon.${tld} /dp/... matches`, () => {
-      const r = suggestionsFor({ url: `https://www.amazon.${tld}/dp/B000123456` });
-      expect(r.site?.id).toBe("amazon");
-    });
-  }
-
-  test("non-product path on amazon.fr: site recognized, no items", () => {
-    const r = suggestionsFor({ url: "https://www.amazon.fr/s?k=chaussures" });
-    expect(r.site?.id).toBe("amazon");
-    expect(r.items).toEqual([]);
-  });
-
-  test("amazon.fr.malicious.com does not match", () => {
-    const r = suggestionsFor({ url: "https://amazon.fr.malicious.com/dp/B000" });
-    expect(r.site).toBeNull();
-  });
-
-  test("evil-amazon.com does not match", () => {
-    const r = suggestionsFor({ url: "https://evil-amazon.com/dp/B000" });
-    expect(r.site).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // siteKeyFor
 // ---------------------------------------------------------------------------
 describe("siteKeyFor", () => {
@@ -251,7 +211,6 @@ describe("siteKeyFor", () => {
     expect(siteKeyFor("https://www.google.com/maps")).toBe("@google");
     expect(siteKeyFor("https://fr.wikipedia.org/w/index.php")).toBe("@wikipedia");
     expect(siteKeyFor("https://www.reddit.com/r/aww/")).toBe("@reddit");
-    expect(siteKeyFor("https://www.amazon.fr/")).toBe("@amazon");
   });
 
   test("youtu.be → @youtube", () => {
@@ -298,11 +257,11 @@ describe("no stray Résumer label in data", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Exactly five sites, removed sites gone
+// Exactly four sites, removed sites gone
 // ---------------------------------------------------------------------------
-describe("exactly five sites", () => {
-  test("SITES has exactly youtube, google, wikipedia, reddit, amazon, in that order", () => {
-    expect(SITES.map((s) => s.id)).toEqual(["youtube", "google", "wikipedia", "reddit", "amazon"]);
+describe("exactly four sites", () => {
+  test("SITES has exactly youtube, google, wikipedia, reddit, in that order", () => {
+    expect(SITES.map((s) => s.id)).toEqual(["youtube", "google", "wikipedia", "reddit"]);
   });
 
   test("real-estate/leboncoin/shopping hosts are unrecognized", () => {
@@ -350,11 +309,9 @@ describe("permissionPatternsFor", () => {
     expect(permissionPatternsFor("@reddit")).toEqual(["https://*.reddit.com/*"]);
   });
 
-  test("Google and Amazon: one https pattern per TLD already in SITES", () => {
+  test("Google: one https pattern per TLD already in SITES", () => {
     const googleSite = SITES.find((s) => s.id === "google")!;
     expect(permissionPatternsFor("@google")).toEqual(googleSite.hosts.map((h) => `https://*.${h}/*`));
-    const amazonSite = SITES.find((s) => s.id === "amazon")!;
-    expect(permissionPatternsFor("@amazon")).toEqual(amazonSite.hosts.map((h) => `https://*.${h}/*`));
   });
 
   test("user hostname key: https and http patterns covering the host and its subdomains", () => {
@@ -372,7 +329,7 @@ describe("permissionPatternsFor", () => {
     const { readFileSync } = require("node:fs");
     const { join } = require("node:path");
     const extDir = join(import.meta.dir, "..", "..", "extension");
-    const keys = ["@youtube", "@google", "@wikipedia", "@reddit", "@amazon", "crisco4.unicaen.fr"];
+    const keys = ["@youtube", "@google", "@wikipedia", "@reddit", "crisco4.unicaen.fr"];
     for (const manifestName of ["manifest.json", "manifest.firefox.json"]) {
       const manifest = JSON.parse(readFileSync(join(extDir, manifestName), "utf8"));
       const declaredSchemes = (manifest.optional_host_permissions as string[]).map((p) => p.split("://")[0]);

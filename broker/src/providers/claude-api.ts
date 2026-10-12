@@ -189,6 +189,27 @@ async function testConnection(
 }
 
 /**
+ * Model ids this key can use, from `GET /v1/models` (free, never billed).
+ * Rejects when there is no key or the call fails, so a missing or refused key
+ * yields no model list at all.
+ */
+async function listModels(opts: ProviderRuntimeOptions): Promise<string[]> {
+  const key = opts.apiKey?.trim();
+  if (!key) throw new Error("no key");
+  const response = await fetchImpl(`${ANTHROPIC_MODELS_URL}?limit=1000`, {
+    headers: { "x-api-key": key, "anthropic-version": ANTHROPIC_VERSION },
+    redirect: "error",
+    signal: AbortSignal.timeout(TEST_CONNECTION_DEFAULT_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const body = (await response.json()) as { data?: unknown };
+  if (!Array.isArray(body?.data)) throw new Error("unexpected body");
+  return body.data
+    .map((m) => (m && typeof m === "object" ? (m as Record<string, unknown>).id : undefined))
+    .filter((id): id is string => typeof id === "string");
+}
+
+/**
  * Parses one SSE line of an Anthropic /v1/messages streaming response,
  * mutating `state` for the two usage fields that only ever appear on
  * separate events (message_start carries input_tokens, message_delta
@@ -482,6 +503,7 @@ export const claudeApiProvider: ModelProvider = {
   isAvailable,
   checkStatus,
   testConnection,
+  listModels,
   streamAnswer,
   defaultModel: CLAUDE_API_DEFAULT_MODEL,
   // Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md): every claude-api

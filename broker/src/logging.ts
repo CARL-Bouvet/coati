@@ -32,7 +32,7 @@ export const MAX_DEV_CONTEXT_CHARS = 400_000;
 
 // Open-ended wire capabilities this build understands (docs/PROTOCOL.md,
 // "Handshake"); all unconditional, whatever the active model or provider.
-export const BROKER_FEATURES: string[] = ["elements", "vision", "history", "pageOnDemand", "search", "act"];
+export const BROKER_FEATURES: string[] = ["elements", "vision", "history", "pageOnDemand", "search"];
 
 export function contextTooLarge(text: string | undefined): boolean {
   return typeof text === "string" && text.length > MAX_CONTEXT_CHARS;

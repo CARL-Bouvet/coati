@@ -157,7 +157,7 @@ export async function sendChatMessage(text, context, extraction, searchQuery) {
   // present" (docs/PROTOCOL.md).
   const wireHistory = history && history.entries.length > 0 ? history.entries : undefined;
 
-  const abilities = canSearch() ? ["search", "act"] : ["act"];
+  const abilities = canSearch() ? ["search"] : undefined;
   const wire = {
     type: "chat",
     text,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseClientMessage, searchContentError, MAX_MESSAGE_BYTES } from "../src/protocol.ts";
+import { parseClientMessage, searchContentError, openContentError, MAX_MESSAGE_BYTES } from "../src/protocol.ts";
 
 describe("parseClientMessage", () => {
   const NONCE = "a".repeat(64);
@@ -429,7 +429,7 @@ describe("parseClientMessage — chat.history", () => {
 });
 
 describe("parseClientMessage — search", () => {
-  const body = { target: "c1", query: "q", results: [{ n: 1, title: "t", url: "https://a.b", snippet: "s" }], pages: [] };
+  const body = { target: "c1", query: "q", results: [{ n: 1, title: "t", url: "https://a.b", snippet: "s" }] };
 
   test("chat.abilities keeps only known words; chat.searchQuery must be one short line", () => {
     const ok = parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "hi", abilities: ["search", "x"], searchQuery: " best  phone " }));
@@ -441,46 +441,47 @@ describe("parseClientMessage — search", () => {
     }
   });
 
-  test("search.content and search.decline shapes", () => {
-    const content = parseClientMessage(JSON.stringify({ type: "search.content", id: "x1", ...body }));
+  test("search.content, search.decline, open.content and open.decline shapes", () => {
+    // A `pages` field from an older client is ignored: pages come through open.request.
+    const content = parseClientMessage(JSON.stringify({ type: "search.content", id: "x1", ...body, pages: [] }));
     expect(content.ok && content.message).toEqual({ type: "search.content", id: "x1", ...body });
     const decline = parseClientMessage(JSON.stringify({ type: "search.decline", id: "x2", target: "c1", reason: "no-result" }));
     expect(decline.ok && decline.message).toEqual({ type: "search.decline", id: "x2", target: "c1", reason: "no-result" });
+    const pages = [{ n: 3, url: "https://a.b/p", title: "t", text: "x" }];
+    const open = parseClientMessage(JSON.stringify({ type: "open.content", id: "x3", target: "c1", pages }));
+    expect(open.ok && open.message).toEqual({ type: "open.content", id: "x3", target: "c1", pages });
+    const openDecline = parseClientMessage(JSON.stringify({ type: "open.decline", id: "x4", target: "c1", reason: "blocked" }));
+    expect(openDecline.ok && openDecline.message).toEqual({ type: "open.decline", id: "x4", target: "c1", reason: "blocked" });
     for (const bad of [
       { type: "search.content", id: "x", ...body, target: "" },
       { type: "search.content", id: "x", ...body, results: [{ n: 0, title: "t", url: "u", snippet: "s" }] },
-      { type: "search.content", id: "x", ...body, pages: "no" },
       { type: "search.decline", id: "x", target: "c1", reason: "because" },
+      { type: "open.content", id: "x", target: "c1", pages: "no" },
+      { type: "open.content", id: "x", target: "c1", pages: [{ n: 1, url: "u", title: "t" }] },
+      { type: "open.decline", id: "x", target: "c1", reason: "no-result" },
     ]) {
       const r = parseClientMessage(JSON.stringify(bad));
       expect(!r.ok && r.error.code).toBe("bad-request");
     }
   });
 
-  test("act ability and action.result shapes", () => {
+  test("abilities: unknown words dropped, none left means undefined", () => {
     const chat = parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "hi", abilities: ["act", "search", "x"] }));
-    expect(chat.ok && chat.message.type === "chat" && chat.message.abilities).toEqual(["search", "act"]);
-    const ok = parseClientMessage(JSON.stringify({ type: "action.result", id: "x1", target: "c1", status: "done", by: "user" }));
-    expect(ok.ok && ok.message).toMatchObject({ type: "action.result", target: "c1", status: "done", by: "user" });
-    // `by` only means something with `done`.
-    const refused = parseClientMessage(JSON.stringify({ type: "action.result", id: "x2", target: "c1", status: "refused", by: "user", reason: "no" }));
-    expect(refused.ok && refused.message).toMatchObject({ status: "refused", by: undefined, reason: "no" });
-    for (const bad of [
-      { type: "action.result", id: "x", target: "", status: "done" },
-      { type: "action.result", id: "x", target: "c1", status: "maybe" },
-      { type: "action.result", id: "x", target: "c1", status: "done", context: "nope" },
-    ]) {
-      const r = parseClientMessage(JSON.stringify(bad));
-      expect(!r.ok && r.error.code).toBe("bad-request");
-    }
+    expect(chat.ok && chat.message.type === "chat" && chat.message.abilities).toEqual(["search"]);
+    const none = parseClientMessage(JSON.stringify({ type: "chat", id: "c2", text: "hi", abilities: ["act"] }));
+    expect(none.ok && none.message.type === "chat" && none.message.abilities).toBeUndefined();
+    const stray = parseClientMessage(JSON.stringify({ type: "action.result", id: "x1", target: "c1", status: "done" }));
+    expect(!stray.ok && stray.error.code).toBe("bad-request");
   });
 
-  test("searchContentError refuses what exceeds the limits", () => {
-    const page = (text: string) => ({ n: 1, url: "u", title: "t", text });
-    expect(searchContentError({ query: "q", results: [], pages: [page("x")] })).toBeUndefined();
-    expect(searchContentError({ query: "q", results: [], pages: [page("x"), page("x"), page("x")] })).toContain("pages");
-    expect(searchContentError({ query: "q", results: [], pages: [page("x".repeat(24_001))] })).toContain("24000");
+  test("searchContentError and openContentError refuse what exceeds the limits", () => {
     const r = { n: 1, title: "t", url: "u", snippet: "" };
-    expect(searchContentError({ query: "q", results: Array(9).fill(r), pages: [] })).toContain("results");
+    expect(searchContentError({ query: "q", results: Array(8).fill(r) })).toBeUndefined();
+    expect(searchContentError({ query: "q", results: Array(9).fill(r) })).toContain("results");
+    const page = (n: number, text = "x") => ({ n, url: "u", title: "t", text });
+    expect(openContentError([page(2), page(5)], [2, 5, 7])).toBeUndefined();
+    expect(openContentError([page(2, "x".repeat(6001))], [2])?.code).toBe("context-too-large");
+    expect(openContentError([page(4)], [2])?.code).toBe("bad-request");
+    expect(openContentError([page(2), page(2)], [2])?.code).toBe("bad-request");
   });
 });

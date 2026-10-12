@@ -8,9 +8,9 @@
 //  - literals: MARKER_TEXT (always offered) and MARKER_DEV (devMode only);
 //  - parameterised: `[[SEARCH: <query>]]` (offered when the panel can search),
 //    one line, 1 to SEARCH_QUERY_MAX_CHARS characters, no `]]` inside;
-//    `[[CLICK eN]]` and `[[TYPE eN: <text>]]` (offered when the panel can act),
-//    where `eN` must be in the element list the detector was given and the
-//    text is one line of 1 to ACTION_TEXT_MAX_CHARS characters.
+//    `[[OPEN: S<n> …]]` (same offer), 1 to OPEN_MAX_REFS result numbers
+//    separated by spaces or commas — whether they name real results is
+//    handlers/chat.ts's call;
 // A new parameterised marker is one more entry in PARAM_MARKERS.
 // None is ever forwarded to the client as text — that is the whole point of
 // holding output back while it's still being decided. Text that merely looks
@@ -33,12 +33,11 @@
 //    so a marker split across two deltas is still found.
 //
 // This file only ever reports "a marker was found here, at this position" —
-// whether that is still allowed to trigger a `page.request` (the read caps:
-// at most one read per level, two per question) or must be silently
-// stripped once exhausted is handlers/chat.ts's own policy, not this one's.
+// whether that is still allowed to trigger a request (the read, search and
+// open caps, the turn bound) or must be silently stripped is
+// handlers/chat.ts's own policy, not this one's.
 
-import { ACTION_TEXT_MAX_CHARS, SEARCH_QUERY_MAX_CHARS } from "../protocol/chat.ts";
-import { ELEMENT_REF_RE } from "../protocol/context.ts";
+import { OPEN_MAX_REFS, SEARCH_QUERY_MAX_CHARS } from "../protocol/chat.ts";
 
 export const MARKER_TEXT = "[[READ_PAGE]]";
 export const MARKER_DEV = "[[READ_PAGE_DEV]]";
@@ -49,8 +48,7 @@ export type PageMarkerPosition = "start" | "mid";
 export type PageMarker =
   | { type: "read"; level: PageMarkerLevel }
   | { type: "search"; query: string }
-  | { type: "click"; ref: string }
-  | { type: "type"; ref: string; text: string };
+  | { type: "open"; refs: number[] };
 
 export type PageMarkerEvent =
   | { kind: "text"; text: string }
@@ -73,13 +71,11 @@ function paramBody(s: string, prefix: string, maxBody: number): { body: string; 
 
 const PARAM_MARKERS: readonly {
   prefix: string;
-  needs: "search" | "refs";
   maxBody: number;
-  build(body: string, refs: ReadonlySet<string> | undefined): PageMarker | null;
+  build(body: string): PageMarker | null;
 }[] = [
   {
     prefix: "[[SEARCH:",
-    needs: "search",
     maxBody: SEARCH_QUERY_MAX_CHARS,
     build: (body) => {
       const query = body.trim();
@@ -87,44 +83,29 @@ const PARAM_MARKERS: readonly {
     },
   },
   {
-    prefix: "[[CLICK ",
-    needs: "refs",
-    maxBody: 8,
-    build: (body, refs) => {
-      const ref = body.trim();
-      return ELEMENT_REF_RE.test(ref) && refs?.has(ref) ? { type: "click", ref } : null;
-    },
-  },
-  {
-    prefix: "[[TYPE ",
-    needs: "refs",
-    maxBody: ACTION_TEXT_MAX_CHARS + 8,
-    build: (body, refs) => {
-      const m = /^(e[1-9][0-9]{0,2}):(.*)$/.exec(body);
-      const text = m?.[2]?.trim() ?? "";
-      return m && refs?.has(m[1]!) && text.length >= 1 && text.length <= ACTION_TEXT_MAX_CHARS
-        ? { type: "type", ref: m[1]!, text }
-        : null;
+    prefix: "[[OPEN:",
+    maxBody: 24,
+    build: (body) => {
+      const tokens = body.trim().split(/[\s,]+/);
+      if (tokens.length > OPEN_MAX_REFS || !tokens.every((t) => /^S[1-9][0-9]{0,2}$/.test(t))) return null;
+      return { type: "open", refs: [...new Set(tokens.map((t) => Number(t.slice(1))))] };
     },
   },
 ];
 
 export class PageMarkerDetector {
   private readonly literals: readonly string[];
-  private readonly search: boolean;
-  private readonly refs: ReadonlySet<string> | undefined;
+  private readonly search: boolean; // SEARCH and OPEN
   private atStart = true;
   private buf = "";
 
   /** `allowDev: false` means MARKER_DEV is never recognised at all for this
    * call — a model that emits it anyway (devMode wasn't offered to it, or it
    * ignored the instruction) gets it treated as ordinary text (docs/PROTOCOL.md:
-   * "dev marker refused when devMode false"). Same for `allowSearch`; click
-   * and type are recognised only for a ref in `refs` (undefined = not offered). */
-  constructor(opts: { allowDev: boolean; allowSearch?: boolean; refs?: ReadonlySet<string> }) {
+   * "dev marker refused when devMode false"). Same for `allowSearch` (SEARCH and OPEN). */
+  constructor(opts: { allowDev: boolean; allowSearch?: boolean }) {
     this.literals = opts.allowDev ? [MARKER_TEXT, MARKER_DEV] : [MARKER_TEXT];
     this.search = opts.allowSearch === true;
-    this.refs = opts.refs;
   }
 
   /** Does `s` (starting at a candidate `[[`) hold a full marker at its start,
@@ -136,11 +117,11 @@ export class PageMarkerDetector {
       if (m.startsWith(s)) partial = true;
     }
     for (const pm of PARAM_MARKERS) {
-      if (pm.needs === "search" ? !this.search : this.refs === undefined) continue;
+      if (!this.search) continue;
       const r = paramBody(s, pm.prefix, pm.maxBody);
       if (r === "partial") partial = true;
       else if (r !== null) {
-        const marker = pm.build(r.body, this.refs);
+        const marker = pm.build(r.body);
         if (marker) return { len: r.len, marker };
       }
     }

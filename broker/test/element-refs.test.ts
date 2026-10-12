@@ -170,6 +170,7 @@ describe("prepareContextForWire", () => {
 
 import { collectSearchResults, sourcesFromSearch, isClickableSource } from "../../extension/lib/search-results.js";
 import { checkOpen } from "../../extension/lib/open-guard.js";
+import { readStructuredData } from "../../extension/lib/structured-data.js";
 
 // Frozen page mirroring Google's structure: organic results are `a[href]` holding an `h3`, inside `#search`.
 const GOOGLE_LIKE = `<!doctype html><html><body>
@@ -190,7 +191,22 @@ const GENERIC = `<!doctype html><html><body><main>
 <article><a href="https://example.com/x"><h2>Plain engine result</h2></a><p>Some description text that is long enough to be a snippet here.</p></article>
 </main></body></html>`;
 
-async function runCollect(html: string): Promise<any[] | null> {
+// Frozen excerpts of other engines' result markup: the title is a class inside
+// the link (Brave Search) or a heading around it (DuckDuckGo, Bing).
+const BRAVE_LIKE = `<!doctype html><html><body><main>
+<div class="snippet" data-type="web"><a href="https://github.com/comfy-org/comfyui"><div class="site-name">GitHub</div><div class="title search-snippet-title">Comfy-Org/ComfyUI</div></a>
+<div class="generic-snippet"><div class="content">The most powerful and modular diffusion model GUI, api and backend.</div></div></div>
+<a href="https://search.brave.com/images?q=x"><div class="title">Images</div></a>
+</main></body></html>`;
+const DDG_LIKE = `<!doctype html><html><body><div id="links">
+<div class="result"><h2 class="result__title"><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgithub.com%2Fx%2Fy&rut=1">GitHub - x/y</a></h2>
+<a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgithub.com%2Fx%2Fy">A description of the repository that is long enough.</a></div>
+</div></body></html>`;
+const BING_LIKE = `<!doctype html><html><body><main><ol id="b_results">
+<li class="b_algo"><h2><a href="https://www.bing.com/ck/a?!&&p=abc&u=a1aHR0cHM6Ly9leGFtcGxlLmNvbS9iaW5n&ntb=1">Bing result</a></h2><p>A description of this result that is long enough to count.</p></li>
+</ol></main></body></html>`;
+
+async function runCollect(html: string, at = "https://www.google.com/search?q=test"): Promise<any[] | null> {
   let browser: any;
   try {
     const { chromium } = await import("playwright");
@@ -201,7 +217,7 @@ async function runCollect(html: string): Promise<any[] | null> {
   try {
     const page = await browser.newPage();
     await page.route("**/*", (r: any) => r.fulfill({ contentType: "text/html", body: html }));
-    await page.goto("https://www.google.com/search?q=test");
+    await page.goto(at);
     return await page.evaluate(collectSearchResults, 8);
   } finally {
     await browser.close();
@@ -223,6 +239,17 @@ describe("collectSearchResults", () => {
     expect(results).toHaveLength(1);
     expect(results[0].url).toBe("https://example.com/x");
   });
+
+  test("Brave Search, DuckDuckGo and Bing markup", async () => {
+    const brave = await runCollect(BRAVE_LIKE, "https://search.brave.com/search?q=t");
+    if (!brave) return;
+    expect(brave.map((r) => [r.title, r.url])).toEqual([["Comfy-Org/ComfyUI", "https://github.com/comfy-org/comfyui"]]);
+    expect(brave[0].snippet).toContain("modular diffusion");
+    const ddg = await runCollect(DDG_LIKE, "https://html.duckduckgo.com/html/?q=t");
+    expect(ddg!.map((r) => r.url)).toEqual(["https://github.com/x/y"]);
+    const bing = await runCollect(BING_LIKE, "https://www.bing.com/search?q=t");
+    expect(bing!.map((r) => [r.title, r.url])).toEqual([["Bing result", "https://example.com/bing"]]);
+  });
 });
 
 describe("sourcesFromSearch", () => {
@@ -231,7 +258,7 @@ describe("sourcesFromSearch", () => {
     { n: 2, title: "Plain http", url: "http://example.org/b", snippet: "" },
     { n: 3, title: "Router", url: "http://192.168.1.1/admin", snippet: "" },
   ];
-  const sources = sourcesFromSearch(results, [{ n: 1, url: "https://example.org/a", title: "", text: "x" }], (u: string) =>
+  const sources = sourcesFromSearch([], results, [{ n: 1, url: "https://example.org/a", title: "", text: "x" }], (u: string) =>
     checkOpen("https://www.google.com/search?q=t", u, "text"),
   );
 
@@ -248,5 +275,70 @@ describe("sourcesFromSearch", () => {
     expect(isClickableSource(sources[2])).toBe(false);
     const fromModel = sources.find((s: any) => s.url === "https://evil.example/");
     expect(isClickableSource(fromModel)).toBe(false);
+  });
+});
+
+describe("sourcesFromSearch across searches", () => {
+  const check = (u: string) => checkOpen("https://www.google.com/search?q=t", u, "text");
+  test("a second search is numbered after the first; opened pages mark their source read", () => {
+    const first = sourcesFromSearch([], [{ n: 1, title: "A", url: "https://example.org/a", snippet: "" }, { n: 2, title: "B", url: "https://example.org/b", snippet: "" }], [], check);
+    const second = sourcesFromSearch(first, [{ n: 1, title: "C", url: "https://example.org/c", snippet: "" }], [], check, 2);
+    const opened = sourcesFromSearch(second, [], [{ n: 3, url: "https://example.org/c", title: "C", text: "x" }], check);
+    expect(opened.map((s: any) => s.n)).toEqual([1, 2, 3]);
+    expect(opened.map((s: any) => s.read)).toEqual([false, false, true]);
+  });
+});
+
+describe("readStructuredData", () => {
+  function read(blocks: string[]): string {
+    (globalThis as any).document = { querySelectorAll: () => blocks.map((textContent) => ({ textContent })) };
+    try {
+      return readStructuredData();
+    } finally {
+      delete (globalThis as any).document;
+    }
+  }
+
+  test("Product with Offer and AggregateRating: name, price, currency, availability, rating", () => {
+    const out = read([
+      JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Product",
+        name: "Micro turbine <b>T1</b>",
+        offers: { "@type": "Offer", price: "129.90", priceCurrency: "EUR", availability: "https://schema.org/InStock" },
+        aggregateRating: { "@type": "AggregateRating", ratingValue: "4.6", reviewCount: 87 },
+      }),
+    ]);
+    expect(out).toContain("Name: Micro turbine T1");
+    expect(out).toContain("Price: 129.90 EUR");
+    expect(out).toContain("Availability: InStock");
+    expect(out).toContain("Rating: 4.6 (87 reviews)");
+    expect(out).not.toContain("<");
+  });
+
+  test("@graph arrays: software license and repository are read, other types ignored", () => {
+    const out = read([
+      JSON.stringify({
+        "@graph": [
+          { "@type": "WebSite", name: "Ignored site" },
+          { "@type": ["SoftwareSourceCode", "Thing"], name: "imgen", license: "https://opensource.org/licenses/MIT", codeRepository: "https://github.com/x/imgen" },
+        ],
+      }),
+    ]);
+    expect(out).toContain("Name: imgen");
+    expect(out).toContain("License: https://opensource.org/licenses/MIT");
+    expect(out).toContain("Repository: https://github.com/x/imgen");
+    expect(out).not.toContain("Ignored site");
+  });
+
+  test("malformed JSON is ignored, valid blocks still read; nothing found gives an empty string", () => {
+    expect(read(["{not json", JSON.stringify({ "@type": "SoftwareApplication", name: "App" })])).toBe("Name: App");
+    expect(read(["{oops"])).toBe("");
+    expect(read([])).toBe("");
+  });
+
+  test("output is capped at 800 characters", () => {
+    const graph = Array.from({ length: 40 }, (_, i) => ({ "@type": "Product", name: `Product ${i} ${"x".repeat(100)}` }));
+    expect(read([JSON.stringify(graph)]).length).toBeLessThanOrEqual(800);
   });
 });

@@ -1,23 +1,16 @@
-// Coati content script — highlights an element ("Show") and, after the user's
-// confirmation, clicks or types in it ("Act"). Injected by the panel after
-// content/forbidden-gesture.js with
-// `chrome.scripting.executeScript({ files })`; loading it does nothing. The
-// panel then calls `globalThis.__coatiPoint` (highlight) or
-// `globalThis.__coatiAct` (check, click, type) in a second `executeScript`,
-// always in direct response to a user gesture (docs/DECISIONS.md "gesture rule").
+// Coati content script — highlights an element ("Show"). Injected by the panel
+// with `chrome.scripting.executeScript({ files })`; loading it does nothing. The
+// panel then calls `globalThis.__coatiPoint` in a second `executeScript`, always
+// in direct response to the user's own click (docs/DECISIONS.md "gesture rule").
 //
-// Both verify the target against the live page first: `__coatiRefs`
-// (isolated world only, set by content/extract/clickable-elements.js, never a
-// DOM attribute a page could forge) must carry the same extractionId, the
-// element must still be attached, and its live role and label must match what
-// was recorded at extraction time. Any mismatch returns "stale".
+// It verifies the target against the live page first: `__coatiRefs` (isolated
+// world only, set by content/extract/clickable-elements.js, never a DOM
+// attribute a page could forge) must carry the same extractionId, the element
+// must still be attached, and its live role and label must match what was
+// recorded at extraction time. Any mismatch returns "stale".
 //
-// `__coatiPoint` only draws (scroll + a frame, plus a dimming overlay, pulse
-// rings and an arrow at the stronger levels). With `follow: true` it also
-// reports the user's own trusted click on the element (`coati:user-clicked`).
-// `__coatiAct` refuses what content/forbidden-gesture.js forbids, then clicks
-// or sets a field's value (native setter, `input` + `change` events). It never
-// presses a key, Enter included.
+// It only draws (scroll + a frame, plus a dimming overlay, pulse rings and an
+// arrow at the stronger levels): never a click, a focus or an input.
 // `normalizeEffect`/`pickArrowSide` are pure and exposed on
 // `globalThis.__coatiPointerInternals` for unit tests (no browser in bun test).
 
@@ -148,7 +141,6 @@
       }
     }
     globalThis.__coatiPointerCleanup = null;
-    if (typeof globalThis.__coatiFollowCleanup === "function") globalThis.__coatiFollowCleanup();
     const existing = document.getElementById(HOST_ID);
     if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
   }
@@ -332,69 +324,8 @@
     return el;
   }
 
-  // Reports the user's own trusted click on the highlighted element to the
-  // panel (a page script cannot forge `isTrusted`). One report, then it stops.
-  function followUserClick(el, opts) {
-    const onClick = (e) => {
-      if (!e.isTrusted) return;
-      stop();
-      const rt = (globalThis.chrome || globalThis.browser || {}).runtime;
-      if (rt && typeof rt.sendMessage === "function") {
-        Promise.resolve(rt.sendMessage({ type: "coati:user-clicked", extractionId: opts.extractionId, ref: opts.ref })).catch(() => {});
-      }
-    };
-    const stop = () => {
-      el.removeEventListener("click", onClick, true);
-      globalThis.__coatiFollowCleanup = null;
-    };
-    el.addEventListener("click", onClick, true);
-    globalThis.__coatiFollowCleanup = stop;
-  }
-
-  function setFieldValue(el, text) {
-    const proto =
-      typeof HTMLInputElement === "undefined"
-        ? null
-        : el.tagName === "TEXTAREA"
-          ? HTMLTextAreaElement.prototype
-          : HTMLInputElement.prototype;
-    const setter = proto && Object.getOwnPropertyDescriptor(proto, "value")?.set;
-    if (setter) setter.call(el, text);
-    else el.value = text;
-  }
-
   /**
-   * Checks, then (for "click"/"type") performs one gesture on a live element.
-   * @param {{extractionId: string, ref: string, role: string, label: string, action: "check"|"click"|"type", text?: string}} opts
-   * @returns {{status: "ok"|"done"|"stale"|"blocked", reason?: string, href?: string}}
-   */
-  globalThis.__coatiAct = function coatiAct(opts) {
-    const el = liveElement(opts);
-    if (!el) return { status: "stale" };
-    const gesture = opts.action === "type" ? "type" : "click";
-    const forbidden = globalThis.__coatiForbiddenGesture;
-    const reason = typeof forbidden === "function" ? forbidden(el, gesture) : "unavailable";
-    if (reason) return { status: "blocked", reason };
-    const href = el.tagName === "A" && typeof el.href === "string" ? el.href : undefined;
-    if (opts.action === "check") return { status: "ok", href };
-    try {
-      if (typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center" });
-      if (opts.action === "type") {
-        if (typeof el.focus === "function") el.focus();
-        setFieldValue(el, String(opts.text ?? ""));
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      } else {
-        el.click();
-      }
-    } catch {
-      return { status: "stale" };
-    }
-    return { status: "done" };
-  };
-
-  /**
-   * @param {{extractionId: string, ref: string, role: string, label: string, effect?: "subtle"|"strong"|"spectacular", follow?: boolean}|{clear: true}} opts
+   * @param {{extractionId: string, ref: string, role: string, label: string, effect?: "subtle"|"strong"|"spectacular"}|{clear: true}} opts
    * @returns {"ok"|"stale"}
    */
   globalThis.__coatiPoint = function coatiPoint(opts) {
@@ -409,7 +340,6 @@
     if (!el) return "stale";
 
     const effect = normalizeEffect(opts.effect);
-    if (opts.follow) followUserClick(el, opts);
 
     try {
       el.scrollIntoView({ block: "center" });
