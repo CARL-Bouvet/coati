@@ -59,8 +59,8 @@ memory: clickable, marked "from memory, check it". The rules: `docs/DECISIONS.md
 Coati does not claim to prevent prompt injection — page content is adversarial by construction.
 What it does: treat page content as data, never as an instruction, fenced separately from the
 system prompt; limit what the model's output can actually do (rules 10–13, 16 in `CLAUDE.md` —
-no background action, no click/type without the user confirming a named target, no automated
-payment/send/delete/publish/sign-in); and never auto-click a link the model merely mentions.
+no background action, no click or typing on the page, no automated payment/send/delete/
+publish/sign-in); and never auto-click a link the model merely mentions.
 
 ## Known limits
 
