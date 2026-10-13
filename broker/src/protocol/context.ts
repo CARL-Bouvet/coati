@@ -1,15 +1,15 @@
 // Context/Fact/Item/Element wire types (docs/PROTOCOL.md "Page types,
 // facts and entries" / "Point at element") and their parser. Split out of
-// protocol.ts (lot F5).
+// protocol.ts.
 
 import { isRecord } from "./shared.ts";
 
 export type ContextKind = "page" | "youtube";
 
-// Amendement 2026-09-25 (types de page). Only meaningful when kind === "page"
+// Only meaningful when kind === "page"
 // — see docs/PROTOCOL.md "Page types, facts and entries". Anything outside
 // these four literals is not a PageKind: parseContext below drops it, and the
-// broker then behaves exactly as it did before this amendment ("other").
+// broker then treats the page as "other".
 export type PageKind = "list" | "listing" | "article" | "other";
 
 // A "label: value" pair read verbatim off the page (context.facts). Only
@@ -29,7 +29,7 @@ export interface Item {
   detail?: string;
 }
 
-// Amendement 2026-10-08 (lot A1, "Montrer du doigt"). One interactive element
+// "Montrer du doigt". One interactive element
 // the content script numbered on the page — see docs/PROTOCOL.md §2.2. Only
 // carried when kind === "page", INDEPENDENT of pageKind (unlike facts/items,
 // which require a specific pageKind) — present or not regardless of
@@ -47,18 +47,18 @@ export interface Context {
   text?: string;
   videoId?: string;
 
-  // Amendement 2026-09-25 (types de page). Optional, page-controlled data —
+  // Optional, page-controlled data —
   // same trust level as `text` (CLAUDE.md rule #3). See model.ts's
   // renderContext for how they're fenced, and server.ts's
   // contextBudgetError for the numeric caps ("Broker-side limits").
   pageKind?: PageKind;
   facts?: Fact[];
   items?: Item[];
-  // Amendement 2026-10-08 (lot A1). See Element above.
+  // See Element above.
   elements?: Element[];
 }
 
-// Amendement 2026-09-25 (types de page) — "Facts", "Entries", "Size budget".
+// "Facts", "Entries", "Size budget".
 // These are the contract's numeric bounds: parseContext below only
 // enforces *shape* (drops a malformed field/element, never rejects the whole
 // message — "Compatibility"); a numeric breach is refused outright by
@@ -73,7 +73,7 @@ export const ITEM_PRICE_MAX = 40;
 export const ITEM_LOCATION_MAX = 80;
 export const ITEM_DETAIL_MAX = 200;
 
-// Amendement 2026-10-08 (lot A1, "Point at element" — docs/PROTOCOL.md §2.2).
+// "Point at element" — docs/PROTOCOL.md §2.2.
 // Same shape/numeric split as facts/items above: parseElement below only
 // enforces SHAPE (a malformed element is dropped whole, others kept — no
 // closed-list role, no ^e[1-9][0-9]{0,2}$ ref, no non-empty label means "not
@@ -172,11 +172,11 @@ export function parseContext(v: unknown): Context | undefined {
   if (typeof v.text === "string") context.text = v.text;
   if (typeof v.videoId === "string") context.videoId = v.videoId;
 
-  // Amendement 2026-09-25 (types de page). pageKind/facts/items only exist
+  // pageKind/facts/items only exist
   // for kind === "page" — "Compatibility": "kind other than page →
   // pageKind, facts and items ignored". A pageKind outside the four known
   // values is dropped (undefined), same as an absent one — the client
-  // behaves exactly as before this amendment ("other").
+  // treats the page as "other".
   if (kind === "page") {
     if (isPageKind(v.pageKind)) context.pageKind = v.pageKind;
     // "facts with a pageKind other than listing, items with a pageKind
@@ -189,7 +189,7 @@ export function parseContext(v: unknown): Context | undefined {
       const items = parseItems(v.items);
       if (items !== undefined) context.items = items;
     }
-    // Amendement 2026-10-08 (lot A1): elements is NOT gated by pageKind —
+    // Elements is NOT gated by pageKind —
     // present or not regardless of list/listing/article/other, unlike
     // facts/items above.
     const elements = parseElements(v.elements);

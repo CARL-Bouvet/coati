@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds standalone coati-broker executables with `bun build --compile` —
-# goal G4 ("binaries + Windows CI"). One self-contained binary per OS/arch,
+# ("binaries + Windows CI"). One self-contained binary per OS/arch,
 # no bun/node install required to run it. Everything the broker reads at
 # runtime (see broker/src for readFileSync/import.meta.* call sites) is
 # either a real filesystem path under the user's home directory (config,

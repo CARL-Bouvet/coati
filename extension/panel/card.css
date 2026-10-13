@@ -1,6 +1,5 @@
-/* Site card (T27-T29) and its encart (plan-mes-prompts-28-09.md, lot 3) —
- * styled here rather than in panel.css so the two files stay disjoint
- * between workers (see notes/PLAN_goal_panneau_v2.md). Only the shared
+/* Site card (T27-T29) and its encart —
+ * styled here rather than in panel.css so the two files stay disjoint. Only the shared
  * variables from lib/theme.css are used, never a literal color/size, so
  * light/dark and the capture variants apply here too. */
 
@@ -24,7 +23,7 @@
   display: flex;
   /* 320 px, "Read this page" invite button + "Read page" switch both
    * shown at once: their combined natural width can leave the site label
-   * only a handful of px (admin review, lot 2) — wrapping the row, not
+   * only a handful of px — wrapping the row, not
    * squeezing the label to near-nothing, is the safe outcome at any width. */
   flex-wrap: wrap;
   align-items: center;
@@ -179,7 +178,7 @@
  * own icon slot steps aside. The "Read page" switch stays visible even on
  * an unreadable page: while it is on, sendChat() holds the question back
  * ("Coati cannot access this page"), so hiding it would leave the user no
- * way to ask a question without the page (admin fix, G5 — caught by
+ * way to ask a question without the page (caught by
  * scripts/ci/extension-e2e.mjs). On a page whose address is unknown, the
  * neutral "This page" label would only repeat the button: hidden, its
  * space kept. */
@@ -192,7 +191,7 @@
   visibility: hidden;
 }
 
-/* "Read page" switch (Lot 2) — right-aligned on the site card's head
+/* "Read page" switch — right-aligned on the site card's head
  * row, after the (flex-growing, ellipsis) label. Native <button>, so Space
  * and Enter already toggle it; only the visuals live here. */
 .switch {
@@ -254,8 +253,7 @@
  * Font-size set here (matching the buttons' own 13px below) so the
  * max-height calc's `em` means the same thing regardless of the panel's
  * --font-size (theme.css capture variants). Beyond three rows, it scrolls —
- * plan-mes-prompts-28-09.md, "Beyond three rows of buttons, the card
- * scrolls." scroll-padding-block keeps a focused button clear of the edge.
+ * Scroll-padding-block keeps a focused button clear of the edge.
  * Three and a half rows, not three: with overlay scrollbars (macOS, some
  * Linux setups) nothing else would show that more buttons — including
  * "Mes prompts ↗" — sit below; the half-cut fourth row is the hint. The
@@ -287,10 +285,10 @@
 }
 
 /* :not(.toolbar-button--primary) — the first button (any site, any kind)
- * keeps the caramel primary look instead (plan-mes-prompts-28-09.md: "Coati's
+ * keeps the caramel primary look instead ("Coati's
  * first suggestion on a popular site keeps the
  * primary style", widened to "whichever kind ends up first, since the user
- * controls the order" — see the worker report). Without this guard,
+ * controls the order"). Without this guard,
  * card.css loading after panel.css would win the cascade on the shared
  * `background`/`border-color` declarations at equal specificity. */
 .site-card-suggestion:not(.toolbar-button--primary) {
@@ -306,7 +304,7 @@
 }
 
 /* "Mes prompts ↗" — quiet/ghost, clearly secondary, always the encart's last
- * button (plan-mes-prompts-28-09.md). No border/background of its own. */
+ * button. No border/background of its own. */
 .site-card-my-prompts {
   border: none;
   background: none;

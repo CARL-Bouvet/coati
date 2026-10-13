@@ -1,7 +1,7 @@
 // Coati side panel — "Montrer du doigt" element-reference parsing.
 //
 // Pure, DOM-free parsing of `[[eN]]` tokens the model may write when
-// `context.elements` was sent (plan-montrer-voir-chercher-08-10.md §3A, flow
+// `context.elements` was sent (flow
 // (4)). Kept separate from the rendering path in panel.js so it can be unit
 // tested the same way extension/panel/timestamps.js is — no chrome.* here,
 // no DOM. panel.js decides whether and how to turn a known ref token into a
@@ -67,7 +67,7 @@ export function parseElementRefs(text, elements) {
  * `pointAtElement()` sends to pointer.js, or `null` if that ref isn't in
  * THAT snapshot. Pure — takes the snapshot explicitly rather than reading
  * any "current"/shared state, which is exactly the bug this guards against
- * (fixed 08/10, admin review): resolving an assistant message's button
+ * resolving an assistant message's button
  * against a DIFFERENT (newer) extraction can silently point at the wrong
  * element even though the button's own label still reads the old one.
  *
@@ -85,7 +85,7 @@ export function resolveElementClick(elementsSnapshot, ref) {
 /**
  * Strips extraction-only fields from a page `context` before it is sent to
  * the broker, and gates `context.elements` behind the negotiated `elements`
- * capability (`hello-ok.features`, plan-montrer-voir-chercher-08-10.md §2).
+ * capability (`hello-ok.features`).
  * `extractionId` and `elementsFrameLimited` are local-only (pointer.js's
  * verification key / a UI hint) — the broker's Context shape has neither
  * (docs/PROTOCOL.md). Returns a new object; never mutates `context`. Pure,

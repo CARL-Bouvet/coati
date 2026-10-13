@@ -22,7 +22,7 @@ export const READ_BUTTON_TEXT = {
   refusedNoteUnknownSite: t("panel_read_button_refused_note_unknown_site"),
 };
 
-// The one "all sites" request of T42 (amended 30/09): explicit schemes,
+// The one "all sites" request of T42: explicit schemes,
 // never `*://` (Chrome silently rejects it).
 export const ALL_SITES_ORIGINS = ["http://*/*", "https://*/*"];
 

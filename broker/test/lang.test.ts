@@ -1,4 +1,4 @@
-// Goal G6 (docs/PROTOCOL.md) — dedicated coverage
+// docs/PROTOCOL.md — dedicated coverage
 // for broker/src/messages.ts (normalizeLang, catalog parity), the `hello.lang`
 // negotiation end to end, and the reply-language instruction in model.ts's
 // buildSystemPrompt/buildPrompt. Message TEXT is never asserted beyond the

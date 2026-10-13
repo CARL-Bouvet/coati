@@ -3,7 +3,7 @@
 // Useful to isolate failures: if this script gets an answer but the extension
 // doesn't, the problem is on the extension side, and vice versa.
 //
-// Reads the broker key (broker-key.json, amendment 2026-09-30 G4) and runs
+// Reads the broker key (broker-key.json) and runs
 // the v: 2 HMAC-SHA256 handshake — see docs/PROTOCOL.md.
 //
 // Usage: bun scripts/ws-probe.js "my question"

@@ -1,6 +1,6 @@
-// models.list backend (amendement 2026-10-07) — "Available models list" /
-// "Lot 4: host capacity + fit classification". Split out of
-// server.ts (lot F5).
+// models.list backend — "Available models list" /
+// "Host capacity + fit classification". Split out of
+// server.ts.
 //
 // Builds the payload for a `models` reply: queries every configured source
 // independently (each failure is isolated, reported in `sources`) and returns
@@ -13,7 +13,7 @@
 //      remembered model or defaultModel. A current model absent from that
 //      list is replaced by the model it names ("sonnet") or else the
 //      provider's default in `current`.
-// `host: null` until lot 4 fills it.
+// `host: null` when the machine capacity cannot be read.
 
 import { DEFAULT_CONFIG, DEFAULT_OLLAMA_URL, resolveApiKey, type ProviderId, type CoatiConfig } from "../config.ts";
 import { getProviders, getProvider } from "../providers/registry.ts";
@@ -49,7 +49,7 @@ export async function buildModelsPayload(config: CoatiConfig): Promise<{
       const hasThinking = Array.isArray(e.capabilities) && e.capabilities.includes("thinking");
       // thinks:true = thinking-capable but cannot disable it (think:false ineffective).
       const thinks: true | undefined = hasThinking && !e.canDisableThinking ? true : undefined;
-      // Amendement 2026-10-08 (lot B1): vision from the same /api/show
+      // Vision from the same /api/show
       // capabilities array already fetched for this entry — true/false when
       // the array is present, absent (unknown) when the daemon's /api/show
       // doesn't report capabilities at all (older Ollama).
@@ -79,7 +79,7 @@ export async function buildModelsPayload(config: CoatiConfig): Promise<{
         try {
           const ocApiKey = resolveApiKey(config, "openai-compat");
           const models = await ocProvider.listModels({ baseUrl: config.baseUrl, apiKey: ocApiKey });
-          // Amendement 2026-10-08 (lot B1): one shared fetch for the whole
+          // One shared fetch for the whole
           // batch (OpenRouter's /models or LM Studio's /api/v0/models),
           // instead of a per-entry round trip — absent map (unknown origin)
           // simply leaves `vision` off every entry.
@@ -143,7 +143,7 @@ export async function buildModelsPayload(config: CoatiConfig): Promise<{
     }
   }
 
-  // --- Lot 4: host capacity + /api/ps + fit classification -------------------
+  // --- host capacity + /api/ps + fit classification -------------------
   const ollamaUrl = config.ollamaUrl ?? DEFAULT_OLLAMA_URL;
   const [host, psEntries] = await Promise.all([
     readHostCapacity().catch(() => null as HostCapacity | null),

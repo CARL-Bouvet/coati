@@ -57,7 +57,7 @@ fi
 
 ensure_dir "$DRY_RUN" "$DEV_DIR" 0700
 
-# %q-quotes both paths (final security review): unquoted, a PROJECT_ROOT or
+# %q-quotes both paths: unquoted, a PROJECT_ROOT or
 # bun path containing a space/glob/shell-special char would either break the
 # launcher or let it be reinterpreted by the shell that execs it. %q's
 # backslash-escaping output is plain POSIX sh, matching the launcher's own

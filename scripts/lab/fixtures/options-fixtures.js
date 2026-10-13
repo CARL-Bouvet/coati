@@ -59,7 +59,7 @@
     return { provider: "ollama", state: state, reason: reason };
   };
 
-  // Amendment 2026-10-07 — `models` replies (models.list).
+  // `models` replies (models.list).
   var OLLAMA_OK = { provider: "ollama", state: "ok" };
   var MODELS_ONE_INSTALLED = {
     current: { provider: "ollama", model: null },
@@ -102,7 +102,7 @@
     ],
   };
 
-  // Redesign 08/10 — models with their machine fit (lot 4), Claude active.
+  // Redesign — models with their machine fit, Claude active.
   var MODELS_FIT_CLAUDE_ACTIVE = {
     current: { provider: "claude-api", model: "claude-sonnet-4-5" },
     entries: [
@@ -162,7 +162,7 @@
     }),
 
     // Step 3 failed: the chosen model (8 GB row, gemma3:4b) is not pulled
-    // yet. « Vérifier le modèle » reads models.list since 2026-10-07 and
+    // yet. « Vérifier le modèle » reads models.list and
     // shows what IS installed below.
     "setup-local-model-missing": guide({
       providerStatus: OLLAMA_STATUS("ko", "model-missing"),
@@ -179,7 +179,7 @@
     }),
 
 
-    // Lot 4 — suggestions filtered by the machine (`host`), read as soon as
+    // Suggestions filtered by the machine (`host`), read as soon as
     // the local path opens. Romain's machine: qwen3.5:4b « conseillé »,
     // qwen3:8b / qwen3.5:9b / gemma4:12b « partagé… »; qwen3:8b already
     // installed (tag instead of the pull command when chosen).
@@ -216,7 +216,7 @@
       ),
     }),
 
-    // plan-ollama-rapide-07-10.md, point 5 — « Accélérer Ollama » open, as
+    // « Accélérer Ollama » open, as
     // the panel's slow-answer tip opens it (options.html#setup-ollama-speedup):
     // Linux first (systemd), then macOS and Windows.
     "setup-ollama-speedup": guide({
@@ -362,7 +362,7 @@
       permissions: ["https://www.youtube.com/*", "https://exemple-actu.fr/*"],
     },
 
-    // Amendment 2026-10-07: « Modèle » section fed by models.list — the
+    // « Modèle » section fed by models.list — the
     // Ollama models show while Claude answers; one click switches.
     "options-models": {
       status: "connected",
@@ -373,7 +373,7 @@
       permissions: ["https://www.youtube.com/*"],
     },
 
-    // Redesign 08/10 — tab « Sur cet ordinateur » while Claude answers: the
+    // Redesign — tab « Sur cet ordinateur » while Claude answers: the
     // installed models as bordered choices with their fit note.
     "options-tab-local": {
       status: "connected",
@@ -441,7 +441,7 @@
       },
     },
 
-    // G5 — fournisseur « Compatible OpenAI » actif, préréglage OpenRouter,
+    // Fournisseur « Compatible OpenAI » actif, préréglage OpenRouter,
     // clé déjà enregistrée (configured: true, la clé ne revient jamais).
     "openai-compat-openrouter": {
       status: "connected",
@@ -499,8 +499,8 @@
       permissions: ["https://www.youtube.com/*"],
     },
 
-    // Programme natif introuvable (G4, docs/PROTOCOL.md amendment
-    // 2026-09-30) : même section ouverte d'office, texte de statut différent.
+    // Programme natif introuvable (docs/PROTOCOL.md) : même section ouverte d'office, texte de
+    // statut différent.
     "no-host": {
       status: "no-host",
       storageLocal: { "coati:retentionDays": 30 },
@@ -517,7 +517,7 @@
       autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
     },
 
-    // Amendment 2026-10-02 (goal-j2FJ-kI7) — "Tester la connexion" réussit
+    // "Tester la connexion" réussit
     // pour openai-compat mais le solde de crédit n'a pas pu être vérifié
     // (creditUnchecked: true) : ligne « connecté » + note secondaire
     // (renderTestResult, options_credit_unchecked). Fournisseur openai-compat /
@@ -543,7 +543,7 @@
       autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
     },
 
-    // Amendment 2026-10-02 (goal-j2FJ-kI7) — model-missing lors du test :
+    // Model-missing lors du test :
     // ce modèle n'est pas disponible sur le compte (code "model-missing").
     "provider-test-model-missing": {
       status: "connected",
@@ -556,7 +556,7 @@
       autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
     },
 
-    // Amendment 2026-10-02 (goal-j2FJ-kI7) — provider-overloaded lors du
+    // Provider-overloaded lors du
     // test : le fournisseur est surchargé (code "provider-overloaded").
     "provider-test-overloaded": {
       status: "connected",
@@ -569,7 +569,7 @@
       autoAction: { steps: [{ type: "click", selector: ".test-button", delayMs: 30 }] },
     },
 
-    // Amendment 2026-10-02 (goal-j2FJ-kI7) — claude-cli : session expirée
+    // Claude-cli : session expirée
     // lors du test. renderTestResult spécialise le texte (options_claude_cli_
     // auth_required) et affiche la commande copiable « claude auth login
     // --claudeai » (CLAUDE_CLI_LOGIN_COMMAND).

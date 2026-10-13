@@ -1,4 +1,4 @@
-// Part of the content/extract.js content script (lot F4 split) — see
+// Part of the content/extract.js content script (split) — see
 // content/extract-files.js for the load order. Generic article-text
 // fallback, YouTube transcript reading, and small page signals.
 
@@ -62,7 +62,7 @@ function getYouTubeVideoId() {
 function getYouTubeTranscript() {
   // YouTube migrated its transcript to the "view model" architecture; the
   // older custom element is kept as a fallback for slower rollouts.
-  // Measured 2026-09-18: transcript-segment-view-model yields 133 segments on
+  // Transcript-segment-view-model yields 133 segments on
   // a 17-minute video, ytd-transcript-segment-renderer yields none.
   const segments = document.querySelectorAll(
     "transcript-segment-view-model, ytd-transcript-segment-renderer",

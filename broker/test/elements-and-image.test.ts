@@ -1,6 +1,5 @@
-// Lot A1 ("Montrer du doigt") + lot B1 ("Regarder l'écran") — docs/PROTOCOL.md
-// "Amendment 2026-10-08". Covers the parts of plan §3A/§3B owned by this
-// worker: context.elements parsing/budget/render, chat.image validation,
+// Tests for context.elements ("Montrer du doigt") and chat.image ("Regarder l'écran") — docs/PROTOCOL.md.
+// Covers context.elements parsing/budget/render, chat.image validation,
 // the two-tier message size cap, and the vision-unsupported gate.
 
 import { describe, expect, test } from "bun:test";
@@ -142,7 +141,7 @@ describe("context.elements — rendering in the prompt (lot A1)", () => {
   });
 });
 
-// --- chat.image (lot B1) ----------------------------------------------------
+// --- chat.image ----------------------------------------------------
 
 const TINY_JPEG_B64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...Array(20).fill(0)]).toString("base64");
 const TINY_PNG_B64 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...Array(20).fill(0)]).toString(
@@ -208,10 +207,10 @@ describe("chat.image — validation (lot B1)", () => {
   // Note: an image whose decoded bytes exceed IMAGE_MAX_DECODED_BYTES (1 MiB)
   // necessarily produces a base64 frame over MAX_MESSAGE_BYTES (256 KiB) —
   // there is no "small frame, oversized image" case to test in isolation.
-  // See the L6 test below (security review 2026-10-08) for what happens to
+  // See the L6 test below for what happens to
   // this exact shape under the fixed oversized gate.
 
-  // Security review (L6): a frame whose only path past MAX_MESSAGE_BYTES was
+  // L6: a frame whose only path past MAX_MESSAGE_BYTES was
   // an image that turns out INVALID (here: genuinely too big to decode,
   // IMAGE_MAX_DECODED_BYTES) must be refused outright — the 1.5 MiB
   // allowance exists only to carry a VALID image, never as a side door for
@@ -275,7 +274,7 @@ describe("VisionUnsupportedError (lot B1)", () => {
   });
 });
 
-describe("security review 2026-10-08 — L5/L6 fixes", () => {
+describe("L5/L6 fixes", () => {
   test("L5: data is re-encoded canonically, never the client's raw base64 string", () => {
     // Valid JPEG bytes, but encoded with a non-canonical base64 variant
     // (URL-safe alphabet + missing padding) that Buffer.from still decodes

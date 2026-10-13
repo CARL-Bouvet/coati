@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installs a downloaded coati-broker binary as both the launchd user agent
-# and the Native Messaging host on macOS (goal G4, docs/PROTOCOL.md
-# "Amendment 2026-09-30 : Native Messaging" — sections "macOS" et
+# and the Native Messaging host on macOS (docs/PROTOCOL.md
+# "Native Messaging" — sections "macOS" et
 # "Emplacements des manifestes"). Idempotent. Never requires sudo/admin.
 #
 #   scripts/install/install-macos.sh <path-to-coati-broker-binary> [options]

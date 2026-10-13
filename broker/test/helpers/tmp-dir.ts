@@ -5,7 +5,7 @@
 // mkdtempSync() dir and never removed it. One helper, one afterAll per
 // created dir — verified working: a dynamically-registered afterAll (called
 // from inside a running test, not just at describe-scope) still fires once,
-// after every test in that file, per Bun 1.4.2 (measured 2026-09-26).
+// after every test in that file, per Bun 1.4.2.
 import { afterAll } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

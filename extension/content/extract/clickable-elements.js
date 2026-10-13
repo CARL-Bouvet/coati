@@ -1,5 +1,5 @@
 // ==========================================================================
-// Lot A2 (plan-montrer-voir-chercher-08-10.md §3A, flow (1)-(2)) — "Montrer
+// "Montrer
 // du doigt". Numbers visible interactive elements e1, e2, … and keeps a
 // ref -> element map ONLY in this isolated world's global scope
 // (`globalThis.__coatiRefs`), never as a DOM attribute: a page could forge
@@ -11,7 +11,7 @@
 // own click on "Montrer" — this file never clicks, focuses or fills
 // anything itself.
 //
-// Part of the content/extract.js content script (lot F4 split) — the
+// Part of the content/extract.js content script (split) — the
 // clickable-elements table and the password-field guard. See
 // content/extract-files.js for the full load order.
 // ==========================================================================
@@ -23,7 +23,7 @@ var INTERACTIVE_SELECTOR =
   "[contenteditable]";
 
 // Mirrors docs/PROTOCOL.md's closed `role` enum for `context.elements`
-// (amendement 2026-10-08 §2) — an element whose computed role would fall
+// (§2) — an element whose computed role would fall
 // outside this list still gets a best-effort entry (the broker is the one
 // that enforces the closed list on the wire; here a sane default is enough).
 var ELEMENT_ROLES = new Set([
@@ -67,7 +67,7 @@ function isPasswordField(el) {
   return el.tagName === "INPUT" && (el.getAttribute("type") || "").toLowerCase() === "password";
 }
 
-// Label precedence (plan §3A flow (1)): visible text, then aria-label,
+// Label precedence: visible text, then aria-label,
 // then placeholder/title. NEVER a field's current value (could be a typed
 // secret) and a password field is excluded outright by isPasswordField
 // above, before this is even reached.
@@ -81,7 +81,7 @@ function elementLabel(el) {
 }
 
 // The panel passes a tighter cap (40) via `window.__coatiMaxElements` when
-// the active Ollama model's context is small (plan §3A flow (1)) — read
+// the active Ollama model's context is small — read
 // from `window`, not `globalThis`: in a real content script they are the
 // same object, but this keeps the test harness (a plain Function with
 // `window` as a parameter distinct from the test runner's own globalThis)

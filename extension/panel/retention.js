@@ -10,7 +10,7 @@
 
 // chrome.storage.local key and default — shared by panel.js (reads it to
 // filter the conversation on load) and options.js (the settings UI that
-// writes it). Single source of truth (KISS audit 2026-09-26, item 9).
+// writes it). Single source of truth.
 export const RETENTION_DAYS_KEY = "coati:retentionDays"; // number of days, or null for "never"
 export const DEFAULT_RETENTION_DAYS = 30;
 

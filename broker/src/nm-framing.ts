@@ -1,5 +1,5 @@
 // Chrome Native Messaging framing — docs/PROTOCOL.md
-// with the host" (amendment 2026-09-30, G4): 4 bytes of length, native byte order
+// with the host": 4 bytes of length, native byte order
 // (little-endian on every platform Coati targets — x86-64, arm64), followed
 // by that many UTF-8 JSON bytes. Pure, allocation-light functions — no I/O
 // here; native-host.ts wires these against real stdin/stdout.

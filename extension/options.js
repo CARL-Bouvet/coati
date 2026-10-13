@@ -1,13 +1,13 @@
 // Coati options page — model (current model + two tabs "On this computer" /
-// "Online", redesign 08/10), page reading default, shortcut, sites, history,
+// "Online"), page reading default, shortcut, sites, history,
 // about, and the legacy pairing-secret paste field (Flatpak/Snap browsers
-// with no native messaging — docs/PROTOCOL.md amendment 2026-09-30,
+// with no native messaging — docs/PROTOCOL.md,
 // "Legacy mode: legacyPairing").
 //
 // The pasted key is a secret: it MUST live in chrome.storage.session (wiped
 // when the browser closes), never chrome.storage.local (unencrypted on disk).
 //
-// Split (lot F3) into extension/options/*.js: this file keeps only
+// Split into extension/options/*.js: this file keeps only
 // bootstrap/wiring — imports, init(), the broker message dispatch, and the
 // legacy-pairing paste field. Each submodule owns its own state; see their
 // header comments.
@@ -31,7 +31,7 @@ import { applyStatus, requestSettings, handleBrokerMessage, wireModelSettings } 
 
 applyI18n(document);
 // Same compact selector (FR/EN/中) as the panel's header, in the page's
-// anthracite band — the "Language" section is gone (redesign 08/10).
+// anthracite band — the "Language" section is gone.
 mountLanguageSelector(document.getElementById("languageSelectorMount"), { compact: true });
 
 // U1 — live language switch: this page also has module-level t() tables
@@ -41,7 +41,7 @@ mountLanguageSelector(document.getElementById("languageSelectorMount"), { compac
 reloadOnLanguageChange();
 
 // Theme variant hook, screenshots only — inert unless the page is opened with
-// e.g. "?variant=b". See notes/PLAN_goal_panneau_v2.md, "Contrat commun".
+// e.g. "?variant=b".
 const variant = new URLSearchParams(location.search).get("variant");
 if (variant) document.documentElement.dataset.variant = variant;
 
@@ -162,7 +162,7 @@ async function applyPastedKey(value) {
     return;
   }
   await api.runtime.sendMessage({ type: "coati:set-pasted-key", key: value.toLowerCase() }).catch(() => null);
-  // I4 (lot7 security review): clear the field once applied — nothing left
+  // I4: clear the field once applied — nothing left
   // sitting visible/selectable in the DOM after the secret has done its job.
   els.token.value = "";
 }

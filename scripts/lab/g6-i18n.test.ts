@@ -1,4 +1,4 @@
-// G6 (i18n) — extension/_locales/<lang>/messages.json invariants, and a scan
+// i18n — extension/_locales/<lang>/messages.json invariants, and a scan
 // for leftover French literals in extension/**/*.js and *.html outside
 // _locales/. Lives under scripts/lab/ for the same reason as
 // g5-panel-state.test.ts: root-based paths, can move to broker/test/

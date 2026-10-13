@@ -1,5 +1,5 @@
 // Native Messaging call to the local broker's helper host
-// (docs/PROTOCOL.md, amendment 2026-09-30, "Framing and exchange with
+// (docs/PROTOCOL.md, "Framing and exchange with
 // the host"). One-shot: the browser starts a fresh host process per call and
 // tears it down after the reply — no `connectNative`, nothing kept open.
 //

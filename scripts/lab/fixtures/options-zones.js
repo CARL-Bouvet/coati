@@ -1,6 +1,5 @@
-// Coati state lab — options page zone map (workflow-front, phase 2,
-// redesign 08/10). Same rules as panel-zones.js: lab-only (annotations
-// never ship), applied to the REAL markup on load and after every render;
+// Coati state lab — options page zone map (workflow-front, phase 2). Same rules as panel-zones.js:
+// lab-only (annotations never ship), applied to the REAL markup on load and after every render;
 // nested codes are DOM descendants; one "primary" per parent.
 (function () {
   "use strict";

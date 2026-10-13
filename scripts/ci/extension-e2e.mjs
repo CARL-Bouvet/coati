@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/ci/extension-e2e.mjs — goal G4, "CI end to end": loads the built,
+// scripts/ci/extension-e2e.mjs, "CI end to end": loads the built,
 // unpacked Chrome/Brave extension (dist/stage/chrome — pinned ID via
 // extension/manifest.json's "key", see docs/PROTOCOL.md)
 // in a real Chromium via Playwright, wires the Native Messaging host
@@ -13,8 +13,7 @@
 // CI-only (ubuntu-latest job): needs Playwright's own downloaded Chromium
 // (`npx playwright install --with-deps chromium`) and a free port 8787 — a
 // normal dev machine typically has a real broker already listening there,
-// and may lack a display/network. See the G4 worker's report, "Only CI can
-// tell", for exactly what this script could NOT be run through locally.
+// and may lack a display/network. Only CI can tell whether it passes.
 //
 // Usage: node scripts/ci/extension-e2e.mjs
 // Env: COATI_E2E_BINARY (defaults to dist/bin/coati-broker-linux-x64 — the

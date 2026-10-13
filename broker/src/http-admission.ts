@@ -1,7 +1,7 @@
 // Admission (Host allowlist + peer UID) — docs/PROTOCOL.md "Admission HTTP
-// et WebSocket" (amendement 2026-09-25). Applied before ANY routing, on
+// et WebSocket". Applied before ANY routing, on
 // every HTTP request (/pair, /ws before upgrade, unknown routes included).
-// Split out of server.ts (lot F5).
+// Split out of server.ts.
 
 import { readFileSync } from "node:fs";
 import { isHostAllowed, resolvePeerUid } from "./admission.ts";

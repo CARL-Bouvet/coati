@@ -64,7 +64,7 @@ describe("parseClientMessage", () => {
     expect(result.ok).toBe(true);
   });
 
-  // `length` removed from the protocol (KISS audit 2026-09-26, item H): a
+  // `length` removed from the protocol (item H): a
   // client that still sends it is not an error — the field is just ignored.
   test("a stray 'length' field on summarize is ignored, not rejected", () => {
     const raw = JSON.stringify({
@@ -302,7 +302,7 @@ describe("parseClientMessage", () => {
     }
   });
 
-  // Amendment 2026-09-29: `provider` is an open string (docs/PROTOCOL.md) —
+  // `provider` is an open string (docs/PROTOCOL.md) —
   // parseClientMessage only rejects a malformed SHAPE, not an id outside a
   // closed list (a well-shaped but unknown id is accepted here and reported
   // unavailable later, by settings.get/provider.status — see server.ts).
@@ -334,7 +334,7 @@ describe("parseClientMessage", () => {
   });
 });
 
-// Amendment 2026-10-08 bis ("historique", docs/PROTOCOL.md).
+// "historique", docs/PROTOCOL.md.
 describe("parseClientMessage — removed search messages", () => {
   test("a chat.docSearch message is a bad-request", () => {
     const result = parseClientMessage(JSON.stringify({ type: "chat.docSearch", id: "d1", text: "hi" }));

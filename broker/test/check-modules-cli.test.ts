@@ -4,7 +4,7 @@
 // `import()` when run as a real OS process, no network required. Runs the
 // same check against `bun run src/server.ts` always, and additionally
 // against the compiled binary at dist/bin/coati-broker-<host> when
-// scripts/build-binaries.sh has already produced one (goal G4, "binaries +
+// scripts/build-binaries.sh has already produced one ("binaries +
 // Windows CI") — never builds it itself, that would make every `bun test`
 // run download bun's cross-compile targets.
 

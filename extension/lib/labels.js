@@ -33,7 +33,7 @@ export const PROVIDER_LABELS = Object.fromEntries(
 );
 
 // Connection-status labels — shared base for panel.js's renderStatusLabel()
-// and options.js's applyStatus() (KISS audit 2026-09-26, item 9: the two
+// and options.js's applyStatus() (the two
 // were kept as separate copies). "no-token" differs slightly between the two
 // callers (panel adds "— see settings"), so it's the one entry callers may
 // override rather than being forced through here.
@@ -44,7 +44,7 @@ const CONNECTION_STATUS_KEYS = {
   "handshake-timeout": "common_status_connecting",
   disconnected: "common_status_disconnected",
   "no-token": "common_status_no_token",
-  // docs/PROTOCOL.md amendment 2026-09-30 ("Handshake v: 2"):
+  // docs/PROTOCOL.md ("Handshake v: 2"):
   // "no-host" = the native-messaging host is unreachable; "broker-untrusted"
   // = a program is listening on the port but didn't prove it's the broker.
   "no-host": "common_status_no_host",
@@ -65,14 +65,14 @@ export function providerLabel(id, fallback) {
 
 // Label per broker ErrorCode (broker/src/protocol.ts's ErrorCode). This is
 // the primary, human-facing line. The broker's `message` is English
-// technical detail (docs/PROTOCOL.md amendment 2026-09-26) and is NEVER
+// technical detail (docs/PROTOCOL.md) and is NEVER
 // shown alone — describeError() below always appends it as a secondary
 // "Detail: …" line, never as the primary text.
 const ERROR_CODE_KEYS = {
   "bad-request": "common_error_bad_request",
   unauthorized: "common_error_unauthorized",
   "model-unavailable": "common_error_model_unavailable",
-  // plan-ollama-rapide-07-10.md, point 7: no text for 60 s after the first
+  // No text for 60 s after the first
   // word / no first word before the deadline.
   "model-stalled": "common_error_model_stalled",
   "model-timeout": "common_error_model_timeout",
@@ -80,12 +80,10 @@ const ERROR_CODE_KEYS = {
   "quota-exceeded": "common_error_quota_exceeded",
   "rate-limited": "common_error_rate_limited",
   "context-too-large": "common_error_context_too_large",
-  // Lot B3 (plan-montrer-voir-chercher-08-10.md §3B). Admin brief named this
+  // Admin brief named this
   // "error_vision_unsupported" (the plan's own shorthand); kept under the
   // `common_error_*` prefix instead, to match every other entry in THIS
-  // table literally rather than introduce a one-off naming scheme — flagged
-  // in the worker report for the admin to override if the literal name was
-  // actually wanted.
+  // table literally rather than introduce a one-off naming scheme.
   "vision-unsupported": "common_error_vision_unsupported",
   cancelled: "common_error_cancelled",
   internal: "common_error_internal",
@@ -113,7 +111,7 @@ export function describeError(code, message) {
 // generic sentence; the broker's own words become the secondary
 // "Detail: …" line, per the same never-alone rule as describeError().
 
-// Security review 2026-09-26, finding #2: chrome.scripting.executeScript has
+// chrome.scripting.executeScript has
 // no built-in deadline, so a hostile or pathological page could leave the
 // panel waiting forever for page content. panel.js races extraction against
 // EXTRACTION_TIMEOUT_MS and surfaces this label when it loses. The i18n API
@@ -121,7 +119,7 @@ export function describeError(code, message) {
 // so this can stay a plain constant like before.
 export const EXTRACTION_TIMEOUT_LABEL = t("common_extraction_timeout");
 
-// T47 (docs/DECISIONS.md): verified 2026-09-29 that neither Chrome/Brave's
+// T47 (docs/DECISIONS.md): neither Chrome/Brave's
 // injection-refused error nor Firefox's names the three gestures that grant
 // access, so the panel names them itself instead of trying to mine an origin
 // out of an error message. Shared with panel.js's looksLikeAccessDenied()

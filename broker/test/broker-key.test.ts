@@ -1,6 +1,6 @@
 // broker/src/broker-key.ts + broker/src/fs-atomic.ts — docs/PROTOCOL.md
 // "Clé de broker" / "Écoute exclusive du port, durcissement du dossier et
-// fichiers temporaires" (amendment 2026-09-30, G4).
+// fichiers temporaires".
 
 import { describe, expect, test } from "bun:test";
 import { existsSync, statSync, lstatSync, symlinkSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
@@ -69,7 +69,7 @@ describe("broker-key.json file", () => {
     expect(result).toEqual({ ok: false, reason: "broker-not-running" });
   });
 
-  test("a symlink at broker-key.json is refused (never followed), same as broker-not-running (final security review)", () => {
+  test("a symlink at broker-key.json is refused (never followed), same as broker-not-running", () => {
     if (process.platform === "win32") return; // symlinkSync needs elevation on Windows
     const dataDir = makeTmpDir("coati-key-symlink-");
     // Points at a file that DOES hold a well-formed, alive-pid key — proves
@@ -133,7 +133,7 @@ describe("loadOrCreatePairingSecret (legacy S)", () => {
     expect(mode).toBe(0o600);
   });
 
-  test("a symlink at pairing-secret is refused (never followed), removed and regenerated as a real file (final security review)", () => {
+  test("a symlink at pairing-secret is refused (never followed), removed and regenerated as a real file", () => {
     if (process.platform === "win32") return; // symlinkSync needs elevation on Windows
     const dataDir = makeTmpDir("coati-pairing-secret-symlink-");
     // Points at a file holding an otherwise perfectly valid secret — proves

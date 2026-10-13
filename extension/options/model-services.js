@@ -128,9 +128,8 @@ function buildRemoveButton(entry) {
 }
 
 /** "Remove": the local program forgets the service's key without
- * touching the active provider or model (`clearKey`, docs/PROTOCOL.md
- * amendement 2026-10-08 §9bis). openai-compat also drops its address: an
- * empty `baseUrl` is what makes the row go away (its `configured` means "an
+ * touching the active provider or model (`clearKey`, docs/PROTOCOL.md §9bis). openai-compat also
+ * drops its address: an empty `baseUrl` is what makes the row go away (its `configured` means "an
  * address is set"), and it clears the key bound to that origin too. */
 function removeService(providerId) {
   if (!lastSettings || status !== "connected") return;
@@ -264,7 +263,7 @@ export function setProvider(provider, model) {
   sendClientMessage(payload);
 }
 
-// baseUrl is NOT a secret (docs/PROTOCOL.md, amendement 2026-09-30 bis) —
+// baseUrl is NOT a secret (docs/PROTOCOL.md) —
 // unlike apiKey (lib/key-input.js), the broker echoes it back in the next `settings`
 // message, so it is safe (and expected) to keep it visible in the address
 // input rather than clearing it after every save. Sent without `provider`:
@@ -274,7 +273,7 @@ function setBaseUrl(baseUrl) {
 }
 
 /** Preset select + address field + Enregistrer, for the `openai-compat`
- * provider (goal G5), under "Add a service › Other address".
+ * provider, under "Add a service › Other address".
  * `baseUrl` is NOT a secret (docs/PROTOCOL.md) — prefilled from the broker's
  * last answer when openai-compat is active, kept after a save. */
 function buildBaseUrlField() {

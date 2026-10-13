@@ -4,7 +4,7 @@
 import { isRecord } from "./shared.ts";
 import type { PageKind } from "./context.ts";
 
-// Amendement 2026-10-08 (lot B1, "View screen" — docs/PROTOCOL.md §3).
+// "View screen" — docs/PROTOCOL.md §3.
 // Closed media type list, checked against the decoded bytes' own magic
 // number below (parseChatImage) — never trusted from `mediaType` alone.
 export const IMAGE_MEDIA_TYPES = ["image/jpeg", "image/png"] as const;
@@ -25,7 +25,7 @@ export interface ChatImage {
   height: number;
 }
 
-// Amendement 2026-10-08 (bis, "historique" — docs/PROTOCOL.md). One past
+// "historique" — docs/PROTOCOL.md. One past
 // turn of the conversation shown in the panel. `text` only — never a past
 // page context, screenshot or source: those attach to the CURRENT turn
 // only (ChatMessage.context/image above), never replayed. Closed
@@ -49,7 +49,7 @@ export interface HistoryEntry {
 export const HISTORY_MAX_ENTRIES = 20;
 export const HISTORY_ENTRY_TEXT_MAX = 8000;
 
-// Amendement 2026-10-08 (lot B1) — docs/PROTOCOL.md §3. Magic numbers,
+// docs/PROTOCOL.md §3. Magic numbers,
 // checked against the DECODED bytes, never trusted from `mediaType` alone —
 // a mismatch (e.g. a PNG declared "image/jpeg") drops the field exactly like
 // every other check here.
@@ -96,7 +96,7 @@ export function parseChatImage(v: unknown): ChatImage | undefined {
   const magic = mediaType === "image/jpeg" ? JPEG_MAGIC : PNG_MAGIC;
   if (!hasMagicBytes(decoded, magic)) return undefined;
 
-  // Security review (L5): forward the CANONICAL re-encoding of the bytes we
+  // L5: forward the CANONICAL re-encoding of the bytes we
   // actually validated, never the client's own raw `data` string. Node's
   // `Buffer.from(str, "base64")` tolerantly accepts whitespace, missing
   // padding, and the URL-safe alphabet (-, _) — a provider or downstream
@@ -108,7 +108,7 @@ export function parseChatImage(v: unknown): ChatImage | undefined {
 }
 
 /**
- * Validates `chat.history` (docs/PROTOCOL.md, amendement 2026-10-08 bis).
+ * Validates `chat.history` (docs/PROTOCOL.md).
  * Per-entry tolerant: an entry whose `role` isn't exactly "user"/"assistant",
  * or whose `text` isn't a non-empty string ≤ HISTORY_ENTRY_TEXT_MAX, is
  * dropped — the other entries are kept, same "Compatibility" stance as
@@ -132,8 +132,8 @@ export function parseHistory(v: unknown): HistoryEntry[] | undefined {
   return entries.length > HISTORY_MAX_ENTRIES ? entries.slice(entries.length - HISTORY_MAX_ENTRIES) : entries;
 }
 
-// Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
-// on demand"). Metadata about a page the model may ask to read later, on a
+// "page on demand" — docs/PROTOCOL.md "Page
+// on demand". Metadata about a page the model may ask to read later, on a
 // `chat` that carries no `context` at all (see parse.ts: the two are never
 // both honoured on the same message). `title`/`url` are page-controlled —
 // same trust level as Context.title/url (CLAUDE.md rule #3) — bounded the
@@ -190,7 +190,7 @@ export function looksLikePageContent(parsed: unknown): boolean {
  * image?" — used by the oversized-message gate (parseClientMessage) BEFORE
  * full validation (parseChatImage), so a frame between MAX_MESSAGE_BYTES and
  * MAX_IMAGE_MESSAGE_BYTES that is obviously not a legitimate chat+image can
- * still be refused with the exact pre-amendment message/id, without paying
+ * still be refused with the exact message/id, without paying
  * for base64 decode + magic-byte checks on a payload we're about to reject
  * anyway.
  */

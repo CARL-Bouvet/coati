@@ -1,5 +1,4 @@
-// v: 2 handshake — docs/PROTOCOL.md (amendment
-// 2026-09-30, G4). No pinning, no session tokens, no v: 1: the key (native or
+// v: 2 handshake — docs/PROTOCOL.md. No pinning, no session tokens, no v: 1: the key (native or
 // the legacy-mode permanent secret S) is what authenticates a connection.
 
 import { describe, expect, test, afterEach } from "bun:test";
@@ -53,7 +52,7 @@ describe("parseMozExtensionOrigin", () => {
   });
 });
 
-// Amendment 2026-09-30 (G4): no pinning — ANY well-formed moz-extension uuid
+// No pinning — ANY well-formed moz-extension uuid
 // passes this step; the key (not the origin) authenticates.
 describe("isOriginAllowed", () => {
   const allowed = ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"];

@@ -13,7 +13,7 @@
 // boundaries, hidden elements skipped. It costs a layout pass, which is fine
 // for a one-shot extraction on a page the user is looking at.
 //
-// SPLIT NOTE (lot F4): this content script is loaded as several classic
+// SPLIT NOTE: this content script is loaded as several classic
 // (non-module) files, injected in order — see content/extract-files.js for
 // the authoritative, ordered list, and extension/content/extract.js (the
 // last file) for the entry point whose completion value is read by the
@@ -73,7 +73,7 @@ function textExcludingEditable(el) {
 // Generalization of the above: also subtracts the rendered text of any
 // element in `extraExcludedEls` that sits inside `el` (an excluded overlay
 // layer nested inside the body, a repeated list entry nested inside the
-// region a fact scan runs over…). Used by the Amendement 2026-09-25 page-
+// region a fact scan runs over…). Used by the page-
 // type pipeline below; `textExcludingEditable` keeps its old, narrower
 // behavior for the density heuristic's existing callers/tests.
 function textExcludingNodes(el, extraExcludedEls) {

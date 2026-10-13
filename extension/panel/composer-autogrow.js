@@ -1,4 +1,4 @@
-// Composer autogrow (lot 4, internal design plan, 28/09). The textarea
+// Composer autogrow. The textarea
 // starts at one line, grows with its text up to MAX_LINES, then scrolls.
 // Done in JS because `field-sizing: content` is missing from Firefox.
 //

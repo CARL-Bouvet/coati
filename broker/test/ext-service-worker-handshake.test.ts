@@ -1,7 +1,6 @@
 // Service worker orchestration of the Native Messaging handshake v2
-// (extension/background/service-worker.js) — docs/PROTOCOL.md amendment
-// 2026-09-30, "Plan de test", bullet "Extension": a simulated
-// `runtime.sendNativeMessage` + a simulated WebSocket, checking:
+// (extension/background/service-worker.js) — docs/PROTOCOL.md, "Plan de test", bullet "Extension":
+// a simulated `runtime.sendNativeMessage` + a simulated WebSocket, checking:
 //   - the key is stored in storage.session (never storage.local) and reused
 //     across a simulated service-worker restart without calling the host;
 //   - a wrong broker proof: exactly one automatic retry, then
@@ -234,14 +233,14 @@ beforeEach(() => {
   (globalThis as any).WebSocket = FakeWebSocket;
   FakeWebSocket.instances = [];
   // Collapse the pairing retry delays to 0 ms so the 3-retry sequence
-  // completes within waitFor's 1 s window (amendment 2026-10-02).
+  // completes within waitFor's 1 s window.
   (globalThis as any).__coatiTestRetryDelays__ = [0, 0, 0];
 });
 
 afterEach(() => {
   // Cancel any pending pairing-retry setTimeout so it doesn't fire in the
   // next test's context and corrupt nativeMessageCalls / FakeWebSocket state
-  // (amendment 2026-10-02 — spaced retries are macrotasks).
+  // (spaced retries are macrotasks).
   (globalThis as any).__coatiCancelPairingRetry__?.();
   (globalThis as any).WebSocket = REAL_WEB_SOCKET;
 });
@@ -305,7 +304,7 @@ describe("service-worker: key storage and reuse", () => {
 });
 
 describe("service-worker: wrong broker proof (close 4000)", () => {
-  // amendment 2026-10-02: up to 3 retries (delays collapsed to 0 ms via
+  // Up to 3 retries (delays collapsed to 0 ms via
   // __coatiTestRetryDelays__ — see beforeEach).
   test("retries 3 times via the host, then broker-untrusted — nothing sent after any failure", async () => {
     let hostCall = 0;
@@ -363,7 +362,7 @@ describe("service-worker: wrong broker proof (close 4000)", () => {
 });
 
 describe("service-worker: 4401 (auth/origin refused)", () => {
-  // amendment 2026-10-02: 3 retries, "pairing-retry" state between each.
+  // 3 retries, "pairing-retry" state between each.
   test("retries 3 times via the host, then no-token; pairing-retry shown between each attempt", async () => {
     let hostCall = 0;
     nativeMessageImpl = async () => {
@@ -392,7 +391,7 @@ describe("service-worker: 4401 (auth/origin refused)", () => {
 });
 
 describe("service-worker: pairing-retry — counter reset on hello-ok", () => {
-  // amendment 2026-10-02: after a hello-ok, the retry budget resets so the
+  // After a hello-ok, the retry budget resets so the
   // very next 4401 gets 3 fresh retries (not zero because they were "used up").
   test("a 4401 after hello-ok gets a fresh 3-retry budget (4 WS total, ends no-token)", async () => {
     nativeMessageImpl = async () => ({ type: "key", v: 1, key: KEY_A });
@@ -507,7 +506,7 @@ describe("service-worker: coati:set-pasted-key", () => {
   });
 });
 
-describe("service-worker: broker proof required before trusting anything (final security review, I3)", () => {
+describe("service-worker: broker proof required before trusting anything", () => {
   test("hello-ok before challenge → no connected, pending request not sent, socket closed 4000", async () => {
     nativeMessageImpl = async () => ({ type: "key", v: 1, key: KEY_A });
     await importServiceWorker();
@@ -596,7 +595,7 @@ describe("service-worker: invariants", () => {
     onMessageHandler!({ type: "coati:get-status" }, { id: "test-ext-id" }, (r: any) => {
       response = r;
     });
-    // "features" added lot A2/F review (08/10): hello-ok.features, relayed
+    // "features" added hello-ok.features, relayed
     // here too so a panel reopened after the connection already settled can
     // learn it — never a secret, just the capability list (elements/vision/
     // history), same thing coati:status already broadcasts.

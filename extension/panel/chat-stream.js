@@ -1,5 +1,5 @@
 // Coati side panel — chat streaming (chunk/progress/done/
-// error), lot F3 split of panel.js. Handler bodies moved verbatim from
+// error), split of panel.js. Handler bodies moved verbatim from
 // handleBrokerMessage's switch in panel.js; only the "error" case's first
 // four guard blocks (which touch model-status.js's own request ids) were
 // extracted into model-status.js's interceptOwnError(), called first here —
@@ -109,14 +109,15 @@ export function onDone(message) {
     msg.suggestSearch = typeof message.suggest?.search === "string" ? message.suggest.search : undefined;
     renderMessage(msg);
     updateHistoryNotice();
-    if (msg.role === "assistant" && msg.text && !panelState.modelAnswered) {
-      panelState.modelAnswered = true;
-      renderFirstRun();
-    }
+    // modelEverAnswered first: the first-run card reads it to hide its "no model" subtitle.
     if (msg.role === "assistant" && msg.text && !panelState.modelEverAnswered) {
       panelState.modelEverAnswered = true;
       api.storage.local.set({ [MODEL_EVER_ANSWERED_KEY]: true }).catch(() => {});
       renderNeverConnected();
+    }
+    if (msg.role === "assistant" && msg.text && !panelState.modelAnswered) {
+      panelState.modelAnswered = true;
+      renderFirstRun();
     }
   }
   if (panelState.activeRequestId === message.id) setStreamingUi(false);

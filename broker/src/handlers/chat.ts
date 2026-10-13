@@ -108,7 +108,7 @@ interface ProgressTracker {
   stop(): void;
 }
 
-/** Amendement 2026-10-07 (bis): progress notifications (Ollama only). Checks
+/** Progress notifications (Ollama only). Checks
  * /api/ps before the stream starts, emits loading/reading, then polls every
  * 1 s until the model appears in /api/ps or the caller reports the first
  * chunk. Awaited before the stream loop starts, same as the inline version
@@ -123,7 +123,7 @@ async function startProgressTracking(
 ): Promise<ProgressTracker> {
   let firstChunkSent = false;
   let progressPollingDone = false;
-  // Amendement 2026-10-07 (bis): thinking stage — sent at most once, before
+  // Thinking stage — sent at most once, before
   // any content, when the provider emits a thinking event (thinking-only model).
   let thinkingProgressSent = false;
 
@@ -186,7 +186,7 @@ async function runStream(
 
   try {
     let usage = { inputTokens: 0, outputTokens: 0 };
-    // Amendement 2026-10-08 (bis, "historique"): forwarded verbatim as
+    // "historique": forwarded verbatim as
     // DoneMessage.historyKept below — undefined stays undefined (no
     // `history` on this request), never coerced to 0.
     let historyKept: number | undefined;
@@ -197,7 +197,7 @@ async function runStream(
         historyKept = event.historyKept;
         continue;
       }
-      // Amendement 2026-10-07 (bis): thinking event — emit progress:thinking
+      // Thinking event — emit progress:thinking
       // once (before any content chunk), never forward as text.
       if (event.kind === "thinking") {
         progress.markThinking();
@@ -230,7 +230,7 @@ async function runStream(
 }
 
 /**
- * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): resolves whether
+ * (docs/PROTOCOL.md §4): resolves whether
  * `provider` can see an attached image RIGHT NOW, with `opts` (the active
  * model). Prefers the live, per-model `supportsVision` probe (ollama,
  * openai-compat); falls back to the provider's static `vision` field
@@ -306,7 +306,7 @@ function gateStreamingRequest(
     logRequestCompleted(message.id, "error:bad-request", Date.now() - startedAt);
     return undefined;
   }
-  // Amendement 2026-09-29 (docs/PROTOCOL.md): a configured provider that
+  // docs/PROTOCOL.md: a configured provider that
   // isn't known (built in or a module loaded successfully) fails the request
   // as model-unavailable, naming the missing id — it is NEVER silently
   // swapped for another provider.
@@ -319,7 +319,7 @@ function gateStreamingRequest(
   return { provider: settingsCtx.provider, providerOpts: settingsCtx.providerOpts, startedAt };
 }
 
-/** Amendement 2026-10-08 (lot B1): gates a request carrying `image` on
+/** Gates a request carrying `image` on
  * vision support BEFORE calling the provider (docs/PROTOCOL.md §4). Returns
  * true when the request should proceed (vision known-true, or unknown —
  * left to the provider's own 400), false once it has already sent
@@ -395,7 +395,7 @@ export const PAGE_REQUEST_TIMEOUT_MS = 120_000;
  * panel's Allow / Refuse card (docs/PROTOCOL.md "Search"). */
 export const SEARCH_REQUEST_TIMEOUT_MS = 300_000;
 
-// Amendement 2026-10-09 (lot 7): fits dev-level content (already bounded to
+// Fits dev-level content (already bounded to
 // MAX_DEV_CONTEXT_CHARS by the protocol) to the ACTIVE model's own context
 // window — "whatever models.ts/ollama.ts already know", i.e. Ollama's own
 // contextTokens tier when the active provider is ollama, else a per-provider
@@ -410,7 +410,7 @@ const DEV_ANSWER_RESERVE_TOKENS = 2000;
 // distinct from the non-Ollama fallbacks below, which are per-provider.
 const DEV_DEFAULT_CONTEXT_TOKENS = 8192;
 const DEV_MIN_USABLE_TOKENS = 1000;
-// Amendement (lot 7 fix): claude-api/claude-cli both front large-context
+// claude-api/claude-cli both front large-context
 // Anthropic models — 200k tokens is Claude's own documented window, not a
 // guess. Every other non-Ollama provider (openai-compat, an external
 // module) reports no context size to this broker at all, so 32768 is a

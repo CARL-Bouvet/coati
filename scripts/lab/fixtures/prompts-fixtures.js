@@ -81,7 +81,7 @@
       prefs: { sites: {} },
     },
 
-    // Head case (plan-activation-28-09.md "Points tranchés" 1): both parts
+    // Head case: both parts
     // populated — "*" (titled "Sur tous les sites") and "@unsorted" (no
     // title at all, separated by a thin rule), two prompts each.
     "head-both": {
@@ -106,7 +106,7 @@
       prefs: { sites: {} },
     },
 
-    // "Actif" switch (plan-activation-28-09.md "Points tranchés" 2): YouTube
+    // "Actif" switch: YouTube
     // and crisco4.unicaen.fr already granted (their permissionPatternsFor()
     // output, literal — see static/browser-stub.js's exact-string matching
     // comment), the other popular sites left ungranted/inactive.
@@ -117,7 +117,7 @@
       permissions: ["https://*.youtube.com/*", "https://youtu.be/*", "https://*.crisco4.unicaen.fr/*", "http://*.crisco4.unicaen.fr/*"],
     },
 
-    // G5 (T42 amendé le 30/09 bis) — « tous les sites » accordé par le bouton
+    // T42 — « tous les sites » accordé par le bouton
     // de l'encart : ligne en tête de la zone des sites, bouton « Revenir au
     // site par site », interrupteurs « Actif » allumés et verrouillés. YouTube
     // et crisco gardent leur accord site par site (visible après le retour).

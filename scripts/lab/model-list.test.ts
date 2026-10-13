@@ -1,6 +1,5 @@
-// Pure helpers of extension/lib/model-list.js (goal « modèle visible »,
-// amendment 2026-10-07 of docs/PROTOCOL.md). The DOM renderer itself is
-// exercised by the lab states `model-menu-*` and the Chromium e2e.
+// Pure helpers of extension/lib/model-list.js (goal « modèle visible » (docs/PROTOCOL.md)). The DOM
+// renderer itself is exercised by the lab states `model-menu-*` and the Chromium e2e.
 import { describe, expect, test } from "bun:test";
 import {
   bestGpuModel,
@@ -215,7 +214,7 @@ describe("model-list helpers", () => {
   });
 });
 
-// Lot B3 (plan-montrer-voir-chercher-08-10.md §3B) — vision is a real
+// Vision is a real
 // tri-state (true/false/undefined), never coerced to a plain boolean.
 describe("vision (Lot B3) — tri-state, never coerced", () => {
   function replyWith(vision: unknown) {

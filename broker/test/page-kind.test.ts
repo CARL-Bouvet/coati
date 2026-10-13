@@ -1,7 +1,7 @@
-// Tests for the 2026-09-25 "types de page" amendment (lot L7, broker side):
-// docs/PROTOCOL.md — grep "Amendment 2026-09-25 (types de page)".
+// Tests for the "types de page" part of the protocol (broker side):
+// docs/PROTOCOL.md — grep "types de page".
 //
-// Layout mirrors the amendment's own sections:
+// Layout mirrors its sections:
 //   1. protocol.ts — parseContext shape leniency for pageKind/facts/items.
 //   2. server.ts — the budget/cap checks (contextBudgetError).
 //   3. model.ts renderContext — facts/items fenced alongside text.
@@ -399,7 +399,7 @@ describe("summarizeInstruction per pageKind (item 4)", () => {
     expect(prompt).not.toContain('Finish with one last line starting with "À retenir : "');
   });
 
-  // `length` removed (KISS audit 2026-09-26, item H): the extension only ever
+  // `length` removed (item H): the extension only ever
   // sent "medium" — these are the fixed, former "medium" bounds.
   test("listing caps facts at 12, checks at 4-6", () => {
     const context: Context = { kind: "page", text: "t", pageKind: "listing", facts: [{ label: "a", value: "b" }] };

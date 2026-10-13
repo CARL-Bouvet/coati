@@ -1,4 +1,4 @@
-// Part of the content/extract.js content script (lot F4 split) — "Facts"
+// Part of the content/extract.js content script (split) — "Facts"
 // (context.facts) and "Entries" (context.items) extraction. See
 // content/extract-files.js for the full load order.
 
@@ -48,7 +48,7 @@ function isFactsExcludedContext(el, excludedEls, excludedListEntries) {
   return false;
 }
 
-// Measured 25/09 (notes/corpus/observations.md, trap #3): MDN's `dt`/`dd`
+// MDN's `dt`/`dd`
 // pairs are navigation menus ("HTML reference : Elements"), not facts. A
 // `dd` that renders as several lines (a `<ul><li>` of links, one per line
 // via innerText's block-boundary breaks) or holds 2+ links is that kind of
@@ -188,7 +188,7 @@ function capFacts(rawFacts) {
   for (const fact of rawFacts) {
     if (!fact || typeof fact.label !== "string" || typeof fact.value !== "string") continue;
     if (fact.label.length > FACT_CAPS.label) continue; // prose, not a fact
-    // A question or exclamation is an ad insert, not a fact (measured 25/09
+    // A question or exclamation is an ad insert, not a fact (measured
     // on a bienici listing: "Need to move? Compare movers!", "Discover the
     // tax benefit now!").
     if (/[?!]/.test(fact.label) || /!\s*$/.test(fact.value)) continue;

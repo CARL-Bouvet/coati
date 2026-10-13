@@ -1,5 +1,5 @@
 // Origin checks + the v: 2 handshake state machine (docs/PROTOCOL.md
-// "Handshake `v: 2`"). Split out of server.ts (lot F5).
+// "Handshake `v: 2`"). Split out of server.ts.
 
 import {
   brokerProof,
@@ -23,14 +23,14 @@ export function checkOrigin(origin: string | null | undefined, allowedExtensionI
 // Firefox's own extension origin scheme. The uuid is a standard RFC 4122
 // v4-shaped string; Firefox assigns it randomly per install, so — unlike
 // Chrome's "key"-derived id — it cannot be part of allowedExtensionIds ahead
-// of time. Amendement 2026-09-30 (G4): no pinning anymore — ANY well-formed
+// of time. No pinning anymore — ANY well-formed
 // uuid passes this step, because the v: 2 handshake's key (not the origin)
 // is what actually authenticates (docs/PROTOCOL.md "Handshake `v: 2`").
 const MOZ_EXTENSION_ORIGIN_RE = /^moz-extension:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 /** Pure: extracts the uuid out of a moz-extension://<uuid> origin, or null if
  * `origin` isn't one. Only used to validate the origin is WELL-FORMED — its
- * value plays no further role (no pinning since amendement 2026-09-30). */
+ * value plays no further role (no pinning). */
 export function parseMozExtensionOrigin(origin: string | null | undefined): string | null {
   if (!origin) return null;
   const match = MOZ_EXTENSION_ORIGIN_RE.exec(origin);
@@ -67,12 +67,12 @@ export interface ConnData {
    * open(), cleared the moment it authenticates or closes (whichever first),
    * so it is only ever decremented once. */
   countedUnauth: boolean;
-  /** Goal G6 (docs/PROTOCOL.md "Langue de la connexion"): normalised from the
+  /** docs/PROTOCOL.md "Langue de la connexion": normalised from the
    * `hello`'s raw `lang` at handshake time (messages.ts's normalizeLang) —
    * defaults to "en" until a hello sets it, and for the handful of tests that
    * connect without ever sending one. */
   lang: Lang;
-  /** Security review (L9): true from the `close` handler onward — checked
+  /** L9: true from the `close` handler onward — checked
    * before `send()` or `runStream()` after any async phase, so a connection
    * that closed meanwhile never gets written to. */
   closed: boolean;
@@ -91,7 +91,7 @@ export interface ConnData {
 
 // Client-controlled values (Host, Origin) are logged sanitized — control
 // characters replaced with `?`, cut to 200 chars — see docs/PROTOCOL.md
-// "Journalisation" (amendement 2026-09-25).
+// "Journalisation".
 
 // A local process on the machine (not the intended extension) can open a
 // WebSocket and probe the handshake. Distinct client-visible messages for
@@ -123,7 +123,7 @@ export function rejectHandshake(
 
 /**
  * The v: 2 handshake state machine (docs/PROTOCOL.md "Handshake
- * `v: 2`", amendement 2026-09-30, G4):
+ * `v: 2`"):
  *
  *   1. client `hello` (nonce cN, which key) — this connection's ONE hello.
  *   2. broker `challenge` (fresh nonce bN, its own proof bP = HMAC(K, cN:bN)).
@@ -152,7 +152,7 @@ export function handleHandshakeMessage(
       return;
     }
     const { nonce: cNonce, key } = result.message;
-    // Goal G6: recorded even if this hello later fails (harmless — the
+    // Recorded even if this hello later fails (harmless — the
     // connection never authenticates and its lang plays no further role).
     ws.data.lang = normalizeLang(result.message.lang);
     if (!isHex64(cNonce)) {

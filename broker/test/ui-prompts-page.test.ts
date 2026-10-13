@@ -1,6 +1,5 @@
-// Pure "Mes prompts" board logic (extension/prompts/prompts-cases.js) —
-// plan-mes-prompts-28-09.md, lot 4. No DOM, no chrome.*, same pattern as
-// ui-encart-items.test.ts.
+// Pure "Mes prompts" board logic (extension/prompts/prompts-cases.js). No DOM, no chrome.*, same
+// pattern as ui-encart-items.test.ts.
 
 import { describe, expect, test } from "bun:test";
 import { coatiItemsForSite, computeCaseItems, buildCaseDescriptors, replaceInOrder } from "../../extension/prompts/prompts-cases.js";

@@ -8,7 +8,7 @@
 // byte (JS can't import that .ts file at runtime): fr* -> fr; zh* -> zh_CN
 // EXCEPT the Traditional-leaning subtags (Hant/TW/HK/MO); everything else,
 // including empty/missing, -> en. Keep the two in sync by hand if either
-// changes — docs/PROTOCOL.md amendment 2026-09-30 ter is the contract both
+// changes — docs/PROTOCOL.md is the contract both
 // follow.
 
 export const DEFAULT_LANG = "en";

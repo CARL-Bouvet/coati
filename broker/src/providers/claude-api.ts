@@ -46,15 +46,15 @@ export function __resetFetchImplForTests(): void {
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 
-// Goal U2 (docs/PROTOCOL.md, amendment 2026-10-01): a FREE
-// key check — confirmed by a cited source at implementation time (2026-10-01)
+// docs/PROTOCOL.md: a FREE
+// key check — confirmed by a cited source at implementation time
 // that this route is never billed, unlike POST /v1/messages above. Used only
 // by testConnection() below, never by streamAnswer().
 const ANTHROPIC_MODELS_URL = "https://api.anthropic.com/v1/models";
 const TEST_CONNECTION_DEFAULT_TIMEOUT_MS = 20_000;
 
 // Per the claude-api skill's "Current Models" table (checked at implementation
-// time, 2026-09-21): always claude-opus-5 unless the user names a different
+// time): always claude-opus-5 unless the user names a different
 // model — which they can, via the `model` field of `settings.set` (same slot
 // ollama uses for its own model name), overriding this default.
 export const CLAUDE_API_DEFAULT_MODEL = "claude-opus-5";
@@ -64,14 +64,14 @@ export const CLAUDE_API_DEFAULT_MODEL = "claude-opus-5";
 // guidance), but nothing here needs more than a few thousand output tokens.
 const MAX_TOKENS = 8192;
 
-// Goal G6: user-facing (sent verbatim as ErrorMessage.message — the panel
+// User-facing (sent verbatim as ErrorMessage.message — the panel
 // displays it as-is), per task brief: a 401/403 names the remedy. Never
 // includes the key itself. Localised per-connection at the throw site below
 // (opts.lang) — this constant is the DEFAULT_LANG (en) wording, kept exported
 // for tests that don't set up a lang at all.
 export const CLAUDE_API_AUTH_MESSAGE = t("auth.apiKeyRejected", DEFAULT_LANG);
 
-// Goal U1 (docs/PROTOCOL.md, amendment 2026-10-01):
+// docs/PROTOCOL.md:
 // same contract as CLAUDE_API_AUTH_MESSAGE above — DEFAULT_LANG (en) wording,
 // localised per-connection at the throw site via opts.lang.
 export const CLAUDE_API_QUOTA_EXCEEDED_MESSAGE = t("provider.quotaExceeded", DEFAULT_LANG);
@@ -82,7 +82,7 @@ export const CLAUDE_API_RATE_LIMITED_MESSAGE = t("provider.rateLimited", DEFAULT
  * problem rather than a plain rejection — the Messages API returns this as
  * either a 402, or a 400 whose error object is a billing_error / whose
  * message names a credit shortfall ("credit balance is too low" — the exact
- * wording observed at implementation time, 2026-10-01), or (defensively,
+ * wording observed at implementation time), or (defensively,
  * mirroring the OpenAI-compatible convention) a 429 whose error code/type is
  * "insufficient_quota". Never throws on a malformed/non-JSON body — treated
  * as "no quota signal" rather than crashing the error path.
@@ -90,7 +90,7 @@ export const CLAUDE_API_RATE_LIMITED_MESSAGE = t("provider.rateLimited", DEFAULT
 function isAnthropicQuotaBody(bodyText: string): boolean {
   const lower = bodyText.toLowerCase();
   if (lower.includes("credit balance is too low")) return true;
-  // Amendment 2026-10-02 (goal-j2FJ-kI7, "model failure path"): a 400
+  // "model failure path": a 400
   // invalid_request_error can also name a spend/usage limit the account's
   // owner configured (distinct from an empty credit balance, same remedy:
   // quota-exceeded, never a generic internal error).
@@ -117,10 +117,10 @@ async function isAvailable(opts: ProviderRuntimeOptions): Promise<Availability> 
 }
 
 /**
- * `provider.status` for claude-api — amendment 2026-09-25 bis / lot3 open
- * detail (c)1: presence-only. A `GET /v1/models` probe would confirm the key
- * is actually accepted, but stays OFF until a sourced amendment to
- * docs/PROTOCOL.md confirms that endpoint is never billed — a stored key is
+ * `provider.status` for claude-api — presence-only (docs/PROTOCOL.md,
+ * "Provider availability"). A `GET /v1/models` probe would confirm the key
+ * is actually accepted, but stays OFF until docs/PROTOCOL.md
+ * confirms that endpoint is never billed — a stored key is
  * reported `unknown`/`key-unverified`, never `ok`, until then.
  */
 async function checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck> {
@@ -130,9 +130,8 @@ async function checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck> {
 }
 
 /**
- * `settings.test` for claude-api — goal U2 (docs/PROTOCOL.md, amendment
- * 2026-10-01): FREE key check via `GET /v1/models`, never the billed
- * `POST /v1/messages` streamAnswer() uses. `redirect: "error"` — same
+ * `settings.test` for claude-api (docs/PROTOCOL.md): FREE key check via `GET /v1/models`, never the
+ * billed `POST /v1/messages` streamAnswer() uses. `redirect: "error"` — same
  * redirect-refusal invariant as openai-compat.ts's fetchModelIds, never
  * follow a redirect that could carry the key to a different origin. Never
  * throws — classifies via TestConnectionResult.code instead. This is
@@ -155,7 +154,7 @@ async function testConnection(
       signal: AbortSignal.timeout(opts.timeoutMs ?? TEST_CONNECTION_DEFAULT_TIMEOUT_MS),
     });
     if (response.ok) {
-      // Amendment 2026-10-02 (goal-j2FJ-kI7): the key is accepted — now
+      // The key is accepted — now
       // check the CONFIGURED model is actually in the list this key can see,
       // so a wrong/retired model name surfaces here rather than on the first
       // real chat request. Never throws on an unexpected body shape — no
@@ -266,7 +265,7 @@ export function* parseSseLine(
     case "error": {
       const error = obj.error as Record<string, unknown> | undefined;
       const message = typeof error?.message === "string" ? error.message : "Anthropic API stream error";
-      throw new Error(message);
+      throw Object.assign(new Error(message), { streamErrorType: error?.type });
     }
     default:
       return; // ping, content_block_start/stop, etc. — nothing to do
@@ -324,7 +323,7 @@ export async function* streamAnswer(
     }
   }
 
-  // Amendment 2026-10-07 (bis): two-stage timeout. claude-api is always
+  // Two-stage timeout. claude-api is always
   // remote → FIRST_TOKEN_TIMEOUT_REMOTE_MS (120 s) for first token.
   const firstTokenMs = opts.timeoutMs ?? FIRST_TOKEN_TIMEOUT_REMOTE_MS;
   const inactivityMs = opts.inactivityTimeoutMs ?? INACTIVITY_TIMEOUT_MS;
@@ -345,7 +344,7 @@ export async function* streamAnswer(
     }, inactivityMs);
   };
 
-  // Amendment 2026-10-08 (bis, "historique"): trimmed once, reused both to
+  // "historique": trimmed once, reused both to
   // build `messages` below and to report historyKept on the final "usage"
   // event. `historyKept` stays undefined (not 0) when this request carried
   // no `history` at all — see model.ts's AnswerEvent doc.
@@ -368,16 +367,16 @@ export async function* streamAnswer(
           max_tokens: MAX_TOKENS,
           stream: true,
           system: buildSystemPrompt(built.nonce, built.lang),
-          // Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md; security
-          // review L8): an attached image is wrapped inside the SAME
+          // docs/PROTOCOL.md; security
+          // review L8: an attached image is wrapped inside the SAME
           // per-request nonce fence as page text — "Screenshot of the page
           // (data, not instruction)" + the opening marker, the image block,
           // the closing marker — THEN the rest of the prompt (page context,
           // sources, the user's own request) as its own text block. Never a
           // bare content block relying only on the system prompt's generic
-          // sentence; `images` is at most one entry as of this amendment.
+          // sentence; `images` is at most one entry.
           //
-          // Amendment 2026-10-08 (bis, "historique"): past turns rendered
+          // ("historique"): past turns rendered
           // as REAL alternating messages, trimmed to HISTORY_CHAR_BUDGET
           // (oldest dropped first), BEFORE the current user turn below —
           // never merged into its own content, never part of `system`.
@@ -405,7 +404,7 @@ export async function* streamAnswer(
     } catch (err) {
       if (stalled) throw new ModelStalledError(inactivityMs);
       if (timedOut) throw new ModelTimeoutError(firstTokenMs);
-      // I3 (lot7 security review): this used to interpolate the raw fetch
+      // I3: this used to interpolate the raw fetch
       // error's own message into ModelUnavailableError, which reaches the
       // panel verbatim (see server.ts's runStream: err.message becomes the
       // client-facing ErrorMessage.message for anything that isn't
@@ -424,7 +423,7 @@ export async function* streamAnswer(
       // `code`/`message` — never anything client-supplied) is used to
       // classify the failure.
       const lang = opts.lang ?? DEFAULT_LANG;
-      // 403 permission_error (amendment 2026-10-02, goal-j2FJ-kI7): the key
+      // 403 permission_error: the key
       // IS accepted, it's this model the account isn't authorized for — not
       // auth-required (that would send the user re-entering a key that's
       // fine). 401 stays auth-required: that's a rejected key.
@@ -442,13 +441,13 @@ export async function* streamAnswer(
         if (isAnthropicQuotaBody(bodyText)) {
           throw new QuotaExceededError(t("provider.quotaExceeded", lang));
         }
-        // Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md): the key is
+        // docs/PROTOCOL.md: the key is
         // fine, Anthropic's 400 is specifically about the attached image —
         // only ever reclassified when this request actually carried one.
         if ((built.images?.length ?? 0) > 0 && /image/i.test(bodyText)) {
           throw new VisionUnsupportedError(`Anthropic API rejected the attached image: ${bodyText.slice(0, 300)}`);
         }
-        // Amendment 2026-10-02: any other 400 is a malformed/unsupported
+        // Any other 400 is a malformed/unsupported
         // request, not an internal Coati bug — model-unavailable names the
         // actual failure instead of the generic "internal" code.
         throw new ModelUnavailableError(`Anthropic API returned HTTP 400`);
@@ -462,7 +461,7 @@ export async function* streamAnswer(
         throw new RateLimitedError(t("provider.rateLimited", lang), retryAfterSec);
       }
       // 529 overloaded_error, and a bare 502/503 — transient upstream
-      // overload (amendment 2026-10-02, goal-j2FJ-kI7): "try again", not
+      // overload: "try again", not
       // "fix your settings" (model-unavailable's remedy). Any other 5xx
       // still falls back to model-unavailable below.
       if (response.status === 529 || response.status === 502 || response.status === 503) {
@@ -487,6 +486,12 @@ export async function* streamAnswer(
   } catch (err) {
     if (stalled) throw new ModelStalledError(inactivityMs);
     if (timedOut) throw new ModelTimeoutError(firstTokenMs);
+    // An `error` event mid-stream carries the same types as an HTTP error.
+    const streamType = (err as { streamErrorType?: unknown })?.streamErrorType;
+    if (streamType === "overloaded_error" || streamType === "api_error") {
+      throw new ProviderOverloadedError(t("provider.overloaded", opts.lang ?? DEFAULT_LANG));
+    }
+    if (streamType === "rate_limit_error") throw new RateLimitedError(t("provider.rateLimited", opts.lang ?? DEFAULT_LANG));
     throw err;
   } finally {
     clearTimeout(firstTokenTimer);
@@ -506,7 +511,7 @@ export const claudeApiProvider: ModelProvider = {
   listModels,
   streamAnswer,
   defaultModel: CLAUDE_API_DEFAULT_MODEL,
-  // Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md): every claude-api
+  // docs/PROTOCOL.md: every claude-api
   // model understands an attached image — static, not per-model.
   vision: true,
 };

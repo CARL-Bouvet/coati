@@ -1,7 +1,7 @@
 // Prompt library persisted at ~/.local/share/coati/prompts-v2.json.
 // Base directory is always passed in as a parameter so tests can point at a temp dir.
 //
-// Amendment 2026-09-28 ("Mes prompts par site" — docs/DECISIONS.md T41): replaces the flat
+// ("Mes prompts par site" — docs/DECISIONS.md T41): replaces the flat
 // `prompts.json` (identified by `name`) with a per-site format identified by a broker-assigned
 // `id`. The old `prompts.json` is NEVER read, renamed or deleted — see docs/PROTOCOL.md
 // "Prompt library and per-site preferences" → "Storage". No migration: a library that

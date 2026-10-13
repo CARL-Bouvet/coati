@@ -1,5 +1,4 @@
-// Coati side panel — "See the screen" (plan-montrer-voir-chercher-08-10.md
-// §3B, lot B3). captureScreen() turns the active tab's pixels into the
+// Coati side panel — "See the screen". captureScreen() turns the active tab's pixels into the
 // `chat.image` payload (docs/PROTOCOL.md): `captureVisibleTab` JPEG
 // q 0.8 -> createImageBitmap -> OffscreenCanvas resized to <= 1280 px on the
 // long side -> re-encoded JPEG q 0.75, q 0.55 if still > 700 KiB, failure if
@@ -9,9 +8,9 @@
 // nextQuality) are exported separately from captureScreen() itself, which
 // touches chrome.tabs/createImageBitmap/OffscreenCanvas — none of those
 // exist under `bun test` (no browser), so only the maths is unit-tested;
-// captureScreen() itself needs the Chromium e2e the admin runs separately.
+// captureScreen() itself needs the Chromium e2e run separately.
 //
-// B0 finding (08/10): `captureVisibleTab` needs `activeTab` (icon click,
+// B0 finding: `captureVisibleTab` needs `activeTab` (icon click,
 // keyboard shortcut, or a context-menu click that grants it) — the broad
 // `optional_host_permissions` ("http://*/*", "https://*/*") do NOT satisfy
 // it. captureScreen() never tries to request anything itself; panel.js
@@ -118,7 +117,7 @@ export async function captureScreen(windowId) {
     quality: Math.round(CAPTURE_QUALITY * 100),
   });
   // Decode the data: URL by hand — fetch(dataUrl) is blocked by the panel's
-  // CSP (connect-src has no data:), found by the admin's Chromium e2e 08/10.
+  // CSP (connect-src has no data:), found by the Chromium e2e.
   const rawBlob = dataUrlToBlob(dataUrl);
   const bitmap = await createImageBitmap(rawBlob);
   const { width, height } = computeResizeDimensions(bitmap.width, bitmap.height);
@@ -142,7 +141,7 @@ export async function captureScreen(windowId) {
 
 // --- Error classification (pure — no chrome.* here) -------------------------
 
-// B0 (08/10): verified exact string from a real Chromium.
+// B0: verified exact string from a real Chromium.
 const NEEDS_GESTURE_RE = /activeTab|all_urls|permission/i;
 
 /** True when `err` is captureVisibleTab's "no activeTab" rejection — the

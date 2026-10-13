@@ -5,7 +5,7 @@
 // `chrome.*`, promisified for most MV3 APIs.
 //
 // The naive rule — `globalThis.browser ?? globalThis.chrome` — is WRONG on
-// Chromium, and silently so. Measured in Brave on 2026-09-20: a `browser`
+// Chromium, and silently so. Measured in Brave: a `browser`
 // global exists, it is NOT the same object as `chrome` (`browser === chrome`
 // is false), and it carries sidePanel/scripting/storage. Preferring it would
 // route the whole extension through an object nothing here has ever been
@@ -28,7 +28,7 @@ const isGecko =
  * A live Proxy, not a plain `const target = ...` snapshot: `bun test` runs
  * every test file in one process, and several unrelated files now import
  * this module transitively (lib/i18n.js, itself pulled in by most
- * extension/**\/*.js — G6). A frozen-at-first-import binding would capture
+ * extension/**\/*.js). A frozen-at-first-import binding would capture
  * `globalThis.chrome` as `undefined` if this module happened to load before
  * a test's own `globalThis.chrome = chromeMock` ran (import order across
  * files sharing one process is not something any single test controls), and

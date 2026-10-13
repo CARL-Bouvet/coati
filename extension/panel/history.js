@@ -1,5 +1,4 @@
-// Coati side panel — "historique" (conversation memory), amendment
-// 2026-10-08 bis (docs/PROTOCOL.md).
+// Coati side panel — "historique" (conversation memory), docs/PROTOCOL.md.
 //
 // Pure, DOM-free: builds the `chat.history` wire payload from the panel's
 // own `conversation` array, and decides when to show the discreet "long
@@ -96,8 +95,7 @@ export function extractExchanges(conversation) {
 }
 
 /**
- * Builds the `chat.history` wire payload (docs/PROTOCOL.md, amendment
- * 2026-10-08 bis) from the panel's `conversation` — capped to the last
+ * Builds the `chat.history` wire payload (docs/PROTOCOL.md) from the panel's `conversation` — capped to the last
  * HISTORY_MAX_EXCHANGES exchanges, oldest dropped first. `entries` is `[]`
  * (never attach the field at all — see panel.js's sendChatMessage) when
  * there is nothing eligible yet.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shared helpers for scripts/install/install-linux.sh, uninstall-linux.sh,
-# install-macos.sh and uninstall-macos.sh — goal G4, Native Messaging
+# install-macos.sh and uninstall-macos.sh, Native Messaging
 # installers (docs/PROTOCOL.md,).
 #
 # Not meant to be run directly: `. "$(dirname "$0")/lib.sh"` from a caller
@@ -25,7 +25,7 @@ render_manifest() {
   fi
   # The placeholder sits inside a JSON string (`"path": "@@HOST_PATH@@"`):
   # JSON-escape the path so a `\` or `"` in a custom --prefix cannot break
-  # out of it (final security review).
+  # out of it.
   replace_literal @@HOST_PATH@@ "$(json_escape "$host_path")" < "$template"
 }
 

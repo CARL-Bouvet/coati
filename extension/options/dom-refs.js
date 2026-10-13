@@ -1,4 +1,4 @@
-// Coati options page — DOM element lookups (lot F3 split of options.js).
+// Coati options page — DOM element lookups (split of options.js).
 // Pure `document.getElementById`/`querySelector` map, read by every other
 // options/*.js module: the DOM is parsed before this module script runs, so
 // building it here at import time is safe.

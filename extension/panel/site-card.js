@@ -1,5 +1,4 @@
-// Coati side panel — site card (T27-T29, encart lot 3 —
-// plan-mes-prompts-28-09.md), lot F3 split of panel.js.
+// Coati side panel — site card (T27-T29, encart), split of panel.js.
 //
 // Fixed-size block: a small spinner while (re)detection is running (only if
 // it takes a moment — see card-state.js's SPINNER_DELAY_MS), then the site's
@@ -90,7 +89,7 @@ export function renderSiteCard(state, result) {
 
   // Favicon absent, or its icon failed to load (Brave bug, handled by the
   // "error" listener): the icon slot simply collapses — no placeholder
-  // square (plan-mes-prompts-28-09.md, "No site icon: nothing").
+  // square.
   const showFavicon = !!currentFavIconUrl;
   els.siteCardFavicon.hidden = !showFavicon;
   if (showFavicon) {
@@ -115,7 +114,7 @@ export function renderSiteCard(state, result) {
 /** Rebuilds the encart's buttons from encart-items.js's ordering: the site's
  * own case (Coati suggestions minus removed, plus the user's prompts for
  * that site), then "All sites" — "My prompts ↗" is a separate, static
- * button in the markup, always last (plan-mes-prompts-28-09.md). Real DOM
+ * button in the markup, always last. Real DOM
  * nodes, textContent only (CLAUDE.md rule #3): a prompt's title/body is
  * user data, a suggestion's label ships with the extension — same
  * discipline either way. The first button keeps the primary/caramel style

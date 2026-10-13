@@ -1,10 +1,7 @@
-// Integration tests for task A2: exactly one journal line on request receipt
+// Integration tests: exactly one journal line on request receipt
 // and one on completion, per chat/summarize/act — never page text, user
-// content, or the pairing token in either line (measured incident:
-// journalctl only had the handshake/listen lines, nothing to diagnose a hung
-// or failed request from). Driven against the ollama provider's fake fetch
-// (goal G1b, 29/09 cleanup of the public repo — this used to run against a
-// now-private provider module).
+// content, or the pairing token in either line (journalctl only had the handshake/listen lines, nothing to diagnose a hung
+// or failed request from). Driven against the ollama provider's fake fetch.
 
 import { describe, expect, test, afterEach, mock } from "bun:test";
 import { startServer } from "../src/server.ts";
@@ -131,7 +128,7 @@ describe("A2 — one journal line per request", () => {
     expect(completed).toContain("outcome=error:context-too-large");
   });
 
-  // 2026-09-26 amendment (docs/PROTOCOL.md): the completed line for a model
+  // docs/PROTOCOL.md: the completed line for a model
   // error carries `reason="…"` — a provider's own captured explanation, not
   // just the bare outcome code. Before this, a failed request left nothing in
   // the journal to tell one failure apart from another.
@@ -170,7 +167,7 @@ describe("A2 — one journal line per request", () => {
     expect(completed).toContain('reason="Ollama returned HTTP 500');
   });
 
-  // L4 (lot7 security review): `id` is entirely client-supplied — a control
+  // L4: `id` is entirely client-supplied — a control
   // character or newline in it must not forge a fake journal line.
   test("a control-character-laden id is sanitized in both the received and completed lines", async () => {
     originalLog = console.log;
@@ -206,7 +203,7 @@ describe("A2 — one journal line per request", () => {
   });
 });
 
-// Item 7 (lot7 security review) + amendment 2026-09-30 (G4): grant lines
+// Item 7 + grant lines
 // must go to stderr — same as every reject* line already does — per
 // docs/PROTOCOL.md ("le broker écrit sur sa sortie
 // d'erreur"), never console.log (stdout).
@@ -236,7 +233,7 @@ describe("grant — stderr, not stdout", () => {
     expect(logLines.some((l) => l.includes("grant"))).toBe(false);
   });
 
-  test("a moz-extension origin with a valid proof also authenticates (no pinning, amendment 2026-09-30)", async () => {
+  test("a moz-extension origin with a valid proof also authenticates (no pinning)", async () => {
     const server = boot();
     const uuid = "12345678-1234-1234-1234-123456789abc";
     const result = await connectAndAuthV2(`ws://127.0.0.1:${server.port}/ws`, `moz-extension://${uuid}`, KEY);

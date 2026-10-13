@@ -7,9 +7,8 @@ import { homedir } from "node:os";
 import { hardenDir, atomicWriteFileSync } from "./fs-atomic.ts";
 
 /**
- * A model provider's identifier. OPEN string, since amendment 2026-09-29 of
- * docs/PROTOCOL.md: the broker embeds exactly two providers (`ollama`,
- * `claude-api`), and anything else is an externally loaded module (see
+ * A model provider's identifier. OPEN string (docs/PROTOCOL.md): the broker embeds exactly two
+ * providers (`ollama`, `claude-api`), and anything else is an externally loaded module (see
  * docs/ARCHITECTURE.md) whose id the broker cannot know ahead of time. config.ts
  * therefore no longer validates a `provider` value against a closed list —
  * only its *shape* (isProviderId below). Whether an id names a provider this
@@ -47,9 +46,8 @@ export interface CoatiConfig {
   /** Base URL of the local Ollama daemon. */
   ollamaUrl?: string;
   /**
-   * BYOK secrets, keyed per provider — NEVER a single global field (security
-   * fix, 2026-09-30 ter): a secret must only ever reach the service it was
-   * entered for. `claude-api` is a bare string (Anthropic has exactly one
+   * BYOK secrets, keyed per provider — NEVER a single global field: a secret must only ever reach
+   * the service it was entered for. `claude-api` is a bare string (Anthropic has exactly one
    * base URL, no origin to bind against). `openai-compat` carries its key
    * together with the URL *origin* it was entered for (`new URL(baseUrl)
    * .origin` at settings.set time) — resolveApiKey() below only returns it
@@ -67,9 +65,8 @@ export interface CoatiConfig {
     "claude-api"?: string;
     "openai-compat"?: { key: string; origin: string };
   };
-  /** Base URL of the `openai-compat` provider's server (amendment 2026-09-30
-   * bis, goal G5), e.g. "http://localhost:1234/v1" for LM Studio. NOT a
-   * secret — see server.ts's buildSettingsPayload, which echoes it back in
+  /** Base URL of the `openai-compat` provider's server, e.g. "http://localhost:1234/v1" for LM
+   * Studio. NOT a secret — see server.ts's buildSettingsPayload, which echoes it back in
    * `settings` for the active provider, unlike apiKey. Validated (https, or
    * http restricted to loopback) at settings.set time — see protocol.ts's
    * isValidBaseUrl. */
@@ -77,13 +74,13 @@ export interface CoatiConfig {
   /** External provider modules to load at startup — see ModuleConfigEntry
    * above and docs/ARCHITECTURE.md. Absent/empty means "built-in providers only". */
   modules?: ModuleConfigEntry[];
-  /** Amendment 2026-09-30 (G4), docs/PROTOCOL.md: absent or
+  /** docs/PROTOCOL.md: absent or
    * anything other than `true`/`false` means `false` (with a startup
    * warning for a present-but-invalid value — see loadConfig). Enables the
    * `key: "pasted"` branch of the v: 2 handshake for browsers that cannot
    * launch a native host (Flatpak, Snap). */
   legacyPairing?: boolean;
-  /** Amendment 2026-10-07 (docs/PROTOCOL.md)
+  /** docs/PROTOCOL.md
    * — the last model used per provider. Updated on every
    * settings.set that sets a model; restored when settings.set changes
    * only the provider (no explicit model). The active model is still
@@ -143,12 +140,12 @@ export function isAllowedOllamaUrl(value: string): boolean {
   return false;
 }
 
-// Amendment 2026-09-25 ("Transport"): the port is fixed. config.json's
+// "Transport": the port is fixed. config.json's
 // `port` key is no longer read into the running config — see loadConfig's
 // warning below — this constant is the only source of truth left.
 export const FIXED_PORT = 8787;
 
-// Amendment 2026-09-29 (docs/PROTOCOL.md): "ollama", not a personal-CLI
+// docs/PROTOCOL.md: "ollama", not a personal-CLI
 // provider — the only provider a fresh, public-repo install can use without
 // any extra setup beyond installing Ollama itself.
 export const DEFAULT_CONFIG: CoatiConfig = {
@@ -160,9 +157,8 @@ export const DEFAULT_CONFIG: CoatiConfig = {
 };
 
 /** Real-world default directories. Never called from library logic directly
- * — only from server.ts entrypoint. `COATI_DATA_DIR` (amendment 2026-09-30,
- * G4) overrides dataDir only, for tests and for the native host reading the
- * same broker's files — see docs/PROTOCOL.md. */
+ * — only from server.ts entrypoint. `COATI_DATA_DIR` overrides dataDir only, for tests and for the
+ * native host reading the same broker's files — see docs/PROTOCOL.md. */
 export function defaultDirs(): Dirs {
   const home = homedir();
   const dataDir = process.env.COATI_DATA_DIR || join(home, ".local", "share", "coati");
@@ -340,7 +336,7 @@ function configPath(dirs: Dirs): string {
 /**
  * Loads ~/.config/coati/config.json (relative to dirs.configDir), creating it
  * with defaults on first run. The `port` key, if present, is IGNORED — the
- * broker always listens on FIXED_PORT (amendment 2026-09-25, "Transport");
+ * broker always listens on FIXED_PORT ("Transport");
  * a value other than FIXED_PORT only produces a startup warning, never a
  * different listening port.
  */
@@ -365,7 +361,7 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
   if (typeof obj.port === "number" && obj.port !== FIXED_PORT) {
     console.warn(
       `coati-broker: config.json has "port": ${obj.port}, ignored — the port is fixed at ${FIXED_PORT} ` +
-        `(amendment 2026-09-25, see docs/PROTOCOL.md "Transport").`,
+        `(see docs/PROTOCOL.md "Transport").`,
     );
   }
   let legacyPairing = false;
@@ -385,7 +381,7 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
       ? (obj.allowedExtensionIds as string[])
       : [],
     // A malformed or absent provider value in a hand-edited config.json falls
-    // back to the default — "ollama" (amendment 2026-09-29). Whether the
+    // back to the default — "ollama". Whether the
     // resulting id actually names a provider this broker knows about (built
     // in or loaded from `modules`) is checked at runtime, not here.
     provider: isProviderId(obj.provider) ? obj.provider : DEFAULT_CONFIG.provider,

@@ -1,5 +1,5 @@
 // Coati side panel — context-menu "act" actions stashed by service-worker.js
-// (lot F3 split of panel.js).
+// (split of panel.js).
 import { t } from "../lib/i18n-page.js";
 import { api } from "../lib/browser-compat.js";
 import { panelState, newId, PENDING_ACTION_KEY } from "./panel-state.js";

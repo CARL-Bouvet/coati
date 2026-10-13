@@ -1,4 +1,4 @@
-// Unit tests for goal G2 (T46 point 3, T47): the pure "unreadable page"
+// Unit tests for T46 point 3 and T47: the pure "unreadable page"
 // message choice, the pdf/readability helpers, and the access-denied
 // detection against the two real browser error texts.
 import { describe, expect, test } from "bun:test";

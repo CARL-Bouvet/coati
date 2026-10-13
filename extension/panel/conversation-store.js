@@ -1,4 +1,4 @@
-// Coati side panel — conversation persistence (lot F3 split of panel.js).
+// Coati side panel — conversation persistence (split of panel.js).
 // Conversation state lives HERE (persisted to chrome.storage.local), never
 // only in the background service worker's memory: the service worker can be
 // killed and restarted at any time (see background/service-worker.js).
@@ -23,7 +23,7 @@ export async function loadConversation() {
 }
 
 export function persistConversation() {
-  // `elementsSnapshot` (Lot A2) is page-derived (element labels are text
+  // `elementsSnapshot` is page-derived (element labels are text
   // read off the page) and tab/extraction-specific — kept in memory only,
   // same reasoning as `context`/`pendingRetries` (CLAUDE.md rule #1). Strip
   // it from the COPY written to chrome.storage.local; the in-memory

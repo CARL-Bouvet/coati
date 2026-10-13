@@ -1,5 +1,5 @@
 // `provider.status` — docs/PROTOCOL.md
-// (amendment 2026-09-25 / 2026-09-25 bis). Three layers:
+// Three layers:
 //   1. broker/src/provider-status.ts's ProviderStatusCache — 60s cache,
 //      shared in-flight probe, cleared on demand.
 //   2. Each provider's own checkStatus() reason-code table.
@@ -96,7 +96,7 @@ describe("ProviderStatusCache", () => {
     expect(calls.n).toBe(2);
   });
 
-  // L3 (lot7 security review): clear() must also empty the in-flight map —
+  // L3: clear() must also empty the in-flight map —
   // otherwise a probe stuck forever (a subprocess-backed provider's own
   // checkStatus could hang) leaves every later get() for that key awaiting the same stuck promise,
   // even past an explicit clear() meant to force a fresh probe.
@@ -164,10 +164,8 @@ describe("claude-api checkStatus", () => {
   });
 });
 
-// A per-provider checkStatus describe block for a personal, subprocess-backed
-// provider used to live here (goal G1b, 29/09 cleanup of the public repo) — moved
-// to that provider's own private module test suite. See docs/ARCHITECTURE.md for
-// the module contract it now tests against.
+// Per-provider checkStatus tests for subprocess-backed providers live in that
+// provider's own module test suite. See docs/ARCHITECTURE.md for the module contract.
 
 describe("ollama checkStatus", () => {
   test("daemon unreachable -> ko / ollama-unreachable", async () => {
@@ -214,7 +212,7 @@ describe("ollama checkStatus", () => {
   });
 });
 
-// Goal U2 (docs/PROTOCOL.md, amendment 2026-10-01): same
+// docs/PROTOCOL.md: same
 // free /api/tags probe as checkStatus above, reshaped as TestConnectionResult
 // — the task brief's required distinction is model-missing (daemon up,
 // configured model absent) vs model-unavailable (daemon unreachable).

@@ -1,4 +1,4 @@
-// Part of the content/extract.js content script (lot F4 split) — see
+// Part of the content/extract.js content script (split) — see
 // content/extract-files.js for the load order. Shared "is this node
 // actually visible to the user" gate, used by nearly every later file.
 

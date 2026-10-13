@@ -1,5 +1,5 @@
 // Address presets for the `openai-compat` model provider (docs/PROTOCOL.md
-// "Model provider", amendment 2026-09-30 bis, goal G5) — one adapter,
+// "Model provider") — one adapter,
 // many servers that speak the same `/v1/chat/completions` format. Preset
 // addresses are pure pre-fill: the user can always type a different one (the
 // last entry, "Other address", has no baseUrl and just clears the field).

@@ -1,7 +1,6 @@
 // The broker key (docs/PROTOCOL.md) and the legacy-mode
-// permanent pairing secret S ("Legacy mode: legacyPairing") — amendment
-// 2026-09-30 (G4). Both are 32-byte keys used as HMAC-SHA256 keys in the
-// v: 2 handshake ("Handshake v: 2"); this module owns their
+// permanent pairing secret S ("Legacy mode: legacyPairing"). Both are 32-byte keys used as
+// HMAC-SHA256 keys in the v: 2 handshake ("Handshake v: 2"); this module owns their
 // generation, on-disk format, file hardening, and the HMAC/compare helpers
 // the handshake needs. Never logs a key or a proof.
 
@@ -37,9 +36,8 @@ function pairingSecretPath(dirs: Pick<Dirs, "dataDir">): string {
 }
 
 /** True iff `path` exists and is a regular file — via lstat, NEVER stat, so a
- * symlink at that path is itself inspected rather than followed (final
- * security review): a secret file is only ever created by this module with
- * atomicWriteFileSync, so anything else there (symlink, FIFO, device node —
+ * symlink at that path is itself inspected rather than followed: a secret file is only ever created
+ * by this module with atomicWriteFileSync, so anything else there (symlink, FIFO, device node —
  * e.g. planted by another local account sharing the data dir, or a race
  * before hardenDir's 0700 took effect) is refused rather than read through
  * or chmod'd, which would otherwise silently act on whatever it points to.
@@ -110,7 +108,7 @@ export type ReadBrokerKeyResult =
  * `broker-not-running` outcome (docs/PROTOCOL.md), never an exception. */
 export function readBrokerKeyFile(dirs: Pick<Dirs, "dataDir">): ReadBrokerKeyResult {
   const path = brokerKeyPath(dirs);
-  // Final security review: lstat before ever reading — a symlink planted at
+  // Lstat before ever reading — a symlink planted at
   // this path (see isRegularFileLstat's comment) must never be followed by
   // the native host, which runs with the caller's own privileges and would
   // otherwise happily hand back the content of an arbitrary file as if it
@@ -170,7 +168,7 @@ export function loadOrCreatePairingSecret(dirs: Pick<Dirs, "dataDir">): Buffer {
   const path = pairingSecretPath(dirs);
   if (existsSync(path)) {
     if (!isRegularFileLstat(path)) {
-      // Final security review: refuse to chmodSync/readFileSync through a
+      // Refuse to chmodSync/readFileSync through a
       // symlink (or other non-regular file) at this path — see
       // isRegularFileLstat's comment. Removed outright and regenerated below,
       // same as any other malformed secret on disk.
@@ -199,9 +197,8 @@ export function loadOrCreatePairingSecret(dirs: Pick<Dirs, "dataDir">): Buffer {
 }
 
 /** Deletes the legacy pairing-secret file if present — called at broker
- * startup when `legacyPairing` is off (docs/PROTOCOL.md; final
- * security review): a secret left over from a previous run with
- * `legacyPairing: true` must not keep sitting on disk, readable, once the
+ * startup when `legacyPairing` is off (docs/PROTOCOL.md): a secret left over from a previous run
+ * with `legacyPairing: true` must not keep sitting on disk, readable, once the
  * operator has turned the mode off. Logs exactly one line when it actually
  * removes something; silent (and never throws) when there is nothing to do —
  * the overwhelmingly common case. */

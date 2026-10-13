@@ -112,13 +112,12 @@ import { onChunk, onProgress, onDone, onError } from "./chat-stream.js";
 import { onPageRequest } from "./page-request.js";
 import { onSearchRequest, onOpenRequest } from "./web-search.js";
 
-// Public repo doc, opened from the "no-host" banner (docs/PROTOCOL.md
-// amendment 2026-09-30, "États et bandeaux"). No local doc viewer in the
-// extension itself, so this points at the same repo the "À propos" section
+// Public repo doc, opened from the "no-host" banner (docs/PROTOCOL.md, "États et bandeaux"). No
+// local doc viewer in the extension itself, so this points at the same repo the "À propos" section
 // already links to.
 const INSTALL_DOC_URL = "https://github.com/CARL-Bouvet/coati/blob/main/docs/INSTALL.md";
 
-// Composer height recompute (lot 4) — set in init(), called after every
+// Composer height recompute — set in init(), called after every
 // programmatic change of els.input.value (those fire no "input" event).
 // Only ever reassigned here (bootstrap) — every other module imports it
 // read-only.
@@ -140,15 +139,13 @@ applyI18n(document);
 reloadOnLanguageChange();
 export const langSelector = mountLanguageSelector(document.getElementById("langSelectorMount"));
 
-// Design-variant hook for captures only (notes/PLAN_goal_panneau_v2.md,
-// "Contrat commun") — inert unless the panel's own address carries
+// Design-variant hook for captures only — inert unless the panel's own address carries
 // `?variant=a|b|c`; theme.css keys its variants off this attribute.
 const requestedVariant = new URLSearchParams(location.search).get("variant");
 if (requestedVariant) document.documentElement.dataset.variant = requestedVariant;
 
-// Public repo doc, opened from the "no-host" banner (docs/PROTOCOL.md
-// amendment 2026-09-30, "États et bandeaux"). No local doc viewer in the
-// extension itself, so this points at the same repo the "À propos" section
+// Public repo doc, opened from the "no-host" banner (docs/PROTOCOL.md, "États et bandeaux"). No
+// local doc viewer in the extension itself, so this points at the same repo the "À propos" section
 // already links to.
 
 init();
@@ -221,7 +218,7 @@ async function init() {
   resizeComposer = bindAutogrow(els.input, { overflowClass: "composer-input--overflow" });
   // Favicon that fails to load (known Brave bug: the _favicon/ endpoint
   // answers nothing usable), or simply absent: the icon slot collapses —
-  // no placeholder square (plan-mes-prompts-28-09.md, "no site icon: nothing").
+  // no placeholder square.
   els.siteCardFavicon.addEventListener("error", () => {
     if (els.siteCardFavicon.hidden || !els.siteCardFavicon.getAttribute("src")) return;
     els.siteCardFavicon.hidden = true;
@@ -249,7 +246,7 @@ async function init() {
   // from there. Re-detect from metadata, not just the link: a grant made while
   // the panel sits on that very site is what makes its address legible — without
   // this the card stayed on "This page" until the next tab switch or
-  // navigation (bug of 29/09, Reddit activated from the page). Metadata-only,
+  // navigation (Reddit activated from the page). Metadata-only,
   // never a page read (rule 5); redetectTabFromMetadata() refreshes the link.
   // Skipped right after a full read of this same tab (the read button's own
   // grant fires onAdded while its read is running): the metadata-only pass

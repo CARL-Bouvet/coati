@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# End-to-end CI check for goal G4 ("CI end to end + Windows ACL") — runs on
+# End-to-end CI check ("CI end to end + Windows ACL") — runs on
 # all three OS (Linux, macOS, Windows via git-bash) against THIS runner's own
 # compiled binary. Mirrors docs/PROTOCOL.md's "Poignée de main Native
 # Messaging simulée" test plan, but against the REAL installer + REAL
-# installed binary rather than `bun run src/server.ts`, per goal G4's
-# instructions — that's what actually exercises install-{linux,macos}.sh /
+# installed binary rather than `bun run src/server.ts` — that's what actually exercises install-{linux,macos}.sh /
 # install-windows.ps1 end to end:
 #
 #   1. install the compiled binary with this OS's installer, --no-service /

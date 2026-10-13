@@ -1,4 +1,4 @@
-// Slow local model advice (plan-ollama-rapide-07-10.md, points 3, 4 and 6):
+// Slow local model advice (4 and 6):
 // the "Loading the model…" / "The model is reading the page…" line shown in
 // the pending answer before its first word, the calm line shown when a
 // "shared" model is picked, and the tip under a slow or cut answer.

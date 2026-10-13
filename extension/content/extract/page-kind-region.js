@@ -1,11 +1,11 @@
-// Part of the content/extract.js content script (lot F4 split) — "main
+// Part of the content/extract.js content script (split) — "main
 // region" and "→ list" candidate-group detection. See
 // content/extract-files.js for the full load order.
 
 // Step 2 — "main region" (unchanged rule, applied within whatever survived
 // step 1). Returns the element, not its text.
 // A main region is never inside a fixed or sticky element (contact card,
-// side panel): measured 25/09, the contact card on a bienici listing carried
+// side panel):, the contact card on a bienici listing carried
 // its CNIL form notice, a dense block that extraction mistook for content.
 // But on bienici's results page the whole list is inside a fixed panel
 // (#searchSideView, 4 535 chars out of 4 543). Hence the text-share rule: a

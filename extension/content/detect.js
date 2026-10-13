@@ -9,7 +9,7 @@
 //
 // The page-kind rules (pageKind, facts/items caps, overlay exclusion) live
 // only in content/extract.js now — this module used to carry a second,
-// unused copy for testing purposes (KISS audit 2026-09-26, item 1); it was
+// unused copy for testing purposes; it was
 // never imported by anything shipped, only exercised by its own tests.
 
 const YOUTUBE_WATCH_HOSTS = new Set(["www.youtube.com", "youtube.com", "m.youtube.com"]);

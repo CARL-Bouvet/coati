@@ -1,4 +1,4 @@
-// scripts/ci/nm-handshake.ts — goal G4, CI e2e (see scripts/ci/e2e.sh). Small
+// scripts/ci/nm-handshake.ts, CI e2e (see scripts/ci/e2e.sh). Small
 // bun helper that performs exactly ONE Native Messaging round trip against a
 // given host binary, the way a browser launches it: spawns
 // `<binary> <arg>...` (the caller arguments Chrome/Firefox append — the

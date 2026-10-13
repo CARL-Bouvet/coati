@@ -1,6 +1,5 @@
-// Unit tests for the composer's autogrow height (lot 4 of an internal design
-// plan, 28/09): one line at rest, grows to 4 lines,
-// then a scrollbar. Pure function from extension/panel/, same pattern as
+// Unit tests for the composer's autogrow height: one line at rest,
+// grows to 4 lines, then a scrollbar. Pure function from extension/panel/, same pattern as
 // ui-scroll.test.ts.
 import { describe, expect, test } from "bun:test";
 import { autogrowHeight, MAX_LINES } from "../../extension/panel/composer-autogrow.js";

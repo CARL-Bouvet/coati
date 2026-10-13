@@ -2,7 +2,7 @@
 // network interface. Handshake: Origin check, then a `hello` with the pairing
 // secret within 3s, else close 4401 with a plain-language reason.
 //
-// Lot F5 (split without behaviour change): this file now only wires together
+// (split without behaviour change): this file now only wires together
 // admission (http-admission.ts), the v: 2 handshake (handshake.ts), message
 // dispatch (handlers/dispatch.ts) and the CLI entry point (import.meta.main
 // below) — it stays the entry point binaries are compiled from (see
@@ -63,7 +63,7 @@ import type { SettingsCtx } from "./handlers/settings.ts";
 import type { ProviderRuntimeOptions } from "./providers/types.ts";
 
 // Re-exported so every existing import of "./server.ts" / "../server.ts"
-// keeps working unchanged (lot F5 — see this file's own header).
+// keeps working unchanged (see this file's own header).
 export {
   MAX_CONTEXT_CHARS,
   MAX_DEV_CONTEXT_CHARS,
@@ -106,7 +106,7 @@ export interface ServerDirs extends PromptsDirs {
 export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: ServerDirs) {
   const promptsDirs: PromptsDirs = { dataDir: dirs.dataDir };
   const legacyPairingEnabled = config.legacyPairing === true;
-  // Final security review: a stale pairing-secret from a previous run with
+  // A stale pairing-secret from a previous run with
   // legacyPairing:true must not keep sitting on disk once the mode is off —
   // see deletePairingSecretIfDisabled's own comment.
   if (!legacyPairingEnabled) deletePairingSecretIfDisabled({ dataDir: dirs.dataDir });
@@ -170,7 +170,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
     };
     return {
       providerId,
-      // Amendment 2026-09-29: NEVER falls back to another provider when
+      // NEVER falls back to another provider when
       // `providerId` is unknown — `undefined` here, handled by
       // handleStreamingRequest, which reports model-unavailable naming the
       // missing id instead of silently answering through a different
@@ -179,7 +179,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       providerOpts,
       getConfig: () => currentConfig,
       applySettings(patch) {
-        // Amendment 2026-10-07 bis: capture the OLD provider's current
+        // Capture the OLD provider's current
         // model into lastModels BEFORE switching away from it. Without this,
         // a model only ever set through the initial config (never through
         // its own settings.set while that provider was active) had no entry
@@ -201,13 +201,13 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           currentConfig = { ...currentConfig, model: patch.model };
         } else if (patch.provider !== undefined) {
           // Switching provider without specifying a model: restore the last
-          // model used with that provider (amendment 2026-10-07).
+          // model used with that provider.
           const remembered = currentConfig.lastModels?.[patch.provider];
           if (remembered) {
             currentConfig = { ...currentConfig, model: remembered };
           }
         }
-        // Track the last model per provider (amendment 2026-10-07).
+        // Track the last model per provider.
         const activeProvider = currentConfig.provider ?? DEFAULT_CONFIG.provider!;
         if (currentConfig.model) {
           currentConfig = {
@@ -216,11 +216,10 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           };
         }
         // Same "" = forget semantics as apiKey — but baseUrl is NOT a secret
-        // (amendment 2026-09-30 bis): it still gets dropped from the JSON
+        // it still gets dropped from the JSON
         // on "" for the same "leaves no stale trace" reasoning, not because
-        // it needs hiding. Applied BEFORE the apiKey patch below (security
-        // fix, 2026-09-30 ter): a baseUrl moved to a different origin prunes
-        // any openai-compat key stored under the old origin first, so a
+        // it needs hiding. Applied BEFORE the apiKey patch below: a baseUrl moved to a different
+        // origin prunes any openai-compat key stored under the old origin first, so a
         // settings.set carrying both a new baseUrl and a new apiKey binds
         // the key to the NEW origin, never leaves it bound to the old one.
         if (patch.baseUrl !== undefined) {
@@ -265,8 +264,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
   return Bun.serve<ConnData, {}>({
     hostname: "127.0.0.1", // NEVER 0.0.0.0 — see CLAUDE.md non-negotiable rule #2.
     port: config.port,
-    // docs/PROTOCOL.md (amendment 2026-09-30,
-    // G4): explicit even though it's Bun's own default — a second broker
+    // docs/PROTOCOL.md: explicit even though it's Bun's own default — a second broker
     // trying to bind the same port must fail, never silently share it.
     reusePort: false,
     fetch(req, server) {
@@ -292,7 +290,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
 
       const url = new URL(req.url);
 
-      // amendment 2026-09-30 (G4): /pair no longer exists, in any mode —
+      // /pair no longer exists, in any mode —
       // docs/PROTOCOL.md. Falls
       // through to the generic 404 below like any other unknown route.
       if (url.pathname !== "/ws") {
@@ -318,13 +316,12 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       return undefined;
     },
     websocket: {
-      // Final security review: without an explicit cap, Bun buffers a
+      // Without an explicit cap, Bun buffers a
       // WebSocket frame of any size in full before this handler ever runs —
       // a multi-hundred-MB frame sent before auth (when there is no other
       // gate yet) would be fully received into memory regardless of what
-      // the `message` handler below goes on to check. Amendment 2026-10-08
-      // (lot B1): raised from MAX_MESSAGE_BYTES to MAX_IMAGE_MESSAGE_BYTES
-      // (1.5 MiB) + 4 KiB slack, so a legitimate chat+image frame (up to
+      // the `message` handler below goes on to check. Raised from MAX_MESSAGE_BYTES to
+      // MAX_IMAGE_MESSAGE_BYTES (1.5 MiB) + 4 KiB slack, so a legitimate chat+image frame (up to
       // ~1.37 MiB of base64 for a 1 MiB decoded image, plus the rest of the
       // envelope) can still reach the `message` handler below, which is
       // where the finer-grained 256 KiB-vs-1.5 MiB distinction actually
@@ -349,16 +346,15 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
         }, 3000);
       },
       message(ws, raw) {
-        // Final security review: the raw frame's byte length is checked
+        // The raw frame's byte length is checked
         // BEFORE any UTF-8 decoding or JSON.parse. `websocket.maxPayloadLength`
         // above is the hard backstop at the Bun protocol layer, closing the
         // socket before this handler even runs for anything past that; the
         // checks below catch the remaining gap.
         const rawByteLength = typeof raw === "string" ? Buffer.byteLength(raw, "utf8") : raw.byteLength;
 
-        // Pre-auth: hello/auth never carry an image (docs/PROTOCOL.md,
-        // amendment 2026-10-08) — the raised cap below only ever applies
-        // post-auth, to a chat+image. Unauthenticated connections keep the
+        // Pre-auth: hello/auth never carry an image (docs/PROTOCOL.md) — the raised cap below only
+        // ever applies post-auth, to a chat+image. Unauthenticated connections keep the
         // original, unconditional 256 KiB gate, no JSON parsed on a breach.
         if (!ws.data.authed) {
           if (rawByteLength > MAX_MESSAGE_BYTES) {
@@ -393,7 +389,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
         const text = typeof raw === "string" ? raw : Buffer.from(raw).toString("utf8");
         const result = parseClientMessage(text);
         if (!result.ok) {
-          // Amendment 2026-10-08 (lot B1): the two-tier oversized rejection
+          // The two-tier oversized rejection
           // (> MAX_MESSAGE_BYTES and not a legitimate chat+image) also
           // closes the connection — same policy as the raw-byte-length gate
           // this generalises (docs/PROTOCOL.md).
@@ -421,7 +417,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       close(ws) {
         if (ws.data.helloTimer) clearTimeout(ws.data.helloTimer);
         releaseUnauthSlot(ws);
-        ws.data.closed = true; // security review (L9) — see ConnData.closed's own doc
+        ws.data.closed = true; // L9 — see ConnData.closed's own doc
         for (const controller of ws.data.active.values()) controller.abort();
         ws.data.active.clear();
       },
@@ -433,7 +429,7 @@ if (import.meta.main) {
   // docs/PROTOCOL.md: the switch to
   // host mode happens BEFORE ANYTHING ELSE this file's own top-level code
   // does — no port opened, no config read, no dynamic module ever loaded
-  // (fixed comment, final security review: this file's own static imports
+  // (fixed comment: this file's own static imports
   // above are already evaluated by this point, ES modules being loaded
   // before any module-level code runs — but none of them writes to stdout,
   // so nothing beyond the host's own single reply frame ever does either).
@@ -483,7 +479,7 @@ if (import.meta.main) {
 
   // A1: warn (never block) if the unit we were launched from has drifted
   // from the repo's packaging/coati-broker.service — see
-  // checkUnitDriftAtStartup's doc for exactly what today's incident was.
+  // checkUnitDriftAtStartup's doc for the details.
   checkUnitDriftAtStartup({
     installedUnitPath: join(homedir(), ".config", "systemd", "user", "coati-broker.service"),
     repoUnitPath: join(dirname(fileURLToPath(import.meta.url)), "..", "..", "packaging", "coati-broker.service"),
@@ -505,7 +501,7 @@ if (import.meta.main) {
   }
   const port = Number(process.env.COATI_PORT) || config.port;
   const nativeKey = generateBrokerKey();
-  // Amendment 2026-09-29 (docs/PROTOCOL.md): load
+  // docs/PROTOCOL.md: load
   // config.json's `modules` BEFORE serving anything — a broken module is
   // logged (by initRegistry itself) and skipped, never fatal (CLAUDE.md
   // security rule #3).

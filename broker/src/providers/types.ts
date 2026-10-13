@@ -28,12 +28,11 @@ export interface ProviderRuntimeOptions {
   model?: string;
   ollamaUrl?: string;
   apiKey?: string;
-  /** Base URL of an `openai-compat` server (e.g. "http://localhost:1234/v1")
-   * — amendment 2026-09-30 bis, goal G5. NOT a secret (unlike apiKey): it is
-   * echoed back in the `settings` response for the active provider. Ignored
+  /** Base URL of an `openai-compat` server (e.g. "http://localhost:1234/v1"). NOT a secret (unlike
+   * apiKey): it is echoed back in the `settings` response for the active provider. Ignored
    * by every other provider. */
   baseUrl?: string;
-  /** Goal G6: the connection's negotiated language — used by isAvailable()
+  /** The connection's negotiated language — used by isAvailable()
    * to localise its human-readable `reason` (Availability.reason, shown
    * verbatim by the extension's settings UI) and by streamAnswer() to
    * localise an AuthRequiredError's message (docs/PROTOCOL.md: that one
@@ -43,9 +42,8 @@ export interface ProviderRuntimeOptions {
   lang?: Lang;
 }
 
-/** One provider's answer to `provider.status` (docs/PROTOCOL.md, amendment
- * 2026-09-25, "Provider availability") — a cheap, NEVER-BILLED probe,
- * distinct from isAvailable() (which some providers make a real paid/model
+/** One provider's answer to `provider.status` (docs/PROTOCOL.md, "Provider availability") — a cheap,
+ * NEVER-BILLED probe, distinct from isAvailable() (which some providers make a real paid/model
  * call to establish, e.g. none currently do, but the contract allows it).
  * `reason` is one of each provider's own closed set of short English codes —
  * see the per-provider implementation for the exact list. */
@@ -55,8 +53,7 @@ export interface StatusCheck {
 }
 
 /** Closed set of `settings.test-result.code` values a provider's
- * `testConnection` can report on failure (docs/PROTOCOL.md,
- * amendment 2026-10-01, goal U2) — a subset of `ErrorCode` (protocol.ts)
+ * `testConnection` can report on failure (docs/PROTOCOL.md) — a subset of `ErrorCode` (protocol.ts)
  * plus `model-missing`, which is NOT a general ErrorCode (it never appears on
  * a chat/summarize/act `error` message — those report the same underlying
  * condition as `model-unavailable`, see ollama.ts's streamAnswer) but IS
@@ -72,10 +69,10 @@ export type TestConnectionCode =
   | "provider-overloaded";
 
 /** Result of a provider's FREE connection probe (docs/PROTOCOL.md
- * "settings.test", amendment 2026-10-01, goal U2) — unlike the old
+ * "settings.test") — unlike the old
  * streamAnswer-based probe it replaces for built-in providers, this must
  * never spend a token. `code` is only ever present when `ok` is false.
- * `creditUnchecked` (amendment 2026-10-02, goal-j2FJ-kI7): true on a
+ * `creditUnchecked`: true on a
  * successful probe that cannot see the account's credit balance (every
  * built-in provider's free check — see each provider's own testConnection
  * comment) — the options page renders this as one line, never implies the
@@ -97,9 +94,8 @@ export interface ModelProvider {
    * (currently just ollama, via /api/tags). Used to populate the settings
    * UI's model picker. */
   listModels?(opts: ProviderRuntimeOptions): Promise<string[]>;
-  /** The model this provider uses when none was ever set (amendment
-   * 2026-10-07 bis, docs/PROTOCOL.md). Lets `models.list` still name a
-   * sensible model for a configured provider that has neither a
+  /** The model this provider uses when none was ever set (docs/PROTOCOL.md). Lets `models.list`
+   * still name a sensible model for a configured provider that has neither a
    * `listModels()` nor a remembered model yet — e.g. claude-api right after
    * its key is entered, before any explicit `settings.set` with a model.
    * Optional: a provider that cannot name one sensible default (most
@@ -108,15 +104,14 @@ export interface ModelProvider {
   /** Backs `provider.status` (see StatusCheck above). Every provider
    * implements this — unlike isAvailable(), it never makes a billed call. */
   checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck>;
-  /** Backs `settings.test` with a FREE probe (docs/PROTOCOL.md, amendment
-   * 2026-10-01, goal U2) — optional: a provider (built-in or external module)
-   * that cannot offer one simply omits it, and server.ts's
+  /** Backs `settings.test` with a FREE probe (docs/PROTOCOL.md) — optional: a provider (built-in or
+   * external module) that cannot offer one simply omits it, and server.ts's
    * testProviderConnection() falls back to the old streamAnswer-based probe
    * (a real minimal model call) for that provider only. Never throws —
    * reports failure via TestConnectionResult.code instead. */
   testConnection?(opts: ProviderRuntimeOptions & { timeoutMs?: number }): Promise<TestConnectionResult>;
   /**
-   * Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md): STATIC vision
+   * (docs/PROTOCOL.md): STATIC vision
    * support, for a provider whose answer never depends on which specific
    * model is active — `true` for claude-api/claude-cli, whatever an
    * external module declares (docs/ARCHITECTURE.md's `vision`). Checked by
@@ -128,7 +123,7 @@ export interface ModelProvider {
    */
   vision?: boolean;
   /**
-   * Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md): does the model
+   * (docs/PROTOCOL.md): does the model
    * `opts` names right now understand an attached image? The LIVE gate
    * server.ts calls before honouring a `chat.image` — distinct from
    * `ModelEntry.vision` (protocol.ts), which is display-only, for the

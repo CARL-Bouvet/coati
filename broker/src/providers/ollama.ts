@@ -51,7 +51,7 @@ function resolveBaseUrl(url: string | undefined): string {
   return base.replace(/\/+$/, "");
 }
 
-// --- /api/show cache (by digest) — amendment 2026-10-07 ------------------
+// --- /api/show cache (by digest) ------------------
 //
 // Keyed by model digest (from /api/tags). The cache is process-wide (one
 // broker instance) and never evicted — model weights don't change without a
@@ -68,7 +68,7 @@ interface ShowInfo {
    * `message.content`). See streamAnswer below.
    */
   canDisableThinking: boolean;
-  // Amendment 2026-10-07 (bis): model_info fields for context size calculation.
+  // model_info fields for context size calculation.
   // All from /api/show's `model_info` key, keyed by "<arch>.<field>".
   /** Number of transformer layers (block_count). */
   blockCount?: number;
@@ -83,14 +83,14 @@ interface ShowInfo {
 }
 const showInfoCache = new Map<string, ShowInfo>();
 
-// Amendment 2026-10-07 (bis): buckets for context size selection.
+// Buckets for context size selection.
 // 32768 added over the old [4096, 8192, 16384] — lets larger VRAM budgets use
 // bigger windows without reloading the model on every request.
 const CTX_BUCKETS_FIXED = [32768, 16384, 8192, 4096] as const; // largest-first for selection
-// Amendment 2026-10-08 (lot B1): ascending order, to find the next tier UP.
+// Ascending order, to find the next tier UP.
 const CTX_BUCKETS_FIXED_ASC = [4096, 8192, 16384, 32768] as const;
 
-// Amendment 2026-10-07 (bis) follow-up: on a discrete GPU the display
+// follow-up: on a discrete GPU the display
 // compositor (e.g. KDE/GNOME on a RX 5600 XT) already holds ~1.1 GB of VRAM,
 // and Ollama adds compute buffers on top of the model weights. A 1.5 GB flat
 // reserve covers both reliably: budget = vramGb×1e9 − DISCRETE_VRAM_RESERVE_BYTES.
@@ -103,7 +103,7 @@ const DISCRETE_VRAM_RESERVE_BYTES = 1.5e9;
  * (result cached in showInfoCache via ShowInfo fields) and exposed as
  * `contextTokens` in the `models` reply.
  *
- * Algorithm (amendment 2026-10-07 bis, revised):
+ * Algorithm (revised):
  *   kvBytesPerToken = blockCount × headCountKv × (keyLength + valueLength) × 2
  *   budget = vramGb×1e9 − 1.5e9 (discrete, for display+buffers)
  *          | 0.75×ramGb×1e9 (unified)
@@ -219,7 +219,7 @@ async function fetchModelShowInfo(
       const canDisableThinking =
         typeof body.template === "string" && body.template.includes("not $.Think");
 
-      // Amendment 2026-10-07 (bis): extract KV-cache geometry from model_info.
+      // Extract KV-cache geometry from model_info.
       // Keys are "<arch>.<field>" where arch = model_info["general.architecture"].
       let blockCount: number | undefined;
       let headCountKv: number | undefined;
@@ -276,7 +276,7 @@ export interface OllamaModelEntry {
    */
   canDisableThinking: boolean;
   /**
-   * Amendment 2026-10-07 (bis): fixed context window size (num_ctx) computed
+   * Fixed context window size (num_ctx) computed
    * from model_info and host VRAM. Absent when model_info is unavailable.
    */
   contextTokens?: number;
@@ -288,7 +288,7 @@ export interface OllamaModelEntry {
  * `capabilities` array exists and lacks `"completion"` (embedding-only
  * models, etc.). Returned for the models.list response; the simpler
  * listModels() string array is kept for backward compat with settings.get.
- * Amendment 2026-10-07 (bis): also computes contextTokens from model_info. */
+ * Also computes contextTokens from model_info. */
 export async function listModelEntries(opts: ProviderRuntimeOptions): Promise<OllamaModelEntry[]> {
   const baseUrl = resolveBaseUrl(opts.ollamaUrl);
   // Deliberately NOT catching here: callers (buildModelsPayload in server.ts)
@@ -315,7 +315,7 @@ export async function listModelEntries(opts: ProviderRuntimeOptions): Promise<Ol
   return entries.filter((e) => e.capabilities === null || e.capabilities.includes("completion"));
 }
 
-// --- /api/ps (currently-loaded models) — lot 4 ----------------------------
+// --- /api/ps (currently-loaded models) ----------------------------
 
 /** One entry from Ollama /api/ps — the model is currently loaded in memory. */
 export interface PsEntry {
@@ -331,7 +331,7 @@ export interface PsEntry {
  * Fetches Ollama /api/ps to find currently-loaded models. Same timeout and
  * redirect rules as /api/tags. Returns [] on any error — a /api/ps failure
  * just means gpuPercent is absent from entries, not a hard error.
- * Amendment 2026-10-07 (bis): accepts an optional external `signal` so the
+ * Accepts an optional external `signal` so the
  * caller (e.g. server.ts's runStream, or streamAnswer itself) can abort the
  * /api/ps fetch when the main request is aborted, keeping test timeouts fast.
  */
@@ -401,7 +401,7 @@ async function listModels(opts: ProviderRuntimeOptions): Promise<string[]> {
 }
 
 /**
- * `provider.status` for ollama — amendment 2026-09-25: `/api/tags` is local
+ * `provider.status` for ollama: `/api/tags` is local
  * and free, so this is the same 1.5s-bounded probe as isAvailable(), reported
  * through the closed reason-code set the spec defines: `ollama-unreachable`,
  * `model-missing` (a configured model isn't installed), `no-model-installed`
@@ -430,9 +430,8 @@ async function checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck> {
 }
 
 /**
- * `settings.test` for ollama — goal U2 (docs/PROTOCOL.md, amendment
- * 2026-10-01): unchanged in substance, since `/api/tags` was already free
- * (local daemon) — this is the same probe as checkStatus() above, just
+ * `settings.test` for ollama (docs/PROTOCOL.md): unchanged in substance, since `/api/tags` was
+ * already free (local daemon) — this is the same probe as checkStatus() above, just
  * reshaped into TestConnectionResult and distinguishing `model-missing`
  * (daemon reachable, configured model not pulled) from `model-unavailable`
  * (daemon unreachable) per the task brief, same distinction provider.status
@@ -460,7 +459,7 @@ async function testConnection(
  * Per-request context fallback: picks the SMALLEST bucket that fits the
  * estimated token count for the given character count.
  *
- * Amendment 2026-10-07 (bis): the primary context size is now `contextTokens`
+ * The primary context size is now `contextTokens`
  * (computed from model_info + VRAM by computeContextTokens). This function is
  * the per-request fallback used when the prompt is too large for the fixed
  * size, and for providers/callers that don't have model_info yet.
@@ -496,7 +495,7 @@ export function* parseNdjsonLine(line: string): Generator<AnswerEvent> {
   if (!parsed || typeof parsed !== "object") return;
   const obj = parsed as Record<string, unknown>;
   const message = obj.message as Record<string, unknown> | undefined;
-  // Amendment 2026-10-07 (bis): emit a thinking event when message.thinking
+  // Emit a thinking event when message.thinking
   // is present and non-empty. Callers use it for activity-tracking only — it
   // is never forwarded as text. Emitted BEFORE content so streamAnswer can
   // satisfy the first-token deadline from thinking alone.
@@ -573,7 +572,7 @@ export async function* streamAnswer(
     throw new ModelUnavailableError(`model "${model}" not found in Ollama (ollama pull ${model})`);
   }
 
-  // Amendment 2026-10-07: check capabilities + canDisableThinking.
+  // Check capabilities + canDisableThinking.
   // Uses the show-info cache (warmed by listModelEntries / models.list).
   // Never throws — a failure falls back to the safe default (no think injection).
   const showInfo = await fetchModelShowInfo(baseUrl, matchedTag.name, matchedTag.digest).catch(
@@ -591,7 +590,7 @@ export async function* streamAnswer(
     }
   }
 
-  // Amendment 2026-10-07 (bis): two-stage timeout.
+  // Two-stage timeout.
   // firstTokenMs: deadline from start to first chunk (hung before generating).
   // inactivityMs: reset on every chunk; fires when silent mid-answer.
   // Ollama is always loopback → use FIRST_TOKEN_TIMEOUT_LOCAL_MS (300 s).
@@ -634,7 +633,7 @@ export async function* streamAnswer(
     num_ctx = ollamaContextSize(totalChars);
     if (num_ctx > ctxCap) num_ctx = ctxCap;
   }
-  // Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md item 6): a screenshot
+  // docs/PROTOCOL.md item 6: a screenshot
   // costs the vision encoder its own tokens, on top of the text estimate
   // above — without headroom, Ollama silently truncates the prompt from the
   // START when num_ctx is exceeded (hallucination risk, not an error). One
@@ -649,7 +648,7 @@ export async function* streamAnswer(
     }
   }
 
-  // Amendment 2026-10-08 (bis, "historique"): fit WITHIN the tier already
+  // "historique": fit WITHIN the tier already
   // chosen above, rather than growing it for history — "fewer when the
   // model has little room" (docs/PROTOCOL.md). `promptEstimate` already
   // reserves the answer's own headroom (+1024 tokens); whatever is left of
@@ -672,14 +671,14 @@ export async function* streamAnswer(
           model,
           stream: true,
           keep_alive: "15m",
-          // Amendment 2026-10-07: for thinking-capable models:
+          // For thinking-capable models:
           //   - hybrid (canDisableThinking): think:false → reasoning suppressed
           //     at source; ThinkFilter still strips any residual <think> blocks.
           //   - thinking-only (!canDisableThinking): think:true → Ollama routes
           //     reasoning to message.thinking (ignored by parseNdjsonLine);
           //     message.content stays clean; ThinkFilter is a safety net.
           ...(hasThinking ? { think: showInfo.canDisableThinking ? false : true } : {}),
-          // Amendment 2026-10-08 (bis, "historique"): past turns rendered
+          // "historique": past turns rendered
           // as real alternating messages, between the system turn and the
           // current one, already trimmed to fit `num_ctx` above.
           messages: [
@@ -688,13 +687,12 @@ export async function* streamAnswer(
             {
               role: "user",
               content: built.prompt,
-              // Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md): Ollama's
+              // docs/PROTOCOL.md: Ollama's
               // /api/chat takes base64 strings (no data: URI prefix) on the
-              // message, not a separate content-block array. Security review
-              // (L8): unlike claude-api.ts/openai-compat.ts, there is no
-              // ordered content array here to interleave a fence-wrapped
-              // image into — `images` is a flat sibling field on the whole
-              // message, with no notion of "where" relative to `content`'s
+              // message, not a separate content-block array. (L8): unlike
+              // claude-api.ts/openai-compat.ts, there is no ordered content array here to
+              // interleave a fence-wrapped image into — `images` is a flat sibling field on the
+              // whole message, with no notion of "where" relative to `content`'s
               // text it belongs. Left as-is; the system prompt's own
               // sentence ("A message may also include an attached image...")
               // remains the only framing for this one provider.
@@ -724,10 +722,10 @@ export async function* streamAnswer(
       throw new Error("Ollama response has no body");
     }
 
-    // Amendment 2026-10-07: strip <think>…</think> blocks from the output
+    // Strip <think>…</think> blocks from the output
     // for thinking-capable models. Even with think:false, Ollama 0.35.1 still
     // emits the thinking tokens inside the content stream — filter them out.
-    // Amendment 2026-10-07 (bis): message.thinking deltas count as activity:
+    // message.thinking deltas count as activity:
     // they satisfy the first-token deadline and reset the 60 s inactivity
     // timer. They are yielded upstream (as { kind: "thinking" }) so server.ts
     // can emit the "thinking" progress stage once, but never forwarded as text.
@@ -773,7 +771,7 @@ export async function* streamAnswer(
 }
 
 /**
- * Pre-loads an Ollama model into memory (amendment 2026-10-07 bis).
+ * Pre-loads an Ollama model into memory.
  *
  * Checks /api/ps first — if the model is already loaded, returns "already"
  * immediately. Otherwise POSTs to /api/generate with an empty prompt and
@@ -828,7 +826,7 @@ export async function warmupModel(
 }
 
 /**
- * Amendment 2026-10-08 (lot B1, docs/PROTOCOL.md): the live, per-model
+ * (docs/PROTOCOL.md): the live, per-model
  * vision gate — `true`/`false` from /api/show's `capabilities` for THIS
  * model (digest-cached, same lookup streamAnswer already makes), `undefined`
  * if the model isn't found or the daemon is unreachable.

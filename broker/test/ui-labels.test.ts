@@ -15,7 +15,7 @@ describe("providerLabel", () => {
     expect(providerLabel("ollama")).toBe("Ollama (local)");
   });
 
-  // Amendment 2026-09-29: only the two built-in providers have fixed text
+  // Only the two built-in providers have fixed text
   // here — anything else (an externally loaded module) has no entry at all,
   // and providerLabel() falls back to the broker-supplied `label` instead.
   test("only ollama and claude-api have built-in labels", () => {
@@ -52,9 +52,8 @@ describe("describeError", () => {
     expect(describeError("some-future-code")).toBe("Une erreur est survenue.");
   });
 
-  // Goal U1, lot 2 — the broker's two new codes (docs/PROTOCOL.md, amendment
-  // 2026-10-01) each have their own fallback label, same table as every other
-  // code — used by describeError() only as a defense-in-depth fallback: the
+  // The broker's two new codes (docs/PROTOCOL.md) each have their own fallback label, same table as
+  // every other code — used by describeError() only as a defense-in-depth fallback: the
   // panel's normal path for these two shows the broker's own ready-to-display
   // `message` instead (see panel.js's describeBrokerError()).
   test("quota-exceeded has its own fallback label", () => {

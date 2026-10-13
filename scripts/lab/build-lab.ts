@@ -66,7 +66,7 @@ function writeFile(path: string, content: string) {
   writeFileSync(path, content);
 }
 
-// Lab-only recognised site with no suggestion at all (plan 28/09, lot 1).
+// Lab-only recognised site with no suggestion at all.
 // Appended to extension/lib/suggestions-data.js inside the bundle only.
 const LAB_EXTRA_SITES = `
 // --- lab-only (scripts/lab/build-lab.ts), never shipped ---
@@ -98,7 +98,7 @@ const labI18nPagePlugin: import("bun").BunPlugin = {
 
 // Stand-in for a site's favicon, generated here: a blue square with a white
 // dot. Must NOT be grey — the panel's "no icon" placeholder is a grey square
-// (plan-suggestions Lot 1), and captures must tell the two apart.
+// and captures must tell the two apart.
 const NEUTRAL_FAVICON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">' +
   '<rect width="32" height="32" rx="6" fill="#2B6CB0"/><circle cx="16" cy="16" r="6" fill="#FFFFFF"/></svg>\n';
@@ -153,7 +153,7 @@ function buildHtmlPage(opts: {
     moduleTagRe,
     [
       // Fixtures FIRST: browser-stub.js reads window.__COATI_LAB_FIXTURES__
-      // (and, G6, window.__COATI_LAB_MESSAGES__) synchronously at its own top
+      // (and, window.__COATI_LAB_MESSAGES__) synchronously at its own top
       // level, so both must already exist.
       `<script src="${opts.fixturesRelPath}"></script>`,
       `<script src="${opts.stubRelPath.replace("browser-stub.js", "lab-messages.js")}"></script>`,
@@ -212,7 +212,7 @@ async function main() {
   cpSync(join(LAB_SRC, "fixtures", "identity-pairs.js"), join(labDir, "identity-pairs.js"));
   cpSync(join(LAB_SRC, "static", "lab-pair.js"), join(labDir, "lab-pair.js"));
 
-  // i18n (G6): embed the REAL _locales/<lang>/messages.json files so
+  // i18n: embed the REAL _locales/<lang>/messages.json files so
   // browser-stub.js's chrome.i18n.getMessage() reflects real wording per
   // `?lang=en|fr|zh_CN` (default fr — see browser-stub.js) instead of a
   // hand-duplicated copy that could drift.
@@ -361,7 +361,7 @@ async function main() {
     const welcomeLinks = welcomeStates
       .map((id) => `<li><a href="${tree}/welcome/welcome.html?state=${id}">welcome · ${id}</a></li>`)
       .join("\n      ");
-    // G5 (T50): the read button's motion, which the determinism stylesheet
+    // T50: the read button's motion, which the determinism stylesheet
     // freezes everywhere else — live, and frozen at a mid-halo frame.
     const motionLinks = [
       ["read-invite", "live"],

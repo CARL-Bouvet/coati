@@ -1,5 +1,5 @@
 // Tests for extension/panel/encart-items.js — the site card's button
-// ordering (plan-mes-prompts-28-09.md, lot 3). Same pattern/location as
+// ordering. Same pattern/location as
 // ui-suggestions.test.ts.
 import { describe, expect, test } from "bun:test";
 import { encartItems, truncateLabel } from "../../extension/panel/encart-items.js";

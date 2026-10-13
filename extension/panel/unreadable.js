@@ -1,4 +1,4 @@
-// Pure helpers for "the page cannot usefully be read" (goal G2, T46-T47,
+// Pure helpers for "the page cannot usefully be read" (T46-T47,
 // docs/DECISIONS.md; extraction result shape from extract.js, worker A).
 // No DOM, no chrome.* — kept separate from panel.js so both are unit
 // testable without a browser (see broker/test/ui-unreadable.test.ts).
@@ -55,7 +55,7 @@ export function isInternalPageFailure(err) {
 }
 
 /** Maps extract.js's `context.readability` ("ok" | "canvas" | "empty",
- * amendment T45/T46) to the ready-to-display French message, or `null` when
+ * T45/T46) to the ready-to-display French message, or `null` when
  * the page is readable (or the field is absent — an older client). */
 export function readabilityMessage(readability) {
   if (readability === "canvas") return CANVAS_MESSAGE;

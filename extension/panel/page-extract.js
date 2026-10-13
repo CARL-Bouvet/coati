@@ -1,5 +1,5 @@
 // Coati side panel — contextual summarize, page extraction (gesture-gated
-// read), unreadable-page handling (lot F3 split of panel.js).
+// read), unreadable-page handling (split of panel.js).
 import { t } from "../lib/i18n-page.js";
 import { api } from "../lib/browser-compat.js";
 import { withDeadline } from "../lib/deadline.js";
@@ -18,7 +18,7 @@ import { mainButtonLabel } from "./attach-toggle.js";
 import { openTranscriptIfNeeded, reportMissingTranscript, buildElementsSnapshot } from "./composer-send.js";
 import { EXTRACT_FILES } from "../content/extract-files.js";
 
-// Security review 2026-09-26, finding #2: chrome.scripting.executeScript has
+// chrome.scripting.executeScript has
 // no deadline of its own, so a hostile or pathologically heavy page could
 // leave the panel awaiting page content forever. EXTRACTION_DEADLINE_MS is
 // deliberately generous — no measurement in notes/corpus/ approaches even a
@@ -148,7 +148,7 @@ export function reportExtractionError(err, { accessDenied, other }) {
   }
 }
 
-// T47 (docs/DECISIONS.md): verified 2026-09-29 against both browsers —
+// T47 (docs/DECISIONS.md): the two browsers' error texts —
 // Chrome/Brave: "Cannot access contents of the page. Extension manifest must
 // request permission to access the respective host." Firefox: "Missing host
 // permission for the tab" / "…for the tab or frames" (Firefox source).
@@ -169,7 +169,7 @@ export async function extractFromTab(tabId) {
       // against the extension root, Firefox against the calling document — the
       // panel lives in panel/, so "content/extract.js" became
       // moz-extension://…/panel/content/extract.js and failed to load.
-      // Measured in Firefox on 2026-09-20. Root-relative works on both.
+      // Measured in Firefox. Root-relative works on both.
       files: EXTRACT_FILES.map((f) => `/${f}`),
     }),
     EXTRACTION_DEADLINE_MS,
@@ -214,7 +214,7 @@ export async function extractReadableFromTab(tabId) {
   return stripReadability(context);
 }
 
-// Named exception to the gesture rule (DECISIONS.md, widened on 26/09). One
+// Named exception to the gesture rule (DECISIONS.md). One
 // click, on the button YouTube already shows, only in response to the user
 // clicking "Summarize this video", a video suggestion, or asking a question
 // the model answers by reading the page, on the tab they are watching. Never

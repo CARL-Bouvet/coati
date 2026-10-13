@@ -21,7 +21,7 @@ const url = process.argv[2];
 const port = process.argv.find((a) => /^\d+$/.test(a)) ?? "9222";
 const full = process.argv.includes("--full");
 
-// Lot F4: content/extract.js is now split across several files, injected
+// content/extract.js is now split across several files, injected
 // together and in order (see extract-files.js) — same contract panel.js
 // uses, applied here through the service worker's own chrome.scripting
 // call (no leading slash needed: this probe's `files` path is relative to

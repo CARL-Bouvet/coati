@@ -1,4 +1,4 @@
-// Coati options page — "Test" (settings.test), lot F3 split of
+// Coati options page — "Test" (settings.test), split of
 // options.js.
 //
 // "settings.test" is fire-and-forget per provider; its reply does not itself
@@ -11,7 +11,7 @@ import { status } from "./model-core.js";
 import { newId, el, buttonEl, clearChildren, sendClientMessage } from "./dom-helpers.js";
 
 // claude-cli's own reconnect command (modules/claude-cli/index.ts,
-// AUTH_REQUIRED_MESSAGE — amendement 2026-10-02, goal-j2FJ-kI7): kept as one
+// AUTH_REQUIRED_MESSAGE): kept as one
 // constant here so the copy button and the displayed text can never drift
 // apart from each other.
 const CLAUDE_CLI_LOGIN_COMMAND = "claude auth login --claudeai";
@@ -67,7 +67,7 @@ export function applyTestResult(message) {
 
 /**
  * Fills `result` (a "Test" result <span>) with the outcome of a
- * settings.test — amendment 2026-10-02 (goal-j2FJ-kI7, "model failure flow"):
+ * settings.test ("model failure flow"):
  * a successful check says "connected" up front (not just the
  * broker's own full sentence) and, when the broker couldn't see the
  * account's remaining credit (`creditUnchecked`), adds a dedicated second

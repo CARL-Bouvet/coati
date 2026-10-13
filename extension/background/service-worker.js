@@ -25,7 +25,7 @@ import {
   extensionProofMessage,
 } from "../lib/handshake-crypto.js";
 
-// Amendment 2026-09-25 (docs/PROTOCOL.md) — port fixed at 8787
+// docs/PROTOCOL.md — port fixed at 8787
 // for the extension: neither WS_URL below nor the manifests' connect-src CSP
 // can take a variable, so this port is hardcoded here and in both manifests,
 // kept equal by convention. A broker on another port is unreachable, manual
@@ -40,7 +40,7 @@ const MAX_BACKOFF_MS = 30000;
 // first — is the one to report "handshake timeout" as a distinct state.
 const HELLO_TIMEOUT_MS = 2500;
 
-// docs/PROTOCOL.md amendment 2026-09-30, "Extension side": chrome.storage.session
+// docs/PROTOCOL.md, "Extension side": chrome.storage.session
 // keys for the handshake v2 key material. Never chrome.storage.local — see
 // CLAUDE.md rule #1 and the invariants comment below.
 const BROKER_KEY_STORAGE_KEY = "brokerKey";
@@ -84,7 +84,7 @@ const PENDING_ACTION_KEY = "coati:pendingAction";
 // label. U1: no hardcoded French here any more — labelKey is resolved
 // through t() at menu-build time (setupContextMenus) and again when the
 // selection is stashed (onClicked below), both after i18nReady(), so they
-// follow the current uiLang (docs/PROTOCOL.md amendment 2026-09-30 ter).
+// follow the current uiLang (docs/PROTOCOL.md).
 // translate's targetLang is likewise resolved per-click (resolveEffectiveUiLang)
 // instead of being fixed to "fr".
 const CONTEXT_MENU_ACTIONS = {
@@ -112,15 +112,15 @@ async function resolveEffectiveUiLang() {
 let ws = null;
 // disconnected | connecting | handshaking | connected | no-host |
 // broker-untrusted | no-token | pairing-retry | handshake-timeout
-// — see docs/PROTOCOL.md amendment 2026-09-30, "États et bandeaux"
-// and amendment 2026-10-02 (pairing-retry).
+// — see docs/PROTOCOL.md, "États et bandeaux"
+// and its "pairing-retry" state.
 let wsState = "disconnected";
 let backoffMs = 1000;
 let handshakeTimeoutId = null;
 // At most one request held while reconnecting (deliverable B2) —
 // { payload, timeoutId }, or null when nothing is queued.
 let pendingRequest = null;
-// docs/PROTOCOL.md amendment 2026-10-02: up to 3 spaced retries per
+// docs/PROTOCOL.md: up to 3 spaced retries per
 // connection cycle after a 4000 or 4401.  A cycle runs from a disconnection
 // to the next `hello-ok`, which resets this counter — never a silent infinite
 // loop.  Only meaningful when the key just used came from the native host
@@ -305,7 +305,7 @@ api.alarms.onAlarm.addListener((alarm) => {
 
 // Any message from a panel/options page wakes this worker up; take that
 // opportunity to make sure the socket is alive.
-// I2 (lot7 security review): any extension page can post a message this
+// I2: any extension page can post a message this
 // worker's onMessage listener will receive — without checking who sent it,
 // another (malicious) extension able to reach this one (e.g. via
 // externally_connectable, or a content script sharing an isolated world)
@@ -328,7 +328,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "coati:panel-ready") {
     connectIfNeeded();
-    // Bug fix (lot F review, 08/10): a panel opened AFTER the connection was
+    // A panel opened AFTER the connection was
     // already established (the common case — this service worker and its
     // WebSocket outlive the panel closing) never saw the ORIGINAL hello-ok's
     // `features` broadcast, which only ever reaches listeners registered at
@@ -390,9 +390,8 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // the panel or options page — re-hello with the new choice. A fresh
 // connection cycle is simplest and matches "coati:set-pasted-key"'s own
 // forceReconnect() above; the broker has no message to change an
-// already-negotiated connection's language mid-stream (docs/PROTOCOL.md
-// amendment 2026-09-30 ter: "The negotiated language applies for the duration
-// of the connection"), so reconnecting is the only way to renegotiate it.
+// already-negotiated connection's language mid-stream (docs/PROTOCOL.md: "The negotiated language
+// applies for the duration of the connection"), so reconnecting is the only way to renegotiate it.
 // Also rebuilds the context menus (setupContextMenus), whose titles are
 // French-hardcoded no more — they must follow the same change.
 api.storage.onChanged?.addListener?.((changes, areaName) => {
@@ -407,7 +406,7 @@ function broadcast(message) {
   });
 }
 
-// Lot 0 / A2 (plan-montrer-voir-chercher-08-10.md §2 + §3A) — hello-ok gains
+// / A2 (+ §3A) — hello-ok gains
 // an optional `features` list (e.g. ["elements", "vision"]);
 // an old broker never sets it. Captured once per handshake (below) and
 // relayed on the SAME "coati:status" broadcast the panel already listens to
@@ -454,7 +453,7 @@ async function resolveBrokerKey() {
 // when the user picked an explicit language (uiLang != "auto"), hello.lang
 // carries THAT choice instead of the raw browser UI language — still a
 // free-form, never-validated string from the broker's point of view
-// (docs/PROTOCOL.md amendment 2026-09-30 ter: "lang is informational, never
+// (docs/PROTOCOL.md: "lang is informational, never
 // checked against a closed list"), and one of
 // SUPPORTED_LANGS normalises to itself unchanged in broker/src/messages.ts's
 // normalizeLang(). No chrome.storage.local in the g6-hello-lang.test.ts
@@ -495,7 +494,7 @@ async function connectIfNeeded() {
   // listener itself must stay synchronous — see its own comment.
   const helloLang = await resolveHelloLang();
   let handshakeSettled = false; // true once past the challenge step (success or fail)
-  // I3 (final security review): true only once the broker's HMAC proof has
+  // I3: true only once the broker's HMAC proof has
   // actually verified for THIS connection. Every message before that point —
   // hello-ok included — is refused: accepting hello-ok (or relaying
   // chunk/error/prompts) on the strength of an unverified challenge would let
@@ -512,7 +511,7 @@ async function connectIfNeeded() {
 
   ws.addEventListener("open", () => {
     setState("handshaking");
-    // docs/PROTOCOL.md amendment 2026-09-30 ter (goal G6, "Connection
+    // docs/PROTOCOL.md ("Connection
     // connexion"): raw BCP 47 tag by default, or the user's explicit uiLang
     // choice (U1, resolveHelloLang() above) — either way the broker
     // normalises it (fr*/zh*-Simplified/else) and keeps it for the
@@ -544,7 +543,7 @@ async function connectIfNeeded() {
       return;
     }
 
-    // I3 (final security review): before the broker's proof has verified,
+    // I3: before the broker's proof has verified,
     // the ONLY acceptable message is a first `challenge` — anything else
     // (hello-ok, chunk, error, prompts, or a second challenge racing the
     // first) means the peer on the other end never proved it holds the
@@ -606,7 +605,7 @@ async function connectIfNeeded() {
     ws = null;
     handshakeSettled = true;
 
-    // docs/PROTOCOL.md amendment 2026-10-02: 4000 = broker proof wrong;
+    // docs/PROTOCOL.md: 4000 = broker proof wrong;
     // 4401 = broker refused auth/origin.  Both clear the key and retry up to
     // 3 times (delays: 2 s, 5 s, 10 s) when the key came from the native
     // host.  A pasted legacy key has no host to re-call, so it goes straight
@@ -697,9 +696,9 @@ function handleBrokerMessage(message) {
       pairingRetryTimeoutId = null;
     }
     pairingRetryCount = 0;
-    // No token to store (docs/PROTOCOL.md amendment 2026-09-30: hello-ok
+    // No token to store (docs/PROTOCOL.md: hello-ok
     // v2 carries no token at all — the key already proved everything).
-    // §2 amendment 2026-10-08: an open-ended `features` string list; an old
+    // §2: an open-ended `features` string list; an old
     // broker never sends it, so this stays [] (filtered to strings only —
     // never trust the wire shape blindly).
     lastHelloFeatures = Array.isArray(message.features) ? message.features.filter((f) => typeof f === "string") : [];

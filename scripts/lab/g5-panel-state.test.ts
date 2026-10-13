@@ -1,8 +1,8 @@
-// G5 (docs/DECISIONS.md T50/T51) — pure state of the encart's "Lire cette
+// docs/DECISIONS.md T50/T51 — pure state of the encart's "Lire cette
 // page" button and of the first-launch card, plus the static invariants of
 // voie B (manifests, welcome page on install only, fingerprint lists).
 // Lives under scripts/lab/ only because broker/** had another owner while
-// G5 was built; it can move to broker/test/ unchanged (paths are root-based).
+// Was built; it can move to broker/test/ unchanged (paths are root-based).
 import { describe, expect, test } from "bun:test";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
@@ -123,7 +123,7 @@ describe("voie B — static invariants", () => {
     test(`${name}: all sites optional, no tabs, <all_urls> only in optional_host_permissions, no mandatory host permission`, () => {
       const manifest = JSON.parse(readFileSync(join(EXT, name), "utf8"));
       expect(manifest.optional_host_permissions).toEqual(expect.arrayContaining(ALL_SITES_ORIGINS));
-      // Exception (08/10, screen-capture permission): "<all_urls>" is allowed
+      // Exception (screen-capture permission): "<all_urls>" is allowed
       // in optional_host_permissions only — requested when the user turns
       // "Voir l'écran" on (captureVisibleTab needs it or activeTab). Never in
       // `permissions`/`host_permissions`, never silently granted upfront.
@@ -142,7 +142,7 @@ describe("voie B — static invariants", () => {
   });
 
   test("the read button asks for the permission before any await (Firefox gesture rule)", () => {
-    // Lot F3 (09/10): onReadPageClick moved from panel.js to first-run-wiring.js.
+    // onReadPageClick moved from panel.js to first-run-wiring.js.
     const panel = readFileSync(join(EXT, "panel", "first-run-wiring.js"), "utf8");
     const start = panel.indexOf("function onReadPageClick()");
     const body = panel.slice(start, panel.indexOf("\n}\n", start));

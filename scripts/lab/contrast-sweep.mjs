@@ -62,7 +62,7 @@ const SELECTOR = [
 
 // Non-text UI elements checked for the WCAG 1.4.11 "graphical object"
 // contrast (>= 3:1 against their background) rather than the text-vs-bg
-// rule above — the "Lire la page" switch track (Lot 2) has no text of its
+// rule above — the "Lire la page" switch track has no text of its
 // own to measure.
 const UI_SELECTOR = [".switch-track"].join(", ");
 
@@ -254,7 +254,7 @@ async function measureAll(page) {
   return results;
 }
 
-// G6 (i18n): optional language pass, e.g. `COATI_LAB_LANG=en bun
+// i18n: optional language pass, e.g. `COATI_LAB_LANG=en bun
 // scripts/lab/contrast-sweep.mjs` — appends `&lang=<x>` to every URL, same
 // param browser-stub.js already reads (default "fr" there, unchanged when
 // this is unset, so existing behaviour/results are untouched).

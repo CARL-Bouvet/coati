@@ -1,6 +1,5 @@
-// Pure helpers of extension/panel/model-advice.js (plan-ollama-rapide-07-10.md,
-// points 3, 4 and 6). The DOM builders are exercised by the lab states
-// progress-*, shared-model-advice and answer-stalled-tip.
+// Pure helpers of extension/panel/model-advice.js (4 and 6). The DOM builders are exercised by the
+// lab states progress-*, shared-model-advice and answer-stalled-tip.
 import { describe, expect, test } from "bun:test";
 import { groupModels } from "../../extension/lib/model-list.js";
 import {

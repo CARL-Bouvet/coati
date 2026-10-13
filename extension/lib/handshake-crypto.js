@@ -1,5 +1,5 @@
 // WebCrypto helpers for the Native Messaging handshake v2
-// (docs/PROTOCOL.md, amendment 2026-09-30, "Handshake v: 2").
+// (docs/PROTOCOL.md, "Handshake v: 2").
 //
 // Every HMAC here is HMAC-SHA256 over UTF-8 text, hex-encoded (lowercase).
 // `crypto.subtle` is available in both the service worker and `bun test`

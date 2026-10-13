@@ -1,5 +1,5 @@
 // Unit tests for the pure maths inside content/pointer.js ("Montrer du
-// doigt" highlight, 3 intensity levels — product-owner feedback 08/10).
+// doigt" highlight, 3 intensity levels).
 // pointer.js is a classic content script (no import/export, loaded via
 // `executeScript({ files: [...] })`), so it can't be driven like a normal
 // module — but importing it for its side effect is safe: nothing at its

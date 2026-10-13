@@ -1,5 +1,4 @@
-// Coati side panel — error recovery blocks and broker error text (lot F3
-// split of panel.js).
+// Coati side panel — error recovery blocks and broker error text (split of panel.js).
 import { t } from "../lib/i18n-page.js";
 import { api } from "../lib/browser-compat.js";
 import { describeError } from "../lib/labels.js";
@@ -10,8 +9,7 @@ import { copyCommand, OLLAMA_DEFAULT_MODEL } from "./first-run-wiring.js";
 import { retryRequest } from "./request-watch.js";
 
 // --- Quota / rate-limit / overloaded / model-missing recovery -------------
-// (goal U1, EXTENSION lot 2; extended by goal-j2FJ-kI7, "parcours panne
-// model", amendment 2026-10-02)
+// ("parcours panne model")
 //
 // quota-exceeded: no credit left at the provider — a billing link plus a
 // retry (the user may have just topped up).
@@ -222,7 +220,7 @@ export function describeBrokerError(message) {
     case "rate-limited":
       return `⚠ ${message.message || t("common_error_rate_limited")}`;
     case "provider-overloaded":
-      // Amendment 2026-10-02 (goal-j2FJ-kI7): same fixed-message contract as
+      // Same fixed-message contract as
       // quota-exceeded/rate-limited above — never "fix your settings".
       return `⚠ ${message.message || t("common_error_provider_overloaded")}`;
     case "model-missing":
@@ -253,7 +251,7 @@ export const AUTH_REQUIRED_TEXT = {
   copy: t("panel_copy"),
   copied: t("panel_copied"),
   copyFailed: t("panel_copy_failed"),
-  // Since 2026-10-02 (goal-j2FJ-kI7) this button opens the provider's own
+  // This button opens the provider's own
   // settings card (openProviderSettings), no longer the tutorial — labelled
   // as what it does. "Connect a model" stays for the never-connected notice.
   openSettings: t("panel_open_settings"),

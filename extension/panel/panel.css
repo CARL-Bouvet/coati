@@ -208,7 +208,7 @@ textarea {
   background: var(--status-idle);
 }
 
-/* Model-missing problem (amendment 2026-10-07 bis): the status text itself
+/* Model-missing problem: the status text itself
  * becomes a button opening the model menu — underline on hover/focus is
  * enough, no colour change (it isn't an error, just an actionable detail). */
 .status-label--action {
@@ -230,7 +230,7 @@ textarea {
 .status--broker-untrusted .status-dot { background: var(--status-disconnected); }
 .status--pairing-retry .status-dot { background: var(--status-connecting); }
 
-/* Model pill + menu (amendment 2026-10-07): right after "Connected". The
+/* Model pill + menu: right after "Connected". The
  * brand row wraps, so on a 320 px panel the pill drops under the status
  * instead of pushing the header tools off-screen. */
 .brand {
@@ -291,7 +291,7 @@ textarea {
   color: var(--muted);
 }
 
-/* Stale-broker pill (amendment 2026-10-07 bis): its label is a short
+/* Stale-broker pill: its label is a short
  * sentence, not a one-word suffix — let the name wrap onto a second line and
  * grow the pill's height, instead of a single nowrap line clipping (or, for
  * the "where" suffix, overflowing past the border — bug report, 320 px). */
@@ -409,7 +409,7 @@ textarea {
   color: var(--muted);
 }
 
-/* Lot 4: too big for this machine — still selectable, only muted; the
+/* Too big for this machine — still selectable, only muted; the
  * words "too big for this computer" carry the meaning, not colour. */
 .model-item--too-big .model-item-name {
   color: var(--muted);
@@ -560,11 +560,11 @@ textarea {
 }
 
 /* "Saved for <site>" — the disquette's calm, temporary confirmation
- * (plan-mes-prompts-28-09.md, lot 3: no title asked, no dialog). Fills the
+ * (no title asked, no dialog). Fills the
  * row before the save button so it never reflows it at 320px. */
 /* Wraps instead of truncating: the unknown-address notice ("Saved, without
  * site: Coati cannot see this page's address.") must be read whole at
- * 320 px — an ellipsis cut it mid-word (admin fix, 28/09). */
+ * 320 px — an ellipsis cut it mid-word. */
 .prompt-saved-notice {
   flex: 1 1 auto;
   min-width: 0;
@@ -574,7 +574,7 @@ textarea {
   overflow-wrap: anywhere;
 }
 
-/* Amendment 2026-10-08 bis ("historique", docs/PROTOCOL.md) — discreet
+/* "historique", docs/PROTOCOL.md — discreet
  * line above the composer's input, same muted register as
  * .prompt-saved-notice/.message-cut-notice, never the error style. */
 .history-notice {
@@ -601,7 +601,7 @@ textarea {
 }
 
 /* The user's messages: a slate-blue bubble on the right, "Relancer" below it
- * (plan-mes-prompts-28-09.md, lot 3) — the bubble's own look lives on the
+ *  — the bubble's own look lives on the
  * inner .message-user-bubble so the button sits outside it, not inside. */
 .message--user {
   align-self: flex-end;
@@ -816,7 +816,7 @@ textarea {
   animation: blink 1s step-start infinite;
 }
 
-/* Before the first word (plan-ollama-rapide-07-10.md, point 3): the coati
+/* Before the first word: the coati
  * head sniffs next to "Loading the model…" / "The model is reading the
  * page…". The line replaces the blinking cursor. */
 .message--progress::after {
@@ -953,7 +953,7 @@ textarea {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--fg);
-  /* amendment 2026-10-02 (goal-j2FJ-kI7): this class is now also used on
+  /* This class is now also used on
      external <a> links (buildExternalLink(), panel.js) — same look as the
      buttons it shares the class with, never underlined/inline-link styling. */
   display: inline-block;
@@ -993,7 +993,7 @@ textarea {
 
 /* One row, alone: the "Saved for …" notice and the disquette. The
  * prompt list moved to "My prompts" (a later phase); the "Read page"
- * switch lives in the site card's head row (Lot 2, card.css). */
+ * switch lives in the site card's head row (card.css). */
 .composer-bar {
   display: flex;
   align-items: center;
@@ -1001,10 +1001,10 @@ textarea {
   min-height: 28px;
 }
 
-/* Lot B3/F — "Attach the screen". Reuses the `.switch` class already styled
+/* "Attach the screen". Reuses the `.switch` class already styled
  * for #attachPage (card.css) — same widget, same look; only the row layout
  * and the destination line's own (muted, identity P24) color are new. */
-/* Lot F fix (admin review, 320px capture): was a single row, squeezing the
+/* 320px capture: was a single row, squeezing the
  * destination/reason text into a narrow column beside the toggle (wrapped
  * 4 lines). Stacked instead — the text gets the full composer width on its
  * own line below, at every width, not just narrow ones. */
@@ -1028,7 +1028,7 @@ textarea {
   color: var(--muted);
 }
 
-/* Lot A2/F — "Montrer : …" button: inline, discreet, caramel (P24), wraps
+/* "Montrer : …" button: inline, discreet, caramel (P24), wraps
  * at 320px like ordinary text (display: inline, not inline-block — a long
  * label must be able to break across lines, same as the surrounding prose,
  * rather than overflow as one rigid box). */

@@ -1,9 +1,8 @@
 // Unit tests for the prompt-injection defenses and the model-call safety net
-// added by the security audit: per-request nonce fencing (buildPrompt), and a
+// added by the: per-request nonce fencing (buildPrompt), and a
 // timeout that guarantees streamAnswer always settles (model.ts). The
 // generic timeout/cancel contract every provider must honour is exercised
-// here against the ollama provider's fake fetch (goal G1b, 29/09 cleanup of
-// the public repo — this used to run against a now-private provider module);
+// here against the ollama provider's fake fetch;
 // see docs/ARCHITECTURE.md for the shared contract.
 
 import { describe, expect, test, afterEach } from "bun:test";
@@ -295,7 +294,7 @@ describe("summarize instruction", () => {
     expect(prompt.indexOf("IN FRENCH")).toBeGreaterThan(close);
   });
 
-  // Goal G6: en is the default when no lang is negotiated — see messages.ts's
+  // En is the default when no lang is negotiated — see messages.ts's
   // normalizeLang and docs/PROTOCOL.md.
   test("defaults to English when no lang is passed", () => {
     const context: Context = { kind: "page", text: "Some article text." };
@@ -321,10 +320,10 @@ describe("summarize instruction", () => {
   });
 });
 
-// Amendment 2026-10-08 bis ("historique", docs/PROTOCOL.md) — buildPrompt's
+// "historique", docs/PROTOCOL.md — buildPrompt's
 // own sanitisation/placement of chat.history, plus the two standalone
 // helpers every non-Ollama provider (and the private claude-cli module) use.
-describe("buildPrompt — chat.history (amendment 2026-10-08 bis)", () => {
+describe("buildPrompt — chat.history", () => {
   test("history is absent from BuiltPrompt when the chat input carries none", () => {
     const built = buildPrompt({ kind: "chat", text: "hi" });
     expect(built.history).toBeUndefined();

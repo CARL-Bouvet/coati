@@ -1,4 +1,4 @@
-// Coati state lab — welcome/welcome.html fixtures (G5, docs/DECISIONS.md T51).
+// Coati state lab — welcome/welcome.html fixtures (docs/DECISIONS.md T51).
 // The page is static; the only thing that varies is the engine, which picks
 // the "pin the icon" wording (lib/browser-compat.js IS_GECKO).
 (function () {

@@ -1,6 +1,5 @@
-// Unit + integration tests for the openai-compat provider (goal G5,
-// docs/PROTOCOL.md — one adapter for LM Studio,
-// Ollama's /v1, OpenAI, Mistral, OpenRouter, DeepSeek). Integration tests
+// Unit + integration tests for the openai-compat provider (docs/PROTOCOL.md — one adapter for LM
+// Studio, Ollama's /v1, OpenAI, Mistral, OpenRouter, DeepSeek). Integration tests
 // drive a REAL fake OpenAI-compatible server via Bun.serve on 127.0.0.1, a
 // random port (task brief) — no fake fetch for those, only for the pure
 // SSE-line-parsing unit tests below.
@@ -206,7 +205,7 @@ describe("openai-compat streamAnswer — integration against a real fake server"
     }
   });
 
-  // Security review (2026-10-08, L8): the image must be wrapped inside the
+  // L8: the image must be wrapped inside the
   // SAME per-request nonce fence as page text, not a bare sibling block.
   test("L8: an attached image is fenced — text(open) / image_url / text(close) / text(prompt)", async () => {
     const server = fakeServer({
@@ -273,7 +272,7 @@ describe("openai-compat streamAnswer — integration against a real fake server"
     }
   });
 
-  test("unknown model via HTTP 404 surfaces as model-missing, not model-unavailable (amendment 2026-10-02)", async () => {
+  test("unknown model via HTTP 404 surfaces as model-missing, not model-unavailable", async () => {
     const server = fakeServer({
       "POST /v1/chat/completions": () => new Response("not found", { status: 404 }),
     });
@@ -295,7 +294,7 @@ describe("openai-compat streamAnswer — integration against a real fake server"
     }
   });
 
-  test("Mistral unknown_model error body (any status) surfaces as model-missing (amendment 2026-10-02)", async () => {
+  test("Mistral unknown_model error body (any status) surfaces as model-missing", async () => {
     const server = fakeServer({
       "POST /v1/chat/completions": () =>
         new Response(JSON.stringify({ message: "unknown_model", type: "invalid_request_error", code: "unknown_model" }), { status: 400 }),
@@ -317,7 +316,7 @@ describe("openai-compat streamAnswer — integration against a real fake server"
     }
   });
 
-  test("a 502/503 response surfaces as provider-overloaded (amendment 2026-10-02)", async () => {
+  test("a 502/503 response surfaces as provider-overloaded", async () => {
     for (const status of [502, 503]) {
       const server = fakeServer({
         "POST /v1/chat/completions": () => new Response("bad gateway", { status }),
@@ -660,7 +659,7 @@ describe("openai-compat listModels / GET /models", () => {
   });
 });
 
-// Goal U2 (docs/PROTOCOL.md, amendment 2026-10-01): a FREE
+// docs/PROTOCOL.md: a FREE
 // probe — never the billed POST /chat/completions. Default origins reuse
 // GET /models (fakeServer, as above); the OpenRouter special case needs a
 // fake fetch since its origin is a real external host.

@@ -1,4 +1,4 @@
-// Regression test for security review 2026-09-26, finding #1: extract.js's
+// Regression test for: extract.js's
 // own comment (~35-41) promises a [contenteditable] draft is never sent —
 // but before this fix, that promise only held for the density-heuristic
 // article/main text path. The four fact-shape readers (dl, two-cell <tr>,
@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EXTRACT_FILES } from "../../extension/content/extract-files.js";
 
-// Lot F4: the content script is split across several files, injected
+// The content script is split across several files, injected
 // together and in order, all sharing one global scope — see
 // extract-files.js. Concatenate every file's declarations verbatim as
 // EXTRACT_JS_DECLARATIONS; only the LAST file (content/extract.js) ends in
@@ -229,7 +229,7 @@ function runExtract(opts: {
   return factory(fakeDocument, fakeLocation, fakeWindow, fakeGetComputedStyle);
 }
 
-describe("extract.js — an editable draft never surfaces as a fact/title (security review, finding #1)", () => {
+describe("extract.js — an editable draft never surfaces as a fact/title", () => {
   test("a two-cell <tr> whose value cell contains a [contenteditable] draft is dropped, siblings kept", () => {
     const draftRow = new FakeElement("tr", {
       children: [

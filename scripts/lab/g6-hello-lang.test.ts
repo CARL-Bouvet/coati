@@ -1,10 +1,10 @@
-// G6 (docs/PROTOCOL.md amendment 2026-09-30 ter, "Langue de la connexion") —
+// docs/PROTOCOL.md, "Langue de la connexion" —
 // the extension's `hello` v: 2 message carries `lang` = raw
 // chrome.i18n.getUILanguage(), straight from browser-stub-style chrome mock.
 // Deliberately minimal and self-contained (own hand-rolled chrome/WebSocket
 // mock, not broker/test/ext-service-worker-handshake.test.ts's shared one —
 // this file lives under scripts/lab/ specifically so it never needs to touch
-// broker/test/, same ownership split as the rest of G6). Only checks the
+// broker/test/, same ownership split as the rest of). Only checks the
 // FIRST `ws.send()` payload (the `hello` itself); it never completes the
 // handshake, since that isn't what's under test here.
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -93,7 +93,7 @@ function makeChromeMock() {
         return Promise.reject(new Error("not needed: a valid brokerKey is pre-seeded"));
       },
     },
-    // hello.lang's whole point (docs/PROTOCOL.md, G6): raw
+    // hello.lang's whole point (docs/PROTOCOL.md): raw
     // chrome.i18n.getUILanguage(), untouched, sent as-is.
     i18n: {
       getUILanguage: () => uiLanguage,

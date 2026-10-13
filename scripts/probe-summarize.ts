@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
-// End-to-end probe (task C2) — makes permanent the throwaway probe written
-// by the admin on 2026-09-21 (see scripts/ws-probe.js, kept for interactive
+// End-to-end probe (see also scripts/ws-probe.js, kept for interactive
 // manual tests). Answers "is the whole chain alive?" without opening a
 // browser: reads the pairing token and extension id from the same files the
 // broker and extension use, opens the WebSocket, performs the handshake,
@@ -32,7 +31,7 @@ function fail(message: string): never {
 async function main(): Promise<void> {
   const dataDir = join(homedir(), ".local", "share", "coati");
   const configDir = join(homedir(), ".config", "coati");
-  // Handshake v2 (docs/PROTOCOL.md, amendment 2026-09-30): the broker key
+  // Handshake v2 (docs/PROTOCOL.md): the broker key
   // K is read from the file the running broker writes, as ws-probe.js does.
   const keyPath = join(process.env.COATI_DATA_DIR ?? dataDir, "broker-key.json");
   const configPath = join(configDir, "config.json");

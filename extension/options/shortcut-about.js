@@ -1,5 +1,4 @@
-// Coati options page — keyboard shortcut display and "About" (lot F3
-// split of options.js).
+// Coati options page — keyboard shortcut display and "About" (split of options.js).
 //
 // Read-only here: no browser lets an extension set its own shortcut, so the
 // button only opens the browser's own shortcut page.

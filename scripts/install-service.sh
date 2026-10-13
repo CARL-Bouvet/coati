@@ -2,7 +2,7 @@
 # Installs the coati-broker systemd user service.
 # Idempotent — safe to rerun any number of times: the unit is ALWAYS rewritten
 # from the repo (no "skip if already present"), the systemd daemon is ALWAYS
-# reloaded, then the script reports what changed. This prevents the 2026-09-21
+# reloaded, then the script reports what changed. This prevents the
 # incident (installed unit silently drifting from the repo) from recurring via
 # a forgotten `git pull`.
 #
@@ -98,7 +98,7 @@ echo "Checking broker on 127.0.0.1:$PORT..."
 MAX=10
 i=0
 while [ $i -lt $MAX ]; do
-  # /pair only answers a top-level navigation since the 2026-09-25 ter amendment
+  # /pair only answers a top-level navigation
   # (docs/PROTOCOL.md): without these two headers it returns 403 and this check
   # would report a healthy broker as dead.
   if curl -sf --max-time 2 -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Dest: document' \

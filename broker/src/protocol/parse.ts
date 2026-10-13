@@ -1,6 +1,6 @@
 // Parses a raw WebSocket text frame into a well-typed ClientMessage. The
 // single entry point every message family's own shape check (context.ts,
-// chat.ts) feeds into. Split out of protocol.ts (lot F5).
+// chat.ts) feeds into. Split out of protocol.ts.
 
 import { isProviderId } from "../config.ts";
 import {
@@ -43,7 +43,7 @@ export interface ParseError {
   /** Present only if we could recover an id from the raw payload. */
   id?: string;
   /**
-   * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §5): true only for the
+   * (docs/PROTOCOL.md §5): true only for the
    * two-tier oversized-message rejection — server.ts uses this to also
    * close(1009), same policy as the raw-byte-length gate this generalises
    * (a message over MAX_MESSAGE_BYTES that isn't a legitimate chat+image,
@@ -59,18 +59,18 @@ export type ParseResult =
 /**
  * Parses a raw WebSocket text frame into a well-typed ClientMessage, or a
  * structured ParseError. Enforces the 256 KB message cap — 1.5 MiB for a
- * `chat` carrying `image` (docs/PROTOCOL.md §5, amendement 2026-10-08).
+ * `chat` carrying `image` (docs/PROTOCOL.md §5).
  */
 export function parseClientMessage(raw: string): ParseResult {
   const byteLength = Buffer.byteLength(raw, "utf8");
   let parsed: unknown;
 
   if (byteLength > MAX_MESSAGE_BYTES) {
-    // Amendement 2026-10-08 (lot B1): the ONLY message shape allowed past
+    // The ONLY message shape allowed past
     // the standard cap is a chat carrying image — docs/PROTOCOL.md §5.
     // Everything else, including unparsable JSON, is refused with the EXACT
     // fixed id/message this cap always used — an old client/test sees
-    // byte-for-byte the same refusal as before this amendment existed.
+    // byte-for-byte the same refusal.
     try {
       parsed = JSON.parse(raw);
     } catch {
@@ -79,7 +79,7 @@ export function parseClientMessage(raw: string): ParseResult {
         error: { code: "bad-request", message: `message exceeds ${MAX_MESSAGE_BYTES} byte cap`, id: "oversized", oversized: true },
       };
     }
-    // Amendement 2026-10-09 (lot 7, docs/PROTOCOL.md "Page on demand"): a
+    // docs/PROTOCOL.md "Page on demand": a
     // `page.content` carrying dev-level content gets the same raised
     // allowance as a chat+image — see looksLikePageContent's own doc.
     if (!looksLikeChatWithImage(parsed) && !looksLikePageContent(parsed)) {
@@ -131,7 +131,7 @@ export function parseClientMessage(raw: string): ParseResult {
     if (parsed.key !== undefined && parsed.key !== "native" && parsed.key !== "pasted") {
       return { ok: false, error: { code: "bad-request", message: "hello: invalid key" } };
     }
-    // Goal G6: lang is a raw BCP 47 tag, not yet normalised — only its shape
+    // Lang is a raw BCP 47 tag, not yet normalised — only its shape
     // is checked here (string, reasonably short); server.ts's normalizeLang()
     // turns anything it doesn't recognise into "en", so there is nothing to
     // reject here beyond "not a string at all" / "absurdly oversized".
@@ -165,11 +165,11 @@ export function parseClientMessage(raw: string): ParseResult {
         return { ok: false, error: { code: "bad-request", message: "chat: missing text", id } };
       }
       const context = parseContext(parsed.context);
-      // Amendement 2026-10-08 (lot B1): a malformed/oversized image is
+      // A malformed/oversized image is
       // dropped, not a bad-request — the chat still goes through as text
       // only (docs/PROTOCOL.md §3).
       const image = parseChatImage(parsed.image);
-      // Security review (L6): the raised 1.5 MiB allowance exists ONLY to
+      // L6: the raised 1.5 MiB allowance exists ONLY to
       // carry a VALID image — looksLikeChatWithImage (above) is a cheap
       // shape test only (any object under `image`), so a frame like
       // `{ type: "chat", image: {}, text: "<~1.4 MiB>" }` would otherwise
@@ -189,11 +189,11 @@ export function parseClientMessage(raw: string): ParseResult {
           },
         };
       }
-      // Amendement 2026-10-08 (bis, "historique"): same drop-not-reject
+      // "historique": same drop-not-reject
       // tolerance, per entry — see parseHistory's own doc.
       const history = parseHistory(parsed.history);
-      // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md
-      // "Page on demand"): same drop-not-reject tolerance as image.
+      // "page on demand" — docs/PROTOCOL.md
+      // "Page on demand": same drop-not-reject tolerance as image.
       const page = parsePageMeta(parsed.page);
       const devMode = typeof parsed.devMode === "boolean" ? parsed.devMode : undefined;
       const abilities = parseAbilities(parsed.abilities);
@@ -206,7 +206,7 @@ export function parseClientMessage(raw: string): ParseResult {
       if (!context) {
         return { ok: false, error: { code: "bad-request", message: "summarize: missing context", id } };
       }
-      // `length` removed (KISS audit 2026-09-26, item H): the extension only
+      // `length` removed (item H): the extension only
       // ever sent "medium". A client that still sends it is not an error —
       // the field is simply ignored, same as any other unknown extra field.
       return { ok: true, message: { type: "summarize", id, context } };
@@ -330,7 +330,7 @@ export function parseClientMessage(raw: string): ParseResult {
       if (apiKey !== undefined && typeof apiKey !== "string") {
         return { ok: false, error: { code: "bad-request", message: "settings.set: invalid apiKey", id } };
       }
-      // I3 (lot7 security review): reject a malformed key at the door rather
+      // I3: reject a malformed key at the door rather
       // than persisting it and having it flow, unvalidated, into an
       // `x-api-key` HTTP header (providers/claude-api.ts) and error text
       // downstream — see docs/PROTOCOL.md's CLAUDE_API_AUTH_MESSAGE path. An
@@ -354,7 +354,7 @@ export function parseClientMessage(raw: string): ParseResult {
           },
         };
       }
-      // Amendement 2026-10-08 (lot C1, EXTRA task, docs/PROTOCOL.md §9bis).
+      // EXTRA task, docs/PROTOCOL.md §9bis.
       const clearKey = parsed.clearKey;
       if (clearKey !== undefined && !isProviderId(clearKey)) {
         return { ok: false, error: { code: "bad-request", message: "settings.set: invalid clearKey", id } };
@@ -388,8 +388,8 @@ export function parseClientMessage(raw: string): ParseResult {
     case "model.warmup": {
       return { ok: true, message: { type: "model.warmup", id } };
     }
-    // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md
-    // "Page on demand"). Unlike image/page (above), a malformed
+    // "page on demand" — docs/PROTOCOL.md
+    // "Page on demand". Unlike image/page (above), a malformed
     // `page.content`/`page.decline` IS a bad-request — there is no
     // "degrade gracefully, the request still goes through" fallback here:
     // these messages carry no text of their own to fall back to, they only
@@ -409,7 +409,7 @@ export function parseClientMessage(raw: string): ParseResult {
       if (!context) {
         return { ok: false, error: { code: "bad-request", message: "page.content: missing context", id } };
       }
-      // Security review (L6 pattern, same as chat+image): the raised 1.5 MiB
+      // L6 pattern, same as chat+image: the raised 1.5 MiB
       // allowance only exists to carry a VALID context — a frame that only
       // got past the 256 KiB gate because it LOOKED like page.content, but
       // whose context turned out unparsable, must still be held to the

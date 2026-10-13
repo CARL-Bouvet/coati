@@ -1,4 +1,4 @@
-// Pure "Mes prompts" board logic (plan-mes-prompts-28-09.md, lot 4). No DOM,
+// Pure "Mes prompts" board logic. No DOM,
 // no chrome.* — importable from prompts.js and from bun test, same pattern
 // as panel/encart-items.js and panel/card-state.js.
 
@@ -41,8 +41,7 @@ export function computeCaseItems({ siteKey, prompts, prefsSites, sites }) {
  * it has at least one prompt (checked by the caller against
  * computeCaseItems()'s result, not here).
  *
- * The head descriptor's `key` stays `"*"` (its first, titled part —
- * plan-activation-28-09.md "Settled points" 1) so a caller that only reads
+ * The head descriptor's `key` stays `"*"` (its first, titled part) so a caller that only reads
  * `.key` still finds the same fixed board order as before this case grew a
  * second, unlabelled `"@unsorted"` part; that second part never gets its own
  * descriptor here — it is never picked from a list of cases, only shown

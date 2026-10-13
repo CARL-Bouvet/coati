@@ -20,7 +20,7 @@
   const HIGHLIGHT_MS = { subtle: 6000, strong: 10000 };
   const HOST_ID = "__coati-pointer-host";
   // scrollIntoView() itself fires a native "scroll" event; the "remove on
-  // the NEXT scroll" rule (plan §3A flow (5)) means the user's OWN scroll,
+  // the NEXT scroll" rule means the user's OWN scroll,
   // not the one this function just caused. Arming the listener only after a
   // short grace period lets that one settle first. Applies to every level —
   // even "spectacular", which otherwise never dismisses on scroll, must not

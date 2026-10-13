@@ -1,4 +1,4 @@
-// Regression test for security review 2026-09-26, finding #2 (partial):
+// Regression test for the extraction deadline:
 // extension/panel/panel.js's extractFromTab() used to await
 // chrome.scripting.executeScript with no deadline — a hostile or huge page
 // could leave the panel waiting forever. The fix races the extraction
@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { withDeadline } from "../../extension/lib/deadline.js";
 
-describe("lib/deadline.js — withDeadline (security review, finding #2)", () => {
+describe("lib/deadline.js — withDeadline", () => {
   test("resolves with the promise's value when it settles before the deadline", async () => {
     const fast = new Promise((resolve) => setTimeout(() => resolve("page content"), 5));
     const result = await withDeadline(fast, 50, () => new Error("should never fire"));

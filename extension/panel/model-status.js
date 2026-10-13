@@ -1,4 +1,4 @@
-// Coati side panel — connection/provider/model status, lot F3 split of
+// Coati side panel — connection/provider/model status, split of
 // panel.js. Pill + menu next to "Connected", connection banner,
 // provider.status round trip, Ollama warm-up/slow-model advice, and the
 // handleBrokerMessage sub-handlers that belong to this state
@@ -27,9 +27,9 @@ import { persistConversation } from "./conversation-store.js";
 import { renderFirstRun, renderNeverConnected, openModelTutorial } from "./first-run-wiring.js";
 import { updateDevModeUi } from "./dev-mode.js";
 
-// Lot A2 (plan-montrer-voir-chercher-08-10.md §3A) — "Montrer du doigt".
+// "Montrer du doigt".
 // Mirrors the latest `hello-ok.features` relayed by service-worker.js on its
-// "coati:status" broadcast; an old broker that predates the amendment never
+// "coati:status" broadcast; an old broker never
 // sets it, so this stays `[]` and `context.elements` is simply never sent
 // (§2: "Absent = aucune"). Reset to `[]` whenever the connection drops — a
 // feature negotiated on a PREVIOUS connection must not survive past a
@@ -47,7 +47,7 @@ export let currentConnState = "unknown";
 // there is nothing to add (state "ok", or no check done yet this panel
 // session) — see maybeRequestProviderStatus()/renderStatusLabel() below.
 let providerStatusSuffix = "";
-// Amendement 2026-10-07 bis: true when the last provider.status-result's
+// True when the last provider.status-result's
 // `reason` is "model-missing" — the one case the status text also doubles
 // as a button opening the model menu (see renderStatusLabel()).
 let providerStatusActionable = false;
@@ -55,7 +55,7 @@ let providerStatusActionable = false;
 /** `brokerFeatures` (hello-ok.features, A2/B3/C2) from ANY status source —
  * the "coati:status" broadcast (handleBrokerMessage's hello-ok branch in
  * service-worker.js) or a direct "coati:panel-ready"/"coati:get-status"
- * response (retryConnection() below). Bug fix (lot F review, 08/10): a
+ * response (retryConnection() below). A
  * panel opened AFTER the connection already settled only ever saw the
  * broadcast path before this — never connected (or an older broker) means
  * [], exactly as if freshly disconnected, never "trust the last known
@@ -115,7 +115,7 @@ export function renderStatusLabel() {
   let text = labels[currentConnState] ?? currentConnState;
   if (currentConnState === "connected" && providerStatusSuffix) text += ` · ${providerStatusSuffix}`;
   els.statusLabel.textContent = text;
-  // Amendement 2026-10-07 bis: a model-missing problem (the only
+  // A model-missing problem (the only
   // providerStatusSuffix case with an actual fix) also makes the status
   // text clickable, opening the same model menu as the pill.
   const actionable = currentConnState === "connected" && providerStatusActionable && !!providerStatusSuffix;
@@ -131,9 +131,9 @@ export function renderStatusLabel() {
   }
 }
 
-// Five connection-level states share this one banner (deliverable G4,
-// docs/PROTOCOL.md amendement 2026-09-30, "États et bandeaux" and
-// amendement 2026-10-02, "pairing-retry"):
+// Five connection-level states share this one banner (deliverable,
+// docs/PROTOCOL.md, "États et bandeaux" and
+// "pairing-retry"):
 // - "no-host": can't reach the local program — fix: install, or manual pair.
 // - "pairing-retry": the program refused; automatic spaced retries in progress.
 // - "broker-untrusted" / "no-token": terminal refusal — Retry button.
@@ -230,7 +230,7 @@ function sendProviderStatus() {
 // Reason codes are a closed, stable, English list read by this code only
 // (docs/PROTOCOL.md "Provider availability") — never shown as-is.
 // `state: "ok"` is shown too: the point of the check is that the user sees,
-// before any click, whether the model will answer (goal 2026-09-25, Q5).
+// before any click, whether the model will answer (goal, Q5).
 // Provider display names come from lib/labels.js — the single shared table
 // with options.js (bug report gap 4: names must match everywhere).
 
@@ -249,7 +249,7 @@ const PROVIDER_STATUS_REASON_TEXT = {
 };
 
 function formatProviderStatus(message) {
-  // Amendment 2026-10-07 bis: when the provider is ready, the pill next to
+  // When the provider is ready, the pill next to
   // "Connected" already names the model — nothing left to add here. A
   // suffix is shown only for a real problem (anything but "ok").
   if (message.state === "ok") return "";
@@ -258,7 +258,7 @@ function formatProviderStatus(message) {
   return t("panel_provider_status_line", [label, reasonText]);
 }
 
-// --- Active model: pill + menu (amendment 2026-10-07, models.list) ----------
+// --- Active model: pill + menu (models.list) ----------
 //
 // The pill next to "Connected" names the model that will answer, before any
 // question. Asked when the panel reaches "connected" (opening the panel),
@@ -273,7 +273,7 @@ export let modelsReply = null;
 let modelsRequestedAt = 0;
 let modelSwitchRequestId = null;
 let modelMenuItems = [];
-// Amendement 2026-10-07 bis: true once an older local program has answered
+// True once an older local program has answered
 // `error` to models.list — the pill then shows a calm "update the local
 // program" state (renderStaleBrokerPill()) instead of hiding.
 let modelsUnsupported = false;
@@ -285,7 +285,7 @@ let lastSettingsModel = null;
 let modelProviderLabels = {};
 const MODELS_REFRESH_MIN_MS = 10_000;
 
-// --- Ollama: warm-up and slow-model advice (plan-ollama-rapide-07-10.md) ---
+// --- Ollama: warm-up and slow-model advice ---
 //
 // Warm-up (point 1): once the panel knows the current model is Ollama, ask
 // the local program to load it (model.warmup) — once per model per
@@ -391,7 +391,7 @@ function onSettingsOverheard(message) {
   afterModelChange();
 }
 
-/** Older local program, no models.list (amendement 2026-10-07 bis): the pill
+/** Older local program, no models.list: the pill
  * stays visible, naming the current model when `lastSettingsModel` (from a
  * `settings` reply) gives one, with a calm "update the local program" label
  * otherwise. The menu explains why and offers "Open settings". */
@@ -579,7 +579,7 @@ export function currentProviderLinks() {
 /** Opens the options page scrolled to `providerId`'s own card, which also
  * auto-runs its FREE settings.test (options.js's applyProviderHash()) — the
  * provider-aware equivalent of openModelTutorial() for every error that
- * names a specific provider (amendement 2026-10-02, goal-j2FJ-kI7). Falls
+ * names a specific provider. Falls
  * back to the generic tutorial when the provider isn't known yet (no
  * provider.status-result received this session). */
 export function openProviderSettings(providerId) {
@@ -587,7 +587,7 @@ export function openProviderSettings(providerId) {
   api.tabs.create({ url: api.runtime.getURL(`options.html#provider-${providerId}`) });
 }
 
-// --- handleBrokerMessage sub-handlers (lot F3 dispatch) --------------------
+// --- handleBrokerMessage sub-handlers (dispatch) --------------------
 //
 // interceptOwnError() reproduces the "error" case's first four guard blocks
 // from the original switch (model.warmup/models.list/provider.status/
@@ -612,7 +612,7 @@ export function interceptOwnError(message) {
     return true;
   }
   // Same for an older local program that doesn't know models.list
-  // (amendement 2026-10-07 bis): the pill STAYS, in a calm "update the local
+  // the pill STAYS, in a calm "update the local
   // program" state (renderModelPicker()), instead of hiding.
   if (message.id === modelsRequestId) {
     modelsRequestId = null;
@@ -638,12 +638,12 @@ export function onModelWarmupResult(message) {
 // request, broadcast here like every other broker message (U2); this panel
 // never asks for it itself, but opportunistically keeps the openai-compat
 // baseUrl when it overhears one, for currentProviderLinks() above
-// (amendement 2026-10-02, goal-j2FJ-kI7). No secret in this message
+// No secret in this message
 // (docs/PROTOCOL.md: "never a secret").
 export function onSettingsMessage(message) {
   currentProviderBaseUrl = typeof message.baseUrl === "string" ? message.baseUrl : undefined;
   if (Array.isArray(message.available)) modelProviderLabels = moduleLabelsFrom(message);
-  // Amendement 2026-10-07 bis: kept even when models.list itself isn't
+  // Kept even when models.list itself isn't
   // supported (older local program) — the only way that case can still name
   // the current model in the pill (bug report, part 1).
   if (typeof message.provider === "string") {
@@ -665,7 +665,7 @@ export function onModelsMessage(message) {
   if (message.id !== modelsRequestId) return; // another page's request
   modelsRequestId = null;
   modelsUnsupported = false;
-  // Amendement 2026-10-07 bis: a fresh `current` naming another
+  // A fresh `current` naming another
   // provider/model than what this panel still had (changed from elsewhere
   // between two refreshes) means the status suffix next to "Connected" may
   // be stale too — re-check it.
@@ -686,14 +686,13 @@ export function onProviderStatusResult(message) {
   if (message.id !== providerStatusRequestId) return; // stale/unrelated — ignore
   providerStatusRequestId = null;
   providerStatusSuffix = formatProviderStatus(message);
-  // Amendement 2026-10-07 bis: a model-missing problem gets an action —
+  // A model-missing problem gets an action —
   // clicking the status text opens the model menu (see renderStatusLabel()).
   providerStatusActionable = message.reason === "model-missing";
   providerState = ["ok", "ko", "unknown"].includes(message.state) ? message.state : "unknown";
   currentProvider = typeof message.provider === "string" ? message.provider : null;
-  // openai-compat's address (docs/PROTOCOL.md "provider.status", amendement
-  // 2026-10-02 ter) — the reliable source for currentProviderLinks(); the
-  // overheard `settings` case above only refreshes it.
+  // openai-compat's address (docs/PROTOCOL.md "provider.status") — the reliable source for
+  // currentProviderLinks(); the overheard `settings` case above only refreshes it.
   if (typeof message.baseUrl === "string") currentProviderBaseUrl = message.baseUrl;
   else if (currentProvider !== "openai-compat") currentProviderBaseUrl = undefined;
   // Kept so the first-run card's "model" step can offer the exact copy

@@ -7,7 +7,7 @@ After=network.target
 Type=simple
 ExecStart="@@BINARY_PATH@@"
 # See packaging/coati-broker.service for the reasoning behind `always` +
-# RestartSec=2s (2026-09-21 incident: `on-failure` misses a plain `pkill`,
+# RestartSec=2s (incident: `on-failure` misses a plain `pkill`,
 # which exits 0).
 Restart=always
 RestartSec=2s

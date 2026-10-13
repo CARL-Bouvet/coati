@@ -1,4 +1,4 @@
-// Amendment 2026-10-08 bis ("historique", docs/PROTOCOL.md) — pure logic
+// "historique", docs/PROTOCOL.md — pure logic
 // of extension/panel/history.js. Same convention as g5-panel-state.test.ts:
 // lives under scripts/lab/ but imports the real extension module directly
 // (paths are root-based), no chrome.*/DOM involved.

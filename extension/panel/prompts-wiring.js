@@ -1,5 +1,5 @@
 // Coati side panel — "Mes prompts" round trips and "save current composer
-// text" (lot F3 split of panel.js).
+// text" (split of panel.js).
 //
 // The library itself (list/order/removed suggestions/editing) is managed on
 // the "Mes prompts" page (a later phase); the panel only ever reads it (to
@@ -40,7 +40,7 @@ export function saveCurrentAsPrompt() {
   const body = els.input.value.trim();
   if (!body) return;
   // T44: an unreadable address no longer files silently into "All
-  // sites" (docs/DECISIONS.md, amendement T33) — it goes to the unnamed,
+  // sites" (docs/DECISIONS.md, T33) — it goes to the unnamed,
   // unsorted part of the head case instead.
   const siteKey = siteKeyFor(currentPageUrl) ?? "@unsorted";
   api.runtime.sendMessage({

@@ -1,6 +1,5 @@
 // Coati side panel — request lifecycle: cancel, erase conversation, auth
-// recovery, the client-message send + deadline/heartbeat watch (lot F3
-// split of panel.js).
+// recovery, the client-message send + deadline/heartbeat watch (split of panel.js).
 import { t } from "../lib/i18n-page.js";
 import { api } from "../lib/browser-compat.js";
 import { els } from "./dom-refs.js";
@@ -110,7 +109,7 @@ export function buildAuthRecoveryBlock(msg) {
   const kind = msg.authKind ?? "session";
 
   if (kind === "session") {
-    // Amendement 2026-10-02 (goal-j2FJ-kI7): "claude auth login --claudeai"
+    // "claude auth login --claudeai"
     // — see modules/claude-cli/index.ts's AUTH_REQUIRED_MESSAGE, same command
     // (never the old REPL-only "/login" slash command, nor "--console",
     // which is for an API-key/console account, not this subscription module).
@@ -137,8 +136,7 @@ export function buildAuthRecoveryBlock(msg) {
     block.appendChild(settingsBtn);
   } else {
     // API key (or unknown provider): the key lives in the broker, set from
-    // the options page's own provider card — deep-linked directly (amendement
-    // 2026-10-02) rather than the generic tutorial.
+    // the options page's own provider card — deep-linked directly rather than the generic tutorial.
     const settingsBtn = document.createElement("button");
     settingsBtn.type = "button";
     settingsBtn.className = "recovery-copy";
@@ -247,7 +245,7 @@ export function startRequestWatch(id, workerInstanceId) {
   clearRequestWatch();
   requestWorkerInstanceId = workerInstanceId;
   // Client-side deadline for an in-flight request (deliverable B1), set just
-  // PAST the local program's own delays (plan-ollama-rapide-07-10.md, point
+  // PAST the local program's own delays (point
   // 7: up to 300 s before the first word) so its specific error wins the
   // race — this generic deadline only fires for an answer that never arrives
   // at all (socket dropped mid-request). Re-armed by every `progress`/`chunk`

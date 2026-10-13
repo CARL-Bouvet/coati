@@ -1,5 +1,5 @@
 // Coati side panel — main button label ("Summarize"/"Read the page" is
-// gone, see panel/dev-mode.js) — lot F3 split of panel.js, trimmed when the
+// gone, see panel/dev-mode.js) — split of panel.js, trimmed when the
 // "Read the page"/"See the screen" switches were replaced by the single
 // "Dev mode" switch (docs/PROTOCOL.md "Page on demand"): the two switches
 // and their wiring used to live in this file; only the unrelated main-button
@@ -13,11 +13,11 @@ export const MAIN_BUTTON_LABELS = {
   page: t("panel_summarize_page"),
 };
 
-// Amendment 2026-09-25 (page types), docs/PROTOCOL.md "Page types,
+// (page types), docs/PROTOCOL.md "Page types,
 // facts and entries". `context.pageKind` — set by extract.js only for
 // kind === "page" — refines the generic "page" label above. `other` keeps
 // today's wording so an unrecognized/absent pageKind (an older client, or
-// the amendment's own "uncertain → other") reads exactly as before.
+// the protocol's "uncertain → other") reads exactly as before.
 export const PAGE_KIND_BUTTON_LABELS = {
   list: t("panel_summarize_results"),
   listing: t("panel_summarize_listing"),

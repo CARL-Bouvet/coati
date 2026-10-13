@@ -1,7 +1,5 @@
-// Static check for docs/PROTOCOL.md (amendment
-// 2026-09-30, G4): none of these APIs may appear anywhere under extension/ —
-// worker on extension/ owns that tree, this is a cross-cutting guard that
-// belongs to the broker's test suite per the amended spec.
+// Static check for docs/PROTOCOL.md: none of these APIs may appear anywhere under extension/ —
+// this is a cross-cutting guard that belongs to the broker's test suite.
 
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -58,7 +56,7 @@ function listFilesRecursive(dir: string): string[] {
   return files;
 }
 
-describe("extension/ static invariants (docs/PROTOCOL.md, amendment 2026-09-30 G4)", () => {
+describe("extension/ static invariants (docs/PROTOCOL.md)", () => {
   test("extension/ exists (sanity check — this test must not silently pass on an empty scan)", () => {
     expect(() => statSync(EXTENSION_ROOT)).not.toThrow();
   });

@@ -1,7 +1,7 @@
 // buildPrompt itself: assembles the final prompt text per request kind
 // (chat/summarize/act), the per-pageKind summarize instructions, and the
 // shared (non-Ollama) history trim/render helpers. Split out of model.ts
-// (lot F5) — relies on model/render.ts for fencing/sanitizing and for
+//  — relies on model/render.ts for fencing/sanitizing and for
 // rendering a Context/sources block.
 
 import type { Context, ContextKind, ActAction, ChatImage, HistoryEntry } from "../protocol.ts";
@@ -49,17 +49,17 @@ export type PromptInput =
       offerSearch?: boolean;
       /** True when results are in and a page may still be opened. */
       offerOpen?: boolean;
-      /** Amendement 2026-10-08 (bis, "historique"): past turns of the
+      /** "historique": past turns of the
        * conversation shown in the panel, oldest first, TEXT only — never a
        * past page context/image/sources (docs/PROTOCOL.md). Already
        * capped/validated by protocol.ts's parseHistory; buildPrompt below
        * still sanitizes each entry's text the same way as any other
        * untrusted string (a past ASSISTANT answer was derived from
-       * untrusted page content — security review) before handing it to
+       * untrusted page content) before handing it to
        * BuiltPrompt.history for a provider to render as real turns. */
       history?: HistoryEntry[];
       /**
-       * Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md
+       * ("page on demand" — docs/PROTOCOL.md
        * "Page on demand"). Mutually exclusive with `context` in practice —
        * handlers/dispatch.ts only ever sets this when the wire `chat` carried
        * `page` and no `context` at all (point 2 of the spec: "if chat.context
@@ -72,7 +72,7 @@ export type PromptInput =
        * in the instruction when true (docs/PROTOCOL.md "Page on demand"). */
       devMode?: boolean;
       /**
-       * Amendement 2026-10-09 (lot 7). Set on the RE-RUN prompt after the
+       * Set on the RE-RUN prompt after the
        * user declined a `page.request` — splices in a trusted note instead
        * of the page's content. Mutually exclusive with `page`/`context`
        * carrying real content at the same time as this flag (handlers/chat.ts
@@ -80,7 +80,7 @@ export type PromptInput =
        */
       declinedPageRead?: boolean;
       /**
-       * Amendement 2026-10-09 (lot 7 fix). Set on the RE-RUN prompt after a
+       * Set on the RE-RUN prompt after a
        * TEXT-level `page.content` was spliced in via `context` above, when
        * devMode is true AND the dev marker is still available for this
        * question (handlers/chat.ts's own canTrigger("dev")) — offers
@@ -106,7 +106,7 @@ const ACT_VERB: Record<ActAction, string> = {
   shorten: "Shorten",
 };
 
-// Goal G6: the summary's OWN section labels — "À retenir :", "Les faits"…
+// The summary's OWN section labels — "À retenir :", "Les faits"…
 // — are text the model is instructed to reproduce verbatim in its reply
 // (docs/PROTOCOL.md "Summary instruction by page type"), so unlike
 // the fixed page-content headers above (renderFactLines/renderItemLines,
@@ -115,8 +115,7 @@ const ACT_VERB: Record<ActAction, string> = {
 // back with stray French headers. Kept local to model.ts, not in
 // messages.ts's catalog: this is prompt construction, not a wire-protocol
 // sentence the broker sends the client — see messages.ts's own header.
-// zh_CN is a first-pass translation, not reviewed by a native speaker — see
-// this worker's report.
+// zh_CN is a first-pass translation, not reviewed by a native speaker.
 interface SummaryLabels {
   takeaway: string;
   entriesReadLine(n: number): string;
@@ -166,7 +165,7 @@ const SUMMARY_LABELS: Record<Lang, SummaryLabels> = {
  * extractor keeps each segment's timestamp (extension/content/extract.js:127),
  * so the model can anchor every bullet to a moment in the video.
  *
- * Amendement 2026-09-25 (types de page) — "Summary instruction by page type":
+ * "Summary instruction by page type":
  * "article and other: today's instruction, unchanged."
  * Verbatim unchanged on purpose — this is also what "Compatibility" requires
  * for a client that sends no pageKind at all (byte-identical prompt). */
@@ -271,14 +270,14 @@ function listingSummaryInstruction(lang: Lang): string {
  * borderline case falls back to this behaviour; it never produces an
  * error." Non-`page` contexts (youtube, selection) never carry a
  * pageKind at all (protocol.ts's parseContext), so they always fall here
- * too — unaffected by this amendment. */
+ * too — unaffected by this. */
 function resolvePageSummaryKind(context: Context): "list" | "listing" | "other" {
   if (context.pageKind === "list" && context.items && context.items.length > 0) return "list";
   if (context.pageKind === "listing" && context.facts && context.facts.length > 0) return "listing";
   return "other";
 }
 
-/** Amendement 2026-09-25 (types de page) — "Summary instruction by page type".
+/** "Summary instruction by page type".
  * Dispatches to the per-pageKind instruction; `article`/`other`
  * and every non-`page` context kind get today's unchanged instruction. */
 function summarizeInstruction(context: Context, lang: Lang): string {
@@ -296,16 +295,16 @@ export interface BuiltPrompt {
   /** The nonce this prompt was fenced with — streamAnswer needs it to build a
    * matching system prompt that names the same markers. */
   nonce: string;
-  /** Goal G6: the connection's language (docs/PROTOCOL.md "Langue de la
+  /** The connection's language (docs/PROTOCOL.md "Langue de la
    * connexion") this prompt was built for — streamAnswer passes it straight
    * through to buildSystemPrompt() so the "reply in X" instruction matches
    * what this prompt's own summarize instruction (if any) already asked for. */
   lang: Lang;
   /**
-   * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §3/§10, docs/MODULES.md
+   * (docs/PROTOCOL.md §3/§10, docs/MODULES.md
    * "BuiltPrompt.images"). Zero or one image today — the array shape is
    * forward-looking (future multi-attachment), never more than one entry as
-   * of this amendment: `chat.image` on the wire is a single object, not an
+   * of this: `chat.image` on the wire is a single object, not an
    * array. Already validated end to end by protocol.ts's parseChatImage
    * before it ever reaches here. Absent when the request carried no image.
    */
@@ -318,7 +317,7 @@ export interface BuiltPrompt {
    */
   sources?: PromptSource[];
   /**
-   * Amendement 2026-10-08 (bis, "historique", docs/MODULES.md
+   * ("historique", docs/MODULES.md
    * "BuiltPrompt.history"). Past conversation turns, oldest first, already
    * sanitized (fence-shape/reference-token neutralised, same treatment as
    * page text) — NEVER inlined into `prompt` itself, and never more than
@@ -341,14 +340,14 @@ export interface BuiltPrompt {
  * every provider; nothing provider-specific belongs in here. `lang` defaults
  * to DEFAULT_LANG (en) for any call site that doesn't (yet) know the
  * connection's language — every existing test call site keeps compiling and
- * behaving as it did before this amendment used to hard-code French. */
+ * behaving as before (French was hard-coded). */
 export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): BuiltPrompt {
   const nonce = generateNonce();
   switch (input.kind) {
     case "chat": {
       const parts: string[] = [];
       if (input.context) parts.push(renderContext(input.context, nonce));
-      // Amendement 2026-10-09 (lot 7, "page on demand"): metadata-only block
+      // "page on demand": metadata-only block
       // + trusted instruction, in place of a real page-content block — only
       // ever reached when the caller sent `page` and no `context` at all.
       if (!input.context && input.page) {
@@ -369,7 +368,7 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
       if (input.context?.elements && input.context.elements.length > 0) {
         parts.push(elementsInstruction());
       }
-      // Amendement 2026-10-09 (lot 7, "page on demand"): the instruction
+      // "page on demand": the instruction
       // naming the marker(s) — only when this is the metadata-only, no-content
       // call (never together with real `context`, never on the decline note
       // below: the model already got its answer to "can I read it?" by then).
@@ -382,7 +381,7 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
       if (input.pageUnreadable && !input.context && !input.page) {
         parts.push(PAGE_UNREADABLE_NOTE);
       }
-      // Amendement 2026-10-09 (lot 7 fix): offers the dev marker on a re-run
+      // Offers the dev marker on a re-run
       // that already carries the page's TEXT content (see offerDevRead's
       // own doc above) — the only place this instruction is used outside
       // the metadata-only pageOnDemandInstruction block above.
@@ -390,7 +389,7 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
         parts.push(pageDevEscalationInstruction());
       }
       const images = input.image ? [input.image] : undefined;
-      // Amendement 2026-10-08 (bis, "historique"): sanitized the same way as
+      // "historique": sanitized the same way as
       // any other untrusted string (a past assistant answer was derived from
       // untrusted page content) — never inlined into `parts`/`prompt` here,
       // a provider renders it as real turns (or claude-cli as its own
@@ -427,7 +426,7 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
   }
 }
 
-// Amendement 2026-10-08 (bis, "historique"). Shared non-Ollama trim: drop
+// "historique". Shared non-Ollama trim: drop
 // history entries OLDEST FIRST until the sum of their `text` lengths fits
 // `maxChars` — claude-api.ts, openai-compat.ts and the private claude-cli
 // module all call this before building their request. Ollama has its own
@@ -453,7 +452,7 @@ export function trimHistoryToCharBudget(
   return kept;
 }
 
-// Amendement 2026-10-08 (bis, "historique", docs/MODULES.md). Renders an
+// "historique", docs/MODULES.md. Renders an
 // ALREADY-TRIMMED history array as a single, clearly labelled text block —
 // used only by the private claude-cli module (docs/MODULES.md), the one
 // provider that takes a single prompt rather than a `messages` array. Own

@@ -1,6 +1,6 @@
 // handleMessage: the post-handshake message dispatch switch. Routes each
 // authenticated ClientMessage to its own handler module. Split out of
-// server.ts (lot F5).
+// server.ts.
 
 import type { ClientMessage } from "../protocol.ts";
 import { send } from "../ws-send.ts";
@@ -30,10 +30,10 @@ export function handleMessage(
       // Duplicate hello/auth after an already-authed handshake: no-op.
       return;
     case "chat": {
-      // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md
-      // "Page on demand", point 2): `page` only ever takes effect when
+      // "page on demand" — docs/PROTOCOL.md
+      // "Page on demand", point 2: `page` only ever takes effect when
       // `context` is ABSENT — a `chat` carrying both behaves exactly as
-      // before this amendment (byte-identical: `context` wins, `page` is
+      // it did without `page` (byte-identical: `context` wins, `page` is
       // simply never looked at).
       // A chat that may ask for a search (`abilities`) or run one at once
       // (`searchQuery`) takes the same path, with or without a page.
@@ -51,7 +51,7 @@ export function handleMessage(
         logItemsCount: message.context?.items?.length ?? 0,
         tooLargeText: message.text,
         budgetContext: message.context,
-        // Amendement 2026-10-08 (lot B1): `image` is never logged beyond its
+        // `image` is never logged beyond its
         // presence (docs/PROTOCOL.md §3) — see logRequestReceived's own call
         // site below, which only ever gets booleans/counts, never content.
         image: message.image,
@@ -71,7 +71,7 @@ export function handleMessage(
       return;
     }
     case "page.content": {
-      // Amendement 2026-10-09 (lot 7): resolves the pending `page.request`
+      // Resolves the pending `page.request`
       // this answers, if any — a `target` with no matching entry (late
       // arrival after PAGE_REQUEST_TIMEOUT_MS, or one that never had a
       // matching request) is silently ignored, same tolerance as `cancel`
@@ -230,11 +230,11 @@ export function handleMessage(
     }
     case "provider.status": {
       void settingsCtx.getProviderStatus().then((result) => {
-        // baseUrl is NOT a secret (amendement 2026-09-30 bis). Sent for
+        // baseUrl is NOT a secret. Sent for
         // openai-compat so the panel can name the real provider (OpenAI,
         // Mistral, OpenRouter, DeepSeek…) and link to its key/billing pages
         // without asking for `settings` — a `settings` broadcast would
-        // re-render an open options page (amendement 2026-10-02 ter).
+        // re-render an open options page.
         const baseUrl = result.provider === "openai-compat" ? settingsCtx.getConfig().baseUrl : undefined;
         send(ws, {
           type: "provider.status-result",
@@ -249,7 +249,7 @@ export function handleMessage(
       return;
     }
     case "models.list": {
-      // Amendement 2026-10-07: lists all usable models from every configured
+      // Lists all usable models from every configured
       // source, regardless of the active provider (root-cause fix for Ollama
       // models disappearing when active provider is claude-cli).
       void buildModelsPayload(settingsCtx.getConfig()).then((payload) => {
@@ -262,7 +262,7 @@ export function handleMessage(
       return;
     }
     case "model.warmup": {
-      // Amendement 2026-10-07 (bis): pre-load the active Ollama model into
+      // Pre-load the active Ollama model into
       // memory so the first summarize/chat request doesn't wait for a cold load.
       void (async () => {
         const config = settingsCtx.getConfig();

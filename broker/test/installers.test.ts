@@ -1,5 +1,5 @@
 // Tests for scripts/install/install-linux.sh + uninstall-linux.sh (and, when
-// running on darwin, install-macos.sh + uninstall-macos.sh) — goal G4,
+// running on darwin, install-macos.sh + uninstall-macos.sh),
 // docs/PROTOCOL.md.
 //
 // Runs the real installer against a fake --prefix (never the real HOME),
@@ -146,7 +146,7 @@ describePosix("install-linux.sh / uninstall-linux.sh", () => {
     expect(existsSync(join(prefix, ".config"))).toBe(false);
   });
 
-  test("--prefix with a space, & and # still produces a valid manifest holding the exact path (final security review)", () => {
+  test("--prefix with a space, & and # still produces a valid manifest holding the exact path", () => {
     dir = mkdtempSync(join(tmpdir(), "coati-install-linux-"));
     // Exercises lib.sh's render_manifest against bash 5.2+'s
     // patsub_replacement `&` behaviour and a literal `#` in the substituted

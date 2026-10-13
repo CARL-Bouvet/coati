@@ -1,5 +1,5 @@
 // Coati side panel — first-run card, "never connected" notice, read-button
-// wiring and help popover (lot F3 split of panel.js). Pure state in
+// wiring and help popover (split of panel.js). Pure state in
 // read-button.js / first-run.js; this section only gathers the facts
 // (permissions, storage.local preferences, connection and provider state)
 // and renders.
@@ -72,7 +72,7 @@ export async function loadAccessPrefs() {
   accessPrefsLoaded = true;
 }
 
-// Opens the model tutorial (U2, Romain's decision 01/10): the options page,
+// Opens the model tutorial (U2): the options page,
 // jumped to #setup — same destination for the never-connected notice, the
 // "?" button, the first-run card's "model" step, the welcome page's model
 // step, and every model-related error banner (model unreachable/missing,

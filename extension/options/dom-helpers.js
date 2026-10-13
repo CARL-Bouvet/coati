@@ -1,5 +1,5 @@
 // Coati options page — small cross-cutting utilities shared by every
-// options/*.js module (lot F3 split of options.js): DOM node builders (no
+// options/*.js module (split of options.js): DOM node builders (no
 // innerHTML, per the extension's CSP), an id generator for outgoing
 // broker requests, and the broker message sender.
 

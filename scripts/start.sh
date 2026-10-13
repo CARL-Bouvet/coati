@@ -15,7 +15,7 @@ KEY_FILE="$HOME/.local/share/coati/broker-key.json"
 case "${1:-}" in
   --stop)
     pgrep -f "broker/src/server.ts" | head -1 | xargs -r kill -TERM
-    # Amendment 2026-10-02 (goal-j2FJ-kI7): wait for the process to actually
+    # Wait for the process to actually
     # exit before returning, up to ~10s — a caller that restarts right after
     # --stop (tests, dev workflow) must never race the old process still
     # holding the port/socket.

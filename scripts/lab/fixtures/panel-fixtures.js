@@ -4,9 +4,8 @@
 // static/lab-runtime.js. Pure data (+ two small text builders) — no chrome.*,
 // no DOM. Copied verbatim into every generated tree by build-lab.ts.
 //
-// Deviations from the brief, and why, are recorded in the worker report, not
-// here — this file only carries what a fixture can actually reach through
-// the REAL panel.js/lib code (never modified, task constraint 1).
+// This file only carries what a fixture can actually reach through
+// the REAL panel.js/lib code (never modified).
 (function () {
   "use strict";
 
@@ -83,7 +82,7 @@
 
   // Recognised only by the lab bundle (build-lab.ts, LAB_EXTRA_SITES): a
   // site entry with an empty suggestion list.
-  // New tabs/prompts (plan-mes-prompts-28-09.md, lot 5) — declared here, not
+  // New tabs/prompts — declared here, not
   // inline in the fixtures table below, so every top-level state key stays a
   // plain `"key": { ... }` object literal: stateIdsFromFixtureFile()
   // (build-lab.ts) matches states with a regex expecting exactly that shape.
@@ -101,7 +100,7 @@
     favIconUrl: "https://crisco4.unicaen.fr/favicon.ico",
   };
 
-  // goal-8qVhz10H, lot 4/panel: the "Activer" link (T43) states — a popular
+  // The "Activer" link (T43) states — a popular
   // site (Wikipédia) read via the gesture (activeTab, no persisted host
   // permission yet).
   var WIKIPEDIA_TAB = {
@@ -141,7 +140,7 @@
     "Sixième ligne.";
 
   // PromptEntry shape (docs/PROTOCOL.md
-  // préférences par site", amendment 2026-09-28): {id, site, title?, body}.
+  // préférences par site"): {id, site, title?, body}.
   // `starPrompt`/`sitePrompt` just save on repetition below.
   var promptIdCounter = 0;
   function nextPromptId() {
@@ -187,7 +186,7 @@
     };
   }
 
-  // --- G5 (docs/DECISIONS.md T50/T51): "Lire cette page" button and the
+  // --- (docs/DECISIONS.md T50/T51): "Lire cette page" button and the
   // first-launch card. A tab the panel can't see into: Chrome answers
   // tabs.query/get without `url` when no host permission covers it.
   var HIDDEN_TAB = { id: 508, title: undefined, url: undefined };
@@ -195,7 +194,7 @@
   var PROVIDER_OK = { provider: "ollama", state: "ok", reason: "ready" };
   var PROVIDER_KO = { provider: "claude-api", state: "ko", reason: "no-key" };
 
-  // Amendment 2026-10-07 (models.list): the model pill next to « Connecté »
+  // models.list: the model pill next to « Connecté »
   // and its menu. Local + online, one « thinking » model, sizes in GB.
   var MODELS_LOCAL_AND_ONLINE = {
     current: { provider: "ollama", model: "qwen3:4b" },
@@ -223,7 +222,7 @@
       { provider: "openai-compat", state: "not-configured" },
     ],
   };
-  // Lot 4: machine capacity — Romain's machine (16 GB, 6.4 GB VRAM). The
+  // Machine capacity — Romain's machine (16 GB, 6.4 GB VRAM). The
   // loaded model carries a measured gpuPercent, which wins over its fit.
   var MODELS_WITH_FIT = {
     current: { provider: "ollama", model: "qwen3:8b" },
@@ -240,7 +239,7 @@
     ],
     host: { ramGb: 16, vramGb: 6.4 },
   };
-  // plan-ollama-rapide-07-10.md — same machine, qwen3:4b in use: picking
+  // Same machine, qwen3:4b in use: picking
   // qwen3:8b (« partagé ») in the menu adds the calm notice line.
   var MODELS_FIT_4B_CURRENT = Object.assign({}, MODELS_WITH_FIT, {
     current: { provider: "ollama", model: "qwen3:4b" },
@@ -329,7 +328,7 @@
       },
     },
 
-    // Lot 4 — menu open with fit words: « chargé à 74 % dans la carte
+    // Menu open with fit words: « chargé à 74 % dans la carte
     // graphique » (measured, current), « tient dans la carte graphique »,
     // « trop gros pour cet ordinateur » (muted, still selectable).
     "model-menu-fit": {
@@ -365,7 +364,7 @@
       },
     },
 
-    // Amendment 2026-10-07 bis — older local program, no models.list: the
+    // Older local program, no models.list: the
     // pill stays visible (calm "update the local program" state) instead of
     // hiding, and still names the current model from settings.get.
     "model-pill-stale-broker": {
@@ -397,7 +396,7 @@
       },
     },
 
-    // Amendment 2026-10-07 bis — provider.status reason "model-missing":
+    // provider.status reason "model-missing":
     // the pill names the (wrongly) configured model, the status text next
     // to « Connecté » carries the only real problem and is itself a button
     // (underline on hover/focus) — clicking it opens the same model menu.
@@ -428,7 +427,7 @@
       },
     },
 
-    // plan-ollama-rapide-07-10.md, point 3 — waiting line before the first
+    // Waiting line before the first
     // word, Ollama « loading » stage: sniffing coati head + « Chargement du
     // modèle… » in the pending answer, no blinking cursor.
     "progress-loading": {
@@ -590,10 +589,9 @@
     },
 
     // Bandeau de connexion — "no-token" (4401) : id d'extension refusé après
-    // toutes les tentatives automatiques (amendment 2026-10-02, goal-j2FJ-kI7
-    // : anti-oracle, texte neutre panel_banner_pairing_refused + « Réessayer »
-    // ; la cause exacte n'est pas divulguée). Plus de variante Firefox/Chromium
-    // depuis G4 (Native Messaging).
+    // toutes les tentatives automatiques (anti-oracle, texte neutre panel_banner_pairing_refused +
+    // « Réessayer » ; la cause exacte n'est pas divulguée). Plus de variante Firefox/Chromium
+    // (Native Messaging).
     disconnected: {
       status: "no-token",
       tab: null,
@@ -602,9 +600,8 @@
       prompts: [],
     },
 
-    // Bandeau de connexion — "no-host" : programme natif introuvable (G4,
-    // docs/PROTOCOL.md amendment 2026-09-30). Deux liens : doc d'install et
-    // réglages (section Flatpak/Snap).
+    // Bandeau de connexion — "no-host" : programme natif introuvable (docs/PROTOCOL.md). Deux liens
+    // : doc d'install et réglages (section Flatpak/Snap).
     "no-host": {
       status: "no-host",
       tab: null,
@@ -615,7 +612,7 @@
 
     // Bandeau de connexion — "broker-untrusted" (4000) : un programme répond
     // sur le port 8787 mais n'a pas prouvé être le broker Coati (preuve HMAC
-    // fausse). Amendment 2026-10-02 (goal-j2FJ-kI7) : texte propre au cas
+    // fausse). Texte propre au cas
     // (panel_banner_broker_untrusted) + « Réessayer ».
     "broker-untrusted": {
       status: "broker-untrusted",
@@ -628,7 +625,7 @@
     // Bandeau de connexion — "pairing-retry" : le programme a refusé la
     // poignée de main ; relances automatiques en cours (backoff). Pas de
     // bouton Réessayer (doublon avec la tentative automatique). Texte :
-    // panel_banner_pairing_retry (amendment 2026-10-02, goal-j2FJ-kI7).
+    // panel_banner_pairing_retry.
     "pairing-retry": {
       status: "pairing-retry",
       tab: null,
@@ -649,7 +646,7 @@
     },
 
     // Aucun onglet lisible : carte "Cette page", adresse inconnue -> carré
-    // gris neutre (Lot 1) ; interrupteur "Lire la page" grisé (Lot 2, état
+    // gris neutre; interrupteur "Lire la page" grisé (état
     // requis : interrupteur désactivé).
     unreadable: {
       status: "connected",
@@ -659,7 +656,7 @@
       prompts: [],
     },
 
-    // docs/DECISIONS.md T43 (amendé le 30/09 : le lien "Activer" est remplacé
+    // docs/DECISIONS.md T43 (le lien "Activer" est remplacé
     // par le bouton "Lire cette page", T50) — adresse connue (lue via le
     // geste, activeTab, sans permission persistée), site non actif.
     "site-inactive": {
@@ -716,7 +713,7 @@
       },
     },
 
-    // Amendment 2026-09-28 (plan-mes-prompts-28-09.md) : plus de liste
+    // Plus de liste
     // dépliable dans le panneau (zone 5b disparue, page "Mes prompts" à
     // part) — cet état montre désormais l'encart avec des prompts déjà
     // enregistrés dans "Tous les sites", à la suite des suggestions Coati.
@@ -729,7 +726,7 @@
       prompts: STAR_PROMPTS_5,
     },
 
-    // Amendment 2026-09-28 : le champ "nom du prompt" a disparu avec la
+    // Le champ "nom du prompt" a disparu avec la
     // zone 5b — la disquette enregistre maintenant tout de suite, sans
     // titre. Cet état déclenche ce nouveau chemin : texte saisi puis 💾
     // cliquée, la notice "Enregistré pour …" doit apparaître.
@@ -764,8 +761,8 @@
       prompts: [],
     },
 
-    // auth-required d'un fournisseur à clé — amendment 2026-10-02
-    // (goal-j2FJ-kI7) : « [Fournisseur] refuse la clé » (nommé quand connu),
+    // auth-required d'un fournisseur à clé
+    //  « [Fournisseur] refuse la clé » (nommé quand connu),
     // « Ouvrir les réglages » (profond vers la carte du fournisseur) et
     // « Créer une clé chez [Fournisseur] » (lien externe keysUrl). Fournisseur
     // claude-api ici : getProviderLinks résout par id (pas besoin de baseUrl).
@@ -831,7 +828,7 @@
             // Exact copy of panel_error_model_unavailable (_locales/fr) — the
             // UI never says "broker" (CLAUDE.md rule #3's "programme local").
             text: "⚠ Le modèle ne répond pas (indisponible). Le programme local fonctionne normalement ; c'est le modèle qui pose problème. Réessayez dans un instant.",
-            // Goal U2: now carries a "Connecter un modèle" action (tutorial) —
+            // Now carries a "Connecter un modèle" action (tutorial) —
             // this banner had none before.
             modelUnavailable: true,
             streaming: false,
@@ -842,7 +839,7 @@
       prompts: [],
     },
 
-    // Amendment 2026-10-02 (goal-j2FJ-kI7) — quota-exceeded : « Recharger
+    // Quota-exceeded : « Recharger
     // chez Claude (Anthropic) » (lien externe billingUrl) + « Réessayer »
     // (l'utilisateur peut avoir rechargé entre temps). Fournisseur claude-api :
     // getProviderLinks résout par id. Round-trip live via chatErrorReply pour
@@ -872,11 +869,10 @@
       },
     },
 
-    // Goal U1, lot 2 — trop de requêtes chez le fournisseur (rate-limited),
+    // Trop de requêtes chez le fournisseur (rate-limited),
     // avec un retryAfterSec connu : bouton « Réessayer » désactivé, décompte
-    // en texte brut (sûr avec "réduire les animations"). Amendment 2026-10-02
-    // (goal-j2FJ-kI7) : round-trip live via chatErrorReply pour que
-    // pendingRetries soit peuplé et le bouton Réessayer visible.
+    // en texte brut (sûr avec "réduire les animations"). Round-trip live via chatErrorReply pour
+    // que pendingRetries soit peuplé et le bouton Réessayer visible.
     "error-rate-limited": {
       status: "connected",
       tab: ARTICLE_TAB,
@@ -903,7 +899,7 @@
       },
     },
 
-    // Amendment 2026-10-02 (goal-j2FJ-kI7) — provider-overloaded : le
+    // Provider-overloaded : le
     // fournisseur lui-même est surchargé (transient, pas de réglage à changer).
     // Bloc de récupération : « Réessayer » seulement (buildProviderOverload-
     // RecoveryBlock). Round-trip live via chatErrorReply.
@@ -932,7 +928,7 @@
       },
     },
 
-    // Amendment 2026-10-02 (goal-j2FJ-kI7) — model-missing (fournisseur
+    // Model-missing (fournisseur
     // distant, non-Ollama) : ce modèle précis n'est pas disponible sur le
     // compte. Bloc : « Ouvrir les réglages » (profond vers la carte). Pas de
     // Réessayer (le payload n'est pas conservé — changer de modèle d'abord).
@@ -958,7 +954,7 @@
       prompts: [],
     },
 
-    // Amendment 2026-10-02 (goal-j2FJ-kI7) — model-missing sur Ollama :
+    // Model-missing sur Ollama :
     // commande copiable « ollama pull llama3.2 » (buildModelMissingRecovery-
     // Block spécialisé). Pas de Réessayer.
     "error-ollama-model-absent": {
@@ -983,7 +979,7 @@
       prompts: [],
     },
 
-    // Amendment 2026-10-02 (goal-j2FJ-kI7) — model-unavailable : diagnostic
+    // Model-unavailable : diagnostic
     // incertain (modèle injoignable ou timeout 120 s du broker). Bloc :
     // « Réessayer » + « Ouvrir les réglages » (profond). Round-trip live.
     "error-model-unavailable": {
@@ -1011,7 +1007,7 @@
       },
     },
 
-    // Amendment 2026-10-02 (goal-j2FJ-kI7) — auth-required sur claude-cli :
+    // Auth-required sur claude-cli :
     // session expirée. Bloc : commande copiable « claude auth login --claudeai »
     // + « Ouvrir les réglages » + « Réessayer » (même chemin que l'auth session
     // normale — SESSION_AUTH_PROVIDERS contient "claude-cli").
@@ -1038,7 +1034,7 @@
       prompts: [],
     },
 
-    // G5 T51, goal U1 lot 2 — premier lancement, Ollama installé mais pas
+    // T51 — premier lancement, Ollama installé mais pas
     // démarré : commande copiable « ollama serve » sous l'étape « modèle ».
     "first-run-ollama-not-running": {
       firstRun: true,
@@ -1054,8 +1050,8 @@
       permissions: [],
     },
 
-    // Goal U1, lot 2 — programme local introuvable : bandeau de connexion
-    // avec lien d'installation ET bouton « Réessayer » (G4 "no-host" repris
+    // Programme local introuvable : bandeau de connexion
+    // avec lien d'installation ET bouton « Réessayer » ("no-host" repris
     // sous un nom explicite pour ce lot).
     "program-missing": {
       status: "no-host",
@@ -1138,7 +1134,7 @@
       autoAction: { steps: [{ type: "fill", selector: "#input", value: LONG_COMPOSER_TEXT, delayMs: 20 }] },
     },
 
-    // Amendment 2026-09-28 : plus de liste déroulante par-dessus le fil —
+    // Plus de liste déroulante par-dessus le fil —
     // cet état garde son intention (beaucoup de prompts enregistrés, encart
     // qui défile) mais via l'encart lui-même, ici sur un site inconnu
     // (10 prompts "Tous les sites"), une conversation déjà ouverte dessous.
@@ -1157,7 +1153,7 @@
       prompts: STAR_PROMPTS_10,
     },
 
-    // --- New states (plan-mes-prompts-28-09.md, lot 5, panel half) --------
+    // --- New states (panel half) --------
 
     // YouTube : suggestion Coati + 1 prompt utilisateur du site, réordonné
     // avant elle via prefs.sites (order mêle coati:… et p_…).
@@ -1273,7 +1269,7 @@
       prompts: [],
       autoAction: { steps: [{ type: "focus", selector: "#msg-r2-u .message-relaunch", delayMs: 20 }] },
     },
-    // G5 T50 — page inaccessible, adresse inconnue : bouton « Lire cette page », anneau qui respire (figé ici ; ?motion=live pour le voir bouger). Un clic accorde « tous les sites » et lit la page.
+    // T50 — page inaccessible, adresse inconnue : bouton « Lire cette page », anneau qui respire (figé ici; ?motion=live pour le voir bouger). Un clic accorde « tous les sites » et lit la page.
     "read-invite": {
       status: "connected",
       faviconUrl: FAVICON,
@@ -1286,7 +1282,7 @@
       storageLocal: { "coati:conversation": [], "coati:attachPage": null },
     },
 
-    // G5 T50 — premier lancement, Wikipédia lue par le geste de l'icône (activeTab) sans accès durable : l'invitation reste (dernière étape de la carte), favicon du site dans l'anneau, nom du site à côté.
+    // T50 — premier lancement, Wikipédia lue par le geste de l'icône (activeTab) sans accès durable : l'invitation reste (dernière étape de la carte), favicon du site dans l'anneau, nom du site à côté.
     "read-invite-known": {
       firstRun: true,
       providerStatus: PROVIDER_OK,
@@ -1299,7 +1295,7 @@
       storageLocal: { "coati:conversation": [], "coati:attachPage": null },
     },
 
-    // G5 T50 — bouton déjà utilisé une fois (coati:readButtonUsed), accès retiré depuis : même bouton, sans halo.
+    // T50 — bouton déjà utilisé une fois (coati:readButtonUsed), accès retiré depuis : même bouton, sans halo.
     "read-calm": {
       status: "connected",
       faviconUrl: FAVICON,
@@ -1310,7 +1306,7 @@
       storageLocal: { "coati:conversation": [], "coati:attachPage": null, "coati:readButtonUsed": true },
     },
 
-    // G5 T50 — clic accepté, lecture en cours : l'anneau s'ouvre en arc et tourne, « Lecture… », aria-busy.
+    // T50 — clic accepté, lecture en cours : l'anneau s'ouvre en arc et tourne, « Lecture… », aria-busy.
     "read-reading": {
       status: "connected",
       faviconUrl: FAVICON,
@@ -1324,7 +1320,7 @@
       autoAction: { steps: [{ type: "click", selector: "#readPage", delayMs: 50 }] },
     },
 
-    // G5 T50 — « tous les sites » refusé, adresse inconnue : pas d'animation, ligne d'explication, le bouton peut redemander.
+    // T50 — « tous les sites » refusé, adresse inconnue : pas d'animation, ligne d'explication, le bouton peut redemander.
     "read-refused": {
       status: "connected",
       faviconUrl: FAVICON,
@@ -1337,7 +1333,7 @@
       autoAction: { steps: [{ type: "click", selector: "#readPage", delayMs: 50 }] },
     },
 
-    // G5 T50 — refus déjà enregistré, adresse connue : repli sur l'activation site par site, « Activer ce site ».
+    // T50 — refus déjà enregistré, adresse connue : repli sur l'activation site par site, « Activer ce site ».
     "read-refused-site": {
       status: "connected",
       faviconUrl: FAVICON,
@@ -1348,7 +1344,7 @@
       storageLocal: { "coati:conversation": [], "coati:attachPage": null, "coati:allSitesDeclined": true },
     },
 
-    // G5 T50 — « tous les sites » accordé : plus de bouton, l'encart montre le site et ses suggestions.
+    // T50 — « tous les sites » accordé : plus de bouton, l'encart montre le site et ses suggestions.
     "read-granted": {
       status: "connected",
       faviconUrl: FAVICON,
@@ -1359,7 +1355,7 @@
       storageLocal: { "coati:conversation": [], "coati:attachPage": null, "coati:readButtonUsed": true },
     },
 
-    // G5 T51 — premier lancement, programme local introuvable (no-host) : ✗ programme (lien releases), modèle en attente, ✗ page.
+    // T51 — premier lancement, programme local introuvable (no-host) : ✗ programme (lien releases), modèle en attente, ✗ page.
     "first-run-no-program": {
       firstRun: true,
       faviconUrl: FAVICON,
@@ -1373,7 +1369,7 @@
       permissions: [],
     },
 
-    // G5 T51 — premier lancement, connexion en cours : programme et modèle « … », ✗ page.
+    // T51 — premier lancement, connexion en cours : programme et modèle « … », ✗ page.
     "first-run-searching": {
       firstRun: true,
       faviconUrl: FAVICON,
@@ -1387,7 +1383,7 @@
       permissions: [],
     },
 
-    // G5 T51 — programme détecté, provider.status pas encore revenu : ✓, …, ✗.
+    // T51 — programme détecté, provider.status pas encore revenu : ✓, …, ✗.
     "first-run-model-pending": {
       firstRun: true,
       faviconUrl: FAVICON,
@@ -1401,7 +1397,7 @@
       permissions: [],
     },
 
-    // G5 T51 — programme détecté, modèle KO (aucune clé) : ✓, ✗ (Ouvrir les réglages), ✗.
+    // T51 — programme détecté, modèle KO (aucune clé) : ✓, ✗ (Ouvrir les réglages), ✗.
     "first-run-model-missing": {
       firstRun: true,
       faviconUrl: FAVICON,
@@ -1416,7 +1412,7 @@
       permissions: [],
     },
 
-    // G5 T51 — dernière étape : ✓, ✓, ✗ page — la carte désigne le bouton de l'encart (« Montrer le bouton »), rien ne part tout seul.
+    // T51 — dernière étape : ✓, ✓, ✗ page — la carte désigne le bouton de l'encart (« Montrer le bouton »), rien ne part tout seul.
     "first-run-page-missing": {
       firstRun: true,
       faviconUrl: FAVICON,
@@ -1431,7 +1427,7 @@
       permissions: [],
     },
 
-    // G5 T51 — « Montrer le bouton » cliqué : focus et contour sur le bouton de l'encart.
+    // T51 — « Montrer le bouton » cliqué : focus et contour sur le bouton de l'encart.
     "first-run-pointed": {
       firstRun: true,
       faviconUrl: FAVICON,
@@ -1447,7 +1443,7 @@
       autoAction: { steps: [{ type: "click", selector: ".first-run-step[data-check=\"page\"] .first-run-action", delayMs: 100 }] },
     },
 
-    // G5 T51 — accès déjà accordé mais modèle KO : ✓, ✗, ✓.
+    // T51 — accès déjà accordé mais modèle KO : ✓, ✗, ✓.
     "first-run-model-missing-page-ok": {
       firstRun: true,
       faviconUrl: FAVICON,
@@ -1460,7 +1456,7 @@
       permissions: ALL_SITES,
     },
 
-    // G5 T51 — accès accordé, programme introuvable : ✗, …, ✓.
+    // T51 — accès accordé, programme introuvable : ✗, …, ✓.
     "first-run-no-program-page-ok": {
       firstRun: true,
       faviconUrl: FAVICON,
@@ -1472,7 +1468,7 @@
       permissions: ALL_SITES,
     },
 
-    // G5 T51 — ✓, ✓, puis clic sur « Lire cette page » : accès accordé, page lue, carte masquée pour de bon (coati:firstRunDone).
+    // T51 — ✓, ✓, puis clic sur « Lire cette page » : accès accordé, page lue, carte masquée pour de bon (coati:firstRunDone).
     "first-run-last-click": {
       firstRun: true,
       faviconUrl: FAVICON,
@@ -1488,7 +1484,7 @@
       autoAction: { steps: [{ type: "click", selector: "#readPage", delayMs: 100 }] },
     },
 
-    // G5 T51 — les trois coches déjà réunies à l'ouverture : pas de carte.
+    // T51 — les trois coches déjà réunies à l'ouverture : pas de carte.
     "first-run-all-met": {
       firstRun: true,
       faviconUrl: FAVICON,
@@ -1501,7 +1497,7 @@
       permissions: ALL_SITES,
     },
 
-    // Goal U2 — la carte des premiers pas est déjà passée (firstRunDone),
+    // La carte des premiers pas est déjà passée (firstRunDone),
     // mais aucune réponse réelle n'a jamais été reçue (coati:modelEverAnswered
     // absent avant ce goal, ici explicitement false) : l'avis autonome
     // s'affiche seul, avec son bouton « Connecter un modèle ».
@@ -1518,7 +1514,7 @@
       prompts: [],
     },
 
-    // Goal U2 — la carte des premiers pas est encore visible (étape modèle
+    // La carte des premiers pas est encore visible (étape modèle
     // manquante) : l'avis autonome reste masqué, l'action « Connecter un
     // modèle » vit dans l'étape « model » de la carte elle-même (pas
     // d'empilement de deux avis).
@@ -1538,7 +1534,7 @@
       permissions: ALL_SITES,
     },
 
-    // Goal U2 — le drapeau est déjà posé (une vraie réponse a déjà été
+    // Le drapeau est déjà posé (une vraie réponse a déjà été
     // reçue) : ni carte des premiers pas, ni avis autonome.
     "model-ever-answered": {
       status: "connected",
@@ -1557,7 +1553,7 @@
       prompts: [],
     },
 
-    // Goal U2 — bouton « ? » du bandeau, popover ouvert (hover/focus) : texte
+    // Bouton « ? » du bandeau, popover ouvert (hover/focus) : texte
     // d'aide, image de fond discrète (tête existante, place de la future
     // illustration coati surpris/indécis).
     "help-popover-open": {
@@ -1574,7 +1570,7 @@
       autoAction: { steps: [{ type: "focus", selector: "#helpButton", delayMs: 50 }] },
     },
 
-    // Lot F (plan-montrer-voir-chercher-08-10.md) — "Montrer : …" buttons in
+    // "Montrer : …" buttons in
     // an assistant answer. `elementsSnapshot` is hand-authored directly on
     // the stored message, same convention this file already uses for
     // other runtime-only flags (authRequired, modelMissing…) that are
@@ -1609,7 +1605,7 @@
       prompts: [],
     },
 
-    // Lot F — "Joindre l'écran", switch ON (clicked once at load) + the
+    // "Joindre l'écran", switch ON (clicked once at load) + the
     // "reste sur cet ordinateur" destination line (current model local).
     "attach-screen-on": {
       status: "connected",
@@ -1623,7 +1619,7 @@
       autoAction: { steps: [{ type: "click", selector: "#attachScreen", delayMs: 20 }] },
     },
 
-    // Lot F — "Joindre l'écran", current model known NOT to see images:
+    // "Joindre l'écran", current model known NOT to see images:
     // switch greyed, destination line replaced by the remedy text.
     "attach-screen-no-vision": {
       status: "connected",
@@ -1640,7 +1636,7 @@
       prompts: [],
     },
 
-    // Lot F — capture refused for lack of `activeTab` (B0 finding, 08/10):
+    // Capture refused for lack of `activeTab` (B0 finding):
     // the system message captureScreenIfChecked() would show, hand-authored
     // directly (same convention as the auth-required/quota states above —
     // the LIVE failure path is a Chromium-only behavior, out of reach here).

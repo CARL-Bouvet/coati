@@ -20,7 +20,7 @@ import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { EXTRACT_FILES } from "../extension/content/extract-files.js";
 
-// Lot F4: content/extract.js is now split across several files, injected
+// content/extract.js is now split across several files, injected
 // together and in order (see extract-files.js) — same contract panel.js
 // uses, applied here through the dev extension's own service worker.
 const EXTRACT_FILE_PATHS = EXTRACT_FILES.map((f) => `/${f}`);
@@ -126,7 +126,7 @@ async function main() {
       row.overlayHeads = page.overlays.map((o: any) => o.head);
       row.definitionPairs = page.definitionPairs.length;
       row.extractedType = extracted.type ?? extracted.kind ?? null;
-      // Fields added by the « types de page » amendment (docs/PROTOCOL.md). An
+      // Page-type fields (docs/PROTOCOL.md, « types de page »). An
       // older extract.js returns none of them: the probe then reports "—".
       const facts: Array<{ label: string; value: string }> = Array.isArray(extracted.facts) ? extracted.facts : [];
       const items: Array<Record<string, string>> = Array.isArray(extracted.items) ? extracted.items : [];

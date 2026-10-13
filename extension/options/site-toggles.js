@@ -1,4 +1,4 @@
-// Coati options page — per-site activation toggles (lot F3 split of
+// Coati options page — per-site activation toggles (split of
 // options.js).
 //
 // chrome.permissions.request() below is called directly from a checkbox

@@ -1,6 +1,6 @@
-// The ONE API-key entry component (goal U2), shared by the settings page's
+// The ONE API-key entry component, shared by the settings page's
 // provider cards (options.js) and the "Connect an AI model" guide
-// (options-setup.js). Rules, decided by Romain (plan-utilisabilite U2):
+// (options-setup.js). Rules, decided by Romain (U2):
 //
 // - masked field with a show/hide toggle; autocomplete/spellcheck/
 //   autocapitalize/autocorrect all off (Chrome's enhanced spellcheck sends

@@ -1,6 +1,5 @@
 // settings.get / settings.set / settings.test backend — docs/PROTOCOL.md
 // "Model provider" and "settings.test". Split out of server.ts
-// (lot F5).
 
 import {
   DEFAULT_CONFIG,
@@ -35,7 +34,7 @@ export interface SettingsCtx {
    * failed to load, a typo). */
   providerId: ProviderId;
   /** `undefined` when `providerId` doesn't match any built-in or
-   * successfully loaded module — amendement 2026-09-29,
+   * successfully loaded module,
    * docs/PROTOCOL.md: reported as unavailable, never silently swapped for
    * another provider. handleStreamingRequest checks this before calling
    * runStream(). */
@@ -69,7 +68,7 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
   baseUrl?: string;
 }> {
   const provider = config.provider ?? DEFAULT_CONFIG.provider!;
-  // Each provider gets ONLY its own key (security fix, 2026-09-30 ter) — see
+  // Each provider gets ONLY its own key — see
   // config.ts's resolveApiKey. Built per-provider-id inside the `available`
   // loop below rather than once, since a single shared `opts` here was
   // exactly the bug: every provider's isAvailable() used to receive whatever
@@ -117,7 +116,7 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
   );
   const active = getProvider(provider);
   const models = active?.listModels ? await active.listModels(opts).catch(() => undefined) : undefined;
-  // baseUrl is NOT a secret (docs/PROTOCOL.md, amendement 2026-09-30 bis) —
+  // baseUrl is NOT a secret (docs/PROTOCOL.md) —
   // unlike apiKey, echoed back, but ONLY for the currently active provider
   // (openai-compat), never for every provider in `available` (which never
   // carries any provider-specific config value beyond id/label/available).
@@ -133,7 +132,7 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
 // currently selected: the user can test a provider before switching to it.
 export const SETTINGS_TEST_TIMEOUT_MS = 20_000;
 
-// Amendement 2026-09-29: `providerId` is an open string (built-ins + external
+// `providerId` is an open string (built-ins + external
 // modules, docs/PROTOCOL.md), so these can no longer be exhaustive switches.
 // Built-in providers keep their own French wording; anything else — an
 // external module — gets a generic message naming the provider's own
@@ -189,9 +188,9 @@ function settingsTestFailureMessage(providerId: ProviderId, err: unknown, lang: 
  * reusing the SAME codes/wording as chat/summarize/act's own error messages
  * (auth.apiKeyRejected, provider.quotaExceeded, provider.rateLimited) so the
  * panel names the same remedy everywhere, per docs/PROTOCOL.md "settings.test"
- * (amendement 2026-10-01, goal U2). `model-unavailable` falls back to each
+ * `model-unavailable` falls back to each
  * provider's own existing settingsTest.failure.* text. `model-missing`
- * (amendement 2026-10-02, goal-j2FJ-kI7: now also raised by claude-api and
+ * (now also raised by claude-api and
  * openai-compat, not just ollama) keeps ollama's own "pull it" wording for
  * ollama and uses the generic "pick another model" text for every other
  * provider. `provider-overloaded` is the same sentence for every provider —
@@ -255,7 +254,7 @@ export async function testProviderConnection(
     lang,
   };
 
-  // Goal U2 (docs/PROTOCOL.md "settings.test", amendement 2026-10-01): a
+  // docs/PROTOCOL.md "settings.test": a
   // FREE probe, when the provider offers one — never the billed streamAnswer
   // call below, which is now only a fallback for a provider (necessarily an
   // external module — every built-in implements testConnection) that hasn't

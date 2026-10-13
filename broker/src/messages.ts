@@ -1,5 +1,5 @@
 // Central table of every broker-generated, human-readable sentence — one
-// entry per stable code, three languages. Goal G6 (docs/PROTOCOL.md
+// entry per stable code, three languages. (docs/PROTOCOL.md
 // de la connexion"): the product ships in en (default), fr, zh_CN, following
 // the browser UI language the client reports in its `hello`. Callers never
 // hand-write a French (or English) sentence inline any more — they look up a
@@ -56,8 +56,7 @@ type Catalog = Record<string, Record<Lang, string>>;
 // where a comment says otherwise — machine-placeholder, pending a translator
 // pass (see docs/README.md's existing "traduction automatique" disclosure
 // convention for the extension; the broker side needs the same treatment).
-// KEYS STILL NEEDING A REAL zh_CN TRANSLATION: every key in this file (24)
-// — see this worker's report for the exact count and file.
+// KEYS STILL NEEDING A REAL zh_CN TRANSLATION: every key in this file.
 const MESSAGES: Catalog = {
   // --- auth-required (docs/PROTOCOL.md: shown
   // verbatim to a human, unlike model-unavailable/internal) ---------------
@@ -73,8 +72,7 @@ const MESSAGES: Catalog = {
     zh_CN: "这看起来不是该服务的 API 密钥:请确认粘贴的是密钥本身。",
   },
 
-  // --- quota-exceeded / rate-limited (docs/PROTOCOL.md,
-  // amendment 2026-10-01, goal U1) — same contract as
+  // --- quota-exceeded / rate-limited (docs/PROTOCOL.md) — same contract as
   // auth.apiKeyRejected above: shown verbatim to a human, never
   // model-unavailable/internal's raw English technical detail. -------------
   "provider.quotaExceeded": {
@@ -88,8 +86,7 @@ const MESSAGES: Catalog = {
     zh_CN: "该提供商当前请求过多。请稍等片刻后重试。",
   },
 
-  // --- model-missing / provider-overloaded (amendment 2026-10-02,
-  // goal-j2FJ-kI7, "model failure path") — same contract as
+  // --- model-missing / provider-overloaded ("model failure path") — same contract as
   // provider.quotaExceeded above: shown verbatim to a human. -------------
   "provider.modelMissing": {
     en: "This model isn't available on your account — pick another one in settings.",
@@ -148,9 +145,8 @@ const MESSAGES: Catalog = {
     fr: "Impossible de joindre ce fournisseur.",
     zh_CN: "无法连接到此提供商。",
   },
-  // --- settings.test-result's `code: "model-missing"` (docs/PROTOCOL.md,
-  // amendment 2026-10-01, goal U2) — ollama only: the daemon answered but
-  // the configured model isn't installed, distinct from "ollama isn't
+  // --- settings.test-result's `code: "model-missing"` (docs/PROTOCOL.md) — ollama only: the daemon
+  // answered but the configured model isn't installed, distinct from "ollama isn't
   // responding" (settingsTest.failure.ollama above). ---------------------
   "settingsTest.failure.ollama.modelMissing": {
     en: "This model isn't installed in Ollama — pull it or pick another in settings.",
@@ -185,9 +181,8 @@ const MESSAGES: Catalog = {
     fr: "Aucun modèle configuré — choisissez-en un dans les réglages.",
     zh_CN: "未配置模型 — 请在设置中选择。",
   },
-  // Appended to a successful testConnection's message (amendment 2026-10-02,
-  // goal-j2FJ-kI7) when the free probe cannot see the account's credit
-  // balance — every built-in provider's check. Rendered by the options page
+  // Appended to a successful testConnection's message when the free probe cannot see the account's
+  // credit balance — every built-in provider's check. Rendered by the options page
   // as its own line, never folded into the success sentence above.
   "testConnection.creditUnchecked": {
     en: "This check cannot see your remaining credit.",
@@ -232,7 +227,7 @@ const MESSAGES: Catalog = {
 export type MessageCode = keyof typeof MESSAGES;
 
 /** Every registered code — used by the parity test ("every code has
- * fr/en/zh_CN", mission G6 item 6) and by anything that wants to iterate the
+ * fr/en/zh_CN") and by anything that wants to iterate the
  * whole catalog. */
 export function messageCodes(): MessageCode[] {
   return Object.keys(MESSAGES) as MessageCode[];

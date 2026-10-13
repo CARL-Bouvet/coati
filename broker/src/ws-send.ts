@@ -1,5 +1,5 @@
 // The one place every server-to-client frame is serialized. Split out of
-// server.ts (lot F5) — every handler module below imports this instead of
+// server.ts — every handler module below imports this instead of
 // each defining its own copy.
 
 import type { ServerMessage } from "./protocol.ts";

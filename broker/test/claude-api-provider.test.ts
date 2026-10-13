@@ -188,7 +188,23 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(capturedBody.messages).toEqual([{ role: "user", content: built.prompt }]);
   });
 
-  // Security review (2026-10-08, L8): the image must be wrapped inside the
+  test("an error event mid-stream is typed like its HTTP counterpart", async () => {
+    for (const [type, name] of [["overloaded_error", "ProviderOverloadedError"], ["rate_limit_error", "RateLimitedError"]]) {
+      __setFetchImplForTests((async () =>
+        fakeSseResponse([
+          `data: ${JSON.stringify({ type: "content_block_delta", delta: { type: "text_delta", text: "hi" } })}`,
+          `data: ${JSON.stringify({ type: "error", error: { type, message: "boom" } })}`,
+        ])) as unknown as typeof fetch);
+      const drain = async () => {
+        for await (const _e of streamAnswer(buildPrompt({ kind: "chat", text: "x" }), { apiKey: "k" })) {
+          // draining
+        }
+      };
+      await expect(drain()).rejects.toMatchObject({ name });
+    }
+  });
+
+  // L8: the image must be wrapped inside the
   // SAME per-request nonce fence as page text, not a bare sibling block.
   test("L8: an attached image is fenced — text(open) / image / text(close) / text(prompt)", async () => {
     let capturedBody: any;
@@ -246,7 +262,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(fetchCalled).toBe(false);
   });
 
-  // I3 (lot7 security review): a fetch()-level failure must never echo its
+  // I3: a fetch()-level failure must never echo its
   // own message text (which could, in principle, repeat request details) into
   // the error the panel displays — a fixed, generic message only.
   test("a fetch()-level failure never forwards the raw error text to the client-facing message", async () => {
@@ -290,7 +306,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect((err as Error).message).not.toContain("sk-ant-should-never-leak");
   });
 
-  test("a 403 response is classified as ModelMissingError, NOT AuthRequiredError (amendment 2026-10-02)", async () => {
+  test("a 403 response is classified as ModelMissingError, NOT AuthRequiredError", async () => {
     __setFetchImplForTests((async () => new Response("forbidden", { status: 403 })) as unknown as typeof fetch);
     const built = buildPrompt({ kind: "chat", text: "salut" });
     const err = await (async () => {
@@ -402,7 +418,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(err).toBeInstanceOf(QuotaExceededError);
   });
 
-  test("a plain 400 response (no billing signal) is model-unavailable, never internal (amendment 2026-10-02)", async () => {
+  test("a plain 400 response (no billing signal) is model-unavailable, never internal", async () => {
     __setFetchImplForTests((async () => new Response(JSON.stringify({ error: { type: "invalid_request_error", message: "bad request" } }), { status: 400 })) as unknown as typeof fetch);
     const built = buildPrompt({ kind: "chat", text: "salut" });
     const err = await (async () => {
@@ -419,7 +435,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(isModelUnavailableError(err)).toBe(true);
   });
 
-  test("a 400 response naming a spend limit is classified as quota-exceeded (amendment 2026-10-02)", async () => {
+  test("a 400 response naming a spend limit is classified as quota-exceeded", async () => {
     __setFetchImplForTests(
       (async () =>
         new Response(JSON.stringify({ error: { type: "invalid_request_error", message: "Spend limit reached for your organization" } }), {
@@ -439,7 +455,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(err).toBeInstanceOf(QuotaExceededError);
   });
 
-  test("a 529 overloaded_error response is classified as ProviderOverloadedError (amendment 2026-10-02)", async () => {
+  test("a 529 overloaded_error response is classified as ProviderOverloadedError", async () => {
     __setFetchImplForTests((async () => new Response("overloaded", { status: 529 })) as unknown as typeof fetch);
     const built = buildPrompt({ kind: "chat", text: "salut" });
     const err = await (async () => {
@@ -454,7 +470,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
     expect(err).toBeInstanceOf(ProviderOverloadedError);
   });
 
-  test("a bare 502/503 response is classified as ProviderOverloadedError (amendment 2026-10-02)", async () => {
+  test("a bare 502/503 response is classified as ProviderOverloadedError", async () => {
     for (const status of [502, 503]) {
       __setFetchImplForTests((async () => new Response("bad gateway", { status })) as unknown as typeof fetch);
       const built = buildPrompt({ kind: "chat", text: "salut" });
@@ -487,7 +503,7 @@ describe("claude-api streamAnswer — end to end against a fake fetch", () => {
   });
 });
 
-// Goal U2 (docs/PROTOCOL.md, amendment 2026-10-01): a FREE
+// docs/PROTOCOL.md: a FREE
 // `GET /v1/models` probe — never the billed `POST /v1/messages` streamAnswer
 // uses.
 describe("claude-api testConnection (goal U2)", () => {
@@ -510,7 +526,7 @@ describe("claude-api testConnection (goal U2)", () => {
       return new Response(JSON.stringify({ data: [] }), { status: 200 });
     }) as unknown as typeof fetch);
     const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-works" });
-    // Amendment 2026-10-02 (goal-j2FJ-kI7): a successful probe always
+    // A successful probe always
     // carries creditUnchecked — it can't see the account's credit balance.
     expect(result).toEqual({ ok: true, creditUnchecked: true });
     expect(calledUrl).toBe("https://api.anthropic.com/v1/models");
@@ -523,13 +539,13 @@ describe("claude-api testConnection (goal U2)", () => {
     expect(result).toEqual({ ok: false, code: "auth-required" });
   });
 
-  test("403 → model-missing, NOT auth-required (amendment 2026-10-02)", async () => {
+  test("403 → model-missing, NOT auth-required", async () => {
     __setFetchImplForTests((async () => new Response("forbidden", { status: 403 })) as unknown as typeof fetch);
     const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-works" });
     expect(result).toEqual({ ok: false, code: "model-missing" });
   });
 
-  test("200 with configured model absent from the returned list → model-missing (amendment 2026-10-02)", async () => {
+  test("200 with configured model absent from the returned list → model-missing", async () => {
     __setFetchImplForTests((async () => new Response(JSON.stringify({ data: [{ id: "claude-haiku-5" }] }), { status: 200 })) as unknown as typeof fetch);
     const result = await claudeApiProvider.testConnection!({ apiKey: "sk-ant-works", model: "claude-opus-5" });
     expect(result).toEqual({ ok: false, code: "model-missing" });

@@ -1,7 +1,7 @@
 // Coati side panel — chat send path: page extraction/attachment (now always
 // attempted when a tab is open — see extractForChat()'s own comment, the
 // "Read the page" switch it used to be gated on is gone), the shared
-// sendChatMessage() tail, site-card suggestions (lot F3 split of panel.js).
+// sendChatMessage() tail, site-card suggestions (split of panel.js).
 import { t } from "../lib/i18n-page.js";
 import { els } from "./dom-refs.js";
 import { panelState, newId } from "./panel-state.js";
@@ -130,7 +130,7 @@ export async function sendChatMessage(text, context, extraction, searchQuery, pa
   // actually attached, only offered — the done.page mention line under the
   // finished answer (chat-stream.js) says what actually happened instead.
   const note = wireContext ? PAGE_CONTENT_MARKER_SUFFIX : "";
-  // `relaunch` (plan-mes-prompts-28-09.md, "Relancer"): resending this exact
+  // `relaunch`: resending this exact
   // message means resending `text` through this same function, reading the
   // CURRENT page fresh — never a cached copy of `context`, which can hold
   // page content (kept out of chrome.storage.local, same reasoning as
@@ -185,7 +185,7 @@ export async function sendChatMessage(text, context, extraction, searchQuery, pa
   await sendClientMessage({ ...wire, id });
 }
 
-/** Lot A2 (plan-montrer-voir-chercher-08-10.md §3A) — builds the
+/** Builds the
  * `{extractionId, elements}` snapshot to attach to the ONE assistant message
  * this `context` is answering (see `elementsSnapshot`'s comment above).
  * Also surfaces, at most once per panel session, the "iframes aren't
@@ -210,7 +210,7 @@ export function buildElementsSnapshot(context) {
 // checked (sendChatMessage above) — the click itself is the gesture that
 // justifies the read (rule 5), same as the main button's summarize(). On a
 // YouTube video, the click may open YouTube's own transcript panel once, like
-// summarize() (named exception, widened on 26/09 — openTranscriptIfNeeded()).
+// summarize() (named exception — openTranscriptIfNeeded()).
 
 // YouTube loads its transcript asynchronously. After a user click (summarize,
 // video suggestion) or a question that makes the model ask for the page, we

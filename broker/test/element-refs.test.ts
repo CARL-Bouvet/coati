@@ -1,5 +1,4 @@
-// Unit tests for extension/panel/element-refs.js (Lot A2,
-// plan-montrer-voir-chercher-08-10.md §3A, flow (4)). Pure/DOM-free module,
+// Unit tests for extension/panel/element-refs.js. Pure/DOM-free module,
 // same testing style as broker/test/ui-timestamps-like modules.
 
 import { describe, expect, test } from "bun:test";

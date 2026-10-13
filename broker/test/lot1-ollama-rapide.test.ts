@@ -1,4 +1,4 @@
-// Tests for Lot 1 — Coati rapide avec Ollama (amendment 2026-10-07 bis):
+// Tests for — Coati rapide avec Ollama:
 //   1. Two-stage timeout: first-token → ModelTimeoutError; inactivity → ModelStalledError
 //   2. model.warmup: loaded, already, skipped, failed
 //   3. progress: loading → reading (via server.ts runStream)

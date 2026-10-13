@@ -1,6 +1,6 @@
 // Shared "available models" list (goal "model visible", lots 2 + 3).
 // One source — the local program's `models` reply to `models.list`
-// (docs/PROTOCOL.md, amendment 2026-10-07) — rendered the same way in three
+// (docs/PROTOCOL.md) — rendered the same way in three
 // places: the panel's model menu (next to "Connected"), the tutorial step
 // "Download a model" and the "Model" section of the settings page.
 //
@@ -40,9 +40,9 @@ export function sizeInGb(bytes) {
   return Math.round(bytes / 1e8) / 10;
 }
 
-// --- Machine capacity (lot 4) -------------------------------------------------
+// --- Machine capacity -------------------------------------------------
 //
-// COPY of the local program's rule, docs/PROTOCOL.md amendment 2026-10-07,
+// COPY of the local program's rule, docs/PROTOCOL.md,
 // "Machine capacity and `fit` classification" (broker/src/host.ts,
 // FIT_CONSTANTS / computeFit). The local program classifies INSTALLED
 // models; the extension needs the same verdict for models not downloaded
@@ -108,7 +108,7 @@ export function fitNoteKey(entry) {
 }
 
 /** true when `entry` is a local Ollama model that doesn't fully fit the
- * graphics card — slow (plan-ollama-rapide-07-10.md, points 4 and 6). A
+ * graphics card — slow. A
  * measured GPU share (loaded model) wins over the estimate. */
 export function isSlowLocalModel(entry) {
   if (entry?.provider !== "ollama" || entry.local !== true) return false;
@@ -195,7 +195,7 @@ export function groupModels(reply) {
         : undefined,
     contextTokens:
       Number.isInteger(entry.contextTokens) && entry.contextTokens > 0 ? entry.contextTokens : undefined,
-    // Lot B3 (plan-montrer-voir-chercher-08-10.md §3B): true/false/undefined
+    // true/false/undefined
     // (unknown) — see ModelEntry.vision's own comment in protocol.ts. Kept
     // as a real tri-state, never coerced to boolean: "unknown" and "false"
     // get different UI treatment (checkbox active vs. greyed).
@@ -222,7 +222,7 @@ export function isCurrentLocal(grouped) {
   return grouped.current.provider === "ollama";
 }
 
-/** Lot B3 — true/false/undefined (unknown) for the CURRENT model. No entry
+/** true/false/undefined (unknown) for the CURRENT model. No entry
  * at all (older local program, no `models.list`) is also "unknown": the
  * checkbox stays active rather than guessing it's unsupported. */
 export function currentModelVision(grouped) {
@@ -380,8 +380,7 @@ export function renderModelList(container, reply, opts) {
 }
 
 /**
- * Older local program, no `models.list` support (amendment 2026-10-07 bis,
- * docs/PROTOCOL.md): instead of the usual grouped
+ * Older local program, no `models.list` support (docs/PROTOCOL.md): instead of the usual grouped
  * list, one calm explanatory line plus a button to the settings page. Same
  * "menu" item shape as renderModelList() (focusable `<button>`s, roving
  * tabindex handled by the caller) so it drops into the same container and

@@ -1,4 +1,4 @@
-// Coati content script — entry point (lot F4 split).
+// Coati content script — entry point (split).
 //
 // This content script is loaded as several classic (non-module) files,
 // injected together and in order via chrome.scripting.executeScript({
@@ -63,7 +63,7 @@
   }
 
   const result = runExtraction();
-  // Lot A2 — merged in last, after whichever shape above ran: an exception
+  // Merged in last, after whichever shape above ran: an exception
   // while numbering elements must never take down the extraction itself
   // (same "never fails the extraction" promise as buildPageKindContext()).
   try {

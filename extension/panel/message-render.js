@@ -1,5 +1,5 @@
 // Coati side panel — message rendering: bubbles, recovery blocks,
-// timestamp/element-ref linkification, relaunch (lot F3 split of panel.js).
+// timestamp/element-ref linkification, relaunch (split of panel.js).
 //
 // Each user message carries enough metadata (`msg.relaunch`) to resend it:
 // a chat message replays through the exact same path as a fresh sendChat()
@@ -345,7 +345,7 @@ export function renderMessage(msg, { append = false } = {}) {
     // summarize()) — an ordinary article summary that happens to contain
     // "[1:23]" has none, so its timestamps stay plain text (deliverable 4).
     if (msg.role === "assistant" && msg.videoId) linkifyTimestamps(node, msg.videoId);
-    // Lot A2 bug fix — THIS message's own snapshot (see its comment above),
+    // Bug fix — THIS message's own snapshot (see its comment above),
     // never a shared "current" one: an older message keeps resolving its
     // own refs against the extraction it was actually answered from.
     if (msg.role === "assistant" && msg.elementsSnapshot && msg.elementsSnapshot.elements.length) {
@@ -440,7 +440,7 @@ export function linkifyTimestamps(container, videoId) {
 }
 
 /**
- * Lot A2 (plan-montrer-voir-chercher-08-10.md §3A, flow (4)) — walks a
+ * Walks a
  * rendered message's text nodes and turns known `[[eN]]` tokens into
  * "Montrer : …" <button>s, same split as linkifyTimestamps() above. The
  * button's visible label always comes from `elements` (the extraction),
@@ -451,7 +451,7 @@ export function linkifyTimestamps(container, videoId) {
  * its field's comment on the assistant message object) — every button
  * built here captures its full click payload (resolveElementClick(),
  * element-refs.js) from THIS snapshot, at render time, into the closure.
- * Bug fixed 08/10 (admin review): a shared "current" snapshot used to let a
+ * Bug a shared "current" snapshot used to let a
  * SECOND question silently repoint an OLDER message's button at whatever
  * the new extraction's same ref number happened to mean.
  */

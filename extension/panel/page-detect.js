@@ -1,4 +1,4 @@
-// Coati side panel — page detection (lot F3 split of panel.js): metadata-only
+// Coati side panel — page detection (split of panel.js): metadata-only
 // tab-switch classification, the one gesture-gated full extraction on tab
 // read, and the favicon lookup that rides along. See panel.js's own header
 // comment ("Permission flow for the contextual main button") for the rule
@@ -15,7 +15,7 @@ import { currentTabId } from "./panel.js";
 // Page detection state (deliverable 1) — see panel.js's header comment.
 export let pageType = null; // "video" | "article" | "page" | null (unknown)
 // "list" | "listing" | "article" | "other" | null (unknown — no DOM read yet,
-// or the client-side context predates the amendment). DOM-derived only:
+// or the client-side context carries no page kind). DOM-derived only:
 // redetectTabFromMetadata() never sets this (see its own comment).
 export let pageKind = null;
 export let knownOrigin = null; // origin string once learned (granted, or from a failed-extraction error), or null
@@ -115,7 +115,7 @@ export async function redetectTab(tabId) {
     resetPageState();
     setInternalPageNotice(isInternalPageFailure(err));
     // T47: the injection-refused error no longer carries the page address
-    // (neither browser embeds it — verified 2026-09-29), so the origin is
+    // (neither browser embeds it), so the origin is
     // read from tabs.get() instead. Legitimate here specifically: this
     // function only runs inside a genuine gesture (icon click, context menu,
     // shortcut, the encart's read button), whose activeTab grant already gives tab metadata

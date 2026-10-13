@@ -1,5 +1,5 @@
 // Unit tests for the external provider module loader (docs/ARCHITECTURE.md,
-// docs/PROTOCOL.md's amendment 2026-09-29) — broker/src/providers/registry.ts.
+// docs/PROTOCOL.md) — broker/src/providers/registry.ts.
 // Covers the four cases CLAUDE.md security rule #3 requires: a valid module
 // loads, a broken module (import throws, bad shape, missing default export)
 // is logged and skipped rather than crashing, and a missing file behaves the

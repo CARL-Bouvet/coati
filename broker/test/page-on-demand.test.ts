@@ -1,4 +1,4 @@
-// Lot 7, "page on demand" — docs/PROTOCOL.md "Page on demand". Covers
+// "page on demand" — docs/PROTOCOL.md "Page on demand". Covers
 // protocol parsing (chat.page/devMode, page.content/page.decline, size
 // limits), the shared marker detector (model/page-marker.ts), the full
 // re-run flow against a fake provider (startServer + __setProvidersForTests,

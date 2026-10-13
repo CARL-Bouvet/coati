@@ -1,6 +1,5 @@
-// broker/src/native-host.ts — docs/PROTOCOL.md (amendment
-// 2026-09-30, G4). Unit tests drive runNativeHostLogic directly against a
-// fake stdin (fast, no process spawn); the integration tests at the bottom
+// broker/src/native-host.ts — docs/PROTOCOL.md. Unit tests drive runNativeHostLogic directly
+// against a fake stdin (fast, no process spawn); the integration tests at the bottom
 // spawn the real `bun run src/server.ts <arg>` process, per the test plan.
 
 import { describe, expect, test } from "bun:test";

@@ -1,4 +1,4 @@
-// "Mes prompts" page — plan-mes-prompts-28-09.md, lot 4. Full-page grid, one
+// "Mes prompts" page. Full-page grid, one
 // case per site, talking to the broker through the service worker exactly
 // like options.js (coati:client-message / coati:broker-message / coati:get-
 // status / coati:status — see extension/options.js:84-99). textContent only,
@@ -21,7 +21,7 @@ applyI18n(document);
 // recorded in the mission report.
 const ARM_TIMEOUT_MS = 4000;
 
-// --- "All sites" (docs/DECISIONS.md T42, amendment 2026-09-30 bis) ---
+// --- "All sites" (docs/DECISIONS.md T42) ---
 // User-facing strings grouped here, from _locales/<lang>/messages.json.
 // A mutable object rather than a fresh const so U1's live language switch
 // (onLanguageChange below) can refresh it in place — every reader
@@ -246,7 +246,7 @@ function buildRowsList(siteKey, items) {
   return list;
 }
 
-// Head case (plan-activation-28-09.md, "Settled points" 1, Romain's
+// Head case (Romain's
 // correction at goal launch): full board width, coloured background, NO
 // case title of its own — two parts instead:
 //   - "*" ("On all sites"): the only heading in the case, always
@@ -333,7 +333,7 @@ function buildCaseElement(descriptor, items) {
   return section;
 }
 
-// --- "Active" switch (plan-activation-28-09.md, "Settled points" 2) -------
+// --- "Active" switch -------
 // One per SITE case (popular or user's own) — never in the head case, which
 // has no single site key to activate. Same `role="switch"` button shape as
 // the panel's "Read page" (extension/panel/panel.html:36-39), duplicated
@@ -381,7 +381,7 @@ function handleActiveSwitchClick(btn) {
   } else {
     api.permissions
       .request({ origins: patterns })
-      .catch(() => false) // refused -> stays off, no error UI (plan-activation-28-09.md)
+      .catch(() => false) // refused -> stays off, no error UI
       .then(() => refreshActiveSwitch(btn));
   }
 }
@@ -570,7 +570,7 @@ function openEditor(caseKey, item) {
   if (editing) {
     if (editing.key === item.key) return; // already open
     // "unsaved text is never lost silently — opening another row while
-    // dirty keeps the first open" (plan-mes-prompts-28-09.md).
+    // dirty keeps the first open".
     if (isDirty(editing)) return;
   }
   editing = {
@@ -579,7 +579,7 @@ function openEditor(caseKey, item) {
     isCoati: item.kind === "coati",
     // A Coati suggestion opens with its label as the title: saving it
     // unchanged must keep the button's name ("Timestamped key points"), not
-    // fall back to the start of the text (admin fix, 28/09).
+    // fall back to the start of the text.
     title: item.kind === "user" ? item.title ?? "" : item.label ?? "",
     body: item.body ?? "",
     originalTitle: item.kind === "user" ? item.title ?? "" : item.label ?? "",
@@ -610,9 +610,8 @@ async function saveEditingUserPrompt() {
   closeEditor();
 }
 
-// Converting a Coati suggestion into a user prompt (docs/PROTOCOL.md,
-// plan-mes-prompts-28-09.md lot 4, point 5): create the prompt, then replace
-// the suggestion's id with the new prompt's id at the very same spot in the
+// Converting a Coati suggestion into a user prompt (docs/PROTOCOL.md, point 5): create the prompt,
+// then replace the suggestion's id with the new prompt's id at the very same spot in the
 // case's order, and mark the suggestion removed — two awaited round trips,
 // in that order, so prefs.json only ever describes a state that already
 // matches prompts-v2.json.

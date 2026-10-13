@@ -58,7 +58,7 @@
   }
 
   // `?motion=live` lifts the determinism stylesheet so an animation can be
-  // watched (G5: the encart button's breathing ring and reading spinner);
+  // watched (the encart button's breathing ring and reading spinner);
   // `?motion=<ms>` also freezes every running animation at that time, for a
   // deterministic capture of a mid-animation frame (e.g. motion=500 = halo
   // half-grown). Without the param, nothing changes.

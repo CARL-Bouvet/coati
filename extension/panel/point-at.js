@@ -1,5 +1,4 @@
-// Coati side panel — "Montrer : …" point-at-element, timestamp seek (lot F3
-// split of panel.js).
+// Coati side panel — "Montrer : …" point-at-element, timestamp seek (split of panel.js).
 import { t } from "../lib/i18n-page.js";
 import { api } from "../lib/browser-compat.js";
 import { newId } from "./panel-state.js";

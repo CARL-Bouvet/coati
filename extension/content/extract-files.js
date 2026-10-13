@@ -1,5 +1,5 @@
 // Ordered list of the files making up the content/extract.js content
-// script (lot F4 split) — single source of truth for anyone who needs to
+// script (split) — single source of truth for anyone who needs to
 // inject or evaluate them together, in order:
 //   - chrome.scripting.executeScript({ files: EXTRACT_FILES.map(f => "/" + f) })
 //     (the panel — see extension/panel/page-extract.js's extractFromTab()).

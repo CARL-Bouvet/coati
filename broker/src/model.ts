@@ -5,7 +5,7 @@
 // system prompt apply identically no matter which provider answers. Do not
 // duplicate buildPrompt/buildSystemPrompt inside a provider.
 //
-// Lot F5 (split without behaviour change): the implementation now lives in
+// (split without behaviour change): the implementation now lives in
 // model/render.ts (fencing + sanitizing + Context/sources rendering),
 // model/build.ts (buildPrompt + per-pageKind summarize instructions +
 // history trim/render) and model/streaming.ts (typed errors + timeouts +

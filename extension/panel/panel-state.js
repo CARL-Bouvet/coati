@@ -1,4 +1,4 @@
-// Coati side panel — shared mutable state (lot F3 split of panel.js).
+// Coati side panel — shared mutable state (split of panel.js).
 //
 // `panelState` groups every piece of state that is reassigned from MORE
 // THAN ONE of the panel's feature modules (verified by grepping every

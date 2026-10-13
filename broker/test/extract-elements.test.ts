@@ -1,5 +1,4 @@
-// Unit tests for extract.js's Lot A2 step (plan-montrer-voir-chercher-08-10.md
-// §3A, flow (1)-(2)): collectInteractiveElements / buildElementsContext.
+// Unit tests for extract.js's elements step: collectInteractiveElements / buildElementsContext.
 //
 // Reuses the fake-DOM harness pattern from extract.test.ts / extract-t45.test.ts
 // (FakeElement / FakeHTMLCollection / runExtract), extended here with the one
@@ -11,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EXTRACT_FILES } from "../../extension/content/extract-files.js";
 
-// Lot F4: the content script is split across several files, injected
+// The content script is split across several files, injected
 // together and in order, all sharing one global scope — see
 // extract-files.js. Concatenate every file's declarations verbatim as
 // EXTRACT_JS_DECLARATIONS; only the LAST file (content/extract.js) ends in

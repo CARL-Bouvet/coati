@@ -1,5 +1,5 @@
 // Per-site display preferences persisted at ~/.local/share/coati/prefs.json.
-// Amendment 2026-09-28 ("My prompts by site" — docs/DECISIONS.md T41). Same
+// ("My prompts by site" — docs/DECISIONS.md T41). Same
 // guarantees as prompts.ts: atomic write, per-dataDir lock, tolerant read
 // (absent/corrupt/unknown shape → empty, never throws at the client). See
 // docs/PROTOCOL.md.

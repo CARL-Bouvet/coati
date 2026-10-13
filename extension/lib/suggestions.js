@@ -1,10 +1,10 @@
 // Site-aware suggestion lookup — pure ESM, no DOM, no chrome.*.
 // Importable by the panel (extension context) and by bun test (Node/Bun).
 //
-// Amendment 2026-09-28 ("Mes prompts par site" — docs/DECISIONS.md T27, T30, T31): no more
+// ("Mes prompts par site" — docs/DECISIONS.md T27, T30, T31): no more
 // generic fallback set. An unknown host, or a known popular-site host outside the path where
 // Coati has something to say (e.g. a YouTube channel page, not a video), gets `items: []` — the
-// panel shows only the user's own prompts for that site (T27 amendment).
+// panel shows only the user's own prompts for that site (T27).
 import { SITES } from "./suggestions-data.js";
 
 /**

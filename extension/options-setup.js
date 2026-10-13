@@ -1,5 +1,5 @@
-// The step-by-step model guide (goal U2), merged into the settings page's
-// two model tabs (redesign 08/10). `options.html#setup` still opens it
+// The step-by-step model guide, merged into the settings page's
+// two model tabs. `options.html#setup` still opens it
 // (contract with the panel: its "never connected" message and "?" button
 // open that URL) — options.js picks the tab, this file builds the steps:
 //   local  — appended to the "On this computer" tab: one fold with the
@@ -248,7 +248,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   running.body.append(runningCheck);
 
   // Step 3 — pick and pull a model.
-  // Lot 4 (amendment 2026-10-07): when the local program reports the
+  // When the local program reports the
   // machine's capacity (`host`), the suggestions are filtered by it
   // (lib/model-list.js suggestForHost); otherwise (older local program, or
   // no answer yet) the previous table driven by navigator.deviceMemory.
@@ -420,7 +420,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   checkButtons.push(lmButton);
   lmBody.append(lmButton, lmResult);
 
-  // "Speed up Ollama" (plan-ollama-rapide-07-10.md, point 5). This
+  // "Speed up Ollama". This
   // machine's OS first (same detectOs() as the download button).
   const speedupFold = fold("setupOllamaSpeedup", t("setup_speedup_title"), "fold setup-speedup");
   const speedup = speedupFold.details;
@@ -433,7 +433,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   speedupLinks.append(externalLink(OLLAMA_SPEEDUP.faqUrl, t("setup_speedup_faq")));
   speedupBody.append(speedupLinks);
 
-  // Order agreed 08/10: guide (with the suggested models), Speed up, LM Studio.
+  // Order: guide (with the suggested models), Speed up, LM Studio.
   localRoot.append(guide.details, speedup, lmFold.details);
   guide.details.addEventListener("toggle", () => {
     if (guide.details.open) prefetchModels();

@@ -1,5 +1,5 @@
 // 60s cache in front of each provider's checkStatus() — docs/PROTOCOL.md
-// "Provider availability" (amendment 2026-09-25): "Broker-side cache: 60 s.
+// "Provider availability": "Broker-side cache: 60 s.
 // [...] Two concurrent requests during an in-progress check share the same
 // check." Keyed on (provider, model, ollamaUrl,
 // key presence) so a settings change is never served a stale answer even
@@ -79,11 +79,10 @@ export class ProviderStatusCache {
   }
 
   /** Called on a successful settings.set — docs/PROTOCOL.md: "A successful
-   * settings.set clears the cache." Also empties `inflight` (L3, lot7 security
-   * review): a probe that never settles (a subprocess-backed provider's own
-   * checkStatus could hang) would otherwise keep every later `get()` for that key waiting on
-   * the same stuck promise forever, even past an explicit clear() meant to
-   * force a fresh probe. The stuck probe itself is left to run — only its
+   * settings.set clears the cache." Also empties `inflight` (L3): a probe that never settles (a
+   * subprocess-backed provider's own checkStatus could hang) would otherwise keep every later
+   * `get()` for that key waiting on the same stuck promise forever, even past an explicit clear()
+   * meant to force a fresh probe. The stuck probe itself is left to run — only its
    * former callers are freed to start a new one. */
   clear(): void {
     this.cache.clear();

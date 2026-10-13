@@ -1,14 +1,13 @@
 // Client -> broker message shapes (docs/PROTOCOL.md) and the ClientMessage
-// union. Split out of protocol.ts (lot F5).
+// union. Split out of protocol.ts.
 
 import type { ProviderId } from "../config.ts";
 import type { Context } from "./context.ts";
 import type { SitePrefs } from "./prompts-prefs.ts";
 import type { ChatAbility, ChatImage, HistoryEntry, OpenDeclineReason, PageMeta, SearchBody, SearchDeclineReason, SearchPageEntry } from "./chat.ts";
 
-// v: 2 handshake — docs/PROTOCOL.md "Handshake `v: 2`" (amendement
-// 2026-09-30, G4). `v: 1` (secret-based) no longer exists anywhere in the
-// code, not even behind `legacyPairing` — see "Legacy mode".
+// v: 2 handshake — docs/PROTOCOL.md "Handshake `v: 2`". `v: 1` (secret-based) no longer exists
+// anywhere in the code, not even behind `legacyPairing` — see "Legacy mode".
 export interface HelloMessage {
   type: "hello";
   v: 2;
@@ -20,7 +19,7 @@ export interface HelloMessage {
    * `"native"` (the broker key, via the native host) when absent, or
    * `"pasted"` (the legacy-mode permanent secret `S`). */
   key?: "native" | "pasted";
-  /** Goal G6 (docs/PROTOCOL.md "Langue de la connexion"): the client's UI
+  /** docs/PROTOCOL.md "Langue de la connexion": the client's UI
    * language, raw BCP 47 (e.g. "fr", "en-US", "zh-CN") straight from
    * chrome.i18n.getUILanguage() — normalised by messages.ts's normalizeLang()
    * once, at hello time (server.ts), and kept for the life of the
@@ -44,12 +43,12 @@ export interface ChatMessage {
   id: string;
   text: string;
   context?: Context;
-  // Amendement 2026-10-08 (lot B1). See ChatImage above.
+  // See ChatImage above.
   image?: ChatImage;
-  // Amendement 2026-10-08 (bis, "historique"). See HistoryEntry above.
+  // "historique". See HistoryEntry above.
   history?: HistoryEntry[];
-  // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
-  // on demand"). Page metadata, offered instead of `context` so the model
+  // "page on demand" — docs/PROTOCOL.md "Page
+  // on demand". Page metadata, offered instead of `context` so the model
   // reads the page only when it actually needs to. Ignored by the broker
   // whenever `context` is ALSO present (point 2 of the spec: "if chat.context
   // is present, behaviour is unchanged") — see handlers/dispatch.ts.
@@ -67,8 +66,8 @@ export interface ChatMessage {
   pageUnreadable?: boolean;
 }
 
-// Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
-// on demand"). The client's answer to a `page.request`: either the page's
+// "page on demand" — docs/PROTOCOL.md "Page
+// on demand". The client's answer to a `page.request`: either the page's
 // content (`context`, the SAME shape a `chat` would have carried up front —
 // for level "dev", `context.text` holds the cleaned HTML rather than visible
 // text) or a decline (PageDeclineMessage below). `target` names the `chat`
@@ -181,7 +180,7 @@ export interface CancelMessage {
   target: string;
 }
 
-// Added 2026-09-20 (3) — see docs/PROTOCOL.md's dated amendment. Lets the
+// 3 — see docs/PROTOCOL.md's dated. Lets the
 // options page read and change the active model provider. Never carries a
 // secret (no API key field) — see CLAUDE.md rule #1.
 export interface SettingsGetMessage {
@@ -204,15 +203,14 @@ export interface SettingsSetMessage {
    */
   apiKey?: string;
   /**
-   * Base URL of the `openai-compat` provider's server (amendement 2026-09-30
-   * bis, goal G5), e.g. "http://localhost:1234/v1". NOT a secret — unlike
-   * apiKey, it IS echoed back in the `settings` response (see
+   * Base URL of the `openai-compat` provider's server, e.g. "http://localhost:1234/v1". NOT a
+   * secret — unlike apiKey, it IS echoed back in the `settings` response (see
    * SettingsMessage.baseUrl below). An empty string means "forget the stored
    * address", same semantics as apiKey. Omitted means "leave unchanged".
    */
   baseUrl?: string;
   /**
-   * Amendement 2026-10-08 (lot C1, EXTRA task — docs/PROTOCOL.md §9bis).
+   * (EXTRA task — docs/PROTOCOL.md §9bis).
    * Forgets a stored key WITHOUT touching the active provider/model or any
    * other field in this same patch — `"claude-api"` / `"openai-compat"`
    * clear `apiKeys`; any other id
@@ -232,7 +230,7 @@ export interface SettingsTestMessage {
   provider: ProviderId;
 }
 
-// Amendement 2026-09-25 — "Provider availability". Sent by the panel
+// "Provider availability". Sent by the panel
 // once per panel open only (never automatically, never periodically — see
 // CLAUDE.md rule #5, "the gesture rule"). Takes no field beyond `id`: it
 // always targets the currently active provider.
@@ -241,15 +239,15 @@ export interface ProviderStatusMessage {
   id: string;
 }
 
-// Amendement 2026-10-07 — "Available models list". Lists all usable
+// "Available models list". Lists all usable
 // models from every configured source, regardless of the active provider.
-// Lot 2 builds the UI; this message only provides the data.
+// Builds the UI; this message only provides the data.
 export interface ModelsListMessage {
   type: "models.list";
   id: string;
 }
 
-// Amendement 2026-10-07 (bis) — "Model warm-up". Asks the broker to
+// "Model warm-up". Asks the broker to
 // pre-load the active Ollama model so the first request is faster. Non-Ollama
 // providers reply with state:"skipped".
 export interface ModelWarmupMessage {

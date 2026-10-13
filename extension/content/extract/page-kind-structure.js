@@ -2,7 +2,7 @@
 // T45 (docs/DECISIONS.md) — shadow DOM, invisible text, structure, readability.
 // points 3, 5, 6 and 4 of T45.
 //
-// Part of the content/extract.js content script (lot F4 split) — this file
+// Part of the content/extract.js content script (split) — this file
 // also defines buildPageKindContext(), the orchestrator for steps 1-5 of the
 // "types de page" pipeline. See content/extract-files.js for the full load
 // order.

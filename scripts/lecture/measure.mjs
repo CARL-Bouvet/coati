@@ -1,5 +1,5 @@
 // Measures Coati's generic page reading on a corpus of real pages (internal
-// study, 2026-09-29). Isolated browser, throwaway profile, extension copy
+// study). Isolated browser, throwaway profile, extension copy
 // WITHOUT `key` (different ID: no pairing with the real broker possible). One
 // visit per URL; one automatic click on "Accept all" consent banners.
 // Usage: node scripts/lecture/measure.mjs [key1,key2…]  (Playwright, run `bun install`
@@ -13,7 +13,7 @@ import { mkdtempSync, rmSync, cpSync, readFileSync, writeFileSync, mkdirSync } f
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { EXTRACT_FILES } from "../../extension/content/extract-files.js";
-// Lot F4: content/extract.js is now split across several files, injected
+// content/extract.js is now split across several files, injected
 // together and in order (see extract-files.js) — same contract panel.js
 // uses, applied here to the extension copy this script loads into Brave.
 const LEVEL = process.env.LEVEL || "text";

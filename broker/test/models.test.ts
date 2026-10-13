@@ -1,4 +1,4 @@
-// Tests for models.list (amendment 2026-10-07):
+// Tests for models.list:
 //   - models.list with a non-ollama active provider still lists Ollama models
 //   - embedding-only model (capabilities without "completion") is filtered out
 //   - unreachable Ollama → sources state "unreachable", no crash
@@ -147,7 +147,7 @@ describe("models.list — always queries Ollama regardless of active provider", 
     expect(ollamaEntries.every((e) => e.local === true)).toBe(true);
     // Ollama source state = ok
     expect(msg.sources.find((s) => s.provider === "ollama")?.state).toBe("ok");
-    // host is now a HostCapacity object (lot 4 done)
+    // host is now a HostCapacity object (done)
     expect(msg.host).not.toBeNull();
     expect(typeof (msg.host as { ramGb: number }).ramGb).toBe("number");
 
@@ -298,7 +298,7 @@ describe("lastModels — per-provider model memory", () => {
     expect(JSON.stringify(cfg)).not.toContain("BSA-secret");
   });
 
-  // Amendment 2026-10-07 bis — bug report: "modèle configuré absent
+  // Bug report: "modèle configuré absent
   // d'Ollama" shown even though the model was installed, because switching
   // AWAY from a provider before it ever had a model recorded in lastModels
   // lost that model for good.

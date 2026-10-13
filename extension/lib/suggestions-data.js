@@ -35,7 +35,7 @@ export const SITES = [
     items: [
       // Not a chat prompt: the panel's existing summarize/transcript action
       // (panel.js's "Summarize" path). Not editable in "My prompts" — the page
-      // (lot 4) must special-case `action` items and skip the edit/delete UI
+      //  must special-case `action` items and skip the edit/delete UI
       // that applies to prompt-backed items.
       { id: "coati:youtube:summarize", label: t("panel_summarize_video"), action: "summarize" },
     ],
@@ -91,7 +91,7 @@ const NO_SUBDOMAIN_HOSTS = new Set(["youtu.be"]);
 // EXPLICIT schemes only, never `*://`: the manifest's optional_host_permissions declare
 // `http://*/*` and `https://*/*` as two separate patterns, and Chrome refuses any requested
 // pattern that no single declared pattern contains — `*://…` is rejected with "Only
-// permissions specified in the manifest may be requested" (bug of 28/09: nothing but YouTube,
+// permissions specified in the manifest may be requested" (nothing but YouTube,
 // granted earlier by the old per-origin link, could ever be activated).
 /** @param {string} host @param {string} scheme */
 function permissionPatternForHost(host, scheme) {
@@ -100,7 +100,7 @@ function permissionPatternForHost(host, scheme) {
 
 /**
  * Match patterns to request/check with chrome.permissions for a given site key
- * (docs/DECISIONS.md T42/T43, internal design plan, 28/09, lot 1). Pure — no chrome.*.
+ * (docs/DECISIONS.md T42/T43). Pure — no chrome.*.
  *
  * - A popular-site key (`@youtube`, `@google`, `@wikipedia`, `@reddit`): an `https://`
  *   pattern for every host of that site, so activating a popular site covers all its domains at

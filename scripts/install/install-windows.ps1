@@ -1,6 +1,6 @@
 # Installs a downloaded coati-broker.exe as both a per-user scheduled task
-# and the Native Messaging host on Windows (goal G4, docs/PROTOCOL.md
-# "Amendment 2026-09-30 : Native Messaging" - section "Windows"). Idempotent.
+# and the Native Messaging host on Windows (docs/PROTOCOL.md
+# "Native Messaging" - section "Windows"). Idempotent.
 # Never requires an elevated ("Run as administrator") shell.
 #
 #   scripts/install/install-windows.ps1 -Binary <path-to-coati-broker.exe> [options]
@@ -78,7 +78,7 @@ if ($DryRun) {
     Unblock-File -LiteralPath $BinDest -ErrorAction SilentlyContinue
 }
 
-# Path is JSON-encoded via ConvertTo-Json (final security review: the
+# Path is JSON-encoded via ConvertTo-Json (the
 # previous hand-rolled regex only doubled backslashes, leaving any `"` in
 # $BinDest able to break out of the JSON string - unlikely for a path under
 # LOCALAPPDATA, but not guaranteed for a custom -Prefix). ConvertTo-Json

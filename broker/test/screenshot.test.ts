@@ -1,8 +1,7 @@
-// Unit tests for extension/panel/screenshot.js's PURE helpers (Lot B3,
-// plan-montrer-voir-chercher-08-10.md §3B). captureScreen() itself touches
+// Unit tests for extension/panel/screenshot.js's PURE helpers. captureScreen() itself touches
 // chrome.tabs/createImageBitmap/OffscreenCanvas — none of those exist under
 // `bun test` (no browser) — so only the size/quality/url maths is covered
-// here; captureScreen() needs the Chromium e2e the admin runs separately.
+// here; captureScreen() needs the Chromium e2e run separately.
 
 import { describe, expect, test } from "bun:test";
 import {

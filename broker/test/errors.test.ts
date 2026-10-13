@@ -78,10 +78,9 @@ describe("unauthorized error emission on bad handshake", () => {
   // Oversized message BEFORE authentication: still the generic handshake
   // failure (4401), same as any other malformed hello — see
   // docs/PROTOCOL.md. Sized between MAX_MESSAGE_BYTES
-  // (256 KiB) and the server's `websocket.maxPayloadLength` (final security
-  // review: MAX_MESSAGE_BYTES + 4 KiB slack, server.ts) so the frame still
-  // reaches the app-level size check exercised here, rather than being
-  // dropped by Bun itself first (see the next test for that case).
+  // (256 KiB) and the server's `websocket.maxPayloadLength` (MAX_MESSAGE_BYTES + 4 KiB slack,
+  // server.ts) so the frame still reaches the app-level size check exercised here, rather than
+  // being dropped by Bun itself first (see the next test for that case).
   test("an oversized message during the handshake gets the generic unauthorized/4401, not a distinct oversized error", async () => {
     const { server } = boot();
     const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`, {
@@ -96,7 +95,7 @@ describe("unauthorized error emission on bad handshake", () => {
     expect(messages[0]).toMatchObject({ type: "error", id: "hello", code: "unauthorized" });
   });
 
-  // Final security review: a frame past `websocket.maxPayloadLength` itself
+  // A frame past `websocket.maxPayloadLength` itself
   // (not just past the app-level MAX_MESSAGE_BYTES check above) is dropped
   // by Bun at the protocol layer before the `message` handler ever runs —
   // closed, never delivered, and the server keeps serving other connections
@@ -120,8 +119,7 @@ describe("unauthorized error emission on bad handshake", () => {
   });
 });
 
-// docs/PROTOCOL.md (amendment 2026-09-25, audit écart
-// n°11): AFTER authentication, an oversized message gets a DISTINCT `error`
+// docs/PROTOCOL.md: AFTER authentication, an oversized message gets a DISTINCT `error`
 // with id "oversized", then close(1009) — not the generic 4401. The message
 // is never parsed (its own `id`, if any, is never looked for).
 describe("oversized message, post-authentication", () => {
@@ -141,7 +139,7 @@ describe("oversized message, post-authentication", () => {
     });
 
     // Over the 256 KiB cap (MAX_MESSAGE_BYTES) but still under the server's
-    // websocket.maxPayloadLength (final security review: MAX_MESSAGE_BYTES +
+    // websocket.maxPayloadLength (MAX_MESSAGE_BYTES +
     // 4 KiB slack, server.ts) — otherwise Bun itself drops the frame before
     // this app-level check/response ever runs (see errors.test.ts's
     // "maxPayloadLength" test for that separate case). Otherwise a

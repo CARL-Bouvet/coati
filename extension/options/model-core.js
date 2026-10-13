@@ -1,6 +1,6 @@
 // Coati options page — connection status, tabs, deep links (#setup,
 // #provider-<id>), settings.get/models.list, and the "Model"
-// section's current-model + installed-list rendering (lot F3 split of
+// section's current-model + installed-list rendering (split of
 // options.js). Owns the shared connection/model state that
 // model-services.js and provider-tests.js only ever read.
 
@@ -30,7 +30,7 @@ import {
 // Connection state of the local program ("connected", "disconnected", …).
 export let status = "unknown";
 // Latest `settings` and `models` replies (docs/PROTOCOL.md). `models` lists
-// every usable model whatever the active provider (amendement 2026-10-07).
+// every usable model whatever the active provider.
 export let lastSettings = null;
 export let modelsReply = null;
 let modelsRequestId = null;
@@ -52,7 +52,7 @@ let tabChosen = false;
 // none) until the user toggles it or a deep link opens it: then it holds.
 let addServiceHeld = false;
 
-// The setup guide (goal U2), merged into the tabs (options-setup.js).
+// The setup guide, merged into the tabs (options-setup.js).
 const setupGuide = mountSetupGuide({
   localRoot: els.setupLocal,
   onlineRoot: els.setupOnline,
@@ -73,7 +73,7 @@ export function applyStatus(state) {
 
   // "no-host" (native messaging unreachable) is the state where the
   // Flatpak/Snap paste field is the actual fix — don't leave it folded away.
-  // Amendement 2026-10-02 (goal-j2FJ-kI7): "no-token" (Chromium id unknown,
+  // "no-token" (Chromium id unknown,
   // or a legacy secret refused) no longer force-expands it — pasting another
   // secret isn't the remedy for that state, it was a leftover over-trigger.
   if (state === "no-host") els.legacyPairing.open = true;
@@ -93,7 +93,7 @@ let setupHashPending = false;
 export function setupOpenOnHash() {
   const openIfAsked = () => {
     if (location.hash === "#setup") openSetup();
-    // The panel's slow-answer tip (plan-ollama-rapide-07-10.md, point 6).
+    // The panel's slow-answer tip.
     else if (location.hash === "#setup-ollama-speedup") {
       tabChosen = true;
       selectTab("local");
@@ -121,8 +121,7 @@ function openSetup() {
   els.addService.querySelector("summary")?.focus({ preventScroll: true });
 }
 
-// Deep link from the panel's error banner (amendement 2026-10-02,
-// goal-j2FJ-kI7, "model failure flow"): options.html#provider-<id> shows
+// Deep link from the panel's error banner ("model failure flow"): options.html#provider-<id> shows
 // that provider (its service row, or the current-model line for a local
 // one), focuses its most relevant control, and auto-runs the FREE
 // settings.test once — never replayed on a later re-render of the same
@@ -295,7 +294,7 @@ export function serviceState(entry) {
 
 /** Online services shown as rows: the active one when it is online, plus
  * every configured one. An unconfigured service is not listed — "Add a
- * service" is the way in (redesign 08/10, decision 4). */
+ * service" is the way in (decision 4). */
 export function onlineServices(settings) {
   const services = (settings?.available ?? []).filter((entry) => {
     if (!entry || typeof entry.id !== "string" || entry.id === "ollama") return false;
@@ -434,7 +433,7 @@ export function handleBrokerMessage(reply) {
     renderModelSection();
     setupGuide.onSettings(reply);
     // Any settings change (here, in the panel's model menu, a new key) can
-    // add or move entries: re-read the full list (amendement 2026-10-07).
+    // add or move entries: re-read the full list.
     requestModels();
   }
   if (reply?.type === "models") applyModels(reply);

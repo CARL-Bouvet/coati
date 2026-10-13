@@ -1,4 +1,4 @@
-// Coati side panel — DOM element lookups (lot F3 split of panel.js). Pure
+// Coati side panel — DOM element lookups (split of panel.js). Pure
 // `document.getElementById`/`querySelector` map, read by every other
 // panel/*.js module: the DOM is parsed before this module script runs, so
 // building it here at import time is safe.

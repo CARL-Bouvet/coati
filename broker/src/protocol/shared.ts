@@ -1,10 +1,10 @@
 // Wire-wide limits, the error-code enum, and the small validation primitives
 // shared by every message family's own parser (protocol/context.ts,
-// protocol/chat.ts, protocol/parse.ts). Split out of protocol.ts (lot F5).
+// protocol/chat.ts, protocol/parse.ts). Split out of protocol.ts.
 
 export const MAX_MESSAGE_BYTES = 256 * 1024;
 
-// Amendement 2026-10-08 (lot B1, "View screen" — docs/PROTOCOL.md §5).
+// "View screen" — docs/PROTOCOL.md §5.
 // Only a `chat` message carrying a well-formed-looking `image` field may
 // exceed MAX_MESSAGE_BYTES, up to this cap. A decoded 1 MiB JPEG/PNG inflates
 // to ~1.37 MiB as base64 text; 1.5 MiB leaves room for the rest of the
@@ -23,12 +23,12 @@ export type ErrorCode =
   | "context-too-large"
   | "cancelled"
   | "model-stalled"
-  // Amendement 2026-10-08 (lot B1): the active model has no vision, or the
+  // The active model has no vision, or the
   // provider's own 400 names the image as the problem while vision was
   // unknown — see docs/PROTOCOL.md §4.
   | "vision-unsupported"
-  // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
-  // on demand"): the client never answered a `page.request` (with
+  // "page on demand" — docs/PROTOCOL.md "Page
+  // on demand": the client never answered a `page.request` (with
   // `page.content` or `page.decline`) within PAGE_REQUEST_TIMEOUT_MS.
   | "page-unavailable"
   | "internal";
@@ -41,7 +41,7 @@ export function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.length > 0;
 }
 
-// I3 (lot7 security review): bounds an apiKey before it's ever persisted or
+// I3: bounds an apiKey before it's ever persisted or
 // used in an HTTP header. Printable ASCII (0x21-0x7e — excludes space and
 // every control character, including newlines), no upper bound the real key
 // shapes come close to (Anthropic keys are well under 200 chars); generous
@@ -53,7 +53,7 @@ export function isValidApiKeyFormat(value: string): boolean {
   return value.length <= API_KEY_MAX_LEN && API_KEY_RE.test(value);
 }
 
-// Amendement 2026-09-30 bis (goal G5): the openai-compat provider's `baseUrl`
+// The openai-compat provider's `baseUrl`
 // is validated HERE, at settings.set parse time — not deep inside
 // providers/openai-compat.ts's streamAnswer — so the user gets an immediate
 // bad-request rather than a silently-stored, unusable address. Security rule

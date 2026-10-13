@@ -1,5 +1,5 @@
 // Shared v: 2 handshake client for tests — docs/PROTOCOL.md
-// `v: 2`" (amendment 2026-09-30, G4). Every test suite that needs an
+// `v: 2`". Every test suite that needs an
 // authenticated WebSocket connection uses connectAndAuthV2 instead of
 // hand-rolling the hello/challenge/auth exchange.
 
@@ -22,7 +22,7 @@ export interface ConnectV2Options {
   authProofOverride?: string;
   /** Skip sending `auth` entirely after the challenge (to test timeout/etc). */
   skipAuth?: boolean;
-  /** Raw BCP 47 tag sent as `hello.lang` (Goal G6 — docs/PROTOCOL.md
+  /** Raw BCP 47 tag sent as `hello.lang` (docs/PROTOCOL.md
    * de la connexion"). Omitted means no `lang` field at all, same as a real
    * client that doesn't (yet) send one. */
   lang?: string;

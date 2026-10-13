@@ -1,7 +1,7 @@
 // Prompt-rendering primitives: the per-request nonce fence, the untrusted-data
 // sanitizers, and every renderXxxLines/renderContext/renderSearch helper that
 // turns a Context/sources array into fenced prompt text. Split out of
-// model.ts (lot F5) — buildPrompt (model/build.ts) is the only caller outside
+// model.ts — buildPrompt (model/build.ts) is the only caller outside
 // this file; nothing here is provider-specific.
 
 import { randomBytes } from "node:crypto";
@@ -28,7 +28,7 @@ export function delimiterClose(nonce: string): string {
   return `coati-${nonce}>>>`;
 }
 
-// Security review (2026-10-08, L8): a provider that places its image
+// L8: a provider that places its image
 // content block as a bare sibling of the text block (no fence markers of
 // its own around it) relies ENTIRELY on the system prompt's one generic
 // sentence ("A message may also include an attached image...") to tell the
@@ -63,7 +63,7 @@ export function sanitizeUntrusted(value: string): string {
   return value.replace(NONCE_LOOKALIKE, "[stripped]").replace(/"{3,}/g, '""');
 }
 
-// Security review (2026-10-08, INFO): `[[eN]]` (element references, A1) and
+// INFO: `[[eN]]` (element references, A1) and
 // `[S<digit>]` (source citations, C1) are PROTOCOL tokens the extension's
 // own rendering scans a MODEL REPLY for — never something a page or a
 // fetched doc page should be able to forge into existence by having the
@@ -86,8 +86,8 @@ export function flattenAndCap(value: string, maxChars: number): string {
   return value.replace(/\s+/g, " ").trim().slice(0, maxChars);
 }
 
-// Goal G6 (docs/PROTOCOL.md "Langue de la connexion" / "Construction du
-// prompt"): the model must answer in the language the client's `hello`
+// docs/PROTOCOL.md "Langue de la connexion" / "Construction du
+// prompt": the model must answer in the language the client's `hello`
 // reported, unless the user's own message explicitly asks for another one
 // (e.g. an `act`/`translate` with an explicit targetLang, or a chat message
 // that itself says "answer in English"). Kept in English here on purpose —
@@ -107,7 +107,7 @@ export const LANGUAGE_NAME: Record<Lang, string> = {
  * docs/MODULES.md) pass this through verbatim. `lang` defaults to
  * DEFAULT_LANG so an external module calling this with the old one-argument
  * shape (docs/MODULES.md's ProviderHost.buildSystemPrompt) keeps compiling
- * and behaving as before this amendment. */
+ * and behaving as before. */
 export function buildSystemPrompt(nonce: string, lang: Lang = DEFAULT_LANG): string {
   return `You are the assistant embedded in the Coati browser extension.
 
@@ -160,7 +160,7 @@ function sanitizeAndFlatten(value: string): string {
   return flattenAndCap(sanitizeUntrusted(value), Infinity);
 }
 
-// Amendement 2026-09-25 (types de page) — "Facts and entries in the prompt".
+// "Facts and entries in the prompt".
 // One line per fact, fixed shape: `- <label> : <value>`.
 function renderFactLines(facts: Fact[]): string[] {
   const lines = ["Facts shown by the page:"];
@@ -185,7 +185,7 @@ function renderItemLines(items: Item[]): string[] {
   return lines;
 }
 
-// Amendement 2026-10-08 (lot A1, "Point at element") — docs/PROTOCOL.md §2.
+// "Point at element" — docs/PROTOCOL.md §2.
 // One line per element, fixed shape: `[[e12]] button — Generate`. `ref` and
 // `role` are page-controlled data too (same trust level as `label`) even
 // though `ref`'s shape and `role`'s closed list were already validated by
@@ -310,8 +310,8 @@ export function openFailedNote(refs: readonly number[], reason: string): string 
   return `Pages ${refs.map((n) => `[S${n}]`).join(" ")} could not be read (${reason}). Do not ask for them again; use the other sources or say what is missing.`;
 }
 
-// Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
-// on demand"). `page` metadata (title/url/kind/chars) is page-controlled —
+// "page on demand" — docs/PROTOCOL.md "Page
+// on demand". `page` metadata (title/url/kind/chars) is page-controlled —
 // same trust level as `text` (CLAUDE.md rule #3) — fenced exactly like
 // renderContext, own header, own copy of the nonce. `chars` is a number the
 // extension computed client-side (the page's own extracted length), not
@@ -363,7 +363,7 @@ export function pageOnDemandInstruction(devMode: boolean): string {
   return lines.join("\n");
 }
 
-// Amendement 2026-10-09 (lot 7 fix): offered on the RE-RUN prompt after a
+// Offered on the RE-RUN prompt after a
 // TEXT-level read, when devMode allows escalating to dev and dev hasn't
 // been used yet (build.ts's `offerDevRead`) — unlike pageOnDemandInstruction
 // above, [[READ_PAGE]] is never offered here: the page's text is already in
@@ -395,7 +395,7 @@ export const PAGE_UNREADABLE_NOTE =
 /** Everything page-controlled (title, url, videoId, text, facts, items) lives
  * INSIDE the fence. Nothing page-controlled may appear above/outside it — a
  * title placed above the fence would sit in the zone the system prompt
- * treats as trusted. Amendement 2026-09-25 (types de page): facts/items are
+ * treats as trusted. facts/items are
  * data at the same trust level as text (CLAUDE.md rule #3), rendered in the
  * SAME fence, in the fixed order Title, URL, facts, items, text — text
  * always last, so a forged section header smuggled into `text` can only
@@ -409,7 +409,7 @@ export function renderContext(context: Context, nonce: string): string {
   const text = context.text !== undefined ? sanitizeUntrusted(context.text) : undefined;
   const facts = context.facts && context.facts.length > 0 ? context.facts : undefined;
   const items = context.items && context.items.length > 0 ? context.items : undefined;
-  // Amendement 2026-10-08 (lot A1): elements, independent of pageKind.
+  // elements, independent of pageKind.
   const elements = context.elements && context.elements.length > 0 ? context.elements : undefined;
   // A client that sends none of facts/items/elements must get today's prompt
   // byte for byte (nonce aside) — see "Compatibility". The "Texte de la
@@ -429,7 +429,7 @@ export function renderContext(context: Context, nonce: string): string {
     context.videoId ? `Video ID: ${context.videoId}` : undefined,
     ...(facts ? renderFactLines(facts) : []),
     ...(items ? renderItemLines(items) : []),
-    // Amendement 2026-10-08 (lot A1): after facts/items, before the text —
+    // After facts/items, before the text —
     // docs/PROTOCOL.md §2.
     ...(elements ? renderElementLines(elements) : []),
     hasStructuredData ? "Page text:" : undefined,

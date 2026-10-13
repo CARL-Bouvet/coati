@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Installs a downloaded coati-broker binary as both the systemd user service
-# and the Native Messaging host (goal G4, docs/PROTOCOL.md
-# 2026-09-30 : Native Messaging"). Idempotent: rerunning overwrites the same
-# files with the same content, never duplicates anything.
+# and the Native Messaging host (docs/PROTOCOL.md : Native Messaging"). Idempotent: rerunning
+# overwrites the same files with the same content, never duplicates anything.
 #
 #   scripts/install/install-linux.sh <path-to-coati-broker-binary> [options]
 #

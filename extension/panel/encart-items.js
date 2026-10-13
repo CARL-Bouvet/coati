@@ -1,6 +1,5 @@
-// Pure ordering logic for the site card's prompt buttons (plan-mes-prompts,
-// lot 3). No DOM, no chrome.* — importable from panel.js and from bun test,
-// same pattern as card-state.js.
+// Pure ordering logic for the site card's prompt buttons. No DOM, no chrome.* — importable from
+// panel.js and from bun test, same pattern as card-state.js.
 //
 // docs/PROTOCOL.md:
 //   - `PromptEntry` = { id, site, title?, body }.
@@ -29,8 +28,7 @@ export function truncateLabel(text, max = LABEL_MAX) {
 }
 
 /** A button's label: the prompt's title when non-empty, otherwise its body
- * truncated at a word boundary (~40 chars) + "…" (plan-mes-prompts-28-09.md,
- * "A button shows the prompt title; without a title, the start of the text").
+ * truncated at a word boundary (~40 chars) + "…".
  * Exported for reuse by prompts/prompts.js (row label — same rule, same
  * page-4 "case" ordering source of truth). */
 export function labelForPrompt(prompt) {
@@ -44,7 +42,7 @@ export function labelForPrompt(prompt) {
  * any id that matches nothing in `entries`; every entry not mentioned in
  * `order` is appended afterwards, in its original `entries` position.
  * Exported for reuse by prompts/prompts.js — the page's "Mes prompts" grid
- * (lot 4) sorts each site's case with the exact same tolerant rule as the
+ *  sorts each site's case with the exact same tolerant rule as the
  * panel's encart, so a case never shows a different order in the two
  * places. */
 export function applyOrder(entries, order) {

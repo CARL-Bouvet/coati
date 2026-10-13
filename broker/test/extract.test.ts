@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EXTRACT_FILES } from "../../extension/content/extract-files.js";
 
-// Lot F4: the content script is split across several files, injected
+// The content script is split across several files, injected
 // together and in order, all sharing one global scope — see
 // extract-files.js. Concatenate every file's declarations (function/var —
 // safe to redeclare, which is why none of them is `const`/`let` at this
@@ -42,7 +42,7 @@ type FakeRect = { top?: number; bottom?: number; left?: number; right?: number; 
 // and passed all 64 tests here because `children` used to just be a plain
 // array. It then died on every real page, because a real HTMLCollection
 // throws on those calls. This class makes that class of bug fail loudly in
-// tests again, the same way a browser would (2026-09-25 bis hardening).
+// tests again, the same way a browser would (hardening).
 class FakeHTMLCollection {
   #items: FakeElement[];
 
@@ -74,7 +74,7 @@ class FakeElement {
   #parent: FakeElement | null = null;
   // Real DOM name. extract.js must use parentElement, never a harness-only
   // shortcut — `parent` is now a private field, unreachable from extraction
-  // code, so this can't silently regress (fixed 2026-09-25 after a
+  // code, so this can't silently regress (after a
   // real-browser probe found list/listing detection dead on every page while
   // this harness stayed green).
   get parentElement(): FakeElement | null {
@@ -239,7 +239,7 @@ function matches(el: FakeElement, selector: string): boolean {
 
 /** Runs extract.js's IIFE against a fake document/location/window and
  * returns its completion value, exactly like chrome.scripting.executeScript
- * would. `viewport` and `getComputedStyle` back the Amendment 2026-09-25
+ * would. `viewport` and `getComputedStyle` back the
  * overlay-exclusion signals (position, coverage ratio, edge docking) — real
  * browsers provide both as ambient globals inside a content script, which is
  * why extract.js references them as bare identifiers rather than through
@@ -296,7 +296,7 @@ function runExtract(opts: {
 }
 
 // ============================================================================
-// Harness self-tests (2026-09-25 bis hardening). These test the FAKE DOM
+// Harness self-tests (hardening). These test the FAKE DOM
 // itself, not extract.js — they exist so a future change to this harness
 // can't quietly reopen the class of bug that got past 64 green tests and
 // then failed on every real page: harness-only APIs (`el.parent`, array
@@ -414,7 +414,7 @@ describe("extract.js — contenteditable exclusion (item 5)", () => {
 });
 
 // ============================================================================
-// Amendment 2026-09-25 (types de page) — docs/PROTOCOL.md
+// docs/PROTOCOL.md
 // faits et entrées". Fixtures below model the traps measured on real pages
 // (notes/corpus/observations.md) rather than idealized DOMs.
 // ============================================================================
@@ -615,7 +615,7 @@ describe("extract.js — an article ABOUT cookies is not erased by the lexical r
 });
 
 // ============================================================================
-// Amendment 2026-09-25 bis — fixtures modelled on the MEASURED shapes from
+// Fixtures modelled on the MEASURED shapes from
 // notes/corpus/apres/ (real Chromium probe), not idealized DOMs. The first
 // implementation passed the fixtures above and still failed every one of
 // these on real pages (notes/corpus/observations.md).
@@ -826,10 +826,9 @@ describe("extract.js — Wikipedia infobox (reminder: a 'numeric value' is never
   });
 });
 
-// Ported from the now-deleted broker/test/detect.test.ts (item 1, KISS audit
-// 2026-09-26): detect.js's copy of hasNumericValue was unused in production
-// (extract.js's own copy is what actually runs), but these edge cases guard
-// the regex behind hasChiefNumericFact and were not otherwise covered here.
+// Ported from the now-deleted broker/test/detect.test.ts (item 1): detect.js's copy of
+// hasNumericValue was unused in production (extract.js's own copy is what actually runs), but these
+// edge cases guard the regex behind hasChiefNumericFact and were not otherwise covered here.
 describe("extract.js — hasNumericValue edge cases via facts (ported from detect.test.ts)", () => {
   test("a real-estate abbreviation ('T3 - 65m² - 3 p.') is a chief numeric fact → listing", () => {
     const factsList = new FakeElement("dl", {

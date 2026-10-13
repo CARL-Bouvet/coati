@@ -1,4 +1,4 @@
-// Unit tests for docs/DECISIONS.md T45 (goal G2), points 1 to 6, implemented in
+// Unit tests for docs/DECISIONS.md T45, points 1 to 6, implemented in
 // extension/content/extract.js.
 //
 // Reuses the fake-DOM harness pattern from extract.test.ts / extract-ter.test.ts
@@ -23,7 +23,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EXTRACT_FILES } from "../../extension/content/extract-files.js";
 
-// Lot F4: the content script is split across several files, injected
+// The content script is split across several files, injected
 // together and in order, all sharing one global scope — see
 // extract-files.js. Concatenate every file's declarations verbatim as
 // EXTRACT_JS_DECLARATIONS; only the LAST file (content/extract.js) ends in

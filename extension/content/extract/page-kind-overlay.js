@@ -1,5 +1,5 @@
 // ==========================================================================
-// Amendement 2026-09-25 (types de page) — docs/PROTOCOL.md, "Types de page,
+// docs/PROTOCOL.md, "Types de page,
 // facts and entries". Everything below decides `pageKind` and fills
 // `facts`/`items`. Any exception in here is caught by buildPageKindContext()
 // and degrades to `pageKind: "other"` with today's plain text — "Une
@@ -19,7 +19,7 @@
 // rules; extract.test.ts checks this copy produces the same outcomes on
 // realistic DOM shapes.
 //
-// Part of the content/extract.js content script (lot F4 split) — this file
+// Part of the content/extract.js content script (split) — this file
 // (page-kind-overlay.js) covers the "stacked layers" step: the
 // constants shared by the whole page-kind pipeline, the consent-banner
 // lexicon, and overlay-layer resolution. See content/extract-files.js for
@@ -67,7 +67,7 @@ var LIST_MIN_GROUP_SIZE = 5;
 var LIST_ENTRY_MIN_CHARS = 20;
 var LIST_ENTRY_MAX_CHARS = 1000;
 // Correction n°1 — "se cherche en remontant, sur six niveaux au plus."
-// Measured 25/09: on bienici's results page the densest block (the featured
+// Measured: on bienici's results page the densest block (the featured
 // listing's description) sits more than six levels below the results container.
 // Twelve levels are enough and stay bounded.
 var MAX_ANCESTOR_LEVELS = 12;
@@ -88,7 +88,7 @@ function truncateField(text, max) {
 // separator (comma, period, space) can never bridge an unrelated number to
 // a unit further down the string. Without the trailing `\d`, "2007, p.
 // 1076" (a bibliography citation) matched as "2007" + unit "p." — measured
-// 25/09 on the Wikipedia "Coati" corpus page: it is what actually made the
+// On the Wikipedia "Coati" corpus page: it is what actually made the
 // infobox's chief-numeric-fact check pass and misclassified the page as
 // `listing`. Never a bare number either way ("21 langues" still has no
 // match: no currency, and "langues" isn't a listed unit).
@@ -122,7 +122,7 @@ function isDialogLike(sig) {
 function isFixedOrSticky(sig) {
   return sig.position === "fixed" || sig.position === "sticky";
 }
-// Amendment 2026-09-25 (ter), measured on bienici: a fixed element is neither
+// Measured on bienici: a fixed element is neither
 // a layer to drop nor the content on its position alone. The results list
 // (#searchSideView, 4,535 chars) and a listing's contact card are both fixed.
 // Only a dialog is a strong signal.

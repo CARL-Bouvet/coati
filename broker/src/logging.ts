@@ -1,6 +1,6 @@
 // Request/startup logging and the two size-budget checks every streaming
 // request is gated on before it ever reaches a provider. Split out of
-// server.ts (lot F5).
+// server.ts.
 
 import { readFileSync } from "node:fs";
 import {
@@ -21,8 +21,8 @@ import {
 // The broker enforces the same cap server-side as a safety net.
 export const MAX_CONTEXT_CHARS = 40_000;
 
-// Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
-// on demand"): the dev level's own, much larger cap — a client answering
+// "page on demand" — docs/PROTOCOL.md "Page
+// on demand": the dev level's own, much larger cap — a client answering
 // `page.request { level: "dev" }` with cleaned HTML may send up to this many
 // characters of `page.content.context.text` (further fit to the active
 // model's own context window, see handlers/chat.ts's devContentCharBudget —
@@ -38,7 +38,7 @@ export function contextTooLarge(text: string | undefined): boolean {
   return typeof text === "string" && text.length > MAX_CONTEXT_CHARS;
 }
 
-// Amendement 2026-09-25 (types de page) — "Size budget" / "Broker-side
+// "Size budget" / "Broker-side
 // limits". `text` + `facts` + `items` now share the same 40 000-character
 // budget, and each of `facts`/`items` has its own count and per-field length
 // caps. Checked AFTER protocol.ts's parseContext has already dropped
@@ -53,7 +53,7 @@ export function contextBudgetError(context: Context | undefined): string | undef
   if (!context) return undefined;
   const facts = context.facts ?? [];
   const items = context.items ?? [];
-  // Amendement 2026-10-08 (lot A1, "Montrer du doigt" — docs/PROTOCOL.md §2).
+  // "Montrer du doigt" — docs/PROTOCOL.md §2.
   const elements = context.elements ?? [];
 
   if (facts.length > FACTS_MAX) return `facts exceeds ${FACTS_MAX} entries`;
@@ -97,18 +97,18 @@ export function contextBudgetError(context: Context | undefined): string | undef
 // --- A2: one journal line per request -------------------------------------
 //
 // Before this, the broker only logged handshake rejections and its own
-// listen line — a request that hung (today's incident) or errored left
+// listen line — a request that hung or errored left
 // nothing in `journalctl --user -u coati-broker` to even start diagnosing
 // from. Exactly one line on receipt, one on completion; never page text,
 // user content, or the pairing token — these go straight to the systemd
 // journal and must stay safe to paste into a bug report as-is.
-// L4 (lot7 security review): `id` is entirely client-supplied (protocol.ts
+// L4: `id` is entirely client-supplied (protocol.ts
 // only requires it to be a non-empty string — see isNonEmptyString) and, once
 // authenticated, was logged raw here. Up to 256 KB of newlines/ANSI escapes
 // in it could forge journal lines (including these very grant/reject-shaped
 // ones). Every client-supplied value in these two lines goes through
 // sanitizeLogValue(), same as Host/Origin elsewhere in this file.
-// Amendement 2026-09-25 (types de page) — "Broker-side limits": "the receive
+// "Broker-side limits": "the receive
 // log line may carry a validated pageKind and fact/entry counts; never a
 // label, a value, a title, or any other page content." pageKind/factsCount/
 // itemsCount are optional so chat/act (which
@@ -121,7 +121,7 @@ export function logRequestReceived(
   pageKind?: string,
   factsCount = 0,
   itemsCount = 0,
-  // Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §3): "Never logged
+  // docs/PROTOCOL.md §3: "Never logged
   // (only `image: true` + bytes)" — a boolean presence flag only,
   // never mediaType/data/dimensions.
   hasImage = false,
@@ -131,7 +131,7 @@ export function logRequestReceived(
   );
 }
 
-// `reason` (2026-09-26 amendment, docs/PROTOCOL.md): the technical detail
+// `reason` (docs/PROTOCOL.md): the technical detail
 // behind an error outcome — a provider's own captured explanation, when it
 // has one, else whatever the thrown Error's message says. Optional and
 // omitted for non-error outcomes
@@ -147,7 +147,7 @@ export function logRequestCompleted(id: string, outcome: string, elapsedMs: numb
 
 // --- A1: systemd unit drift detection -------------------------------------
 //
-// Past incident: the installed unit (~/.config/systemd/user/coati-broker.service)
+// Example: the installed unit (~/.config/systemd/user/coati-broker.service)
 // had drifted from packaging/coati-broker.service in the repo — it lost an
 // `Environment=` line a provider depended on — and requests failed for a
 // reason nothing surfaced. Diagnosis cost an hour. This can't prevent a
@@ -155,11 +155,16 @@ export function logRequestCompleted(id: string, outcome: string, elapsedMs: numb
 // the time this runs), but it can name the problem loudly instead of the
 // broker failing every request with no clue why.
 
-/** Pure: true when the installed unit's content differs from the repo's. A
- * byte-for-byte compare is deliberate — the goal is catching "someone
- * hand-edited or forgot to re-copy the unit", not semantic diffing. */
+/** Pure: true when the installed unit differs from the repo's template. Exact
+ * compare except the `@@…@@` placeholders install-service.sh substitutes
+ * (machine paths) — the goal is catching "someone hand-edited or forgot to
+ * re-copy the unit", not semantic diffing. */
 export function unitFileDrifted(installedContent: string, repoContent: string): boolean {
-  return installedContent !== repoContent;
+  const pattern = repoContent
+    .split(/@@[A-Z_]+@@/)
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("[^\\n]+");
+  return !new RegExp(`^${pattern}$`).test(installedContent);
 }
 
 /**
@@ -195,7 +200,7 @@ export function checkUnitDriftAtStartup(
 
 // Client-controlled values (Host, Origin) are logged sanitized — control
 // characters replaced with `?`, cut to 200 chars — see docs/PROTOCOL.md
-// "Journalisation" (amendement 2026-09-25).
+// "Journalisation".
 export function sanitizeLogValue(value: string | null | undefined): string {
   if (value === null || value === undefined) return "(none)";
   // eslint-disable-next-line no-control-regex

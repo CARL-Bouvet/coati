@@ -1,5 +1,5 @@
 // docs/PROTOCOL.md and "Plafond de connexions non
-// authentifiées" (amendment 2026-09-30, G4).
+// authentifiées".
 
 import { describe, expect, test, afterEach, mock } from "bun:test";
 import { startServer, MAX_UNAUTH_CONNECTIONS } from "../src/server.ts";

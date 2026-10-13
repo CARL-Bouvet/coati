@@ -1,7 +1,6 @@
-// Unit tests for the "coati:action-clicked" re-read path (plan-lecture-des-pages-29-09.md,
-// lot 5): the message a panel already open receives when the toolbar icon is
-// clicked again, and the dedupe that stops it from racing the read init runs
-// via openedFromGesture() when that same click opened the panel fresh.
+// Unit tests for the "coati:action-clicked" re-read path: the message a panel already open receives
+// when the toolbar icon is clicked again, and the dedupe that stops it from racing the read init
+// runs via openedFromGesture() when that same click opened the panel fresh.
 import { describe, expect, test } from "bun:test";
 import {
   isRedetectDuplicate,

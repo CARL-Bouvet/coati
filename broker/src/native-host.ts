@@ -1,5 +1,5 @@
 // Native Messaging host — docs/PROTOCOL.md
-// / "Framing and exchange with the host" (amendment 2026-09-30, G4).
+// / "Framing and exchange with the host".
 // Same executable as the broker (server.ts dispatches here before anything
 // else when process.argv matches — see isNativeHostInvocation); also runnable
 // standalone (`bun run src/native-host.ts <args>`, this file's own
@@ -19,8 +19,7 @@ export const CHROMIUM_PINNED_ORIGIN = "chrome-extension://hehlgipomfminodhahcjbe
 export const FIREFOX_PINNED_ID = "coati@getcoati.com";
 
 // Generic shape Chrome uses for the calling origin argument — used only to
-// DETECT host mode (docs/PROTOCOL.md's mode switch, unchanged by this
-// amendment); verifyCaller below is what actually checks it's the ONE pinned
+// DETECT host mode (docs/PROTOCOL.md's mode switch); verifyCaller below is what actually checks it's the ONE pinned
 // origin, not just this shape.
 const CHROME_EXTENSION_ORIGIN_ARG_RE = /^chrome-extension:\/\/[a-p]{32}\/$/;
 

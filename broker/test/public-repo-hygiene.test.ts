@@ -10,6 +10,10 @@ const ROOT = join(import.meta.dir, "..", "..");
 const PRIVATE = new RegExp(
   ["coati-" + "interne/", "\\binterne" + "/(design|etudes|archives|modules|bench|notes)/", "(^|[^.\\w])" + "(JOURNAL|REGLES)" + "\\.md\\b"].join("|"),
 );
+// Comments describe the code as it is: no plan files, goal ids or dates (history lives in git).
+const HISTORY = /plan-[\w-]+\.md|goal-[A-Za-z0-9_-]{6,}|20\d\d-\d\d-\d\d/;
+const COMMENT = /^\s*(\/\/|\/\*|\*|#(?!!)|<!--)|\s\/\/\s/;
+const COMMENT_DIRS = ["extension/", "broker/src/", "scripts/"];
 const SKIP_DIRS = ["node_modules/", ".git/", ".tmp/", "dist/", "coverage/"];
 const TEXT = /\.(js|mjs|ts|css|html|json|md|sh|ps1|py|yml|yaml|service|plist|txt)$/;
 
@@ -31,6 +35,18 @@ describe("public repository hygiene", () => {
       lines.forEach((line, i) => {
         if (PRIVATE.test(line)) offenders.push(`${rel}:${i + 1}: ${line.trim().slice(0, 100)}`);
       });
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  test("comments carry no plan file, goal id or date", () => {
+    const offenders: string[] = [];
+    for (const rel of trackedTextFiles().filter((p) => COMMENT_DIRS.some((d) => p.startsWith(d)))) {
+      readFileSync(join(ROOT, rel), "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+          if (COMMENT.test(line) && HISTORY.test(line)) offenders.push(`${rel}:${i + 1}: ${line.trim().slice(0, 100)}`);
+        });
     }
     expect(offenders).toEqual([]);
   });

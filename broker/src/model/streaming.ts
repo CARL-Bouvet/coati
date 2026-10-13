@@ -1,7 +1,7 @@
 // Streaming-side contract shared by every provider (broker/src/providers/*):
 // the typed error classes server.ts switches on to pick a wire error code,
 // the two-stage timeout constants, StreamAnswerOptions/AnswerEvent, and
-// ThinkFilter. Split out of model.ts (lot F5) — independent of prompt
+// ThinkFilter. Split out of model.ts — independent of prompt
 // building (model/render.ts, model/build.ts).
 
 /** Thrown by a provider's streamAnswer when the first-token deadline elapses
@@ -19,9 +19,8 @@ export class ModelTimeoutError extends Error {
  * Thrown by a provider's streamAnswer when the inactivity deadline elapses
  * mid-stream (at least one chunk was received, then silence for
  * INACTIVITY_TIMEOUT_MS). Distinct from ModelTimeoutError (which fires before
- * the first chunk). Maps to error code "model-stalled" (amendement
- * 2026-10-07 bis). isModelUnavailableError returns false for this — it gets
- * its own code via isModelStalledError, checked first in server.ts.
+ * the first chunk). Maps to error code "model-stalled". isModelUnavailableError returns false for
+ * this — it gets its own code via isModelStalledError, checked first in server.ts.
  */
 export class ModelStalledError extends Error {
   constructor(inactivityMs: number) {
@@ -52,7 +51,7 @@ export class ModelUnavailableError extends Error {
  * Thrown by a provider when it can positively determine the underlying
  * session/credentials are the problem — not "model unreachable", not "hung",
  * but "the human needs to re-authenticate". Distinct from
- * ModelUnavailableError on purpose (task C3, 2026-09-21): a session-backed
+ * ModelUnavailableError on purpose: a session-backed
  * provider's credentials can expire routinely, and the remedy for that is
  * nothing like the remedy for a missing binary or an overloaded API, so
  * folding it into `model-unavailable` would send the user fixing the wrong
@@ -78,8 +77,7 @@ export function isAuthRequiredError(err: unknown): boolean {
  * Thrown by a provider when it can positively determine the account behind
  * the configured key/subscription has run out of credit or quota — a billing
  * problem, not a wrong key (that's AuthRequiredError) and not a transient
- * overload (that's RateLimitedError below). Amendement 2026-10-01
- * (docs/PROTOCOL.md "Model provider", goal U1). `message` is the
+ * overload (that's RateLimitedError below). (docs/PROTOCOL.md "Model provider"). `message` is the
  * connection-language fixed remedy text (messages.ts's "provider.quotaExceeded"),
  * same contract as AuthRequiredError's message — shown verbatim, never the
  * raw provider detail.
@@ -100,9 +98,8 @@ export function isQuotaExceededError(err: unknown): boolean {
 /**
  * Thrown by a provider on a plain "too many requests" rejection (HTTP 429
  * with no quota/billing signal in the body) — typical of OpenRouter's free
- * models. Amendement 2026-10-01 (docs/PROTOCOL.md "Model provider",
- * goal U1). `message` is the connection-language fixed remedy text
- * (messages.ts's "provider.rateLimited"). `retryAfterSec`, when the provider
+ * models. (docs/PROTOCOL.md "Model provider"). `message` is the connection-language fixed remedy
+ * text (messages.ts's "provider.rateLimited"). `retryAfterSec`, when the provider
  * sent a `Retry-After` header, is forwarded on the wire's ErrorMessage.
  */
 export class RateLimitedError extends Error {
@@ -125,7 +122,7 @@ export function isRateLimitedError(err: unknown): boolean {
  * when the active model's vision support is positively known to be
  * `false`) or by a provider's streamAnswer when the backend's own 400 names
  * the attached image as the problem while vision was unknown ahead of time
- * — docs/PROTOCOL.md §4, amendement 2026-10-08 (lot B1). Distinct from
+ * — docs/PROTOCOL.md §4. Distinct from
  * ModelMissingError/ModelUnavailableError: the model itself is fine, it
  * just cannot see.
  */
@@ -147,7 +144,7 @@ export function isVisionUnsupportedError(err: unknown): boolean {
  * model does not exist / is not authorized for this account — distinct from
  * AuthRequiredError (the key itself is fine) and from ModelUnavailableError
  * (the backend is reachable, it is this specific model that is wrong).
- * Amendement 2026-10-02 (goal-j2FJ-kI7, "model failure path"): Anthropic's
+ * ("model failure path"): Anthropic's
  * 403 permission_error, a 404 model lookup, or Mistral's `unknown_model` all
  * land here rather than auth-required/model-unavailable, so the panel sends
  * the user to pick another model instead of re-entering a key that is fine.
@@ -169,7 +166,7 @@ export function isModelMissingError(err: unknown): boolean {
  * Thrown by a provider when the upstream API itself reports a transient
  * overload — Anthropic 529 overloaded_error, a bare 502/503, OpenAI's
  * `server_is_overloaded`, or an OpenRouter in-stream error whose text names
- * an upstream/overload condition. Amendement 2026-10-02 (goal-j2FJ-kI7): the
+ * an upstream/overload condition. The
  * remedy is "try again shortly", never "open settings" — distinct from
  * ModelUnavailableError so the panel doesn't send the user chasing a
  * misconfiguration that isn't there.
@@ -202,18 +199,18 @@ export function isProviderOverloadedError(err: unknown): boolean {
  */
 export function isModelUnavailableError(err: unknown): boolean {
   if (err instanceof AuthRequiredError) return false;
-  // Amendement 2026-10-01 (goal U1): these two now have their own codes
+  // These two now have their own codes
   // (quota-exceeded/rate-limited) — never folded back into model-unavailable
   // for a provider that throws the typed class. Providers that only have a
   // generic Error with a matching message (claude-cli, via the SDK) keep
   // falling through to the heuristic below, unchanged.
   if (err instanceof QuotaExceededError) return false;
   if (err instanceof RateLimitedError) return false;
-  // Amendement 2026-10-07 (bis): model-stalled has its own code — checked
+  // Model-stalled has its own code — checked
   // first in server.ts (isModelStalledError), so never treated as
   // model-unavailable here.
   if (err instanceof ModelStalledError) return false;
-  // Amendement 2026-10-08 (lot B1): vision-unsupported has its own code —
+  // Vision-unsupported has its own code —
   // checked first in server.ts (isVisionUnsupportedError).
   if (err instanceof VisionUnsupportedError) return false;
   if (err instanceof ModelTimeoutError) return true;
@@ -244,13 +241,12 @@ export function isModelUnavailableError(err: unknown): boolean {
  * Parses an HTTP `Retry-After` header value into whole seconds, per
  * RFC 9110 §10.2.3 — this broker only supports the delay-seconds form (a
  * plain non-negative integer), never the HTTP-date form, since no provider
- * observed at implementation time (2026-10-01) sends the latter and a wrong
+ * observed at implementation time sends the latter and a wrong
  * parse would just be omitted rather than mislead the user. Returns
  * `undefined` for anything else (header absent, HTTP-date, negative,
  * non-numeric) — callers then simply omit `retryAfterSec` on the wire.
  * Shared by claude-api.ts and openai-compat.ts (both throw RateLimitedError
- * on a plain HTTP 429 — see docs/PROTOCOL.md "Model provider",
- * amendement 2026-10-01).
+ * on a plain HTTP 429 — see docs/PROTOCOL.md "Model provider").
  */
 export function parseRetryAfterSec(headerValue: string | null): number | undefined {
   if (!headerValue) return undefined;
@@ -260,7 +256,7 @@ export function parseRetryAfterSec(headerValue: string | null): number | undefin
   return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
 }
 
-// Amendement 2026-10-07 (bis): two-stage timeout replacing the old single cap.
+// Two-stage timeout replacing the old single cap.
 //
 // FIRST_TOKEN_TIMEOUT_*: deadline from request start to first chunk (no chunk
 // at all = hung call). Local loopback (Ollama, openai-compat on 127.x) gets
@@ -298,7 +294,7 @@ export type AnswerEvent =
       kind: "usage";
       usage: { inputTokens: number; outputTokens: number };
       /**
-       * Amendement 2026-10-08 (bis, "historique"). Number of `history`
+       * ("historique"). Number of `history`
        * entries this provider actually kept after its own trim (char
        * budget, or Ollama's context-tier fit) — server.ts forwards it
        * verbatim as DoneMessage.historyKept. Absent when this request
@@ -307,7 +303,7 @@ export type AnswerEvent =
        */
       historyKept?: number;
     }
-  // Amendement 2026-10-07 (bis) — thinking-only models (e.g. qwen3:4b):
+  // Thinking-only models (e.g. qwen3:4b):
   // Ollama routes reasoning to message.thinking; the provider emits this event
   // so callers can count it as activity without forwarding it as text.
   | { kind: "thinking" };
@@ -321,7 +317,7 @@ export type AnswerEvent =
  *    only look for `</think>` to leave think state).
  * Used by ollama.ts and openai-compat.ts to suppress reasoning tokens before
  * they reach the extension. The filter is a no-op for models that never emit
- * `<think>` tags. Amendement 2026-10-07 (docs/PROTOCOL.md).
+ * `<think>` tags. (docs/PROTOCOL.md).
  */
 export class ThinkFilter {
   private _inThink = false;

@@ -1,5 +1,5 @@
 // Integration tests for the settings.get / settings.set protocol messages
-// (docs/PROTOCOL.md's dated amendment): the registry is reported in full
+// (docs/PROTOCOL.md's dated): the registry is reported in full
 // (never hiding an unavailable provider), an unknown provider is rejected at
 // the wire with bad-request, and a successful settings.set persists to
 // config.json and round-trips on the next settings.get — including across a
@@ -63,7 +63,7 @@ describe("settings.get", () => {
     const msg = (await nextMessage(ws)) as SettingsMessage;
     expect(msg.type).toBe("settings");
     expect(msg.id).toBe("s1");
-    expect(msg.provider).toBe("ollama"); // untouched default (amendment 2026-09-29)
+    expect(msg.provider).toBe("ollama"); // untouched default
     expect(msg.available).toHaveLength(3);
     const ids = msg.available.map((p) => p.id).sort();
     expect(ids).toEqual(["claude-api", "ollama", "openai-compat"]);
@@ -77,7 +77,7 @@ describe("settings.get", () => {
 });
 
 describe("settings.set", () => {
-  // Amendment 2026-09-29: `provider` is an open string — only its SHAPE is
+  // `provider` is an open string — only its SHAPE is
   // rejected at the wire, not membership in a closed list. A well-shaped but
   // unknown id is accepted and persisted; it is reported unavailable
   // (never silently swapped for another provider) rather than refused here.
@@ -228,7 +228,7 @@ describe("settings.set — apiKey is write-only", () => {
     ws.close();
   });
 
-  // I3 (lot7 security review): a malformed key must never reach config.json
+  // I3: a malformed key must never reach config.json
   // or providers/claude-api.ts's x-api-key header in the first place.
   test("rejects an apiKey containing control characters with bad-request", async () => {
     const server = boot();
@@ -331,14 +331,14 @@ describe("settings.test", () => {
     expect(msg.ok).toBe(true);
     expect(msg.code).toBeUndefined();
     expect(msg.message).toMatch(/[Aa]nthropic/);
-    // Goal U2 (docs/PROTOCOL.md, amendment 2026-10-01): the
+    // docs/PROTOCOL.md: the
     // FREE GET /v1/models probe, never the billed POST /v1/messages.
     expect(calledUrl).toBe("https://api.anthropic.com/v1/models");
     expect(calledMethod).toBe("GET");
     ws.close();
   });
 
-  // Amendment 2026-10-02 (goal-j2FJ-kI7, "parcours panne modèle"): the FREE
+  // "parcours panne modèle": the FREE
   // GET /v1/models probe also checks the CONFIGURED model is actually in the
   // list this key can see — a wrong/retired model name must surface here
   // (model-missing), not only on the first real, billed chat request.
@@ -372,7 +372,7 @@ describe("settings.test", () => {
     const msg = (await nextMessage(ws)) as SettingsTestResultMessage;
     expect(msg.ok).toBe(false);
     expect(msg.code).toBe("auth-required");
-    // Goal G6: default lang (no `hello.lang` sent by this test's helper) is
+    // Default lang (no `hello.lang` sent by this test's helper) is
     // now English — see messages.ts's DEFAULT_LANG.
     expect(msg.message).toMatch(/api key/i);
     expect(fetchCalled).toBe(false);
@@ -422,7 +422,7 @@ describe("settings.test", () => {
     ws.close();
   });
 
-  // Goal U2 (docs/PROTOCOL.md, amendment 2026-10-01): a
+  // docs/PROTOCOL.md: a
   // free GET /api/tags check — never calls /api/chat (not stubbed here on
   // purpose: a call to it would throw and fail this test).
   test("ollama: a successful FREE check (GET /api/tags only) reports ok, no code", async () => {
@@ -459,10 +459,10 @@ describe("settings.test", () => {
     ws.close();
   });
 
-  // Amendment 2026-09-29: a settings.test naming a provider unknown to this
+  // A settings.test naming a provider unknown to this
   // broker (not built in, no module loaded it) fails with a generic message,
-  // never a crash — mirrors testProviderConnection's own contract. Goal G6:
-  // English by default (messages.ts's "testConnection.unknownProvider").
+  // never a crash — mirrors testProviderConnection's own contract. English by default
+  // (messages.ts's "testConnection.unknownProvider").
   test("an unknown provider id fails with 'Unknown provider.'", async () => {
     const server = boot();
     const ws = await connectAndAuth(server);
@@ -483,16 +483,15 @@ describe("settings.test", () => {
   });
 });
 
-// --- apiKeys: per-provider isolation (security fix 2026-09-30 ter) ---------
+// --- apiKeys: per-provider isolation (ter) ---------
 //
 // Before this fix, CoatiConfig had ONE global `apiKey` field shared by every
 // provider: switching claude-api -> openai-compat sent the Anthropic key as
 // a Bearer token to whatever baseUrl was configured, and moving baseUrl from
 // one host to another carried the previous host's key along. A secret must
 // only ever reach the service it was entered for — see config.ts's
-// resolveApiKey/setApiKey/pruneStaleOpenAiCompatKey and docs/PROTOCOL.md's
-// amendment 2026-09-30 ter.
-describe("apiKeys — per-provider isolation (security fix 2026-09-30 ter)", () => {
+// resolveApiKey/setApiKey/pruneStaleOpenAiCompatKey and docs/PROTOCOL.md.
+describe("apiKeys — per-provider isolation", () => {
   test("switching claude-api -> openai-compat never sends the claude-api key to the new server", async () => {
     let capturedAuth: string | null = null;
     __setOpenAiFetch((async (_url: string, init?: RequestInit) => {

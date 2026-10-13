@@ -15,8 +15,8 @@
   var params = new URLSearchParams(location.search);
   var stateId = params.get("state") || "idle";
 
-  // --- i18n (G6) -----------------------------------------------------------
-  // `?lang=en|fr|zh_CN`, default "fr" so existing captures made before G6
+  // --- i18n -----------------------------------------------------------
+  // `?lang=en|fr|zh_CN`, default "fr" so existing captures
   // don't change. window.__COATI_LAB_MESSAGES__ is written by build-lab.ts
   // from the REAL extension/_locales/<lang>/messages.json files — never
   // hand-duplicated here.
@@ -176,7 +176,7 @@
 
   // Number of permissions.request() calls the fixture let through. Fixtures
   // with `tabAfterGrant` / `extractionAfterGrant` switch to those once a
-  // grant happened (G5, the encart's "Lire cette page" button: no access
+  // grant happened (the encart's "Lire cette page" button: no access
   // before the click, a readable page after it).
   var grantCount = 0;
   function currentTab() {
@@ -289,7 +289,7 @@
           });
         }, 0);
       } else if (payload.type === "models.list" && fixture.models) {
-        // Amendment 2026-10-07: only fixtures that declare `models` answer.
+        // Only fixtures that declare `models` answer.
         // `current` follows the settings store when the fixture echoes
         // settings.set, so a pick in the menu moves the checkmark.
         setTimeout(function () {
@@ -300,7 +300,7 @@
           dispatchToListeners({ type: "coati:broker-message", message: reply });
         }, 0);
       } else if (payload.type === "models.list" && fixture.modelsUnsupported) {
-        // Amendment 2026-10-07 bis: simulates an older local program, which
+        // Simulates an older local program, which
         // doesn't know this message type — the same generic error
         // parseClientMessage() sends for any unrecognised `type`
         // (broker/src/protocol.ts). The panel still shows the pill, in its
@@ -316,7 +316,7 @@
           dispatchToListeners({ type: "coati:broker-message", message: applySettingsSet(payload) });
         }, 0);
       } else if (payload.type === "provider.status" && fixture.providerStatus) {
-        // G5 first-launch card: only fixtures that declare `providerStatus`
+        // First-launch card: only fixtures that declare `providerStatus`
         // answer, so every older fixture keeps its unchanged status line.
         setTimeout(function () {
           dispatchToListeners({
@@ -344,7 +344,7 @@
       // that need to show a recovery block (retry button etc.) set
       // `chatErrorReply`: any `chat` (or summarize/act) then triggers an
       // immediate scripted error reply so pendingRetries stays populated and
-      // the retry button renders (amendment 2026-10-02, goal-j2FJ-kI7).
+      // the retry button renders.
       if (fixture.chatErrorReply && (payload.type === "chat" || payload.type === "summarize" || payload.type === "act")) {
         var chatId = payload.id;
         var errorReply = fixture.chatErrorReply;
@@ -355,7 +355,7 @@
           });
         }, 80);
       }
-      // plan-ollama-rapide-07-10.md: `chatScript` = [{delayMs, message}] —
+      // `chatScript` = [{delayMs, message}] —
       // broker messages sent, in order, for the request's own id (progress,
       // chunk, error…). Without a terminal message the request stays in
       // flight, frozen on the last step (the waiting-line states).
@@ -382,7 +382,7 @@
     // one path panel.js's extractFromTab() relies on for every real read.
     if (details && Array.isArray(details.files)) {
       var extraction = grantCount > 0 && fixture.extractionAfterGrant ? fixture.extractionAfterGrant : fixture.extraction;
-      // G5 "reading" state: the read never finishes, so the button stays in
+      // "reading" state: the read never finishes, so the button stays in
       // its spinning state for the capture.
       if (extraction && extraction.pending) return new Promise(function () {});
       if (!extraction) return Promise.reject(new Error("no extraction fixture for state '" + stateId + "'"));
@@ -478,8 +478,8 @@
       },
     },
     storage: {
-      // The first-launch card (G5, T51) is marked done by default so every
-      // pre-G5 fixture renders exactly as before; `firstRun: true` opts in.
+      // The first-launch card (T51) is marked done by default so every
+      // older fixture renders exactly as before; `firstRun: true` opts in.
       local: makeArea(
         Object.assign(fixture.firstRun ? {} : { "coati:firstRunDone": true }, fixture.storageLocal),
       ),
@@ -488,7 +488,7 @@
       onChanged: { addListener: function () {}, removeListener: function () {} },
     },
     permissions: {
-      // Simplification (goal-8qVhz10H, lot 4/panel): `contains`/`request`/
+      // Simplification: `contains`/`request`/
       // `remove` compare match patterns by exact string, not by real
       // match-pattern semantics (no host-suffix/scheme/port matching). Safe
       // here because every fixture's `permissions` array is populated with
@@ -508,7 +508,7 @@
         );
       },
       // fixture.permissionRequestResult === false simulates the user
-      // clicking "Refuser" in the browser's prompt (G5, refused state).
+      // clicking "Refuser" in the browser's prompt (refused state).
       request: function (query) {
         var origins = (query && query.origins) || [];
         if (fixture.permissionRequestResult === false) return Promise.resolve(false);

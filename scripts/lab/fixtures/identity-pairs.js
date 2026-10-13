@@ -184,7 +184,7 @@
         },
       },
     },
-    // --- Round 3 (27/09, validated direction): the Coati palette. Same values
+    // --- Round 3 (validated direction): the Coati palette. Same values
     // as THEMES in scripts/brand/build-brand.py (private palette notes) —
     // keep both in sync. Neutral technical greys, caramel primary, slate-blue
     // tint on the user bubble, anthracite header in both themes (lab-only CSS:

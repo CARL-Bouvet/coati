@@ -1,5 +1,5 @@
 // Broker -> client message shapes (docs/PROTOCOL.md) and the ServerMessage
-// union. Split out of protocol.ts (lot F5).
+// union. Split out of protocol.ts.
 
 import type { ProviderId } from "../config.ts";
 import type { TestConnectionCode } from "../providers/types.ts";
@@ -17,7 +17,7 @@ export interface DoneMessage {
   id: string;
   usage: { inputTokens: number; outputTokens: number };
   /**
-   * Amendement 2026-10-08 (bis, "historique" — docs/PROTOCOL.md). Number of
+   * ("historique" — docs/PROTOCOL.md). Number of
    * `history` entries actually included in the prompt sent to the provider
    * — may be LESS than the request's own `history.length` when the active
    * provider trimmed further for its own capacity (Ollama's context tier;
@@ -30,7 +30,7 @@ export interface DoneMessage {
    */
   historyKept?: number;
   /**
-   * Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
+   * ("page on demand" — docs/PROTOCOL.md "Page
    * on demand"). Present only when the page was actually read during this
    * request (one successful `page.content` round trip) — absent when the
    * model never asked (or a `chat.page` wasn't even offered), same
@@ -54,7 +54,7 @@ export interface ErrorMessage {
   code: ErrorCode;
   message: string;
   /** Only ever present for code "rate-limited", and only when the provider
-   * sent a Retry-After header (docs/PROTOCOL.md, amendement 2026-10-01). */
+   * sent a Retry-After header (docs/PROTOCOL.md). */
   retryAfterSec?: number;
 }
 
@@ -72,21 +72,20 @@ export interface PrefsMessage {
   sites: Record<string, SitePrefs>;
 }
 
-// Amendement 2026-09-30 (G4): no token, no `v: 1` — the v: 2 handshake proves
+// No token, no `v: 1` — the v: 2 handshake proves
 // possession of the key on each connection instead of minting anything to
 // remember. See docs/PROTOCOL.md "Handshake `v: 2`".
 export interface HelloOkMessage {
   type: "hello-ok";
   v: 2;
   /**
-   * Amendement 2026-10-08 (lot 0): open-ended capability strings this
-   * broker understands on the wire — `"elements"` (context.elements,
-   * lot A1), `"vision"` (chat.image, lot B1) — see logging.ts's BROKER_FEATURES.
-   * The extension only shows a
+   * Open-ended capability strings this
+   * broker understands on the wire — `"elements"` (context.elements), `"vision"` (chat.image) — see
+   * logging.ts's BROKER_FEATURES. The extension only shows a
    * capability's UI when its word is present — absent word, or the whole
    * field absent (older broker), means "don't offer it", never an error at
    * the moment of use. Never a closed list on either side: a future word
-   * needs no handshake amendment of its own.
+   * needs no handshake change of its own.
    */
   features: string[];
 }
@@ -120,14 +119,13 @@ export interface SettingsMessage {
    * enumerate them (currently ollama and openai-compat). Absent otherwise. */
   models?: string[];
   /** The `openai-compat` provider's configured server address, ONLY when it
-   * is the currently active provider — amendement 2026-09-30 bis. Not a
+   * is the currently active provider. Not a
    * secret (unlike apiKey, never included here): see config.ts's
    * CoatiConfig.baseUrl. Absent for every other provider. */
   baseUrl?: string;
 }
 
-// Reply to a settings.test request — a FREE connection probe as of amendement
-// 2026-10-01 (goal U2) for the three built-in providers (an external module
+// Reply to a settings.test request — a FREE connection probe for the three built-in providers (an external module
 // without its own free probe still falls back to a real minimal model call),
 // bounded by a short timeout (see server.ts's SETTINGS_TEST_TIMEOUT_MS),
 // never a chat/summarize the extension would otherwise trigger via the wire.
@@ -143,12 +141,12 @@ export interface SettingsTestResultMessage {
    * TestConnectionCode and docs/PROTOCOL.md "settings.test". */
   code?: TestConnectionCode;
   /** Only ever present (and true) when ok is true and the free probe cannot
-   * see the account's credit balance — amendement 2026-10-02, goal-j2FJ-kI7.
+   * see the account's credit balance.
    * The options page renders this as its own line. */
   creditUnchecked?: boolean;
 }
 
-// Amendement 2026-09-25 — "Provider availability". `state` is the
+// "Provider availability". `state` is the
 // broker's best answer, from a never-billed check, to "will the next request
 // against this provider work?" — see docs/PROTOCOL.md for the full
 // per-provider reason-code table (server.ts's providerStatus.ts owns the
@@ -165,14 +163,14 @@ export interface ProviderStatusResultMessage {
   /** ISO 8601 UTC — the time of the *effective* check (for a cached answer,
    * that's the original check's time, not now). */
   checkedAt: string;
-  /** openai-compat only, when configured — not a secret (amendement
-   * 2026-10-02 ter): lets the panel tell OpenAI/Mistral/OpenRouter/DeepSeek apart. */
+  /** openai-compat only, when configured — not a secret: lets the panel tell
+   * OpenAI/Mistral/OpenRouter/DeepSeek apart. */
   baseUrl?: string;
 }
 
-// Lot 4 (2026-10-07): host capacity + model fit classification.
+// Host capacity + model fit classification.
 
-/** Machine capacity reported in every `models` reply (lot 4). Two rounded
+/** Machine capacity reported in every `models` reply. Two rounded
  * numbers only — read locally, never sent to an external service. */
 export interface HostCapacity {
   /** Total RAM in GB, rounded to 1 decimal (÷ 1e9). */
@@ -189,7 +187,7 @@ export interface HostCapacity {
  * large for the machine. Absent for non-local (remote) models. */
 export type ModelFit = "gpu" | "shared" | "too-big";
 
-/** One model entry in a `models` response — amendement 2026-10-07. */
+/** One model entry in a `models` response. */
 export interface ModelEntry {
   provider: ProviderId;
   model: string;
@@ -204,19 +202,19 @@ export interface ModelEntry {
    * Absent (undefined) for all other models.
    */
   thinks?: true;
-  /** Lot 4: GPU fit classification for local Ollama models (see host.ts's
+  /** GPU fit classification for local Ollama models (see host.ts's
    * computeFit). Absent when sizeBytes is unknown or the model is remote. */
   fit?: ModelFit;
-  /** Lot 4: fraction of the model currently loaded on the GPU (0–100), from
+  /** Fraction of the model currently loaded on the GPU (0–100), from
    * Ollama /api/ps. Present only while the model is loaded; absent otherwise.
    * Example: 70 means 70 % of weights are in VRAM, rest spills to RAM. */
   gpuPercent?: number;
-  /** Amendement 2026-10-07 (bis): chosen context window size in tokens for this
+  /** Chosen context window size in tokens for this
    * Ollama model, computed from /api/show model_info and host VRAM capacity.
    * Present only for Ollama entries when the info is available. */
   contextTokens?: number;
   /**
-   * Amendement 2026-10-08 (lot B1, docs/PROTOCOL.md §4): true/false/absent
+   * (docs/PROTOCOL.md §4): true/false/absent
    * (unknown) — whether this specific model understands an attached image,
    * for the `models` list / settings UI only (lets the panel grey out the
    * "Attach screen" checkbox ahead of time). `true`/`false` for ollama
@@ -231,24 +229,24 @@ export interface ModelEntry {
   vision?: boolean;
 }
 
-/** Per-source availability in a `models` response — amendement 2026-10-07. */
+/** Per-source availability in a `models` response. */
 export interface ModelSource {
   provider: string;
   state: "ok" | "unreachable" | "not-configured";
 }
 
-/** Reply to `models.list` (amendement 2026-10-07, lot 4). */
+/** Reply to `models.list`. */
 export interface ModelsMessage {
   type: "models";
   id: string;
   current: { provider: ProviderId; model: string | undefined };
   entries: ModelEntry[];
   sources: ModelSource[];
-  /** Machine capacity (lot 4). null only before lot 4 or when host.ts fails. */
+  /** Machine capacity. null when host.ts fails. */
   host: HostCapacity | null;
 }
 
-// Amendement 2026-10-07 (bis) — result of a `model.warmup` request.
+// Result of a `model.warmup` request.
 export interface ModelWarmupResultMessage {
   type: "model.warmup-result";
   id: string;
@@ -260,7 +258,7 @@ export interface ModelWarmupResultMessage {
   ms?: number;
 }
 
-// Amendement 2026-10-07 (bis) — progress notification sent before the first
+// Progress notification sent before the first
 // chunk of a summarize/chat response, Ollama provider only.
 export interface ProgressMessage {
   type: "progress";
@@ -269,13 +267,13 @@ export interface ProgressMessage {
    * `"loading"` (model not yet in memory), `"reading"` (loaded, generating),
    * `"thinking"` (thinking-only model actively reasoning — message.thinking
    * deltas are arriving but no content yet; sent at most once per request,
-   * before any chunk; amendement 2026-10-07 bis).
+   * before any chunk).
    */
   stage: "loading" | "reading" | "thinking";
 }
 
-// Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page
-// on demand"). Sent when the streamed answer's own text matched one of the
+// "page on demand" — docs/PROTOCOL.md "Page
+// on demand". Sent when the streamed answer's own text matched one of the
 // two markers (model/page-marker.ts) — `id` is the ORIGINATING `chat`'s own
 // id, never a fresh one (so the client correlates it to the request it's
 // already displaying), mirroring CancelMessage's `target` convention in

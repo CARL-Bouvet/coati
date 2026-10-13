@@ -1,7 +1,7 @@
 // TypeScript types and parser for every message defined in docs/PROTOCOL.md.
 // The 256 KB per-message cap is enforced here, at parse time.
 //
-// Lot F5 (split without behaviour change): the implementation now lives
+// (split without behaviour change): the implementation now lives
 // under protocol/ — shared.ts (wire limits, ErrorCode, validation
 // primitives), context.ts (Context/Fact/Item/Element + parser),
 // prompts-prefs.ts (PromptEntry/SitePrefs/PrefsData + validators), chat.ts

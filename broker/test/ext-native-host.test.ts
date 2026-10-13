@@ -1,5 +1,5 @@
 // Native Messaging call to the local host (extension/lib/native-host.js) —
-// docs/PROTOCOL.md amendment 2026-09-30, "Cadrage et échange avec l'hôte".
+// docs/PROTOCOL.md, "Cadrage et échange avec l'hôte".
 // `api.runtime.sendNativeMessage` is mocked here; the real browser API is
 // exercised by the broker-side simulated-handshake test plan (see
 // PROTOCOL.md), out of scope for

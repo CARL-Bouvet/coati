@@ -1,7 +1,7 @@
 /*
  * Coati theme — shared design tokens for panel.html and options.html.
  *
- * Contract (see notes/PLAN_goal_panneau_v2.md, "Contrat commun"):
+ * Contract:
  *   --bg --fg --muted --border --surface --accent --accent-fg --danger --radius
  *   --space-1 --space-2 --space-3 --space-4 --font --font-size --line-height
  *
@@ -9,7 +9,7 @@
  * follow the same naming style but are not part of the contract; they exist
  * so panel.css and options.css never hard-code a colour.
  *
- * Palette P24 (internal design notes, 27/09): neutral anthracite greys,
+ * Palette P24: neutral anthracite greys,
  * caramel primary, slate-blue second tone (links, the user's bubble). Each
  * colour has one value per theme; the header is anthracite in both themes.
  *
@@ -52,7 +52,7 @@
   --link: #4a6a88;
   /* The user's message bubble — ONE variable per theme: to try another
    * colour, change this line (and its dark twin below). Text on it is --fg:
-   * 11.55:1 light, 9.83:1 dark (internal design notes). */
+   * 11.55:1 light, 9.83:1 dark. */
   --message-user-bg: #e4eaf1;
   --banner-bg: #fdeeee;
   --banner-border: #e0b0b0;
@@ -63,8 +63,7 @@
   --status-idle: #8a8e96;
   /* Floating layers (the prompt list opening over the conversation). */
   --overlay-shadow: 0 -4px 16px rgb(0 0 0 / 0.16);
-  /* "Mes prompts" head case background (plan-activation-28-09.md "Points
-   * settled" 1): a very light caramel tint derived from the P24 accent
+  /* "Mes prompts" head case background: a very light caramel tint derived from the P24 accent
    * (--accent: #9c5a12), distinct enough from --surface to read as its own
    * band across the full board width without competing with any text on
    * it — no row or button ever paints directly against it (rows keep their

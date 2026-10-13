@@ -1,15 +1,15 @@
 // Handshake v2 crypto helpers (extension/lib/handshake-crypto.js) —
-// docs/PROTOCOL.md amendment 2026-09-30, "Poignée de main v: 2" and "Plan
+// docs/PROTOCOL.md, "Poignée de main v: 2" and "Plan
 // de test" ("Vecteurs HMAC" — a fixed-values file checked by both the
 // broker's own code (node:crypto) and the extension's (WebCrypto, here
 // under Bun, which implements the same subtle-crypto API a real browser
 // does).
 //
 // The shared fixture broker/test/fixtures/hmac-v2-vectors.json is written by
-// the broker-side worker (K, cN, bN, bP, eP). If it isn't there yet when
+// the broker-side tests (K, cN, bN, bP, eP). If it isn't there yet when
 // this runs, the vectors are computed in-process with node:crypto instead —
 // same algorithm, same message framing, just not cross-checked against the
-// broker's own file. See the "Not verified" note in this worker's report.
+// broker's own file.
 import { describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
@@ -30,7 +30,7 @@ function loadOrComputeVectors() {
   if (existsSync(FIXTURE_PATH)) {
     return { vectors: JSON.parse(readFileSync(FIXTURE_PATH, "utf8")), fromFixture: true };
   }
-  // Fallback: same shape as the fixture the broker worker is expected to
+  // Fallback: same shape as the fixture the broker tests are expected to
   // write, computed here with node:crypto (independent implementation from
   // the extension's WebCrypto path — still catches a framing/prefix bug).
   const K = "a".repeat(64);

@@ -1,5 +1,5 @@
-// Unit tests for task A1's systemd-unit drift detection (server.ts). Covers
-// the exact incident measured 2026-09-21: the installed unit
+// Unit tests for the systemd-unit drift detection (server.ts). Covers
+// the case where the installed unit
 // (~/.config/systemd/user/coati-broker.service) losing an `Environment=`
 // line relative to packaging/coati-broker.service in the repo. The check
 // must warn loudly but never throw or block startup.
@@ -19,6 +19,13 @@ describe("unitFileDrifted", () => {
     const repo = "[Service]\nExecStart=bun run src/server.ts\nEnvironment=COATI_SOME_PATH=/x\n";
     const installed = "[Service]\nExecStart=bun run src/server.ts\n";
     expect(unitFileDrifted(installed, repo)).toBe(true);
+  });
+
+  test("substituted placeholders are not drift, a changed line still is", () => {
+    const repo = "WorkingDirectory=@@PROJECT_ROOT@@/broker\nExecStart=@@BUN_BIN@@ run src/server.ts\n";
+    const installed = "WorkingDirectory=/home/u/coati/broker\nExecStart=/home/u/.bun/bin/bun run src/server.ts\n";
+    expect(unitFileDrifted(installed, repo)).toBe(false);
+    expect(unitFileDrifted(installed.replace("run src", "run --watch src"), repo)).toBe(true);
   });
 });
 

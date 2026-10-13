@@ -10,9 +10,8 @@ body {
   line-height: var(--line-height);
 }
 
-/* Same tokens/shape as panel.css's .connection-banner (plan-mes-prompts,
- * lot 4: "same wording/style as the settings page") — duplicated rather than
- * shared since panel.css is scoped to the panel and this page has no build
+/* Same tokens/shape as panel.css's .connection-banner ("same wording/style as the settings page") —
+ * duplicated rather than shared since panel.css is scoped to the panel and this page has no build
  * step to share a partial. */
 .connection-banner {
   display: flex;
@@ -45,8 +44,7 @@ body {
 .board {
   display: grid;
   /* min(280px, 100%): the fixed 280px floor alone can force a horizontal
-   * scrollbar once the viewport minus padding drops under it (320 px, admin
-   * review lot 2) — this is the standard guard, same single column result
+   * scrollbar once the viewport minus padding drops under it (320 px) — this is the standard guard, same single column result
    * everywhere it already applied, never cut off below it. */
   grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: var(--space-4);
@@ -56,11 +54,11 @@ body {
   align-items: start;
 }
 
-/* This page was built for ≥800 px boards (plan-mes-prompts-28-09.md) — the
+/* This page was built for ≥800 px boards — the
  * grid itself already collapses to one column below 700 px, but at 320 px
  * the full --space-4 gutter on both the header and the board eats a visible
  * slice of a very narrow screen for no reason once there is only one
- * column left to breathe around (admin review lot 2). */
+ * column left to breathe around. */
 @media (max-width: 420px) {
   .prompts-header {
     padding: var(--space-2) var(--space-2) 0;
@@ -94,7 +92,7 @@ body {
   margin: 0;
 }
 
-/* Head case (plan-activation-28-09.md "Settled points" 1): first on the
+/* Head case: first on the
  * board, full grid width, coloured background, no case title — see
  * prompts.js's buildHeadCaseElement(). `--case-head-bg` is defined in
  * lib/theme.css next to the rest of the P24 tokens. */
@@ -143,7 +141,7 @@ body {
 /* Site-case header row (every SITE case, never the head case): title on the
  * left, the "Actif" switch on the right. flex-wrap: a long real site name at
  * 320 px can otherwise squeeze the switch into itself (same bug class as
- * panel/card.css's .site-card-head, admin review lot 2) — wrapping to its
+ * panel/card.css's .site-card-head) — wrapping to its
  * own line is the safe outcome instead. */
 .prompt-case-head-row {
   display: flex;
@@ -214,7 +212,7 @@ body {
   border-radius: var(--radius);
 }
 
-/* Locked "on" while "all sites" is granted (T42, amendment 2026-09-30 bis):
+/* Locked "on" while "all sites" is granted (T42):
  * the label keeps its normal colour (readable), only the track dims. */
 .switch[aria-disabled="true"] {
   cursor: not-allowed;

@@ -133,7 +133,7 @@ def eye_clip_defs(uid: str) -> str:
 
 # Head crop content box (viewBox units of coati.svg), measured on a grid by
 # the admin: head top ~y15, ears x320-650, whiskers to x~90, nose x150-240,
-# window top edge ~y405, paw x560-700. Revision 2 (26/09 admin review):
+# window top edge ~y405, paw x560-700. Revision 2:
 # widened right/bottom to stop cutting the right ear and the paw, and to
 # shrink the window to a thin ledge under the chin instead of ~37% of the box.
 HEAD_CROP_BOX = (80, 15, 760, 470)  # x0, y0, x1, y1

@@ -55,7 +55,7 @@ export const FIRST_RUN_DONE_KEY = "coati:firstRunDone";
 // satisfy without a real answer), this one only flips on an actual reply —
 // it drives the standalone "never connected" notice (U2) and never resets.
 export const MODEL_EVER_ANSWERED_KEY = "coati:modelEverAnswered";
-// Tutorial lives in the options page (U2, Romain's decision 01/10) — every
+// Tutorial lives in the options page (U2) — every
 // "connect a model" action across the panel/welcome pages opens this same
 // URL via api.tabs.create(), never api.runtime.openOptionsPage() (that
 // reuses/opens an already-open settings tab, not necessarily at #setup).

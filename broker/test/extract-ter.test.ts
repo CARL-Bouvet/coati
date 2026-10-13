@@ -1,5 +1,4 @@
-// Unit tests for docs/PROTOCOL.md
-// deuxième sonde sur les vraies pages" — rules 5-9 (line ~655-676), which
+// Unit tests for the "deuxième sonde sur les vraies pages" rules of docs/PROTOCOL.md — rules 5-9 (line ~655-676), which
 // replace/override the (bis) rules from the same section where they differ.
 // Only scripts/corpus-probe.ts covered these before this file existed.
 //
@@ -36,7 +35,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EXTRACT_FILES } from "../../extension/content/extract-files.js";
 
-// Lot F4: the content script is split across several files, injected
+// The content script is split across several files, injected
 // together and in order, all sharing one global scope — see
 // extract-files.js. Concatenate every file's declarations verbatim as
 // EXTRACT_JS_DECLARATIONS; only the LAST file (content/extract.js) ends in

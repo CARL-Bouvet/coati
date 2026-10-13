@@ -1,8 +1,8 @@
 // PromptEntry / SitePrefs / PrefsData wire types and their id/site-key
 // validators (docs/PROTOCOL.md "Prompt library and per-site preferences").
-// Split out of protocol.ts (lot F5).
+// Split out of protocol.ts.
 
-// Amendement 2026-09-28 ("My prompts by site" — docs/DECISIONS.md T41).
+// "My prompts by site" — docs/DECISIONS.md T41.
 // Replaces the flat `{ name, body }` shape. `id` is assigned by the broker,
 // never by the client (see PromptsSaveMessage). See docs/PROTOCOL.md
 // "Prompt library and per-site preferences" for the full contract.
