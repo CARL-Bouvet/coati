@@ -65,7 +65,7 @@ textarea {
 }
 
 .lang-button {
-  font-size: 0.75em;
+  font-size: var(--text-s);
   font-weight: 600;
   letter-spacing: 0.02em;
   min-width: 1.8em;
@@ -96,7 +96,7 @@ textarea {
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius);
   cursor: pointer;
-  font-size: 0.95em;
+  font-size: var(--text-m);
 }
 
 .lang-menu-item:hover,
@@ -110,79 +110,6 @@ textarea {
   color: var(--accent);
 }
 
-/* "?" help button (U2) — same popover-anchor pattern as .lang-selector
- * above: hover/focus shows it (JS toggles .is-visible, panel.js
- * wireHelpButton()), a click on the button itself opens the tutorial. */
-.help-popover-wrap {
-  position: relative;
-  display: inline-flex;
-}
-
-.help-popover {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  z-index: 20;
-  overflow: hidden;
-  width: 15.5em;
-  max-width: calc(100vw - 2 * var(--space-3));
-  /* Extra bottom padding reserves a strip the text box never grows into —
-   * the art sits there, never under the last lines (own padding box, not
-   * shared with the content box above it). */
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--overlay-shadow);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 0.12s ease;
-}
-
-.help-popover.is-visible {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-}
-
-/* CSS slot for the future "surprised/undecided coati" illustration (U2, Kling
- * prompt pending) — today's existing head asset stands in, confined to the
- * reserved bottom-right strip above (never under the text: low opacity is a
- * second line of defense, not the only one). */
-/* U2 illustrations (Kling, cut out and mirrored only) are decoration, never
- * layout: a faint background anchored bottom-right, clipped by its box, so
- * no width or zoom can make them push or cover anything. One file per theme. */
-.help-popover::after {
-  content: "";
-  position: absolute;
-  right: -6px;
-  bottom: -8px;
-  width: 84px;
-  height: 96px;
-  background: url("../illustrations/coati-pensive-light.png") no-repeat right bottom / contain;
-  opacity: 0.16;
-  pointer-events: none;
-}
-@media (prefers-color-scheme: dark) {
-  .help-popover::after { background-image: url("../illustrations/coati-pensive-dark.png"); }
-}
-
-.help-popover-text {
-  position: relative;
-  z-index: 1;
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.4;
-}
-
-.help-popover-shortcut {
-  position: relative;
-  z-index: 1;
-  margin-top: var(--space-2);
-}
-
 .brand {
   display: flex;
   align-items: center;
@@ -190,6 +117,7 @@ textarea {
 }
 
 .brand-name {
+  font-size: var(--text-l);
   font-weight: 600;
 }
 
@@ -197,7 +125,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  font-size: 0.85em;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -260,7 +188,7 @@ textarea {
   border-radius: 999px;
   background: var(--surface);
   color: var(--fg);
-  font-size: 0.85em;
+  font-size: var(--text-s);
   line-height: 1.4;
   cursor: pointer;
 }
@@ -344,7 +272,7 @@ textarea {
 
 .model-list-heading {
   padding: var(--space-1) var(--space-2) 2px;
-  font-size: 0.75em;
+  font-size: var(--text-s);
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--muted);
@@ -362,7 +290,7 @@ textarea {
   text-align: left;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius);
-  font-size: 0.9em;
+  font-size: var(--text-m);
 }
 
 .model-item {
@@ -405,7 +333,7 @@ textarea {
 
 .model-item-detail,
 .model-item-note {
-  font-size: 0.85em;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -439,7 +367,7 @@ textarea {
   padding: var(--space-2) var(--space-3);
   background: var(--banner-bg);
   border-bottom: 1px solid var(--banner-border);
-  font-size: 0.9em;
+  font-size: var(--text-m);
   color: var(--banner-fg);
 }
 
@@ -467,20 +395,21 @@ textarea {
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius);
   cursor: pointer;
-  font-size: 0.9em;
+  font-size: var(--text-m);
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .connection-banner-cta:hover {
-  filter: brightness(0.9);
+  background: var(--accent-hover);
 }
 
 .icon-button {
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 1.15em;
-  padding: var(--space-1) var(--space-1);
+  font-size: var(--text-l);
+  padding: var(--space-1);
   border-radius: var(--radius);
 }
 
@@ -488,24 +417,37 @@ textarea {
   background: var(--surface);
 }
 
+/* Secondary buttons: raised card, lifted on hover, pressed in on click. */
 .toolbar-button {
-  border: 1px solid var(--border);
-  background: var(--bg);
+  border: 1px solid var(--control-border);
+  background: var(--card);
+  box-shadow: var(--shadow-raised);
   border-radius: var(--radius);
   padding: var(--space-1) var(--space-2);
-  font-size: 0.9em;
+  font-size: var(--text-m);
   cursor: pointer;
   color: var(--fg);
 }
 
 .toolbar-button:hover {
-  background: var(--surface);
+  background: var(--card-hover);
+  box-shadow: var(--shadow-hover);
+}
+
+.toolbar-button:active {
+  box-shadow: var(--shadow-pressed);
+}
+
+.toolbar-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .toolbar-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background: var(--bg);
+  background: var(--card);
+  box-shadow: none;
 }
 
 .toolbar-button--primary {
@@ -535,7 +477,7 @@ textarea {
   background: transparent;
   color: var(--link);
   font: inherit;
-  font-size: 0.85em;
+  font-size: var(--text-s);
   text-decoration: underline;
   cursor: pointer;
   padding: var(--space-1) 2px;
@@ -547,51 +489,83 @@ textarea {
 
 .link-button--danger {
   color: var(--muted);
-  margin-right: auto;
 }
 
 .link-button--danger:hover {
   color: var(--danger);
 }
 
-.link-button--confirm {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-/* "Saved for <site>" — the disquette's calm, temporary confirmation
- * (no title asked, no dialog). Fills the
- * row before the save button so it never reflows it at 320px. */
-/* Wraps instead of truncating: the unknown-address notice ("Saved, without
- * site: Coati cannot see this page's address.") must be read whole at
- * 320 px — an ellipsis cut it mid-word. */
+/* "Saved for <site>" — the disquette's calm, temporary confirmation (no
+ * title asked, no dialog), right above the field. Wraps instead of
+ * truncating: the unknown-address notice must be read whole at 320 px. */
 .prompt-saved-notice {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: 0.85em;
+  font-size: var(--text-s);
   line-height: 1.3;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
 
-/* "historique", docs/PROTOCOL.md — discreet
- * line above the composer's input, same muted register as
- * .prompt-saved-notice/.message-cut-notice, never the error style. */
+.prompt-saved-notice:empty {
+  display: none;
+}
+
+/* "historique", docs/PROTOCOL.md — discreet muted line, never the error
+ * style: the internal-page notice above the field, the history notices and
+ * the "Cleared · Undo" notice in the thread bar. */
 .history-notice {
-  margin: 0 0 var(--space-2) 0;
-  font-size: 0.85em;
+  margin: 0;
+  font-size: var(--text-s);
   line-height: 1.3;
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+/* Above the conversation, far from Send: the conversation's own notices
+ * and "Clear the conversation". Gone while there is nothing to clear and
+ * nothing to say. */
+.thread-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1) var(--space-2);
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3) 0;
+}
+
+.thread-bar .history-notice {
+  flex: 1 1 12em;
+}
+
+body:has(> .messages:empty) .thread-bar .link-button--danger {
+  display: none;
+}
+
+body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
+  display: none;
+}
+
+/* "Conversation cleared · Undo": a small tinted band, Undo in bold. */
+.history-notice:has(> .link-button) {
+  flex: 0 1 auto;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.history-notice > .link-button {
+  padding: 0 2px;
+  font-weight: 600;
 }
 
 .messages {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-3);
+  padding: var(--space-4) var(--space-3) var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-4);
 }
 
 .message {
@@ -604,36 +578,43 @@ textarea {
  *  — the bubble's own look lives on the
  * inner .message-user-bubble so the button sits outside it, not inside. */
 .message--user {
+  position: relative;
   align-self: flex-end;
   max-width: 85%;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
-/* Its colour is the single --message-user-bg token (lib/theme.css), text
- * stays --fg. */
+/* A raised card in the normal look; text stays --fg. */
 .message-user-bubble {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius);
   background: var(--message-user-bg);
+  box-shadow: var(--shadow-raised);
   color: var(--fg);
 }
 
-/* Hidden until hovered or keyboard-focused, but always in the tab order (a
+/* Out of flow, just under the bubble, so it takes no space while hidden.
+ * Hidden until hovered or keyboard-focused, but always in the tab order (a
  * disabled button, while a request is active, leaves it naturally — see
  * panel.js's setStreamingUi()). Colour never changes across states
  * (default/hover/focus/active): it is --fg over the panel's own --bg, the
  * same pairing already used for the bulk of the panel's text, so the
  * contrast sweep needs no new combination to verify. */
 .message-relaunch {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1;
+  white-space: nowrap;
   border: none;
   background: none;
-  padding: 2px var(--space-1);
+  padding: 0 var(--space-1);
   margin: 0;
   font: inherit;
-  font-size: 0.8em;
+  font-size: var(--text-s);
   color: var(--fg);
   text-decoration: underline;
   cursor: pointer;
@@ -673,7 +654,7 @@ textarea {
 .message--assistant h3,
 .message--assistant h4,
 .message--assistant h5 {
-  margin: var(--space-2) 0 var(--space-1);
+  margin: var(--space-4) 0 var(--space-1);
   line-height: var(--line-height);
 }
 
@@ -684,15 +665,12 @@ textarea {
 }
 
 .message--assistant h3 {
-  font-size: 1.15em;
+  font-size: var(--text-l);
 }
 
-.message--assistant h4 {
-  font-size: 1.05em;
-}
-
+.message--assistant h4,
 .message--assistant h5 {
-  font-size: 1em;
+  font-size: var(--text-m);
   font-weight: 700;
 }
 
@@ -700,7 +678,7 @@ textarea {
 .message-user-bubble p,
 .message-user-bubble ul,
 .message-user-bubble ol {
-  margin: var(--space-1) 0;
+  margin: var(--space-2) 0;
 }
 
 .message--assistant p:first-child,
@@ -714,12 +692,12 @@ textarea {
 
 .message--assistant ul,
 .message--assistant ol {
-  margin: var(--space-1) 0;
+  margin: var(--space-2) 0;
   padding-left: var(--space-4);
 }
 
 .message--assistant li {
-  margin: 2px 0;
+  margin: var(--space-1) 0;
 }
 
 .message--assistant blockquote {
@@ -732,8 +710,9 @@ textarea {
 .message--assistant pre {
   margin: var(--space-2) 0;
   padding: var(--space-2);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--field-bg);
+  border: 1px solid var(--control-border);
+  box-shadow: var(--shadow-field);
   border-radius: var(--radius);
   overflow-x: auto;
   white-space: pre;
@@ -741,7 +720,7 @@ textarea {
 
 .message--assistant code {
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 0.92em;
+  font-size: var(--text-s);
 }
 
 /* Inline code (outside a <pre>) gets its own small pill; code inside a
@@ -766,12 +745,11 @@ textarea {
 
 .md-table {
   border-collapse: collapse;
-  font-size: 0.95em;
 }
 
 .md-table th,
 .md-table td {
-  border: 1px solid var(--border);
+  border: 1px solid var(--divider);
   padding: 2px var(--space-2);
   text-align: left;
 }
@@ -784,7 +762,7 @@ textarea {
 .message--assistant hr {
   margin: var(--space-2) 0;
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--divider);
 }
 
 .message--system {
@@ -792,7 +770,6 @@ textarea {
   padding: var(--space-1) var(--space-2);
   background: transparent;
   color: var(--danger);
-  font-size: 0.9em;
 }
 
 .timestamp-link {
@@ -838,7 +815,7 @@ textarea {
 
 /* "This model thinks before answering: it takes longer." */
 .message-progress-hint {
-  font-size: 0.9em;
+  font-size: var(--text-s);
 }
 
 /* Fixed-size slot regardless of whether the coati icon is currently in it
@@ -866,7 +843,7 @@ textarea {
   padding: var(--space-1) var(--space-2);
   background: transparent;
   color: var(--muted);
-  font-size: 0.9em;
+  font-size: var(--text-s);
   text-align: center;
 }
 
@@ -874,14 +851,14 @@ textarea {
 .message-cut-notice {
   margin: var(--space-2) 0 0;
   color: var(--danger);
-  font-size: 0.9em;
+  font-size: var(--text-s);
 }
 
 /* Tip under a slow or cut answer: one sentence, two small actions. */
 .slow-tip {
   margin-top: var(--space-2);
   padding-top: var(--space-2);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--divider);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -891,7 +868,7 @@ textarea {
 .slow-tip-text {
   margin: 0;
   color: var(--muted);
-  font-size: 0.9em;
+  font-size: var(--text-s);
 }
 
 .slow-tip-actions {
@@ -901,24 +878,32 @@ textarea {
 }
 
 .slow-tip-action {
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius);
   padding: var(--space-1) var(--space-3);
-  background: var(--bg);
+  background: var(--card);
+  box-shadow: var(--shadow-raised);
   color: var(--fg);
   font: inherit;
-  font-size: 0.9em;
+  font-size: var(--text-s);
   cursor: pointer;
 }
 
-.slow-tip-action:hover {
-  background: var(--surface);
+.slow-tip-action:hover,
+.recovery-copy:hover {
+  background: var(--card-hover);
+  box-shadow: var(--shadow-hover);
+}
+
+.slow-tip-action:active,
+.recovery-copy:active {
+  box-shadow: var(--shadow-pressed);
 }
 
 .recovery-block {
   margin-top: var(--space-2);
   padding-top: var(--space-2);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--divider);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -932,11 +917,12 @@ textarea {
 }
 
 .recovery-command code {
-  background: var(--bg);
+  background: var(--field-bg);
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-field);
   border-radius: var(--radius);
-  padding: 3px var(--space-1);
-  font-size: 0.9em;
+  padding: var(--space-1);
+  font-size: var(--text-s);
 }
 
 .recovery-copy,
@@ -944,14 +930,15 @@ textarea {
   border: none;
   border-radius: var(--radius);
   padding: var(--space-1) var(--space-3);
-  font-size: 0.9em;
+  font-size: var(--text-m);
   cursor: pointer;
   align-self: flex-start;
 }
 
 .recovery-copy {
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--card);
+  border: 1px solid var(--control-border);
+  box-shadow: var(--shadow-raised);
   color: var(--fg);
   /* This class is now also used on
      external <a> links (buildExternalLink(), panel.js) — same look as the
@@ -960,17 +947,15 @@ textarea {
   text-decoration: none;
 }
 
-.recovery-copy:hover {
-  background: var(--surface);
-}
-
 .recovery-retry {
   background: var(--accent);
   color: var(--accent-fg);
+  font-weight: 600;
+  box-shadow: var(--shadow-raised);
 }
 
 .recovery-retry:hover {
-  filter: brightness(0.9);
+  background: var(--accent-hover);
 }
 
 .recovery-retry:disabled {
@@ -982,96 +967,294 @@ textarea {
   50% { opacity: 0; }
 }
 
+/* The composer: a raised card at the foot of the panel. Notices first, then
+ * the field (💾 inside it: it saves what was typed), then Send. */
 .composer {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--border);
-  background: var(--bg);
-}
-
-/* One row, alone: the "Saved for …" notice and the disquette. The
- * prompt list moved to "My prompts" (a later phase); the "Read page"
- * switch lives in the site card's head row (card.css). */
-.composer-bar {
-  display: flex;
-  align-items: center;
   gap: var(--space-2);
-  min-height: 28px;
-}
-
-/* "Attach the screen". Reuses the `.switch` class already styled
- * for #attachPage (card.css) — same widget, same look; only the row layout
- * and the destination line's own (muted, identity P24) color are new. */
-/* 320px capture: was a single row, squeezing the
- * destination/reason text into a narrow column beside the toggle (wrapped
- * 4 lines). Stacked instead — the text gets the full composer width on its
- * own line below, at every width, not just narrow ones. */
-.attach-screen-row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  min-height: 24px;
-}
-
-.attach-screen-destination {
-  font-size: 0.85em;
-  color: var(--muted);
+  flex-shrink: 0;
+  margin: 0 var(--space-3) var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-raised);
 }
 
 /* Discreet status line (muted), same family as .message-cut-notice. */
 .search-status-line {
   margin: var(--space-2) 0 0;
-  font-size: 0.85em;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
-/* "Montrer : …" button: inline, discreet, caramel (P24), wraps
- * at 320px like ordinary text (display: inline, not inline-block — a long
- * label must be able to break across lines, same as the surrounding prose,
- * rather than overflow as one rigid box). */
+/* "Montrer : …" button: inline, so a long label wraps at 320 px like the
+ * prose around it instead of overflowing as one rigid box. A pale caramel
+ * band with dark text: caramel text fails contrast on a light background. */
 .element-point-button {
   display: inline;
   border: none;
-  background: transparent;
-  color: var(--accent);
+  border-radius: 4px;
+  background: var(--accent-tint);
+  color: var(--fg);
   font: inherit;
   font-weight: 600;
-  text-decoration: underline;
+  padding: 0 var(--space-1);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
   cursor: pointer;
-  padding: 0;
 }
 
 .element-point-button:hover {
-  filter: brightness(0.85);
+  background: var(--accent);
+  color: var(--accent-fg);
 }
 
 .element-point-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 2px;
+}
+
+/* "Show" intensity, right after an answer's first "Montrer" button: a
+ * small recessed vertical track with three notches, bottom = subtle,
+ * top = spectacular; the chosen notch is the larger caramel dot. */
+.point-level {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column-reverse;
+  vertical-align: middle;
+  width: 14px;
+  margin: 0 var(--space-1);
+  padding: 2px 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--field-bg);
+  box-shadow: var(--shadow-field);
+  cursor: pointer;
+}
+
+.point-level-notch {
+  display: grid;
+  place-items: center;
+  height: 7px;
+}
+
+.point-level-notch::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.point-level-notch.is-on::before {
+  width: 8px;
+  height: 8px;
+  background: var(--accent-mark);
+}
+
+.point-level:hover {
+  border-color: var(--accent);
+}
+
+.point-level:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Recessed field shared by the textarea and the 💾 button; the focus ring
+ * stays on while the textarea has focus. */
+.composer-field {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-1);
+  padding-right: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  box-shadow: var(--shadow-field);
+}
+
+.composer-field:has(> .composer-input:focus) {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-field), var(--focus-ring);
 }
 
 /* One line at rest; composer-autogrow.js sets the height (CSSOM) as the text
  * grows, up to 4 lines, then this overflow-y takes over. No resize handle.
  * `field-sizing: content` would do it alone but Firefox lacks it. */
 .composer-input {
+  flex: 1 1 auto;
+  min-width: 0;
   resize: none;
   overflow-y: hidden;
   font-family: inherit;
-  font-size: 0.95em;
+  font-size: var(--text-m);
   line-height: var(--line-height);
   padding: var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
+  border: none;
+  outline: none;
+  background: transparent;
   color: var(--fg);
 }
 
 .composer-input--overflow {
   overflow-y: auto;
+}
+
+/* Its tooltip is its own aria-label, on hover and on keyboard focus. While
+ * the field is empty it is aria-disabled (still focusable, so the tooltip
+ * stays readable): the icon alone fades to grey. */
+.save-prompt {
+  position: relative;
+  flex: none;
+  margin-bottom: var(--space-1);
+  line-height: 20px;
+}
+
+.save-prompt[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.save-prompt[aria-disabled="true"]:hover {
+  background: transparent;
+}
+
+.save-prompt[aria-disabled="true"] .save-prompt-icon {
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+
+.save-prompt:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Guided tour (tour.js): a scrim with a cut-out around the explained
+ * element, and one arrowed bubble placed above or below it. */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+}
+
+.tour--centered {
+  background: var(--scrim);
+}
+
+.tour-hole {
+  position: fixed;
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 100vmax var(--scrim), var(--focus-ring);
+  pointer-events: none;
+}
+
+.tour-bubble {
+  position: fixed;
+  width: min(280px, calc(100vw - 2 * var(--space-3)));
+  padding: var(--space-3);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--fg);
+  box-shadow: var(--overlay-shadow), var(--shadow-raised);
+}
+
+.tour--centered .tour-bubble {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.tour-bubble::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--arrow-x, 50%) - 7px);
+  width: 14px;
+  height: 14px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.tour-bubble[data-side="below"]::before {
+  top: -7px;
+}
+
+.tour-bubble[data-side="above"]::before {
+  bottom: -7px;
+}
+
+.tour-bubble[data-side="none"]::before {
+  display: none;
+}
+
+.tour-text {
+  margin: 0;
+  line-height: var(--line-height);
+}
+
+.tour-shortcut {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-s);
+  color: var(--muted);
+}
+
+.tour-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.tour-counter {
+  margin-right: auto;
+  font-size: var(--text-s);
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tour-hole,
+  .tour-bubble {
+    transition: top 200ms ease, left 200ms ease, width 200ms ease, height 200ms ease;
+  }
+}
+
+/* Tooltips drawn from the control's own accessible text, on hover and on
+ * keyboard focus: 💾's label, the "Show" slider's current level. */
+.save-prompt::after {
+  content: attr(aria-label);
+  right: 0;
+}
+
+.point-level::after {
+  content: attr(aria-valuetext);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+:is(.save-prompt, .point-level)::after {
+  position: absolute;
+  bottom: calc(100% + var(--space-2));
+  z-index: 10;
+  width: max-content;
+  max-width: 220px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--header-bg);
+  color: var(--header-fg);
+  box-shadow: var(--overlay-shadow);
+  font-size: var(--text-s);
+  line-height: 1.3;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, visibility 0.12s;
+}
+
+:is(.save-prompt, .point-level):is(:hover, :focus-visible)::after {
+  opacity: 1;
+  visibility: visible;
 }
 
 .composer-actions {
@@ -1086,53 +1269,90 @@ textarea {
   color: var(--accent-fg);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
   cursor: pointer;
-  font-size: 0.9em;
+  font-size: var(--text-m);
+  font-weight: 600;
 }
 
 .composer-button:hover {
-  filter: brightness(0.9);
+  background: var(--accent-hover);
+  box-shadow: var(--shadow-hover);
 }
 
-.composer-button--ghost {
+.composer-button:active {
+  background: var(--accent-active);
+  box-shadow: var(--shadow-pressed);
+}
+
+.composer-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.composer-button--ghost,
+.composer-button--ghost:active {
   background: transparent;
   color: var(--danger);
   border: 1px solid var(--banner-border);
+  box-shadow: none;
 }
 
 .composer-button--ghost:hover {
   background: var(--banner-bg);
+  box-shadow: none;
 }
 
 .composer-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .build-info {
-  padding: 3px var(--space-3) 5px;
-  font-size: 0.7em;
+  padding: 0 var(--space-3) var(--space-1);
+  font-size: var(--text-s);
   color: var(--muted);
   text-align: center;
   user-select: text;
 }
 
-/* --- Dev mode look: strip decoration, keep colours -------------------------
- * `mode-dev` is toggled on <html> by panel/dev-mode.js's updateDevModeUi()
- * (no JS here beyond that). Overriding the two shared tokens instead of
- * every consumer's own selector: --radius flattens every rounded corner in
- * one place, --overlay-shadow removes every panel/card drop shadow the same
- * way. Colour/contrast tokens (--bg, --fg, --accent, …) are untouched — the
- * contrast sweep stays at 0 either way. */
-html.mode-dev {
-  --radius: 0px;
-  --overlay-shadow: none;
+/* --- Dev look --------------------------------------------------------------
+ * `mode-dev` is toggled on <html> by panel/dev-mode.js's updateDevModeUi().
+ * lib/theme.css swaps the palette and flattens the volume tokens (square
+ * corners, no shadow, bordered controls); the rules below put back the
+ * flush, bordered layout of the blocks that are cards in the normal look. */
+html.mode-dev .composer {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+  background: var(--bg);
 }
 
-/* Background illustrations (.help-popover, .never-connected) are decor, not
+html.mode-dev .message--assistant pre {
+  background: var(--surface);
+}
+
+html.mode-dev .element-point-button {
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+html.mode-dev .element-point-button:hover {
+  color: var(--accent);
+  filter: brightness(0.85);
+}
+
+html.mode-dev .search-sources-item a,
+html.mode-dev .md-link {
+  color: var(--accent);
+}
+
+/* Background illustration (.never-connected) is decor, not
  * information — faded out rather than display:none so the fade below
  * animates them like everything else. */
-html.mode-dev .help-popover::after,
 html.mode-dev .never-connected::after {
   opacity: 0;
 }
@@ -1156,14 +1376,14 @@ html.mode-dev .message--assistant {
 .search-sources {
   margin: var(--space-2) 0 0;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius);
   background: var(--surface);
 }
 
 .search-sources-title {
   margin: 0 0 var(--space-1);
-  font-size: 0.85em;
+  font-size: var(--text-s);
   font-weight: 600;
   color: var(--muted);
 }
@@ -1178,20 +1398,20 @@ html.mode-dev .message--assistant {
 }
 
 .search-sources-item {
-  font-size: 0.85em;
+  font-size: var(--text-s);
   color: var(--fg);
   word-break: break-word;
 }
 
 .search-sources-item a,
 .md-link {
-  color: var(--accent);
+  color: var(--link);
 }
 
 .md-link-host,
 .md-link-memory,
 .md-link-refused {
-  font-size: 0.85em;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 

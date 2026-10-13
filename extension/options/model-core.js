@@ -270,12 +270,12 @@ export function providerEntry(settings, providerId) {
 /** Human name of a provider: the service (OpenRouter, Mistral…) when
  * openai-compat's address is known, the built-in label, a module's own
  * label — never the raw id unless nothing else exists. */
-export function serviceName(providerId, settings) {
+export function serviceName(providerId, settings, baseUrl = settings?.provider === providerId ? settings.baseUrl : undefined) {
   if (providerId === "ollama") return "Ollama"; // i18n-allow: product name
   return providerDisplayName(providerId, {
     providerLabel,
     moduleLabels: moduleLabelsFrom(settings),
-    baseUrl: settings?.provider === providerId ? settings.baseUrl : undefined,
+    baseUrl,
     fallback: providerId,
   });
 }
@@ -284,6 +284,10 @@ export function serviceName(providerId, settings) {
  * `reason` (English diagnostic; bug "unavailability detail in English").
  * `tone`: "ok" | "todo". */
 export function serviceState(entry) {
+  // A configured openai-compat service that is not the active one: only its stored key is known.
+  if (entry.id === "openai-compat" && entry.active === false) {
+    return entry.hasKey ? { text: t("options_state_key_saved"), tone: "ok" } : { text: t("options_state_ready"), tone: "ok" };
+  }
   if (entry.id === "claude-api" && !entry.configured) return { text: t("options_state_key_missing"), tone: "todo" };
   if (entry.id === "openai-compat" && !entry.configured) return { text: t("options_state_address_missing"), tone: "todo" };
   if (entry.id === "ollama" && !entry.available) return { text: t("model_list_ollama_unreachable"), tone: "todo" };
@@ -292,18 +296,28 @@ export function serviceState(entry) {
   return { text: t("options_state_ready"), tone: "ok" };
 }
 
-/** Online services shown as rows: the active one when it is online, plus
- * every configured one. An unconfigured service is not listed — "Add a
- * service" is the way in (decision 4). */
+/** Online services shown as rows, active first: the active one when it is online, plus every
+ * configured one. Each configured openai-compat service (OpenRouter, Mistral, another address…)
+ * is its own row, `{ ...entry, key, active, baseUrl, hasKey }`. An unconfigured service is not
+ * listed — "Add a service" is the way in (decision 4). */
 export function onlineServices(settings) {
-  const services = (settings?.available ?? []).filter((entry) => {
-    if (!entry || typeof entry.id !== "string" || entry.id === "ollama") return false;
-    if (isLocalProvider(entry.id, settings)) return false;
-    if (entry.id === settings.provider) return true;
-    if (entry.id === "claude-api" || entry.id === "openai-compat") return Boolean(entry.configured);
-    return Boolean(entry.configured || entry.available); // a module (docs/MODULES.md)
-  });
-  return services.sort((a, b) => Number(b.id === settings.provider) - Number(a.id === settings.provider));
+  const rows = [];
+  for (const entry of settings?.available ?? []) {
+    if (!entry || typeof entry.id !== "string" || entry.id === "ollama") continue;
+    if (entry.id === "openai-compat") {
+      for (const svc of settings.services ?? []) {
+        if (isLoopbackUrl(svc.baseUrl)) continue;
+        const active = settings.provider === entry.id && settings.baseUrl === svc.baseUrl;
+        rows.push({ ...entry, key: `${entry.id}|${svc.baseUrl}`, active, baseUrl: svc.baseUrl, hasKey: svc.hasKey });
+      }
+      continue;
+    }
+    const active = entry.id === settings.provider;
+    if (isLocalProvider(entry.id, settings)) continue;
+    if (!active && !(entry.id === "claude-api" ? entry.configured : entry.configured || entry.available)) continue;
+    rows.push({ ...entry, key: entry.id, active });
+  }
+  return rows.sort((a, b) => Number(b.active) - Number(a.active));
 }
 
 let lastServicesSignature = null;
@@ -315,7 +329,9 @@ function renderModelSection({ fromModels = false } = {}) {
   const settings = status === "connected" ? lastSettings : null;
   renderCurrent(settings);
   renderInstalled(settings);
-  const signature = settings ? `${settings.provider}|${onlineServices(settings).map((e) => e.id).join(",")}` : "";
+  const signature = settings
+    ? `${settings.provider}|${onlineServices(settings).map((e) => `${e.key}:${e.active}:${e.hasKey}`).join(",")}`
+    : "";
   if (!fromModels || signature !== lastServicesSignature) renderServices(settings);
   lastServicesSignature = signature;
   placeModelField(settings);

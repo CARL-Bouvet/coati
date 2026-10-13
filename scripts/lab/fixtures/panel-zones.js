@@ -21,9 +21,10 @@
     { selector: "#siteCard", zone: "Z3", rank: "secondary" },
     { selector: "#siteCard .site-card-head", zone: "Z3a", rank: "secondary" },
     { selector: "#siteCard .site-card-actions", zone: "Z3b", rank: "primary" },
+    { selector: ".thread-bar", zone: "Z4a", rank: "tertiary" },
     { selector: "#messages", zone: "Z4", rank: "primary" },
     { selector: ".composer", zone: "Z5", rank: "secondary" },
-    { selector: ".composer .composer-bar", zone: "Z5a", rank: "tertiary" },
+    { selector: ".composer .composer-field", zone: "Z5a", rank: "primary" },
     { selector: ".composer .composer-actions", zone: "Z5c", rank: "secondary" },
     { selector: "#buildInfo", zone: "Z6", rank: "tertiary", type: "text" },
   ];

@@ -24,7 +24,7 @@
     "message": "语言"
   },
   "common_provider_claude_api": {
-    "message": "Claude（API 密钥）"
+    "message": "Claude (Anthropic)"
   },
   "common_provider_ollama": {
     "message": "Ollama（本地）"
@@ -117,7 +117,7 @@
     "message": "页面读取超时。"
   },
   "common_access_denied_hint": {
-    "message": "点击其图标，右键 → 「使用 Coati 阅读此页面」，或使用键盘快捷键。"
+    "message": "点击其图标，或使用键盘快捷键。"
   },
   "common_extraction_empty": {
     "message": "提取内容为空"
@@ -236,8 +236,11 @@
   "panel_send": {
     "message": "发送"
   },
-  "panel_confirm_erase": {
-    "message": "确认清除？"
+  "panel_conversation_cleared": {
+    "message": "对话已清除"
+  },
+  "panel_undo": {
+    "message": "撤销"
   },
   "panel_summarize_video": {
     "message": "总结此视频"
@@ -675,9 +678,22 @@
   "panelHelpButtonLabel": {
     "message": "帮助：连接模型"
   },
-  "panelHelpPopoverText": {
-    "message": "Coati 需要一个 AI 模型才能作答：本地运行（免费且私密）或在线使用（需创建密钥）。教程将逐步指导您。点击此按钮即可打开教程。"
+  "panel_tour_title": { "message": "导览" },
+  "panel_tour_next": { "message": "下一步" },
+  "panel_tour_skip": { "message": "跳过" },
+  "panel_tour_done": { "message": "完成" },
+  "panel_tour_counter": {
+    "message": "$CURRENT$ / $TOTAL$",
+    "placeholders": { "current": { "content": "$1" }, "total": { "content": "$2" } }
   },
+  "panel_tour_model": { "message": "选择您的模型。总结网页、文章或 YouTube 视频，小模型就够了。" },
+  "panel_tour_site": { "message": "用现成的提示词阅读本网站。点一下即可开始。" },
+  "panel_tour_save": { "message": "点击这里，为本网站保存您的提示词。" },
+  "panel_tour_input": { "message": "直接要求深度网络搜索：Coati 正是为此而设计。链接在可点击之前都会经过核验。" },
+  "panel_tour_end": { "message": "Coati 几乎可以无限优化。由您来驯服这个工具。" },
+  "panel_tour_dev_switch": { "message": "模型可以读取页面清理后的 HTML：数据更多，费用也更高。" },
+  "panel_tour_dev_mention": { "message": "模型读取了什么，在每个回答下方都有统计。" },
+  "panel_tour_dev_end": { "message": "使用在线模型时，Coati 会在发送敏感数据前提醒您。" },
   "panel_internal_page": {
     "message": "Coati 无法读取浏览器内部页面。您的问题将不附带页面发送。"
   },
@@ -732,20 +748,17 @@
   "options_model_save": {
     "message": "保存模型"
   },
-  "options_point_effect_label": {
-    "message": "显示元素"
+  "panel_point_level_label": {
+    "message": "「显示」强度"
   },
-  "options_point_effect_subtle": {
+  "panel_point_level_subtle": {
     "message": "低调"
   },
-  "options_point_effect_strong": {
+  "panel_point_level_strong": {
     "message": "明显"
   },
-  "options_point_effect_spectacular": {
+  "panel_point_level_spectacular": {
     "message": "炫目"
-  },
-  "options_point_effect_help": {
-    "message": "点击「显示」时，Coati 在页面上突出元素的方式。"
   },
   "options_shortcut_title": {
     "message": "键盘快捷键"
@@ -1467,21 +1480,6 @@
   "sw_broker_silent_15s": {
     "message": "本地程序已 15 秒无响应。请确认其在本机上运行，然后重试。"
   },
-  "ctx_read_page": {
-    "message": "用 Coati 阅读此页面"
-  },
-  "ctx_rewrite": {
-    "message": "重写"
-  },
-  "ctx_shorten": {
-    "message": "缩短"
-  },
-  "ctx_explain": {
-    "message": "解释"
-  },
-  "ctx_translate": {
-    "message": "翻译"
-  },
   "sugg_wikipedia_name": {
     "message": "维基百科"
   },
@@ -1741,15 +1739,6 @@
   },
   "options_local_guide_title": {
     "message": "分步安装 Ollama 和推荐模型"
-  },
-  "options_add_service_replaces": {
-    "message": "此类服务一次只能有一个（OpenRouter、OpenAI、Mistral、DeepSeek 或其他地址）：添加新的服务会替换 $SERVICE$ 及其密钥。",
-    "placeholders": {
-      "service": {
-        "content": "$1",
-        "example": "OpenRouter"
-      }
-    }
   },
   "options_current_default_model": {
     "message": "服务的默认模型"

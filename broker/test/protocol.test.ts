@@ -80,18 +80,6 @@ describe("parseClientMessage", () => {
     }
   });
 
-  test("parses a valid act message", () => {
-    const raw = JSON.stringify({
-      type: "act",
-      id: "c3",
-      action: "translate",
-      text: "bonjour",
-      params: { targetLang: "en" },
-    });
-    const result = parseClientMessage(raw);
-    expect(result.ok).toBe(true);
-  });
-
   test("parses prompts.list / save (create) / delete / cancel", () => {
     expect(parseClientMessage(JSON.stringify({ type: "prompts.list", id: "c4" })).ok).toBe(true);
     const save = parseClientMessage(

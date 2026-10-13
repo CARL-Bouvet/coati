@@ -35,7 +35,7 @@ import {
   PREFS_ORDER_MAX,
 } from "./prompts-prefs.ts";
 import type { SitePrefs } from "./prompts-prefs.ts";
-import type { ActMessage, ClientMessage } from "./client-messages.ts";
+import type { ClientMessage } from "./client-messages.ts";
 
 export interface ParseError {
   code: ErrorCode;
@@ -211,21 +211,6 @@ export function parseClientMessage(raw: string): ParseResult {
       // the field is simply ignored, same as any other unknown extra field.
       return { ok: true, message: { type: "summarize", id, context } };
     }
-    case "act": {
-      if (
-        parsed.action !== "translate" &&
-        parsed.action !== "rewrite" &&
-        parsed.action !== "explain" &&
-        parsed.action !== "shorten"
-      ) {
-        return { ok: false, error: { code: "bad-request", message: "act: invalid action", id } };
-      }
-      if (!isNonEmptyString(parsed.text)) {
-        return { ok: false, error: { code: "bad-request", message: "act: missing text", id } };
-      }
-      const params = isRecord(parsed.params) ? (parsed.params as ActMessage["params"]) : undefined;
-      return { ok: true, message: { type: "act", id, action: parsed.action, text: parsed.text, params } };
-    }
     case "prompts.list": {
       return { ok: true, message: { type: "prompts.list", id } };
     }
@@ -343,8 +328,7 @@ export function parseClientMessage(raw: string): ParseResult {
       if (baseUrl !== undefined && typeof baseUrl !== "string") {
         return { ok: false, error: { code: "bad-request", message: "settings.set: invalid baseUrl", id } };
       }
-      // "" is exempt, same as apiKey — it means "forget the stored address".
-      if (baseUrl !== undefined && baseUrl !== "" && !isValidBaseUrl(baseUrl)) {
+      if (baseUrl !== undefined && !isValidBaseUrl(baseUrl)) {
         return {
           ok: false,
           error: {
@@ -359,6 +343,10 @@ export function parseClientMessage(raw: string): ParseResult {
       if (clearKey !== undefined && !isProviderId(clearKey)) {
         return { ok: false, error: { code: "bad-request", message: "settings.set: invalid clearKey", id } };
       }
+      const removeBaseUrl = parsed.removeBaseUrl;
+      if (removeBaseUrl !== undefined && (typeof removeBaseUrl !== "string" || removeBaseUrl === "")) {
+        return { ok: false, error: { code: "bad-request", message: "settings.set: invalid removeBaseUrl", id } };
+      }
       return {
         ok: true,
         message: {
@@ -369,6 +357,7 @@ export function parseClientMessage(raw: string): ParseResult {
           apiKey,
           baseUrl,
           clearKey,
+          removeBaseUrl,
         },
       };
     }

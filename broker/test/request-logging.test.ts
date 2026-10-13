@@ -1,5 +1,5 @@
 // Integration tests: exactly one journal line on request receipt
-// and one on completion, per chat/summarize/act — never page text, user
+// and one on completion, per chat/summarize — never page text, user
 // content, or the pairing token in either line (journalctl only had the handshake/listen lines, nothing to diagnose a hung
 // or failed request from). Driven against the ollama provider's fake fetch.
 

@@ -14,7 +14,6 @@
 
 import { api, IS_GECKO } from "./lib/browser-compat.js";
 import { RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./panel/retention.js";
-import { POINT_EFFECT_KEY, parseStoredPointEffect } from "./panel/point-effect.js";
 import {
   DEV_MODE_KEY,
   DEV_MODE_ACKNOWLEDGED_KEY,
@@ -59,7 +58,7 @@ async function init() {
     ? t("options_sites_help_gecko")
     : t("options_sites_help_chrome");
 
-  const data = await api.storage.local.get([RETENTION_DAYS_KEY, DEV_MODE_KEY, POINT_EFFECT_KEY]);
+  const data = await api.storage.local.get([RETENTION_DAYS_KEY, DEV_MODE_KEY]);
   const retentionDays = parseStoredRetentionDays(data[RETENTION_DAYS_KEY]);
   els.retention.value = retentionDays === null ? "never" : String(retentionDays);
   // Same storage key as the panel's "Dev mode" switch (lib/dev-mode-pref.js) —
@@ -96,14 +95,6 @@ async function init() {
       els.devMode.checked = parseStoredDevMode(changes[DEV_MODE_KEY].newValue);
     }
   });
-
-  const pointEffect = parseStoredPointEffect(data[POINT_EFFECT_KEY]);
-  for (const input of els.pointEffectInputs) {
-    input.checked = input.value === pointEffect;
-    input.addEventListener("change", () => {
-      if (input.checked) api.storage.local.set({ [POINT_EFFECT_KEY]: input.value });
-    });
-  }
 
   els.openPrompts.addEventListener("click", (event) => {
     // Same opening path as the panel's "Mes prompts" entry: a new tab.

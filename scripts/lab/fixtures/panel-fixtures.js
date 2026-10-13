@@ -59,6 +59,36 @@
     "```\n\n" +
     "> À vérifier avant de trancher : ces chiffres datent du 25 septembre.";
 
+  // Guided tour (tour.js) opened from "?", then `nextClicks` steps forward.
+  // Dev: an answer with its read mention, dev mode on.
+  function tourState(dev, nextClicks) {
+    var steps = [{ type: "click", selector: "#helpButton", delayMs: 150 }];
+    // Delays count from page load, not from the previous step.
+    for (var i = 0; i < nextClicks; i++) steps.push({ type: "click", selector: ".tour-next", delayMs: 400 + i * 150 });
+    var storage = dev
+      ? {
+          "coati:conversation": [
+            { id: "tour-u", role: "user", text: "Résumer cet article" },
+            { id: "tour-a", role: "assistant", text: CONVERSATION_ANSWER, streaming: false, pageOnDemand: true, pageMention: "A lu le code de la page · 4.1 k tokens" },
+          ],
+          "coati:devMode": true,
+          "coati:devModeAcknowledged": true,
+        }
+      : { "coati:conversation": [], "coati:attachPage": true, "coati:modelEverAnswered": true };
+    return {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand"],
+      storageLocal: storage,
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      models: MODELS_LOCAL_AND_ONLINE,
+      autoAction: { steps: steps },
+    };
+  }
+
   var YOUTUBE_TAB = {
     id: 501,
     url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -1556,19 +1586,14 @@
     // Bouton « ? » du bandeau, popover ouvert (hover/focus) : texte
     // d'aide, image de fond discrète (tête existante, place de la future
     // illustration coati surpris/indécis).
-    "help-popover-open": {
-      status: "connected",
-      tab: ARTICLE_TAB,
-      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
-      faviconUrl: FAVICON,
-      storageLocal: {
-        "coati:conversation": [],
-        "coati:attachPage": true,
-        "coati:modelEverAnswered": true,
-      },
-      prompts: [],
-      autoAction: { steps: [{ type: "focus", selector: "#helpButton", delayMs: 50 }] },
-    },
+    "tour-normal-step-1": tourState(false, 0),
+    "tour-normal-step-2": tourState(false, 1),
+    "tour-normal-step-3": tourState(false, 2),
+    "tour-normal-step-4": tourState(false, 3),
+    "tour-normal-step-5": tourState(false, 4),
+    "tour-dev-step-1": tourState(true, 0),
+    "tour-dev-step-2": tourState(true, 1),
+    "tour-dev-step-3": tourState(true, 2),
 
     // "Montrer : …" buttons in
     // an assistant answer. `elementsSnapshot` is hand-authored directly on
@@ -1596,6 +1621,38 @@
               elements: [
                 { ref: "e1", role: "button", label: "Générer" },
                 { ref: "e2", role: "link", label: "En savoir plus" },
+              ],
+            },
+          },
+        ],
+        "coati:attachPage": true,
+      },
+      prompts: [],
+    },
+
+    // README screenshot (English content, captured with lang=en).
+    readme: {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["elements"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "rd-u", role: "user", text: "How do I download my data from this site?" },
+          {
+            id: "rd-a",
+            role: "assistant",
+            text:
+              "Two steps:\n\n1. Open your account: [[e1]]\n2. In the privacy section, use [[e2]]. The archive arrives by email within a few minutes.\n\nThe page does not mention any fee.",
+            streaming: false,
+            pageOnDemand: true,
+            pageMention: "Read the page · 3.2 k tokens",
+            elementsSnapshot: {
+              extractionId: "lab-rd",
+              elements: [
+                { ref: "e1", role: "link", label: "My account" },
+                { ref: "e2", role: "button", label: "Export my data" },
               ],
             },
           },

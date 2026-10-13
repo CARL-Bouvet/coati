@@ -24,7 +24,7 @@
     "message": "Langue"
   },
   "common_provider_claude_api": {
-    "message": "Claude (clé API)"
+    "message": "Claude (Anthropic)"
   },
   "common_provider_ollama": {
     "message": "Ollama (local)"
@@ -117,7 +117,7 @@
     "message": "La page met trop de temps à être lue."
   },
   "common_access_denied_hint": {
-    "message": "Cliquez sur son icône, faites un clic droit → « Lire cette page avec Coati », ou utilisez le raccourci clavier."
+    "message": "Cliquez sur son icône ou utilisez le raccourci clavier."
   },
   "common_extraction_empty": {
     "message": "extraction vide"
@@ -236,8 +236,11 @@
   "panel_send": {
     "message": "Envoyer"
   },
-  "panel_confirm_erase": {
-    "message": "Confirmer l'effacement ?"
+  "panel_conversation_cleared": {
+    "message": "Conversation effacée"
+  },
+  "panel_undo": {
+    "message": "Annuler"
   },
   "panel_summarize_video": {
     "message": "Résumer cette vidéo"
@@ -675,9 +678,22 @@
   "panelHelpButtonLabel": {
     "message": "Aide : connecter un modèle"
   },
-  "panelHelpPopoverText": {
-    "message": "Coati a besoin d'un modèle d'IA pour répondre : sur votre ordinateur (gratuit et privé) ou en ligne (une clé à créer). Le tutoriel vous guide pas à pas. Cliquez sur ce bouton pour l'ouvrir."
+  "panel_tour_title": { "message": "Visite guidée" },
+  "panel_tour_next": { "message": "Suivant" },
+  "panel_tour_skip": { "message": "Passer" },
+  "panel_tour_done": { "message": "Terminer" },
+  "panel_tour_counter": {
+    "message": "$CURRENT$ / $TOTAL$",
+    "placeholders": { "current": { "content": "$1" }, "total": { "content": "$2" } }
   },
+  "panel_tour_model": { "message": "Choisissez votre modèle. Pour un résumé de page, d'article ou de vidéo YouTube, un petit modèle suffit." },
+  "panel_tour_site": { "message": "La lecture du site avec des prompts tout prêts. Cliquez et c'est parti." },
+  "panel_tour_save": { "message": "Enregistrez vos prompts pour ce site en cliquant ici." },
+  "panel_tour_input": { "message": "Demandez directement une recherche avancée : Coati est conçu pour cela. Ses liens sont vérifiés avant d'être cliquables." },
+  "panel_tour_end": { "message": "Coati est optimisable à l'infini, ou presque. À vous d'apprivoiser l'outil." },
+  "panel_tour_dev_switch": { "message": "Le modèle peut lire le HTML nettoyé de la page : plus de données, donc plus cher." },
+  "panel_tour_dev_mention": { "message": "Ce que le modèle a lu, compté sous chaque réponse." },
+  "panel_tour_dev_end": { "message": "Avec un modèle en ligne, Coati vous prévient avant d'envoyer des données sensibles." },
   "panel_internal_page": {
     "message": "Coati ne peut pas lire les pages internes du navigateur. Vos questions partent sans la page."
   },
@@ -732,20 +748,17 @@
   "options_model_save": {
     "message": "Enregistrer le modèle"
   },
-  "options_point_effect_label": {
-    "message": "Montrer un élément"
+  "panel_point_level_label": {
+    "message": "Intensité de « Montrer »"
   },
-  "options_point_effect_subtle": {
+  "panel_point_level_subtle": {
     "message": "Discret"
   },
-  "options_point_effect_strong": {
+  "panel_point_level_strong": {
     "message": "Marqué"
   },
-  "options_point_effect_spectacular": {
+  "panel_point_level_spectacular": {
     "message": "Spectaculaire"
-  },
-  "options_point_effect_help": {
-    "message": "Comment Coati met un élément en évidence sur la page quand vous cliquez sur « Montrer »."
   },
   "options_shortcut_title": {
     "message": "Raccourci clavier"
@@ -1467,21 +1480,6 @@
   "sw_broker_silent_15s": {
     "message": "Le programme local ne répond pas depuis 15 s. Vérifiez qu'il tourne sur cette machine, puis réessayez."
   },
-  "ctx_read_page": {
-    "message": "Lire cette page avec Coati"
-  },
-  "ctx_rewrite": {
-    "message": "Reformuler"
-  },
-  "ctx_shorten": {
-    "message": "Raccourcir"
-  },
-  "ctx_explain": {
-    "message": "Expliquer"
-  },
-  "ctx_translate": {
-    "message": "Traduire"
-  },
   "sugg_wikipedia_name": {
     "message": "Wikipédia"
   },
@@ -1741,15 +1739,6 @@
   },
   "options_local_guide_title": {
     "message": "Installer Ollama et un modèle conseillé, pas à pas"
-  },
-  "options_add_service_replaces": {
-    "message": "Un seul service de ce type à la fois (OpenRouter, OpenAI, Mistral, DeepSeek, autre adresse) : en ajouter un autre remplace $SERVICE$ et sa clé.",
-    "placeholders": {
-      "service": {
-        "content": "$1",
-        "example": "OpenRouter"
-      }
-    }
   },
   "options_current_default_model": {
     "message": "Modèle par défaut du service"

@@ -4,12 +4,13 @@
 import {
   DEFAULT_CONFIG,
   resolveApiKey,
+  hasCompatKey,
   type ProviderId,
   type CoatiConfig,
 } from "../config.ts";
 import { getProviders, getProvider } from "../providers/registry.ts";
 import type { ModelProvider, ProviderRuntimeOptions, TestConnectionCode } from "../providers/types.ts";
-import type { ProviderStatus, SettingsSetMessage } from "../protocol.ts";
+import type { CompatServiceInfo, ProviderStatus, SettingsSetMessage } from "../protocol.ts";
 import { t, DEFAULT_LANG, type Lang } from "../messages.ts";
 import {
   buildPrompt,
@@ -24,7 +25,7 @@ import {
 import type { ProviderStatusCache } from "../provider-status.ts";
 
 /** Bundles what handleMessage needs beyond the message itself: the provider
- * currently selected (for chat/summarize/act) and read/write access to the
+ * currently selected (for chat/summarize) and read/write access to the
  * live config (for settings.get/settings.set). Config is process-wide per
  * server instance — one broker serves one user — so `set` mutates the
  * closure in startServer() directly. */
@@ -47,7 +48,7 @@ export interface SettingsCtx {
   applySettings(
     patch: Pick<
       SettingsSetMessage,
-      "provider" | "model" | "apiKey" | "baseUrl" | "clearKey"
+      "provider" | "model" | "apiKey" | "baseUrl" | "clearKey" | "removeBaseUrl"
     >,
   ): CoatiConfig;
   /** `provider.status` for the currently active provider, through the
@@ -66,6 +67,7 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
   available: ProviderStatus[];
   models?: string[];
   baseUrl?: string;
+  services?: CompatServiceInfo[];
 }> {
   const provider = config.provider ?? DEFAULT_CONFIG.provider!;
   // Each provider gets ONLY its own key — see
@@ -121,7 +123,14 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
   // (openai-compat), never for every provider in `available` (which never
   // carries any provider-specific config value beyond id/label/available).
   const baseUrl = provider === "openai-compat" ? config.baseUrl : undefined;
-  return { provider, model: config.model, available, models, baseUrl };
+  // Every configured openai-compat service (addresses and models are not secrets; the key is
+  // reported as a boolean only).
+  const services = config.compatServices?.map((svc) => ({
+    baseUrl: svc.baseUrl,
+    ...(svc.model ? { model: svc.model } : {}),
+    hasKey: hasCompatKey(config, svc.baseUrl),
+  }));
+  return { provider, model: config.model, available, models, baseUrl, ...(services?.length ? { services } : {}) };
 }
 
 // --- settings.test (task 3): "Tester la connexion" backend ------------------
@@ -185,7 +194,7 @@ function settingsTestFailureMessage(providerId: ProviderId, err: unknown, lang: 
 
 /** Maps a provider's TestConnectionResult.code (providers/types.ts) to the
  * localised sentence shown verbatim in settings.test-result.message —
- * reusing the SAME codes/wording as chat/summarize/act's own error messages
+ * reusing the SAME codes/wording as chat/summarize's own error messages
  * (auth.apiKeyRejected, provider.quotaExceeded, provider.rateLimited) so the
  * panel names the same remedy everywhere, per docs/PROTOCOL.md "settings.test"
  * `model-unavailable` falls back to each

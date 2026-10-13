@@ -14,8 +14,8 @@
 
 import { api } from "../lib/browser-compat.js";
 import { requestBrokerKeyFromHost } from "../lib/native-host.js";
-import { t, i18nReady } from "../lib/i18n.js";
-import { SUPPORTED_LANGS, UI_LANG_AUTO, UI_LANG_STORAGE_KEY, resolveUiLang } from "../lib/ui-lang.js";
+import { t } from "../lib/i18n.js";
+import { SUPPORTED_LANGS, UI_LANG_AUTO, UI_LANG_STORAGE_KEY } from "../lib/ui-lang.js";
 import {
   isHex64,
   randomHex32,
@@ -72,43 +72,6 @@ const PENDING_REQUEST_TIMEOUT_MS = 15000;
 // (deliverable B4).
 const WORKER_INSTANCE_ID = crypto.randomUUID();
 
-// Key for the "act on selection" stash — see the context menu block below.
-// chrome.storage.SESSION only: the stashed text is the user's private
-// selection, so it must never touch chrome.storage.local (unencrypted disk,
-// CLAUDE.md rule #1).
-const PENDING_ACTION_KEY = "coati:pendingAction";
-
-// Coati's four selection actions (docs/PROTOCOL.md, message "act"). Menu
-// item id -> the broker action it maps to and the i18n key for the label
-// shown both in the context menu and later as the panel's own user-bubble
-// label. U1: no hardcoded French here any more — labelKey is resolved
-// through t() at menu-build time (setupContextMenus) and again when the
-// selection is stashed (onClicked below), both after i18nReady(), so they
-// follow the current uiLang (docs/PROTOCOL.md).
-// translate's targetLang is likewise resolved per-click (resolveEffectiveUiLang)
-// instead of being fixed to "fr".
-const CONTEXT_MENU_ACTIONS = {
-  "coati-rewrite": { action: "rewrite", labelKey: "ctx_rewrite" },
-  "coati-shorten": { action: "shorten", labelKey: "ctx_shorten" },
-  "coati-explain": { action: "explain", labelKey: "ctx_explain" },
-  "coati-translate": { action: "translate", labelKey: "ctx_translate", translate: true },
-};
-
-/** Effective UI language ("en" | "fr" | "zh_CN"), same resolution as
- * lib/i18n.js's own resolveEffectiveLang() and panel.js's hello.lang
- * (resolveHelloLang below): the stored explicit choice, else the browser's
- * own UI language normalised down to one of SUPPORTED_LANGS. Used for both
- * the context menu's t() labels and translate's targetLang. */
-async function resolveEffectiveUiLang() {
-  const browserLang = api.i18n?.getUILanguage?.();
-  try {
-    const stored = await api.storage.local.get(UI_LANG_STORAGE_KEY);
-    return resolveUiLang(stored?.[UI_LANG_STORAGE_KEY], browserLang);
-  } catch {
-    return resolveUiLang(undefined, browserLang);
-  }
-}
-
 let ws = null;
 // disconnected | connecting | handshaking | connected | no-host |
 // broker-untrusted | no-token | pairing-retry | handshake-timeout
@@ -164,40 +127,10 @@ api.runtime.onInstalled.addListener((details) => {
   if (api.sidePanel) api.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
   api.alarms.create(RECONNECT_ALARM, { periodInMinutes: 0.5 });
   connectIfNeeded();
-  setupContextMenus();
 });
 
-// T46 (docs/DECISIONS.md) — one more gesture that gives access to the page,
-// same class as the toolbar icon: a right-click on the page itself (not on a
-// selection). "READ_PAGE_MENU_ID"'s onClicked handler below follows the exact
-// same path as action.onClicked (openPanel(tab) first, then
-// "coati:action-clicked"), not the selection-stash path used by the entries
-// under the "coati" parent, which is unrelated and stays as-is.
-const READ_PAGE_MENU_ID = "coati-read-page";
-
-// U1: awaits i18nReady() first — menu titles are built from t(), and
-// without this they could still catch the runtime catalog mid-flight (the
-// SW's own load is fire-and-forget, see lib/i18n.js) and freeze on
-// chrome.i18n's browser-fixed language. Called at install and again on
-// every uiLang storage change (see the storage.onChanged listener below), so
-// menus always reflect the current choice.
-async function setupContextMenus() {
-  await i18nReady();
-  api.contextMenus.removeAll(() => {
-    api.contextMenus.create({
-      id: READ_PAGE_MENU_ID,
-      title: t("ctx_read_page"),
-      contexts: ["page"],
-    });
-    api.contextMenus.create({ id: "coati", title: "Coati", contexts: ["selection"] });
-    for (const [id, entry] of Object.entries(CONTEXT_MENU_ACTIONS)) {
-      api.contextMenus.create({ id, parentId: "coati", title: t(entry.labelKey), contexts: ["selection"] });
-    }
-  });
-}
-
 // Opens Coati's panel in response to a genuine user gesture (a toolbar
-// action click, or — below — a context-menu selection). Feature-detected,
+// action click). Feature-detected,
 // never user-agent sniffed: Firefox exposes sidebarAction (no sidePanel at
 // all), Chrome/Brave expose sidePanel (no sidebarAction). On Firefox,
 // sidebarAction.open() must run synchronously within the gesture's own event
@@ -231,61 +164,6 @@ if (api.action && api.action.onClicked) {
     api.runtime.sendMessage({ type: "coati:action-clicked", tabId: tab.id }).catch(() => {});
   });
 }
-
-// A right-click on a text selection, followed by picking one of our menu
-// items, IS a real user gesture — the same kind a toolbar-icon click is —
-// which is why openPanel() is allowed to run here (chrome.sidePanel.open()
-// throws, and Firefox's sidebarAction.open() is refused, outside of a
-// genuine gesture). The panel, however, may not exist yet (this is often the
-// very first interaction). So the selection text is stashed in
-// chrome.storage.session — a request "in flight" until a panel picks it up —
-// and a broadcast is sent in case a panel is already open and listening.
-// panel.js drains the stash both on its own load and on that broadcast,
-// whichever comes first, and deletes it the moment it's read: two panels
-// racing to read it is impossible in single-threaded JS, but a panel that
-// died mid-read (drainPendingAction did not run yet) leaves a "read but
-// still present" stash undamaged for the next attempt, so nothing is lost
-// and a delivered action never fires twice.
-// T46 — same path as the toolbar icon's action.onClicked listener above:
-// openPanel(tab) as the very first statement (synchronous, within this
-// gesture's own event handler — see openPanel()'s comment), then
-// "coati:action-clicked" with tab.id. Checked before the selection-action
-// entry below, which is a different menu item entirely (contexts:
-// ["selection"], under the "coati" parent).
-api.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === READ_PAGE_MENU_ID) {
-    if (!tab) return;
-    openPanel(tab);
-    api.runtime.sendMessage({ type: "coati:action-clicked", tabId: tab.id }).catch(() => {});
-  }
-});
-
-api.contextMenus.onClicked.addListener(async (info, tab) => {
-  const entry = CONTEXT_MENU_ACTIONS[info.menuItemId];
-  if (!entry || !info.selectionText || !tab?.windowId) return;
-
-  // Called synchronously, before any await — see openPanel()'s comment.
-  openPanel(tab);
-
-  // U1: label and targetLang (for translate) are resolved here, at click
-  // time, not read off a module-load-time constant — both follow whatever
-  // uiLang is current right now.
-  await i18nReady();
-  const label = t(entry.labelKey);
-  const params = entry.translate ? { targetLang: await resolveEffectiveUiLang() } : undefined;
-
-  await api.storage.session.set({
-    [PENDING_ACTION_KEY]: {
-      action: entry.action,
-      label,
-      params,
-      selectionText: info.selectionText,
-      url: tab.url,
-      title: tab.title,
-    },
-  });
-  broadcast({ type: "coati:pending-action" });
-});
 
 // Stamped so the panel can tell "the user just clicked my icon" apart from
 // "the browser restored a panel that was left open". Chrome restores an open
@@ -392,12 +270,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // forceReconnect() above; the broker has no message to change an
 // already-negotiated connection's language mid-stream (docs/PROTOCOL.md: "The negotiated language
 // applies for the duration of the connection"), so reconnecting is the only way to renegotiate it.
-// Also rebuilds the context menus (setupContextMenus), whose titles are
-// French-hardcoded no more — they must follow the same change.
 api.storage.onChanged?.addListener?.((changes, areaName) => {
   if (areaName !== "local" || !(UI_LANG_STORAGE_KEY in changes)) return;
   forceReconnect();
-  setupContextMenus();
 });
 
 function broadcast(message) {

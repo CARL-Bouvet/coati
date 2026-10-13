@@ -32,5 +32,4 @@ export function newId() {
 }
 
 export const STORAGE_KEY = "coati:conversation";
-export const PENDING_ACTION_KEY = "coati:pendingAction";
 export const MAX_PERSISTED_MESSAGES = 200;

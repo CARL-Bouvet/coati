@@ -158,13 +158,6 @@ const chromeMock: any = {
     },
   },
   alarms: { create() {}, onAlarm: { addListener() {} } },
-  contextMenus: {
-    removeAll(cb?: () => void) {
-      cb?.();
-    },
-    create() {},
-    onClicked: { addListener() {} },
-  },
 };
 
 function resetChromeMock() {

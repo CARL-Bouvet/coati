@@ -66,7 +66,7 @@ export function onProgress(message) {
 /** docs/PROTOCOL.md "Page on demand", point 5 of the task brief — the
  * discreet mention line under a finished answer. Only ever set on a message
  * that took the metadata-only path (`msg.pageOnDemand`, composer-send.js) —
- * never for summarize/act (no such path exists for them) nor for the
+ * never for summarize (no such path exists for them) nor for the
  * no-"pageOnDemand"-feature fallback (full `context` sent directly: `done
  * .page` is then structurally absent broker-side, and "Did not read the
  * page" would be a misleading thing to say about an answer that in fact had

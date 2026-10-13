@@ -1,7 +1,7 @@
 // The registry of model providers Coati knows about: the three built-ins
 // (ollama, claude-api, openai-compat) plus whatever external modules config.json's
 // `modules` array names — see docs/ARCHITECTURE.md and docs/PROTOCOL.md. server.ts uses this both
-// to dispatch chat/summarize/act to the currently-selected provider and to answer
+// to dispatch chat/summarize to the currently-selected provider and to answer
 // `settings.get`/`settings.set` by probing every provider's isAvailable().
 
 import type { ModelProvider } from "./types.ts";

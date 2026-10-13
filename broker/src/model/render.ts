@@ -89,8 +89,7 @@ export function flattenAndCap(value: string, maxChars: number): string {
 // docs/PROTOCOL.md "Langue de la connexion" / "Construction du
 // prompt": the model must answer in the language the client's `hello`
 // reported, unless the user's own message explicitly asks for another one
-// (e.g. an `act`/`translate` with an explicit targetLang, or a chat message
-// that itself says "answer in English"). Kept in English here on purpose —
+// (e.g. a chat message that itself says "answer in English"). Kept in English here on purpose —
 // this is internal prompt scaffolding, not a sentence shown to a human (see
 // messages.ts's own header for that distinction); only the English name of
 // the target language needs to exist for every Lang.

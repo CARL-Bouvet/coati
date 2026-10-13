@@ -24,7 +24,7 @@
     "message": "Language"
   },
   "common_provider_claude_api": {
-    "message": "Claude (API key)"
+    "message": "Claude (Anthropic)"
   },
   "common_provider_ollama": {
     "message": "Ollama (local)"
@@ -117,7 +117,7 @@
     "message": "The page is taking too long to read."
   },
   "common_access_denied_hint": {
-    "message": "Click its icon, right-click → \"Read this page with Coati\", or use the keyboard shortcut."
+    "message": "Click its icon or use the keyboard shortcut."
   },
   "common_extraction_empty": {
     "message": "empty extraction"
@@ -236,8 +236,11 @@
   "panel_send": {
     "message": "Send"
   },
-  "panel_confirm_erase": {
-    "message": "Confirm erase?"
+  "panel_conversation_cleared": {
+    "message": "Conversation cleared"
+  },
+  "panel_undo": {
+    "message": "Undo"
   },
   "panel_summarize_video": {
     "message": "Summarize this video"
@@ -675,9 +678,22 @@
   "panelHelpButtonLabel": {
     "message": "Help: connect a model"
   },
-  "panelHelpPopoverText": {
-    "message": "Coati needs an AI model to answer: on your computer (free and private) or online (a key to create). The tutorial walks you through it step by step. Click this button to open it."
+  "panel_tour_title": { "message": "Guided tour" },
+  "panel_tour_next": { "message": "Next" },
+  "panel_tour_skip": { "message": "Skip" },
+  "panel_tour_done": { "message": "Done" },
+  "panel_tour_counter": {
+    "message": "$CURRENT$ / $TOTAL$",
+    "placeholders": { "current": { "content": "$1" }, "total": { "content": "$2" } }
   },
+  "panel_tour_model": { "message": "Choose your model. To summarize a page, an article or a YouTube video, a small model is enough." },
+  "panel_tour_site": { "message": "Read this site with ready-made prompts. One click and you're off." },
+  "panel_tour_save": { "message": "Save your prompts for this site by clicking here." },
+  "panel_tour_input": { "message": "Ask for an in-depth web search directly: Coati is built for it. Its links are checked before they become clickable." },
+  "panel_tour_end": { "message": "Coati can be tuned almost endlessly. Make the tool your own." },
+  "panel_tour_dev_switch": { "message": "The model can read the page's cleaned HTML: more data, so it costs more." },
+  "panel_tour_dev_mention": { "message": "What the model read, counted under every answer." },
+  "panel_tour_dev_end": { "message": "With an online model, Coati warns you before sending sensitive data." },
   "panel_internal_page": {
     "message": "Coati can’t read the browser’s internal pages. Your questions go without the page."
   },
@@ -732,20 +748,17 @@
   "options_model_save": {
     "message": "Save the model"
   },
-  "options_point_effect_label": {
-    "message": "Show an element"
+  "panel_point_level_label": {
+    "message": "\"Show\" intensity"
   },
-  "options_point_effect_subtle": {
+  "panel_point_level_subtle": {
     "message": "Subtle"
   },
-  "options_point_effect_strong": {
+  "panel_point_level_strong": {
     "message": "Strong"
   },
-  "options_point_effect_spectacular": {
+  "panel_point_level_spectacular": {
     "message": "Spectacular"
-  },
-  "options_point_effect_help": {
-    "message": "How Coati highlights an element on the page when you click \"Show\"."
   },
   "options_shortcut_title": {
     "message": "Keyboard shortcut"
@@ -1467,21 +1480,6 @@
   "sw_broker_silent_15s": {
     "message": "The local program hasn't responded in 15s. Check that it's running on this machine, then try again."
   },
-  "ctx_read_page": {
-    "message": "Read this page with Coati"
-  },
-  "ctx_rewrite": {
-    "message": "Rewrite"
-  },
-  "ctx_shorten": {
-    "message": "Shorten"
-  },
-  "ctx_explain": {
-    "message": "Explain"
-  },
-  "ctx_translate": {
-    "message": "Translate"
-  },
   "sugg_wikipedia_name": {
     "message": "Wikipedia"
   },
@@ -1741,15 +1739,6 @@
   },
   "options_local_guide_title": {
     "message": "Install Ollama and a recommended model, step by step"
-  },
-  "options_add_service_replaces": {
-    "message": "One service of this kind at a time (OpenRouter, OpenAI, Mistral, DeepSeek, another address): adding another replaces $SERVICE$ and its key.",
-    "placeholders": {
-      "service": {
-        "content": "$1",
-        "example": "OpenRouter"
-      }
-    }
   },
   "options_current_default_model": {
     "message": "Service's default model"

@@ -112,28 +112,6 @@ export function handleMessage(
       });
       return;
     }
-    case "act": {
-      handleStreamingRequest(ws, message, active, settingsCtx, {
-        logType: "act",
-        logContextKind: undefined,
-        logTextLength: message.text.length,
-        logPageKind: undefined,
-        logFactsCount: 0,
-        logItemsCount: 0,
-        tooLargeText: message.text,
-        build: () =>
-          buildPrompt(
-            {
-              kind: "act",
-              action: message.action,
-              text: message.text,
-              params: message.params,
-            },
-            lang,
-          ),
-      });
-      return;
-    }
     case "prompts.list": {
       send(ws, { type: "prompts", id: message.id, items: listPrompts(promptsDirs) });
       return;
@@ -206,6 +184,7 @@ export function handleMessage(
         apiKey: message.apiKey,
         baseUrl: message.baseUrl,
         clearKey: message.clearKey,
+        removeBaseUrl: message.removeBaseUrl,
       });
       void buildSettingsPayload(updated, lang).then((payload) => {
         send(ws, { type: "settings", id: message.id, ...payload });

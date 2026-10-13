@@ -19,7 +19,6 @@
     "storage",
     "scripting",
     "alarms",
-    "contextMenus",
     "nativeMessaging"
   ],
   "optional_host_permissions": [

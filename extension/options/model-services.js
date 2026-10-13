@@ -15,7 +15,6 @@ import {
   modelsReply,
   modelsUnsupported,
   isLocalProvider,
-  providerEntry,
   serviceName,
   serviceState,
   onlineServices,
@@ -44,13 +43,14 @@ export function renderServices(settings) {
 /** One row: name, "In use" tag, state; Utiliser / Tester / Retirer;
  * the active row folds its settings (key, model) underneath. */
 function buildServiceRow(entry, settings) {
-  const active = entry.id === settings.provider;
+  const active = entry.active;
   const row = el("li", active ? "service service--active" : "service");
-  // Stable anchor for the panel's deep link (#provider-<id>).
-  row.id = `provider-${entry.id}`;
+  // Stable anchor for the panel's deep link (#provider-<id>); with several openai-compat
+  // services, the active one carries it.
+  if (entry.id !== "openai-compat" || active) row.id = `provider-${entry.id}`;
 
   const head = el("div", "service-head");
-  head.append(el("span", "service-name", serviceName(entry.id, settings)));
+  head.append(el("span", "service-name", serviceName(entry.id, settings, entry.baseUrl)));
   if (active) head.append(el("span", "service-tag", t("options_service_active")));
   const state = serviceState(entry);
   const stateNode = el("span", "service-state", state.text);
@@ -62,31 +62,33 @@ function buildServiceRow(entry, settings) {
   if (!active) {
     const use = buttonEl(t("options_service_use"), "button-small service-use");
     use.disabled = !connected;
-    use.addEventListener("click", () => setProvider(entry.id, undefined));
+    use.addEventListener("click", () => setProvider(entry.id, undefined, entry.baseUrl));
     actions.append(use);
   }
+  // settings.test probes the active address: an inactive openai-compat service is tested once in use.
+  const testable = entry.id !== "openai-compat" || active;
   const test = buttonEl(t("options_test_short"), "button-secondary button-small test-button");
   test.addEventListener("click", () => testProvider(entry.id, "row"));
-  actions.append(test);
+  if (testable) actions.append(test);
   if (entry.id === "claude-api" || entry.id === "openai-compat") actions.append(buildRemoveButton(entry));
 
   const result = el("span", "test-result service-result");
   result.setAttribute("role", "status");
   row.append(head, actions, result);
-  registerTestTarget("row", entry.id, test, result);
+  if (testable) registerTestTarget("row", entry.id, test, result);
 
   if (active) {
     const details = el("details", "fold fold--inner service-details");
-    details.open = openServiceDetails.has(entry.id) || !entry.configured;
+    details.open = openServiceDetails.has(entry.key) || !entry.configured;
     details.addEventListener("toggle", () => {
-      if (details.open) openServiceDetails.add(entry.id);
-      else openServiceDetails.delete(entry.id);
+      if (details.open) openServiceDetails.add(entry.key);
+      else openServiceDetails.delete(entry.key);
     });
     const body = el("div", "fold-body");
     const hasKey = entry.id === "claude-api" || entry.id === "openai-compat";
     if (hasKey) {
       const keyInput = keyInputFor(entry.id);
-      keyInput.update(entry);
+      keyInput.update(entry.id === "openai-compat" ? { ...entry, configured: entry.hasKey } : entry);
       body.append(keyInput.element);
     }
     body.append(els.modelField);
@@ -100,7 +102,7 @@ function buildServiceRow(entry, settings) {
 // pattern as the key component's "Delete the key", no native dialog).
 const REMOVE_CONFIRM_MS = 5000;
 // Service rows: armed "Remove" buttons, kept across re-renders.
-const removeArmed = new Map(); // provider -> timer
+const removeArmed = new Map(); // service key -> timer
 
 function buildRemoveButton(entry) {
   const button = buttonEl(t("options_service_remove"), "button-small apikey-clear service-remove");
@@ -109,32 +111,32 @@ function buildRemoveButton(entry) {
     button.textContent = armed ? t("options_service_remove_confirm") : t("options_service_remove");
     button.classList.toggle("apikey-clear--confirm", armed);
   };
-  paintArmed(removeArmed.has(entry.id));
+  paintArmed(removeArmed.has(entry.key));
   button.addEventListener("click", () => {
-    if (!removeArmed.has(entry.id)) {
+    if (!removeArmed.has(entry.key)) {
       const timer = setTimeout(() => {
-        removeArmed.delete(entry.id);
+        removeArmed.delete(entry.key);
         if (button.isConnected) paintArmed(false);
       }, REMOVE_CONFIRM_MS);
-      removeArmed.set(entry.id, timer);
+      removeArmed.set(entry.key, timer);
       paintArmed(true);
       return;
     }
-    clearTimeout(removeArmed.get(entry.id));
-    removeArmed.delete(entry.id);
-    removeService(entry.id);
+    clearTimeout(removeArmed.get(entry.key));
+    removeArmed.delete(entry.key);
+    removeService(entry);
   });
   return button;
 }
 
-/** "Remove": the local program forgets the service's key without
- * touching the active provider or model (`clearKey`, docs/PROTOCOL.md §9bis). openai-compat also
- * drops its address: an empty `baseUrl` is what makes the row go away (its `configured` means "an
- * address is set"), and it clears the key bound to that origin too. */
-function removeService(providerId) {
+/** "Remove": the local program forgets the service and its key (`clearKey` for Claude,
+ * `removeBaseUrl` for an openai-compat service, docs/PROTOCOL.md); the active provider and model
+ * stay as they are. */
+function removeService(entry) {
   if (!lastSettings || status !== "connected") return;
-  const patch = { type: "settings.set", id: newId(), clearKey: providerId };
-  if (providerId === "openai-compat") patch.baseUrl = "";
+  const patch = { type: "settings.set", id: newId() };
+  if (entry.id === "openai-compat") patch.removeBaseUrl = entry.baseUrl;
+  else patch.clearKey = entry.id;
   sendClientMessage(patch);
 }
 
@@ -158,15 +160,8 @@ function keyInputFor(providerId) {
   return keyInput;
 }
 
-/** "Add a service": one OpenAI-compatible service at a time — say so
- * when adding another would replace the configured one. */
+/** "Add a service": the address field mirrors the active openai-compat address. */
 export function renderAddService(settings) {
-  const compat = providerEntry(settings, "openai-compat");
-  const replaces = Boolean(settings && compat?.configured && !isLocalProvider("openai-compat", settings));
-  els.addServiceReplaces.hidden = !replaces;
-  els.addServiceReplaces.textContent = replaces
-    ? t("options_add_service_replaces", [serviceName("openai-compat", settings)])
-    : "";
   baseUrlField.setValue(settings?.provider === "openai-compat" ? settings.baseUrl : undefined);
 }
 
@@ -256,10 +251,11 @@ function renderModelField(settings) {
   }
 }
 
-export function setProvider(provider, model) {
+export function setProvider(provider, model, baseUrl) {
   const payload = { type: "settings.set", id: newId() };
   if (provider !== undefined) payload.provider = provider;
   if (model !== undefined) payload.model = model;
+  if (baseUrl !== undefined) payload.baseUrl = baseUrl;
   sendClientMessage(payload);
 }
 

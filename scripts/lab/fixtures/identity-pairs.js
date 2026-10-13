@@ -15,7 +15,7 @@
     "--status-disconnected:#f2b8b5;--status-idle:#8A8E96;color:var(--fg);}" +
     ".topbar .icon-button{color:var(--fg);}";
   // Slate blue, the secondary tone, on the panel's plain links ("Mes prompts").
-  var C1_LINK = ".link-button:not(.link-button--danger):not(.link-button--confirm){color:";
+  var C1_LINK = ".link-button:not(.link-button--danger){color:";
   var C1_CSS_LIGHT = C1_HEADER_CSS + C1_LINK + "#4A6A88;}";
   var C1_CSS_DARK = C1_HEADER_CSS + C1_LINK + "#8AA4BE;}";
 

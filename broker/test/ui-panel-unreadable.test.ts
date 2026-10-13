@@ -115,10 +115,9 @@ describe("looksLikeAccessDenied (T47, matches both browsers' real texts)", () =>
   });
 });
 
-describe("ACCESS_DENIED_HINT (T47) names the three gestures", () => {
-  test("mentions the icon, the context-menu entry, and the shortcut", () => {
+describe("ACCESS_DENIED_HINT (T47) names the gestures", () => {
+  test("mentions the icon and the shortcut", () => {
     expect(ACCESS_DENIED_HINT).toMatch(/icône/);
-    expect(ACCESS_DENIED_HINT).toMatch(/Lire cette page avec Coati/);
     expect(ACCESS_DENIED_HINT).toMatch(/raccourci/);
   });
 });

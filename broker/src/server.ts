@@ -22,7 +22,8 @@ import {
   saveConfig,
   resolveApiKey,
   setApiKey,
-  pruneStaleOpenAiCompatKey,
+  addCompatService,
+  removeCompatService,
   type Dirs,
   type ProviderId,
   type CoatiConfig,
@@ -207,24 +208,43 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
             currentConfig = { ...currentConfig, model: remembered };
           }
         }
-        // Track the last model per provider.
-        const activeProvider = currentConfig.provider ?? DEFAULT_CONFIG.provider!;
-        if (currentConfig.model) {
+        // Remembers the active model per provider, and per service for openai-compat.
+        const trackModels = () => {
+          const active = currentConfig.provider ?? DEFAULT_CONFIG.provider!;
+          if (!currentConfig.model) return;
           currentConfig = {
             ...currentConfig,
-            lastModels: { ...currentConfig.lastModels, [activeProvider]: currentConfig.model },
+            lastModels: { ...currentConfig.lastModels, [active]: currentConfig.model },
           };
-        }
-        // Same "" = forget semantics as apiKey — but baseUrl is NOT a secret
-        // it still gets dropped from the JSON
-        // on "" for the same "leaves no stale trace" reasoning, not because
-        // it needs hiding. Applied BEFORE the apiKey patch below: a baseUrl moved to a different
-        // origin prunes any openai-compat key stored under the old origin first, so a
-        // settings.set carrying both a new baseUrl and a new apiKey binds
-        // the key to the NEW origin, never leaves it bound to the old one.
+          if (active === "openai-compat" && currentConfig.baseUrl) {
+            const baseUrl = currentConfig.baseUrl;
+            currentConfig = {
+              ...currentConfig,
+              compatServices: addCompatService(currentConfig, baseUrl).map((svc) =>
+                svc.baseUrl === baseUrl ? { ...svc, model: currentConfig.model } : svc,
+              ),
+            };
+          }
+        };
+        trackModels();
+        // A new address becomes the active openai-compat service (added when unknown); every other
+        // service and key stays. Applied BEFORE the apiKey patch below so a settings.set carrying
+        // both a new baseUrl and a new apiKey binds the key to the NEW origin. The service's own
+        // model replaces the previous one unless this patch names a model.
         if (patch.baseUrl !== undefined) {
-          currentConfig = { ...currentConfig, baseUrl: patch.baseUrl === "" ? undefined : patch.baseUrl };
-          currentConfig = { ...currentConfig, apiKeys: pruneStaleOpenAiCompatKey(currentConfig) };
+          const baseUrl = patch.baseUrl;
+          currentConfig = { ...currentConfig, baseUrl, compatServices: addCompatService(currentConfig, baseUrl) };
+          if (patch.model === undefined) {
+            const remembered = currentConfig.compatServices?.find((svc) => svc.baseUrl === baseUrl)?.model;
+            const lastModels = { ...currentConfig.lastModels };
+            if (remembered) lastModels["openai-compat"] = remembered;
+            else delete lastModels["openai-compat"];
+            currentConfig = { ...currentConfig, lastModels };
+            if ((currentConfig.provider ?? DEFAULT_CONFIG.provider) === "openai-compat") {
+              currentConfig = { ...currentConfig, model: remembered };
+            }
+          }
+          trackModels();
         }
         // Empty string means "forget the stored key" (task 2) — setApiKey
         // drops it entirely (see config.ts), so a forgotten key leaves no
@@ -240,6 +260,16 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
         // every other field in this same patch.
         if (patch.clearKey !== undefined) {
           currentConfig = { ...currentConfig, apiKeys: setApiKey(currentConfig, patch.clearKey, "") };
+        }
+        // Explicit removal of one openai-compat service and its key.
+        if (patch.removeBaseUrl !== undefined) {
+          const removingActive = currentConfig.baseUrl === patch.removeBaseUrl;
+          currentConfig = removeCompatService(currentConfig, patch.removeBaseUrl);
+          if (removingActive && currentConfig.lastModels?.["openai-compat"]) {
+            const lastModels = { ...currentConfig.lastModels };
+            delete lastModels["openai-compat"];
+            currentConfig = { ...currentConfig, lastModels };
+          }
         }
         if (dirs.configDir) saveConfig({ configDir: dirs.configDir }, currentConfig);
         // docs/PROTOCOL.md: "A successful settings.set

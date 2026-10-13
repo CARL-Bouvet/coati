@@ -1,24 +1,29 @@
 /* Coati options page.
  *
- * Proportion contract (workflow-front phase 3) — every
- * number below is a variable in :root, nowhere else:
+ * Proportion contract — every number below is a variable in :root or a
+ * lib/theme.css token, nowhere else:
  *   column    one centred column at every width, max 640 px; sides 24 px
- *             (≤ 560 px: 16 px). Wide windows (1000 px+) only grow the
- *             margins — the model tabs are tabs at every width.
- *   band      anthracite header band, full width, ≥ 56 px tall; its content
- *             aligned on the column (title · status · FR/EN/中).
- *   rhythm    section 28 px top/bottom (≤ 560 px: 20), hairline between
- *             sections; inside "Model": 16 px between current model, tabs
- *             and tab panel, 20 px between blocks of a panel.
- *   type      steps ≥ 1.2 apart: current model 22 / h2 18 / h3 15 / body 14;
- *             help 13 and eyebrow 12 are split from body by tone, not size.
- *             ≤ 480 px: current model 18 / h2 16 (the card and the weight
- *             carry the rank), so a typical id (claude-sonnet-4-5,
- *             llama-3.3-70b-instruct:free) holds on one line at 320 px; the
- *             id never breaks at its hyphens unless it is wider than the line.
- *   controls  34 px (inputs, selects, buttons), small buttons 30 px, tabs
- *             40 px, choice rows (models, services) ≥ 44 px.
- * Colours come from lib/theme.css only; --divider is derived from them. */
+ *             (≤ 560 px: 16 px). Wide windows only grow the margins.
+ *   band      dark header band, full width, ≥ 56 px tall; its content aligned
+ *             on the column (title · status · FR/EN/中).
+ *   rhythm    4 px grid: 8 inside a group, 16 between groups, 24 between
+ *             the titled blocks of a tab panel, 32 between sections.
+ *   type      four sizes: 20 (h2, current model) / 16 (h3, folds, step
+ *             titles, header title) / 14 (body, help, buttons) / 12 (eyebrows,
+ *             tags, states, keys, notes). Help is split from body by tone.
+ *             ≤ 480 px the current model drops to 16 so a typical id
+ *             (llama-3.3-70b-instruct:free) holds on one line at 320 px.
+ *   volume    cards (current model, service rows, setup steps, choice rows)
+ *             are raised, borderless, padded 16-20; fields are recessed with
+ *             a thin low-contrast border; segmented choices are raised pills
+ *             on a recessed track.
+ *   states    hover lifts (--shadow-hover), press sinks (--shadow-pressed),
+ *             disabled loses its shadow and contrast, focus keeps the soft
+ *             caramel ring (--focus-ring).
+ *   controls  40 px (inputs, selects, buttons, tabs), small buttons 32 px,
+ *             choice rows ≥ 44 px.
+ * Caramel is a fill (dark text on it) or a graphic mark, never a text
+ * colour on a light background. */
 
 * { box-sizing: border-box; }
 
@@ -26,26 +31,23 @@
   --page-width: 640px;
   --page-pad-x: 24px;
   --head-min-height: 56px;
-  --section-pad: 28px;
-  --zone-gap: 16px;
-  --block-gap: 20px;
-  --fs-model: 22px;
-  --fs-h2: 18px;
-  --fs-h3: 15px;
-  --fs-small: 13px;
-  --fs-micro: 12px;
-  --control-height: 34px;
-  --control-height-sm: 30px;
-  --tab-height: 40px;
+  --section-gap: 32px;
+  --block-gap: 24px;
+  --group-gap: 16px;
+  --fs-title: 20px;
+  --fs-model: 20px;
+  --control-line: 22px;
   --row-min-height: 44px;
+  --check-size: 16px;
   --check-indent: 24px;
-  --divider: color-mix(in srgb, var(--border) 35%, var(--bg));
+  --card-pad: 16px;
+  --card-pad-l: 20px;
 }
 
 body {
   margin: 0;
   font-family: var(--font);
-  font-size: var(--font-size);
+  font-size: var(--text-m);
   line-height: var(--line-height);
   color: var(--fg);
   background: var(--bg);
@@ -54,13 +56,13 @@ body {
 .page {
   max-width: var(--page-width);
   margin: 0 auto;
-  padding: var(--space-2) var(--page-pad-x) 64px;
+  padding: var(--section-gap) var(--page-pad-x) 64px;
 }
 
-/* --- Header band (zone Z1) ------------------------------------------------
- * Anthracite in both themes (P24): the band re-scopes the shared tokens to
- * their header values, as the panel's .topbar does, so the status dot, the
- * language button and its menu stay readable whatever the page theme. */
+/* --- Header band ----------------------------------------------------------
+ * Dark in both themes: the band re-scopes the shared tokens to their header
+ * values, as the panel's .topbar does, so the status dot, the language
+ * button and its menu stay readable whatever the page theme. */
 
 .page-head {
   --bg: var(--header-bg);
@@ -91,14 +93,14 @@ body {
 h1 {
   grid-area: title;
   margin: 0;
-  font-size: var(--fs-h2);
+  font-size: var(--text-l);
   line-height: 1.25;
   font-weight: 650;
 }
 
 .page-head .status {
   grid-area: status;
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-3);
   border-radius: 999px;
   background: var(--surface);
   color: var(--fg);
@@ -112,21 +114,23 @@ h1 {
 
 .page-head .lang-button {
   min-width: 2.6em;
-  min-height: var(--control-height-sm);
-  padding: 4px var(--space-2);
-  font-size: var(--fs-micro);
+  min-height: 32px;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-s);
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--fg);
   background: transparent;
   border: 1px solid var(--surface);
   border-radius: var(--radius);
+  box-shadow: none;
 }
 
 .page-head .lang-button:hover,
 .page-head .lang-button:active {
   background: var(--surface);
   border-color: var(--surface);
+  box-shadow: none;
 }
 
 .lang-menu {
@@ -140,7 +144,7 @@ h1 {
   padding: var(--space-1);
   background: var(--bg);
   color: var(--fg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--surface);
   border-radius: var(--radius);
   box-shadow: var(--overlay-shadow);
 }
@@ -148,13 +152,14 @@ h1 {
 .lang-menu .lang-menu-item {
   min-height: 0;
   padding: var(--space-1) var(--space-2);
-  font-size: 0.95em;
+  font-size: var(--text-m);
   font-weight: 400;
   text-align: left;
   color: inherit;
   background: transparent;
   border: none;
   border-radius: var(--radius);
+  box-shadow: none;
 }
 
 .lang-menu .lang-menu-item:hover,
@@ -169,48 +174,40 @@ h1 {
 
 /* --- Sections ------------------------------------------------------------ */
 
-.section {
-  padding: var(--section-pad) 0;
-  border-top: 1px solid var(--divider);
-}
-
-.page > .section:first-child { border-top: none; }
+.section + .section { margin-top: var(--section-gap); }
 
 h2 {
   margin: 0 0 var(--space-2);
-  font-size: var(--fs-h2);
+  font-size: var(--fs-title);
   line-height: 1.3;
   font-weight: 650;
 }
 
 .help {
-  margin: 0 0 var(--space-3);
-  font-size: var(--fs-small);
+  margin: 0 0 var(--group-gap);
   color: var(--muted);
 }
 
-.help--tight { margin-bottom: var(--space-1); }
+.help--tight { margin-bottom: var(--space-2); }
 .help--under-check { margin: var(--space-1) 0 0 var(--check-indent); }
-.help--link { margin: var(--space-3) 0 0; }
+.help--link { margin: var(--group-gap) 0 0; }
 
 .notice {
   margin: 0;
-  padding: 10px var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--fg);
 }
 
-code {
-  font-size: 0.95em;
-}
+code { font-size: var(--text-s); }
 
 /* --- Controls ------------------------------------------------------------ */
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .field > label,
@@ -218,57 +215,28 @@ code {
   font-weight: 500;
 }
 
-/* "Show an element" — 3-way segmented choice, same bordered-radio look
- * as .search-provider (search-service choice) but narrower columns since
- * the labels are one word each. */
-.point-effect-field { margin-top: var(--space-3); }
-
-.point-effect-choice {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-2);
-  margin: var(--space-1) 0;
-}
-
-.point-effect-option {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  min-height: var(--row-min-height);
-  padding: var(--space-2) var(--space-2);
-  font-weight: 600;
-  text-align: center;
-  border: 1px solid var(--divider);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.point-effect-option:hover { border-color: var(--border); }
-
-.point-effect-option:has(input:checked) {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-.point-effect-option input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  flex: none;
-}
-
+/* Recessed field: thin low-contrast outline, inner shadow; the ring stays
+ * on while it has focus. */
 input[type="password"],
 input[type="text"],
 select {
-  min-height: var(--control-height);
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-3);
   font-family: inherit;
-  font-size: var(--font-size);
+  font-size: var(--text-m);
+  line-height: var(--control-line);
   color: var(--fg);
-  background: var(--bg);
+  background: var(--field-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-field);
+}
+
+input[type="password"]:focus,
+input[type="text"]:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-field), var(--focus-ring);
 }
 
 select {
@@ -286,65 +254,74 @@ select {
 
 .inline-row:not(:has(> :not([hidden]))) { display: none; }
 
+/* Primary: caramel fill, dark text, raised. */
 button {
-  min-height: var(--control-height);
-  padding: 6px 14px;
+  padding: var(--space-2) var(--space-4);
   font-family: inherit;
-  font-size: var(--font-size);
+  font-size: var(--text-m);
+  line-height: var(--control-line);
   font-weight: 500;
   color: var(--accent-fg);
   background: var(--accent);
   border: 1px solid var(--accent);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
   cursor: pointer;
 }
 
-/* No `filter` (computed styles must reflect what is rendered) — explicit
- * hover/active tokens instead, same ones the panel's primary button uses. */
-button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-button:active { background: var(--accent-active); border-color: var(--accent-active); }
+button:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: var(--shadow-hover);
+}
 
+button:active {
+  background: var(--accent-active);
+  border-color: var(--accent-active);
+  box-shadow: var(--shadow-pressed);
+}
+
+/* Secondary: a raised card. */
 .button-secondary,
 .test-button,
 .service-use {
   color: var(--fg);
-  background: var(--bg);
-  border-color: var(--border);
+  background: var(--control-bg);
+  border-color: var(--control-border);
 }
 
 .button-secondary:hover,
 .test-button:hover,
 .service-use:hover {
-  background: var(--surface);
-  border-color: var(--border);
+  background: var(--control-bg-hover);
+  border-color: var(--control-border);
 }
 
 .button-secondary:active,
 .test-button:active,
 .service-use:active {
-  background: var(--divider);
-  border-color: var(--border);
+  background: var(--control-bg);
+  border-color: var(--control-border);
 }
 
 .button-small {
-  min-height: var(--control-height-sm);
-  padding: 4px 10px;
-  font-size: var(--fs-small);
+  padding: var(--space-1) var(--space-3);
 }
 
-button:disabled {
-  opacity: 0.6;
+button:disabled,
+button:disabled:hover,
+button:disabled:active {
+  opacity: 0.55;
+  box-shadow: none;
   cursor: not-allowed;
 }
 
 button:focus-visible,
-input:focus-visible,
-select:focus-visible,
 summary:focus-visible,
 a:focus-visible,
 code:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .link {
@@ -364,10 +341,16 @@ code:focus-visible {
 
 .check-row input[type="checkbox"],
 .site-toggle input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: var(--check-size);
+  height: var(--check-size);
   margin: 0;
   flex: none;
+}
+
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* --- Connection status (header pill + token row) --------------------------- */
@@ -375,8 +358,8 @@ code:focus-visible {
 .status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--fs-small);
+  gap: var(--space-2);
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -397,37 +380,37 @@ code:focus-visible {
 .status--no-host .status-dot,
 .status--broker-untrusted .status-dot { background: var(--status-disconnected); }
 
-/* --- 1. Model (zone Z2) ------------------------------------------------------ */
+/* --- 1. Model ---------------------------------------------------------------- */
 
-.section--model > h2 { margin-bottom: var(--space-3); }
+.section--model > h2 { margin-bottom: var(--group-gap); }
 
-/* Z2a — current model: the one fact the page is opened for. */
+/* Current model: the one fact the page is opened for. */
 .current-model {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--group-gap);
 }
 
 .current-line {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-2) var(--space-3);
-  padding: 14px var(--space-4);
-  background: var(--surface);
-  border: 1px solid var(--divider);
+  gap: var(--space-2) var(--space-4);
+  padding: var(--card-pad-l);
+  background: var(--card);
   border-radius: calc(var(--radius) + 2px);
+  box-shadow: var(--shadow-raised);
 }
 
 .current-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
 .current-eyebrow {
-  font-size: var(--fs-micro);
+  font-size: var(--text-s);
   font-weight: 600;
   color: var(--muted);
 }
@@ -446,15 +429,9 @@ code:focus-visible {
   overflow-wrap: anywhere;
 }
 
-.current-where {
-  font-size: var(--fs-small);
-  color: var(--muted);
-}
+.current-where { color: var(--muted); }
 
-.current-state {
-  font-size: var(--fs-small);
-  font-weight: 500;
-}
+.current-state { font-weight: 500; }
 
 .current-state[data-tone="todo"],
 .service-state[data-tone="todo"] { color: var(--warning); }
@@ -464,43 +441,53 @@ code:focus-visible {
 .current-test-result { grid-column: 1 / -1; }
 .current-test-result:empty { display: none; }
 
-/* Z2b — tabs "On this computer" / "Online": a segmented control,
- * two equal halves at every width. Selected = page background, border and
- * weight (never colour alone). */
+/* Tabs "On this computer" / "Online": raised pills on a recessed track, two
+ * equal halves at every width. Selected = raised card, heavier weight and a
+ * caramel underline (never colour alone). */
 .model-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  margin-top: var(--zone-gap);
-  padding: 3px;
+  gap: var(--space-1);
+  margin-top: var(--group-gap);
+  padding: var(--space-1);
   background: var(--surface);
-  border: 1px solid var(--divider);
   border-radius: calc(var(--radius) + 2px);
+  box-shadow: var(--shadow-field);
 }
 
 .model-tabs .model-tab {
-  min-height: calc(var(--tab-height) - 8px);
-  padding: 4px var(--space-2);
+  padding: var(--space-2);
   font-weight: 500;
   color: var(--fg);
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius);
+  box-shadow: none;
 }
 
 .model-tabs .model-tab:hover {
-  background: var(--bg);
-  border-color: var(--divider);
+  background: var(--control-bg-hover);
+  border-color: transparent;
+  box-shadow: var(--shadow-raised);
+}
+
+.model-tabs .model-tab:active {
+  background: var(--card);
+  box-shadow: var(--shadow-pressed);
 }
 
 .model-tabs .model-tab[aria-selected="true"] {
   font-weight: 650;
-  background: var(--bg);
-  border-color: var(--border);
-  box-shadow: inset 0 -2px 0 var(--accent);
+  background: var(--control-bg);
+  border-color: var(--control-border);
+  box-shadow: var(--shadow-raised), inset 0 -3px 0 var(--accent);
 }
 
-.tab-panel { margin-top: var(--zone-gap); }
+.model-tabs .model-tab:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.tab-panel { margin-top: var(--group-gap); }
 
 .tab-lead { margin-bottom: var(--block-gap); }
 
@@ -518,7 +505,7 @@ code:focus-visible {
 
 h3.block-title {
   margin: 0 0 var(--space-2);
-  font-size: var(--fs-h3);
+  font-size: var(--text-l);
   line-height: 1.35;
   font-weight: 600;
 }
@@ -526,12 +513,12 @@ h3.block-title {
 .block-head > h3.block-title { margin: 0; }
 
 .model-field-slot:empty { display: none; }
-.model-field-slot { margin-top: var(--space-3); }
+.model-field-slot { margin-top: var(--group-gap); }
 
-/* Folds (<details>): the guide, "Speed up Ollama", LM Studio, "Add
- * a service" — a stack of hairline rows with one chevron style. Inner
- * folds ("Other services", "Other address", a service's key and model)
- * drop the rules. */
+/* Folds (<details>): the guide, "Speed up Ollama", LM Studio, "Add a
+ * service" — a stack of divided rows with one chevron style. Inner folds
+ * ("Other services", "Other address", a service's key and model) drop the
+ * rules. */
 .tab-folds > .fold {
   border-top: 1px solid var(--divider);
 }
@@ -547,39 +534,50 @@ h3.block-title {
   min-height: var(--row-min-height);
   list-style: none;
   cursor: pointer;
-  font-size: var(--fs-h3);
+  font-size: var(--text-l);
   font-weight: 600;
   border-radius: var(--radius);
 }
 
 .fold > summary::-webkit-details-marker { display: none; }
 
-.fold > summary::before {
+.fold > summary::before,
+.advanced summary::before {
   content: "";
   flex: none;
-  width: 7px;
-  height: 7px;
-  margin: 0 5px 0 3px;
+  width: 8px;
+  height: 8px;
+  margin: 0 var(--space-1);
   border-right: 2px solid var(--muted);
   border-bottom: 2px solid var(--muted);
   transform: rotate(-45deg);
   transition: transform 0.15s;
 }
 
-.fold[open] > summary::before { transform: rotate(45deg); }
-.fold > summary:hover { color: var(--accent); }
+.fold[open] > summary::before,
+.advanced[open] summary::before { transform: rotate(45deg); }
+
+.fold > summary:hover::before,
+.advanced summary:hover::before { border-color: var(--fg); }
+
+.fold > summary:hover,
+.advanced summary:hover h2 {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
 
 .fold-body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: var(--space-3);
-  padding: var(--space-1) 0 var(--space-4);
+  gap: var(--group-gap);
+  padding: var(--space-1) 0 var(--group-gap);
 }
 
 .fold--inner > summary {
-  min-height: var(--control-height);
-  font-size: var(--font-size);
+  min-height: 32px;
+  font-size: var(--text-m);
   font-weight: 500;
 }
 
@@ -590,7 +588,8 @@ h3.block-title {
   .advanced summary::before { transition: none; }
 }
 
-/* Z2d — configured online services: one row each. */
+/* Configured online services: one raised card each; the one in use carries
+ * a caramel edge and a filled "In use" tag. */
 .service-list {
   list-style: none;
   margin: 0;
@@ -606,22 +605,21 @@ h3.block-title {
   align-items: center;
   gap: var(--space-2) var(--space-3);
   min-height: var(--row-min-height);
-  padding: 10px 14px;
-  background: var(--bg);
-  border: 1px solid var(--divider);
+  padding: var(--space-3) var(--card-pad);
+  background: var(--card);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
 }
 
 .service--active {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  box-shadow: var(--shadow-raised), inset 4px 0 0 var(--accent);
 }
 
 .service-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 2px var(--space-2);
+  gap: var(--space-1) var(--space-2);
   min-width: 0;
 }
 
@@ -630,21 +628,24 @@ h3.block-title {
   overflow-wrap: anywhere;
 }
 
-.service-tag {
-  padding: 0 6px;
-  font-size: var(--fs-micro);
+.service-tag,
+.setup-tag {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  font-size: var(--text-s);
   font-weight: 600;
-  border: 1px solid var(--accent);
+  color: var(--accent-fg);
+  background: var(--accent);
   border-radius: 999px;
 }
 
-.service-state { font-size: var(--fs-small); }
+.service-state { font-size: var(--text-s); }
 
 .service-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .service-result,
@@ -658,38 +659,47 @@ h3.block-title {
 
 .cap-links { margin: 0; }
 
-/* "Search the docs": service choice as two bordered radio
- * choices (Brave first), the key component, then "Check" + its quota
- * note and the folded how-to. */
+/* "Search the docs": service choice as two raised radio cards (Brave
+ * first), the key component, then "Check" + its quota note and the folded
+ * how-to. */
 .search-providers {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
   gap: var(--space-2);
-  margin: var(--space-2) 0 var(--space-3);
+  margin: var(--space-2) 0 var(--group-gap);
 }
 
-.search-provider {
+.search-provider,
+.setup-service {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-height: var(--row-min-height);
-  padding: var(--space-2) var(--space-3);
-  font-weight: 600;
-  border: 1px solid var(--divider);
+  padding: var(--space-3) var(--card-pad);
+  background: var(--control-bg);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
   cursor: pointer;
 }
 
-.search-provider:hover { border-color: var(--border); }
+.search-provider { font-weight: 600; }
 
-.search-provider:has(input:checked) {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+.search-provider:hover,
+.setup-service:hover {
+  background: var(--control-bg-hover);
+  box-shadow: var(--shadow-hover);
 }
 
-.search-provider input {
-  width: 16px;
-  height: 16px;
+.search-provider:has(input:checked),
+.setup-service:has(input:checked) {
+  box-shadow: var(--shadow-raised), inset 0 0 0 2px var(--accent);
+}
+
+.search-provider input,
+.setup-model-choice input,
+.setup-service input {
+  width: var(--check-size);
+  height: var(--check-size);
   margin: 0;
   flex: none;
 }
@@ -699,7 +709,7 @@ h3.block-title {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1) var(--space-3);
-  margin-top: var(--space-3);
+  margin-top: var(--group-gap);
 }
 
 .search-check-row .help { margin: 0; }
@@ -739,10 +749,9 @@ h3.block-title {
 .key-input-status {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-2);
   margin: 0;
   flex: 1 1 14em;
-  font-size: var(--fs-small);
   color: var(--muted);
 }
 
@@ -753,27 +762,27 @@ h3.block-title {
 
 .key-input-notes {
   margin: 0;
-  padding-left: 1.1em;
-  font-size: 12.5px;
+  padding-left: var(--space-4);
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
-.key-input-notes li + li { margin-top: 2px; }
+.key-input-notes li + li { margin-top: var(--space-1); }
 
 .apikey-clear {
   color: var(--danger);
-  background: var(--bg);
-  border-color: var(--banner-border);
+  background: var(--control-bg);
+  border-color: var(--control-border);
 }
 
 .apikey-clear:hover {
   background: var(--banner-bg);
-  border-color: var(--banner-border);
+  border-color: var(--control-border);
 }
 
 .apikey-clear:active {
   background: var(--banner-bg);
-  border-color: var(--danger);
+  border-color: var(--control-border);
 }
 
 .apikey-clear--confirm {
@@ -814,7 +823,6 @@ h3.block-title {
 
 .baseurl-error {
   flex-basis: 100%;
-  font-size: var(--fs-small);
   color: var(--danger);
 }
 
@@ -824,29 +832,25 @@ h3.block-title {
 
 /* --- "Test" results --------------------------------------------------------- */
 
-.test-result {
-  font-size: var(--fs-small);
-}
-
 .test-result--ok { color: var(--success); }
 .test-result--error { color: var(--danger); }
 
-/* Sub-elements of a test-result block (leftover b). Only existing CSS variables — no new colors. */
 .test-result-headline { display: block; }
 .test-result-detail {
   display: block;
   margin-top: var(--space-1);
   color: var(--muted);
-  font-size: var(--fs-micro);
+  font-size: var(--text-s);
 }
 .test-result-command {
   display: block;
   margin-top: var(--space-1);
   padding: var(--space-1) var(--space-2);
-  background: var(--surface);
+  background: var(--field-bg);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-field);
   font-family: monospace;
-  font-size: var(--fs-micro);
+  font-size: var(--text-s);
   cursor: text;
   user-select: all;
 }
@@ -854,20 +858,20 @@ h3.block-title {
 
 /* --- Available models (lib/model-list.js) ---------------------------------------
  * Same list as the panel's model menu, as toggle buttons (aria-pressed) that
- * look like choices: bordered rows, ≥ 44 px, the current one outlined in
- * caramel with its check. Overrides the page-wide primary <button>. */
+ * look like choices: raised rows, ≥ 44 px, the current one with a caramel
+ * edge, a filled mark and a heavier name. Overrides the page-wide primary <button>. */
 
 .model-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   width: 100%;
 }
 
 .model-list-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 /* The tab already says "On this computer": the list's own group heading
@@ -884,32 +888,38 @@ h3.block-title {
 .model-list .model-item {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--space-3);
   width: 100%;
   min-height: var(--row-min-height);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--card-pad);
   font-weight: 400;
+  line-height: var(--line-height);
   text-align: left;
   color: var(--fg);
-  background: var(--bg);
-  border: 1px solid var(--divider);
-  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--control-border);
+  box-shadow: var(--shadow-raised);
 }
 
 .model-list .model-item:hover {
-  background: var(--surface);
-  border-color: var(--border);
+  background: var(--card-hover);
+  border-color: var(--control-border);
+  box-shadow: var(--shadow-hover);
 }
 
 .model-list .model-item:active {
-  background: var(--divider);
-  border-color: var(--border);
+  background: var(--card);
+  border-color: var(--control-border);
+  box-shadow: var(--shadow-pressed);
 }
 
 .model-list .model-item--current,
 .model-list .model-item--current:hover {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  box-shadow: var(--shadow-raised), inset 4px 0 0 var(--accent);
+}
+
+.model-list .model-item:focus-visible {
+  box-shadow: var(--focus-ring);
 }
 
 /* Radio-like mark: an empty ring for every choice, filled (caramel ring and
@@ -918,17 +928,17 @@ h3.block-title {
  * (aria-hidden anyway) and not drawn. */
 .model-item-check {
   flex: none;
-  width: 16px;
-  height: 16px;
-  margin-top: 1px;
+  width: var(--check-size);
+  height: var(--check-size);
+  margin-top: 2px;
   font-size: 0;
   border: 2px solid var(--border);
   border-radius: 50%;
 }
 
 .model-item--current .model-item-check {
-  border-color: var(--accent);
-  background: radial-gradient(circle, var(--accent) 0 3.5px, transparent 4px);
+  border-color: var(--fg);
+  background: radial-gradient(circle, var(--fg) 0 3.5px, transparent 4px);
 }
 
 .model-item-text {
@@ -948,7 +958,7 @@ h3.block-title {
 
 .model-item-detail,
 .model-item-note {
-  font-size: 12.5px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -959,7 +969,6 @@ h3.block-title {
 .model-list-note {
   margin: 0;
   padding: var(--space-1) 0;
-  font-size: var(--fs-small);
   color: var(--muted);
 }
 
@@ -987,22 +996,23 @@ h3.block-title {
 
 kbd {
   display: inline-block;
-  min-width: 26px;
-  padding: 1px 7px;
+  min-width: 24px;
+  padding: 0 var(--space-2);
   font-family: inherit;
-  font-size: var(--fs-small);
+  font-size: var(--text-s);
   font-weight: 600;
+  line-height: 20px;
   text-align: center;
   color: var(--fg);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-bottom-width: 2px;
+  background: var(--card);
+  border: 1px solid var(--divider);
+  border-bottom: 2px solid var(--border);
   border-radius: 5px;
 }
 
 .shortcut-plus,
 .shortcut-none {
-  font-size: var(--fs-small);
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -1031,8 +1041,8 @@ kbd {
 .about-list {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 6px var(--space-4);
-  margin: var(--space-2) 0 0;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--group-gap) 0 0;
 }
 
 .about-list dt { color: var(--muted); }
@@ -1051,29 +1061,13 @@ kbd {
 
 .advanced summary::-webkit-details-marker { display: none; }
 
-.advanced summary::before {
-  content: "";
-  flex: none;
-  width: 7px;
-  height: 7px;
-  margin: 0 4px;
-  border-right: 2px solid var(--muted);
-  border-bottom: 2px solid var(--muted);
-  transform: rotate(-45deg);
-  transition: transform 0.15s;
-}
-
-.advanced[open] summary::before { transform: rotate(45deg); }
-
 .advanced summary h2 { margin: 0; }
 
-.advanced summary:hover h2 { color: var(--accent); }
-
 .advanced-body {
-  margin-top: var(--space-4);
+  margin-top: var(--group-gap);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--group-gap);
 }
 
 .actions {
@@ -1084,10 +1078,9 @@ kbd {
 }
 
 /* --- Setup guide (options-setup.js), inside the tabs --------------------------
- * Steps are a numbered rail (28 px mark + text). */
+ * Each step is a raised card: a 28 px numbered mark, then the text. */
 
-/* The one-line "why" with the U2 coati icon (Kling, cut out and mirrored
- * only), shown while no model answers yet. */
+/* The one-line "why" with the coati icon, shown while no model answers yet. */
 .setup-intro {
   display: flex;
   align-items: center;
@@ -1110,13 +1103,17 @@ kbd {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--group-gap);
 }
 
 .setup-step {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   gap: var(--space-3);
+  padding: var(--card-pad);
+  background: var(--card);
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: var(--shadow-raised);
 }
 
 .setup-step-mark {
@@ -1126,24 +1123,23 @@ kbd {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  font-size: var(--fs-small);
+  font-size: var(--text-s);
   font-weight: 600;
   color: var(--fg);
   background: var(--surface);
-  border: 1px solid var(--border);
 }
 
-/* Done / failed: coloured glyph and ring on the page background — same
- * text-on-bg contrast as the existing success/danger lines. */
+/* Done / failed: coloured glyph and ring on the card — same text-on-card
+ * contrast as the success/danger lines. */
 .setup-step[data-state="done"] .setup-step-mark {
   color: var(--success);
-  background: var(--bg);
+  background: var(--card);
   border: 2px solid var(--success);
 }
 
 .setup-step[data-state="failed"] .setup-step-mark {
   color: var(--danger);
-  background: var(--bg);
+  background: var(--card);
   border: 2px solid var(--danger);
 }
 
@@ -1152,13 +1148,13 @@ kbd {
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
-  padding-top: 3px;
+  padding-top: var(--space-1);
 }
 
 h3.setup-step-title {
   margin: 0;
-  font-size: var(--font-size);
-  line-height: 1.35;
+  font-size: var(--text-l);
+  line-height: 1.25;
   font-weight: 600;
 }
 
@@ -1179,38 +1175,48 @@ h3.setup-step-title {
 .setup-links {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-3);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
 }
 
 .setup-other-os {
-  font-size: var(--fs-small);
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
 .setup-primary-link {
   display: inline-flex;
   align-items: center;
-  min-height: var(--control-height);
-  padding: 6px 14px;
+  padding: var(--space-2) var(--space-4);
+  line-height: var(--control-line);
   font-weight: 500;
   color: var(--accent-fg);
   background: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
   text-decoration: none;
 }
 
-.setup-primary-link:hover { background: var(--accent-hover); }
-.setup-primary-link:active { background: var(--accent-active); }
+.setup-primary-link:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: var(--shadow-hover);
+}
+
+.setup-primary-link:active {
+  background: var(--accent-active);
+  border-color: var(--accent-active);
+  box-shadow: var(--shadow-pressed);
+}
 
 .setup-os-list {
   margin: 0;
-  padding-left: 1.1em;
+  padding-left: var(--space-5);
 }
 
 .setup-step-result {
   margin: 0;
-  font-size: var(--fs-small);
   color: var(--muted);
 }
 
@@ -1230,12 +1236,13 @@ h3.setup-step-title {
 .setup-command-text {
   flex: 1 1 14em;
   min-width: 0;
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-3);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: var(--fs-small);
-  background: var(--surface);
+  font-size: var(--text-s);
+  background: var(--field-bg);
   border: 1px solid var(--divider);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-field);
   overflow-wrap: anywhere;
 }
 
@@ -1248,13 +1255,13 @@ h3.setup-step-title {
 .setup-speedup-os {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   width: 100%;
 }
 
 .setup-speedup-os-title {
   margin: var(--space-2) 0 0;
-  font-size: var(--font-size);
+  font-size: var(--text-m);
   font-weight: 600;
 }
 
@@ -1281,7 +1288,7 @@ h3.setup-step-title {
 }
 
 .setup-env-value {
-  font-size: var(--fs-small);
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -1293,19 +1300,19 @@ h3.setup-step-title {
 .setup-models {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--fs-small);
 }
 
 .setup-models th {
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   text-align: left;
+  font-size: var(--text-s);
   font-weight: 500;
   color: var(--muted);
   border-bottom: 1px solid var(--divider);
 }
 
 .setup-models td {
-  padding: 6px 8px;
+  padding: var(--space-2);
   border-bottom: 1px solid var(--divider);
   vertical-align: middle;
 }
@@ -1321,37 +1328,20 @@ h3.setup-step-title {
   cursor: pointer;
 }
 
-.setup-model-choice input,
-.setup-service input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  flex: none;
-}
-
 .setup-model-name {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   overflow-wrap: anywhere;
 }
 
-.setup-tag {
-  display: inline-block;
-  padding: 0 6px;
-  font-size: var(--fs-micro);
-  font-weight: 600;
-  color: var(--fg);
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-}
-
 .setup-tag--installed {
   font-weight: 500;
-  border-color: var(--border);
+  color: var(--fg);
+  background: var(--surface);
 }
 
 /* Download suggestions filtered by the machine. */
 .setup-model-fit {
-  font-size: 12.5px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -1361,15 +1351,14 @@ h3.setup-step-title {
 
 h4.setup-subtitle {
   margin: var(--space-1) 0 0;
-  font-size: var(--font-size);
+  font-size: var(--text-m);
   font-weight: 600;
 }
 
 .setup-warning {
   margin: 0;
-  padding: 10px var(--space-3);
-  font-size: var(--fs-small);
-  color: var(--banner-fg, var(--fg));
+  padding: var(--space-3) var(--space-4);
+  color: var(--banner-fg);
   background: var(--banner-bg);
   border: 1px solid var(--banner-border);
   border-radius: var(--radius);
@@ -1382,25 +1371,9 @@ h4.setup-subtitle {
   width: 100%;
 }
 
-.setup-service {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-height: var(--row-min-height);
-  padding: 10px var(--space-3);
-  border: 1px solid var(--divider);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
+.setup-service { align-items: flex-start; }
 
-.setup-service input { margin-top: 3px; }
-
-.setup-service:hover { border-color: var(--border); }
-
-.setup-service:has(input:checked) {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
+.setup-service input { margin-top: var(--space-1); }
 
 .setup-service-text {
   display: flex;
@@ -1411,7 +1384,7 @@ h4.setup-subtitle {
 .setup-service-name { font-weight: 600; }
 
 .setup-service-detail {
-  font-size: var(--fs-small);
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -1420,17 +1393,14 @@ h4.setup-subtitle {
 @media (max-width: 560px) {
   :root {
     --page-pad-x: 16px;
-    --section-pad: 20px;
+    --card-pad-l: 16px;
   }
   .setup-intro { gap: var(--space-3); }
   .setup-illustration { width: 88px; }
 }
 
 @media (max-width: 480px) {
-  :root {
-    --fs-model: 18px;
-    --fs-h2: 16px;
-  }
+  :root { --fs-model: 16px; }
 
   /* Band: title + language on one line, status underneath. */
   .page-head-inner {
@@ -1440,15 +1410,14 @@ h4.setup-subtitle {
   .page-head .status { justify-self: start; }
 
   /* Current model: the id gets the full width, "Test" goes under it. */
-  .current-line {
-    grid-template-columns: minmax(0, 1fr);
-    padding: var(--space-3);
-  }
+  .current-line { grid-template-columns: minmax(0, 1fr); }
   .current-test { justify-self: start; }
 
   /* A service row stacks: name and state, then its buttons. */
   .service { grid-template-columns: minmax(0, 1fr); }
   .service-actions { justify-content: flex-start; }
+
+  .setup-step { padding: var(--space-3); }
 
   /* Each suggestion row stacks into a block — line 1: choice + tags, line 2:
    * size · fit, aligned under the name. Table roles are set explicitly in
@@ -1472,11 +1441,11 @@ h4.setup-subtitle {
     border: 0;
   }
 
-  /* Left padding = 16 px radio + its gap: line 2 (and its wrapped lines)
-   * align with the model name; line 1 pulls the radio back into it. */
+  /* Left padding = radio + its gap: line 2 (and its wrapped lines) align
+   * with the model name; line 1 pulls the radio back into it. */
   .setup-models--host tr {
     display: block;
-    padding: 6px 8px 6px calc(8px + 16px + var(--space-2));
+    padding: var(--space-2) var(--space-2) var(--space-2) calc(var(--space-2) + var(--check-size) + var(--space-2));
     border-bottom: 1px solid var(--divider);
   }
 
@@ -1494,7 +1463,7 @@ h4.setup-subtitle {
 
   .setup-models--host td:first-child {
     display: block;
-    margin: 0 0 2px calc(-1 * (16px + var(--space-2)));
+    margin: 0 0 var(--space-1) calc(-1 * (var(--check-size) + var(--space-2)));
   }
 
   /* Separator only between two present parts, glued to the fit text's

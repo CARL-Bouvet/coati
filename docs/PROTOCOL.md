@@ -80,16 +80,15 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `open.content` | `target`, `pages: [{ n, url, title, text }]` | Answers an `open.request`: the pages read. |
 | `open.decline` | `target`, `reason` (`"no-access"`\|`"blocked"`\|`"failed"`) | Answers an `open.request`: no page could be opened. |
 | `summarize` | `context` | Summarize a page/selection. |
-| `act` | `action` (`translate`\|`rewrite`\|`explain`\|`shorten`), `text`, `params?` | Transform a piece of text. |
 | `prompts.list` | — | List saved prompts. |
 | `prompts.save` | `prompt: { id?, site, title?, body }` | Create (no `id`) or update (with `id`) a saved prompt. |
 | `prompts.delete` | `promptId` | Delete a saved prompt. |
 | `prompts.move` | `promptId`, `site`, `order` | Move a prompt to another site bucket and/or reorder. |
 | `prefs.get` | — | Read per-site preferences. |
 | `prefs.set` | `site`, `prefs` | Write per-site preferences. |
-| `cancel` | `target` (the `id` of an in-flight request) | Cancel a running `chat`/`summarize`/`act`. |
+| `cancel` | `target` (the `id` of an in-flight request) | Cancel a running `chat`/`summarize`. |
 | `settings.get` | — | Read current provider/model configuration. |
-| `settings.set` | `provider?`, `model?`, `apiKey?`, `baseUrl?`, `clearKey?` | Change configuration. `apiKey` is write-only (never echoed back); `""` forgets the stored value, omitted leaves it unchanged. A non-empty `apiKey` is format-checked first (`sk-ant-` for `claude-api`; for `openai-compat`, `sk-or-` at openrouter.ai and `sk-` at api.openai.com; otherwise non-empty and without whitespace): a malformed key is refused with `bad-request`, a localized message, and nothing is applied. |
+| `settings.set` | `provider?`, `model?`, `apiKey?`, `baseUrl?`, `clearKey?`, `removeBaseUrl?` | Change configuration. `apiKey` is write-only (never echoed back); `""` forgets the stored value, omitted leaves it unchanged. A non-empty `apiKey` is format-checked first (`sk-ant-` for `claude-api`; for `openai-compat`, `sk-or-` at openrouter.ai and `sk-` at api.openai.com; otherwise non-empty and without whitespace): a malformed key is refused with `bad-request`, a localized message, and nothing is applied. `openai-compat` can hold several services at once, one active: a valid `baseUrl` makes that address the active service (added to the configured services when new; the model last used on it comes back unless the same message names a `model`), and every other service keeps its address, model and key. A key is stored per URL origin and only ever sent to that origin. `clearKey: "openai-compat"` forgets the active service's key; `removeBaseUrl` removes that service and its key (unless another service shares the origin) and is the only way a service goes away. An empty `baseUrl` is refused. |
 | `settings.test` | `provider` | Free connectivity probe for a provider. |
 | `provider.status` | — | Check whether the active model provider will likely work right now (never billed). |
 | `models.list` | — | List every usable model across configured sources, plus host capacity. A provider with `listModels()` offers exactly that list (`claude-api`: `/v1/models` with the stored key, nothing when there is no key or the key fails); a remembered model (`lastModels`) absent from the list is forgotten in favour of the provider's default, never offered. |
@@ -109,7 +108,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `prefs` | `id`, `sites` | Reply to `prefs.get`/`prefs.set`. |
 | `hello-ok` | `v: 2`, `features` | Handshake succeeded. |
 | `challenge` | `v: 2`, `nonce`, `proof` | Handshake step 2 (see above). |
-| `settings` | `id`, `provider`, `model?`, `available`, `models?`, `baseUrl?` | Reply to `settings.get`/`settings.set`. `available` lists every known provider, including unavailable ones, with a `reason`. |
+| `settings` | `id`, `provider`, `model?`, `available`, `models?`, `baseUrl?`, `services?` | Reply to `settings.get`/`settings.set`. `available` lists every known provider, including unavailable ones, with a `reason`. `baseUrl` is the active openai-compat address, sent only while `openai-compat` is the active provider. `services` lists every configured openai-compat service, active or not: `{ baseUrl, model?, hasKey }` (`hasKey` is a boolean; the key is never sent); absent when none. |
 | `settings.test-result` | `id`, `provider`, `ok`, `message`, `code?`, `creditUnchecked?` | Reply to `settings.test`. |
 | `provider.status-result` | `id`, `provider`, `state` (`"ok"`\|`"ko"`\|`"unknown"`), `reason`, `checkedAt`, `baseUrl?` | Reply to `provider.status`. |
 | `models` | `id`, `current`, `entries`, `sources`, `host` | Reply to `models.list` — each entry carries `provider`, `model`, `local`, and when known `sizeBytes`, `thinks?`, `fit?` (`"gpu"`\|`"shared"`\|`"too-big"`), `gpuPercent?`, `contextTokens?`, `vision?`. `host` reports rounded `ramGb`/`vramGb`/`unifiedMemory?`, read locally, never sent anywhere external. |
@@ -148,7 +147,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `CHAT_MAX_MODEL_TURNS` | 10 | Model calls per question. |
 | `SEARCH_QUERY_MAX_CHARS` | 200 | Longest search query. |
 | `HISTORY_MAX_ENTRIES` | 20 | Largest `history` array accepted. |
-| `MAX_CONCURRENT_STREAMS` | 3 | Concurrent `chat`/`summarize`/`act` per connection. |
+| `MAX_CONCURRENT_STREAMS` | 3 | Concurrent `chat`/`summarize` per connection. |
 | `FIRST_TOKEN_TIMEOUT_LOCAL_MS` | 300,000 | Time to first activity, local provider (Ollama). |
 | `FIRST_TOKEN_TIMEOUT_REMOTE_MS` | 120,000 | Time to first activity, remote provider. |
 | `INACTIVITY_TIMEOUT_MS` | 60,000 | Silence mid-answer before `model-stalled`. |

@@ -1,70 +1,82 @@
 # Coati
 
-![Coati's side panel next to the Wikipedia article "Coati", answering "The essentials in 5 points" with llama3.2 running locally in Ollama](docs/img/coati-wikipedia.png)
+A side panel for your browser that answers questions about the page you're on, using your own AI
+model.
 
-<sub>Page shown: Wikipedia, "Coati" (text and image under CC BY-SA). Answer generated locally by
-`llama3.2` through Ollama.</sub>
+- **Reads only when needed.** The model asks for the page when your question needs it, and every
+  answer shows how much it read (or that it did not read the page).
+- **Your model, local or online.** Ollama, LM Studio, Claude, OpenAI, Mistral, OpenRouter or any
+  OpenAI-compatible address. Coati ships no AI.
+- **Show.** Coati points at the element on the page; you click it.
+- **Web search** in your browser's own engine, in a visible tab, with sources and checked links.
+- **Ready-made prompts** you can set per site.
 
-A companion in the browser: a side panel that answers questions, summarizes the page or video
-you're looking at, and reworks text you select — using a model of your choice. Your API keys and
-credentials are held by a local program running on `127.0.0.1`, never inside the extension.
-
-Two pieces:
-
-- **`extension/`** — the Chromium/Firefox extension (Manifest V3). It never calls an AI provider
-  directly, and holds no credential.
-- **`broker/`** — a small server that runs on your own machine, listens on `127.0.0.1` only,
-  holds the configuration, and talks to the model. The extension talks to it over a WebSocket.
-
-The contract between the two is fixed in [`docs/PROTOCOL.md`](docs/PROTOCOL.md). Design
-decisions and why they were made: [`docs/DECISIONS.md`](docs/DECISIONS.md).
-
-## Why a local broker
-
-An extension's storage isn't encrypted on disk, and an extension is exposed to every page the
-user visits. Putting credentials somewhere else — a local process the browser can only talk to,
-never read from — takes the secret out of that blast radius. The cost: a recent Chrome
-restriction that gates `fetch` to `127.0.0.1` behind a user permission a service worker can't
-request itself. WebSockets still escape it, which is why that's the transport — see
-`docs/PROTOCOL.md`.
-
-## Status
-
-Version 0.1.0, in public testing. Executables aren't signed by Apple or Microsoft yet (see
-"Unsigned binaries" in [docs/INSTALL.md](docs/INSTALL.md)), and the extension isn't on the
-Chrome Web Store or AMO yet — it loads in developer mode. File feedback via
-[GitHub Issues](https://github.com/CARL-Bouvet/coati/issues).
+![Coati's side panel in the light theme, answering a question with "Show" buttons next to the steps](docs/img/panel-light.png)
+![Coati's side panel in the dark theme, answering a question with "Show" buttons next to the steps](docs/img/panel-dark.png)
+![Coati's settings page: configured model services, dev mode, keyboard shortcut and site access](docs/img/settings.png)
 
 ## Quick start
 
-1. Install the local program — see [docs/INSTALL.md](docs/INSTALL.md) (Linux, macOS, Windows).
-2. Load the extension unpacked in your browser (Chrome/Brave/Edge: developer mode; Firefox: see
-   [docs/INSTALL.md](docs/INSTALL.md) — merged into INSTALL).
-3. Pick a model. Recommended for a first try: [Ollama](https://ollama.com), fully local —
-   `ollama pull llama3.2` (~2 GB), then select **Ollama (local)** in the extension's settings.
-   A Claude API key or any OpenAI-compatible endpoint also works.
-4. Click the Coati icon and ask about the page; the model reads it when your question needs it.
+1. Install the local program: [docs/INSTALL.md](docs/INSTALL.md) (Linux, macOS, Windows).
+2. Load the extension unpacked (Chrome, Brave, Edge, Chromium: developer mode; Firefox: see
+   [docs/INSTALL.md](docs/INSTALL.md)).
+3. Pick a model (below) in Coati's settings.
+4. Click the Coati toolbar icon (or press `Alt+Shift+C`) and ask about the page.
+
+## Which model
+
+There is no single right model: it depends on your machine. For a local model with
+[Ollama](https://ollama.com), Coati's setup guide reads your graphics card's memory and recommends
+the largest of these that fits in it (without a graphics card, the smallest):
+
+| Model | Download |
+|---|---|
+| `qwen3.5:2b` | 2.7 GB |
+| `qwen3.5:4b` | 3.3 GB |
+| `qwen3:8b` | 5.2 GB |
+| `qwen3.5:9b` | 6.6 GB |
+| `gemma4:12b` | 7.7 GB |
+
+A model that does not fit in graphics memory still works, but slowly. A summary of a page, an
+article or a YouTube video works well with a small model.
+
+For multi-step web search, use an online model: Claude, GPT, Mistral… or free ones via
+[OpenRouter](https://openrouter.ai). Free models may keep what you send.
+
+## Why a local program
+
+An extension's storage is not encrypted on disk, and an extension is exposed to every page you
+visit. Coati keeps your API keys and credentials in a small program on your own machine, which
+listens on `127.0.0.1` only. The extension talks to it over a WebSocket and holds no credential.
+The contract between the two is [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
+
+## Privacy & security
+
+- Nothing goes through our servers, and there is no telemetry. Page content leaves your machine
+  only if you chose an online model.
+- Password field values are never read. Page text is treated as data, never as instructions, and
+  Coati never pays, sends, deletes, publishes or signs in.
+- The local program accepts only the paired extension, on `127.0.0.1`. Details and how to report
+  a vulnerability: [SECURITY.md](SECURITY.md).
 
 ## Docs
 
-- [docs/PROTOCOL.md](docs/PROTOCOL.md) — the extension ↔ broker contract.
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the pieces fit together.
-- [docs/INSTALL.md](docs/INSTALL.md) — install, uninstall, troubleshooting.
-- [docs/DECISIONS.md](docs/DECISIONS.md) — design decisions and why.
-- [docs/ROADMAP.md](docs/ROADMAP.md) — what's next, help wanted.
-- [SECURITY.md](SECURITY.md) — threat boundary, reporting a vulnerability.
+- [docs/INSTALL.md](docs/INSTALL.md): install, uninstall, troubleshooting.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the pieces fit together.
+- [docs/PROTOCOL.md](docs/PROTOCOL.md): the extension ↔ local program contract.
+- [docs/DECISIONS.md](docs/DECISIONS.md): design decisions and why.
+- [docs/ROADMAP.md](docs/ROADMAP.md): what's next, help wanted.
+- [SECURITY.md](SECURITY.md): threat boundary, reporting a vulnerability.
+
+Feedback: [GitHub Issues](https://github.com/CARL-Bouvet/coati/issues).
 
 ## License
 
-AGPL-3.0 — see [`LICENSE`](LICENSE). The Coati name and logo are not covered by the AGPL license.
-
-The code is open because that's the only way to make verifiable what Coati promises: page
-content doesn't leave your machine unless you chose a remote model. Several competing extensions
-promised the same thing in writing and were disproved by traffic analysis — the difference here
-is that you can read the code instead of taking our word for it.
+AGPL-3.0, see [`LICENSE`](LICENSE). The Coati name and logo are not covered by the AGPL license.
+The code is open so you can check what Coati promises instead of taking our word for it.
 
 ## Interface languages
 
-The interface is available in English, French, and Simplified Chinese. The Chinese interface is
-machine-translated and awaits review by a native speaker.
+English, French and Simplified Chinese. The Chinese interface is machine-translated and awaits
+review by a native speaker.
 中文界面由机器翻译生成，尚待母语者审校。

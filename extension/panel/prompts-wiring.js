@@ -33,7 +33,7 @@ export function openMyPromptsPage() {
 }
 
 export function updateSavePromptEnabled() {
-  els.savePrompt.disabled = els.input.value.trim().length === 0;
+  els.savePrompt.setAttribute("aria-disabled", String(els.input.value.trim().length === 0));
 }
 
 export function saveCurrentAsPrompt() {

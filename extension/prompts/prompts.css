@@ -183,7 +183,9 @@ body {
   width: 30px;
   height: 17px;
   border-radius: 9px;
-  background: var(--border);
+  /* --muted, not --border: the track sits on the secondary-tone rows, where
+   * --border falls under the 3:1 a control needs. */
+  background: var(--muted);
   transition: background-color 0.15s ease;
 }
 
@@ -199,7 +201,7 @@ body {
 }
 
 .switch--on .switch-track {
-  background: var(--accent);
+  background: var(--accent-mark);
 }
 
 .switch--on .switch-thumb {

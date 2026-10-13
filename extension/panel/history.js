@@ -8,7 +8,7 @@
 // plain array of plain objects.
 //
 // Only `chat` (sendChatMessage) ever ATTACHES `history` on the wire — a
-// summarize/act request never does (docs/PROTOCOL.md). This module's own
+// summarize request never does (docs/PROTOCOL.md). This module's own
 // scan of `conversation`, though, is generic: a summarize- or act-triggered
 // exchange counts exactly like a chat one for pairing/alert purposes, since
 // the product decision is "the model remembers the conversation SHOWN in

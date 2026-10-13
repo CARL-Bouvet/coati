@@ -89,7 +89,6 @@
           <details id="addService" class="fold">
             <summary data-i18n="options_add_service">Add a service</summary>
             <div class="fold-body">
-              <p id="addServiceReplaces" class="help help--tight" hidden></p>
               <div id="setupOnline" class="setup-online"></div>
               <details id="otherAddress" class="fold fold--inner">
                 <summary data-i18n="options_other_address_title">Another OpenAI-compatible address</summary>
@@ -132,30 +131,6 @@
         Starting value of the panel's "Dev mode" switch. Sends more data (higher cost) and may expose personal
         data present on the page.
       </p>
-
-      <!-- "Point at" highlight intensity (the thin caramel frame was too easy to miss). No "Try"
-           button here — there's no live page in the settings page to point
-           at; the panel is where it's actually seen. -->
-      <div class="field point-effect-field">
-        <span id="pointEffectLabel" class="field-label" data-i18n="options_point_effect_label">Show an element</span>
-        <div id="pointEffectChoice" class="point-effect-choice" role="radiogroup" aria-labelledby="pointEffectLabel">
-          <label class="point-effect-option">
-            <input type="radio" name="pointEffect" value="subtle" />
-            <span data-i18n="options_point_effect_subtle">Subtle</span>
-          </label>
-          <label class="point-effect-option">
-            <input type="radio" name="pointEffect" value="strong" />
-            <span data-i18n="options_point_effect_strong">Strong</span>
-          </label>
-          <label class="point-effect-option">
-            <input type="radio" name="pointEffect" value="spectacular" />
-            <span data-i18n="options_point_effect_spectacular">Spectacular</span>
-          </label>
-        </div>
-        <p class="help help--tight" data-i18n="options_point_effect_help">
-          How Coati highlights an element on the page when you click "Show".
-        </p>
-      </div>
     </section>
 
     <!-- 3. Keyboard shortcut (read-only here; edited in the browser). -->

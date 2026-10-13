@@ -18,7 +18,6 @@ export const els = {
   aboutVersion: document.getElementById("aboutVersion"),
   aboutFingerprint: document.getElementById("aboutFingerprint"),
   retention: document.getElementById("retention"),
-  pointEffectInputs: [...document.querySelectorAll('#pointEffectChoice input[name="pointEffect"]')],
   siteToggles: document.getElementById("siteToggles"),
   siteTogglesHelp: document.getElementById("siteTogglesHelp"),
   // "Model"
@@ -44,7 +43,6 @@ export const els = {
   serviceList: document.getElementById("serviceList"),
   servicesEmpty: document.getElementById("servicesEmpty"),
   addService: document.getElementById("addService"),
-  addServiceReplaces: document.getElementById("addServiceReplaces"),
   setupOnline: document.getElementById("setupOnline"),
   otherAddressBody: document.getElementById("otherAddressBody"),
   capLinks: document.getElementById("capLinks"),

@@ -1,7 +1,7 @@
 // chrome.storage.local key and default for the "Montrer du doigt" highlight
-// intensity — shared by panel.js (reads it right before pointing, per click)
-// and options.js (the settings UI that writes it). Same single-source-of-
-// truth pattern as RETENTION_DAYS_KEY in retention.js.
+// intensity — read by point-at.js right before pointing, per click, and
+// written by the level slider next to an answer's first "Montrer" button.
+// Same single-source-of-truth pattern as RETENTION_DAYS_KEY in retention.js.
 //
 // Not a secret (CLAUDE.md rule #1): a visual preference, fine in
 // chrome.storage.local.

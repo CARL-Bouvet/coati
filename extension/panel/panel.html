@@ -26,21 +26,13 @@
     </div>
     <span class="header-tools">
       <span id="langSelectorMount"></span>
-      <span class="help-popover-wrap">
-        <button
-          id="helpButton"
-          class="icon-button"
-          type="button"
-          aria-describedby="helpPopover"
-          data-i18n-title="panelHelpButtonLabel"
-          data-i18n-aria-label="panelHelpButtonLabel"
-        >?</button>
-        <div id="helpPopover" class="help-popover" role="tooltip">
-          <p class="help-popover-text" data-i18n="panelHelpPopoverText"></p>
-          <p id="helpShortcut" class="help-popover-text help-popover-shortcut"></p>
-          <button id="helpShortcutSet" class="toolbar-button help-popover-shortcut" type="button" hidden data-i18n="panel_help_shortcut_set"></button>
-        </div>
-      </span>
+      <button
+        id="helpButton"
+        class="icon-button"
+        type="button"
+        data-i18n-title="panelHelpButtonLabel"
+        data-i18n-aria-label="panelHelpButtonLabel"
+      >?</button>
       <button id="openOptions" class="icon-button" type="button" data-i18n-title="panel_settings_title">⚙︎</button>
     </span>
   </header>
@@ -96,18 +88,21 @@
     </div>
   </section>
 
+  <div class="thread-bar">
+    <p id="historyNotice" class="history-notice" aria-live="polite" hidden></p>
+    <button id="eraseConversation" class="link-button link-button--danger" type="button" data-i18n="panel_erase_conversation">Clear the conversation</button>
+  </div>
+
   <main id="messages" class="messages" aria-live="polite"></main>
 
   <footer class="composer">
-    <div class="composer-bar">
-      <span id="promptSavedNotice" class="prompt-saved-notice" aria-live="polite"></span>
-      <button id="savePrompt" class="icon-button" type="button" data-i18n-title="panel_save_prompt" data-i18n-aria-label="panel_save_prompt" disabled>💾</button>
-    </div>
     <p id="internalPageNotice" class="history-notice" aria-live="polite" hidden data-i18n="panel_internal_page"></p>
-    <p id="historyNotice" class="history-notice" aria-live="polite" hidden></p>
-    <textarea id="input" class="composer-input" data-i18n-placeholder="panel_input_placeholder" placeholder="Write to Coati…" rows="1"></textarea>
+    <span id="promptSavedNotice" class="prompt-saved-notice" aria-live="polite"></span>
+    <div class="composer-field">
+      <textarea id="input" class="composer-input" data-i18n-placeholder="panel_input_placeholder" placeholder="Write to Coati…" rows="1"></textarea>
+      <button id="savePrompt" class="icon-button save-prompt" type="button" data-i18n-aria-label="panel_save_prompt" aria-disabled="true"><span class="save-prompt-icon" aria-hidden="true">💾</span></button>
+    </div>
     <div class="composer-actions">
-      <button id="eraseConversation" class="link-button link-button--danger" type="button" data-i18n="panel_erase_conversation">Clear the conversation</button>
       <button id="cancel" class="composer-button composer-button--ghost" type="button" hidden data-i18n="panel_cancel">Cancel</button>
       <button id="send" class="composer-button" type="button" data-i18n="panel_send">Send</button>
     </div>

@@ -37,7 +37,7 @@ import {
   buildModelMissingRecoveryBlock,
   buildRateLimitRecoveryBlock,
 } from "./recovery-blocks.js";
-import { onPointButtonClick, seekActiveVideoTab } from "./point-at.js";
+import { onPointButtonClick, buildPointLevelSlider, seekActiveVideoTab } from "./point-at.js";
 
 export const PAGE_CONTENT_MARKER_SUFFIX = `\n\n${t("panel_with_page_content_marker")}`;
 
@@ -461,6 +461,7 @@ export function renderElementRefs(container, elementsSnapshot) {
   let n;
   while ((n = walker.nextNode())) textNodes.push(n);
 
+  let firstButton = null;
   for (const textNode of textNodes) {
     const tokens = parseElementRefs(textNode.data, elementsSnapshot.elements);
     if (tokens.length === 1 && tokens[0].type === "text" && tokens[0].value === textNode.data) continue; // nothing changed
@@ -479,6 +480,10 @@ export function renderElementRefs(container, elementsSnapshot) {
       const clickPayload = resolveElementClick(elementsSnapshot, token.ref);
       button.addEventListener("click", () => onPointButtonClick(button, clickPayload));
       fragment.appendChild(button);
+      if (!firstButton) {
+        firstButton = button;
+        fragment.appendChild(buildPointLevelSlider(button, clickPayload));
+      }
     }
     textNode.parentNode.replaceChild(fragment, textNode);
   }

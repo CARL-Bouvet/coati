@@ -4,7 +4,7 @@ import { t } from "../lib/i18n-page.js";
 import { api } from "../lib/browser-compat.js";
 import { els } from "./dom-refs.js";
 import { panelState, newId, STORAGE_KEY } from "./panel-state.js";
-import { renderMessage, addMessage, renderAll } from "./message-render.js";
+import { renderMessage, addMessage, renderAll, updateHistoryNotice } from "./message-render.js";
 import { persistConversation } from "./conversation-store.js";
 import { pendingRetries } from "./chat-stream.js";
 import { currentModelEntry, currentProvider, currentProviderLinks, requestStarts, openProviderSettings } from "./model-status.js";
@@ -44,50 +44,60 @@ export function cancelActive() {
   persistConversation();
 }
 
-// --- Erase conversation (deliverable "historique — effacement") -----------
+// --- Erase conversation ----------------------------------------------------
 //
-// `window.confirm()` is unreliable in extension surfaces (it is outright
-// blocked in MV3 popups, and Chrome's side panel behavior is not documented
-// as supported either) — so confirmation is inline, in the panel itself: a
-// first click turns the button into "Confirmer l'effacement ?", a second
-// click within 4 s actually erases. A human must click twice in the real
-// side panel to verify this reads clearly; that click cannot be simulated
-// here.
-let eraseConfirmPending = false;
-let eraseConfirmTimer = null;
+// One click erases at once; the history notice then offers "Undo" for
+// ERASE_UNDO_MS. The erased array and retry map are held in memory only until
+// the notice goes away (any re-render of the notice, or the timeout).
+const ERASE_UNDO_MS = 10_000;
+let erasedUndoTimer = null;
 
-export function onEraseClick() {
-  if (!eraseConfirmPending) {
-    eraseConfirmPending = true;
-    els.eraseConversation.textContent = t("panel_confirm_erase");
-    els.eraseConversation.classList.add("link-button--confirm");
-    eraseConfirmTimer = setTimeout(resetEraseButton, 4000);
-    return;
-  }
-  resetEraseButton();
-  eraseConversation();
+function clearUndoNotice() {
+  clearTimeout(erasedUndoTimer);
+  erasedUndoTimer = null;
+  updateHistoryNotice();
 }
 
-function resetEraseButton() {
-  eraseConfirmPending = false;
-  clearTimeout(eraseConfirmTimer);
-  eraseConfirmTimer = null;
-  els.eraseConversation.textContent = t("panel_erase_conversation");
-  els.eraseConversation.classList.remove("link-button--confirm");
+function showUndoNotice(erased, erasedRetries) {
+  const label = document.createElement("span");
+  label.textContent = `${t("panel_conversation_cleared")} · `;
+  const undo = document.createElement("button");
+  undo.type = "button";
+  undo.className = "link-button";
+  undo.textContent = t("panel_undo");
+  undo.addEventListener("click", () => {
+    clearTimeout(erasedUndoTimer);
+    erasedUndoTimer = null;
+    if (panelState.conversation.length > 0) return updateHistoryNotice();
+    panelState.conversation = erased;
+    for (const [id, retry] of erasedRetries) pendingRetries.set(id, retry);
+    persistConversation();
+    renderAll();
+  });
+  els.historyNotice.replaceChildren(label, undo);
+  els.historyNotice.hidden = false;
+  clearTimeout(erasedUndoTimer);
+  erasedUndoTimer = setTimeout(clearUndoNotice, ERASE_UNDO_MS);
 }
 
 export async function eraseConversation() {
+  // Nothing to erase: a second click (double click) must not re-render the
+  // notice and take the Undo button away.
+  if (panelState.conversation.length === 0 && !panelState.activeRequestId) return;
   // Cancel any in-flight request first — its "chunk"/"done" replies must not
   // repopulate the conversation we are about to wipe.
   cancelActive();
   panelState.activeRequestId = null;
   setStreamingUi(false);
 
+  const erased = panelState.conversation;
+  const erasedRetries = new Map(pendingRetries);
   panelState.conversation = [];
   pendingRetries.clear();
   await api.storage.local.remove(STORAGE_KEY);
   persistConversation();
   renderAll();
+  if (erased.length > 0) showUndoNotice(erased, erasedRetries);
 }
 
 // --- Auth recovery (deliverable D1) ---------------------------------------
@@ -232,7 +242,7 @@ let requestWorkerInstanceId = null; // service worker instance that accepted the
 /** Sends a `coati:client-message` request to the service worker and arms
  * the request-watch deadline with whatever `workerInstanceId` comes back in
  * the ack (or null if the send itself failed) — the shared tail of every
- * place that kicks off a chat/summarize/act request or replays one. */
+ * place that kicks off a chat/summarize request or replays one. */
 export async function sendClientMessage(payload) {
   // When it left and which model answers it: the slow-answer tip
   // (model-advice.js) needs both once the first word or an error arrives.

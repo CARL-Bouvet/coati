@@ -6,13 +6,13 @@
 // top level touches the DOM, it only *defines* functions and assigns
 // `globalThis.__coatiPoint` / `globalThis.__coatiPointerInternals`, neither
 // of which runs anything yet. `__coatiPointerInternals` is a test-only hook
-// exposing the two pure helpers (normalizeEffect, pickArrowSide) with no
+// exposing the pure helpers (normalizeEffect, perimeterPoint, layoutComet) with no
 // access to page state — same spirit as retention.test.ts importing
 // DOM-free logic straight from extension/panel/.
 import { describe, expect, test } from "bun:test";
 import "../../extension/content/pointer.js";
 
-const { normalizeEffect, pickArrowSide } = (globalThis as any).__coatiPointerInternals;
+const { normalizeEffect, perimeterPoint, layoutComet } = (globalThis as any).__coatiPointerInternals;
 
 describe("normalizeEffect", () => {
   test("accepts the three known levels", () => {
@@ -29,32 +29,50 @@ describe("normalizeEffect", () => {
   });
 });
 
-describe("pickArrowSide", () => {
-  const VIEWPORT_W = 1200;
-  const VIEWPORT_H = 800;
+describe("perimeterPoint", () => {
+  test("walks the edge clockwise from the top-left corner and wraps around", () => {
+    expect(perimeterPoint(50, 100, 40)).toEqual({ x: 50, y: 0 });
+    expect(perimeterPoint(120, 100, 40)).toEqual({ x: 100, y: 20 });
+    expect(perimeterPoint(190, 100, 40)).toEqual({ x: 50, y: 40 });
+    expect(perimeterPoint(260, 100, 40)).toEqual({ x: 0, y: 20 });
+    expect(perimeterPoint(280 + 50, 100, 40)).toEqual({ x: 50, y: 0 });
+  });
+});
 
-  test("picks the side with the most room — plenty below, element near the top", () => {
-    const rect = { top: 20, bottom: 60, left: 500, right: 600, width: 100, height: 40 };
-    expect(pickArrowSide(rect, VIEWPORT_W, VIEWPORT_H)).toBe("bottom");
+describe("layoutComet", () => {
+  const VW = 1200;
+  const VH = 800;
+  const PILL_W = 220;
+  const PILL_H = 28;
+  const overlaps = (a: any, b: any) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  const at = (left: number, top: number, width = 180, height = 40) => ({
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
   });
 
-  test("picks 'top' when the element sits near the bottom of the viewport", () => {
-    const rect = { top: 740, bottom: 780, left: 500, right: 600, width: 100, height: 40 };
-    expect(pickArrowSide(rect, VIEWPORT_W, VIEWPORT_H)).toBe("top");
+  test("the label pill never covers the element, wherever it sits", () => {
+    for (const rect of [at(500, 4), at(500, 380), at(500, 756), at(1015, 380), at(4, 4), at(1015, 756, 180, 40)]) {
+      const { pill } = layoutComet(rect, VW, VH, PILL_W, PILL_H);
+      const box = { left: pill.left, top: pill.top, right: pill.left + PILL_W, bottom: pill.top + PILL_H };
+      expect(overlaps(box, rect)).toBe(false);
+    }
   });
 
-  test("picks 'left' when the element is pinned to the right edge", () => {
-    const rect = { top: 350, bottom: 390, left: 1150, right: 1195, width: 45, height: 40 };
-    expect(pickArrowSide(rect, VIEWPORT_W, VIEWPORT_H)).toBe("left");
+  test("an element at the very top gets its pill below", () => {
+    const rect = at(500, 10);
+    expect(layoutComet(rect, VW, VH, PILL_W, PILL_H).pill.top).toBeGreaterThanOrEqual(rect.bottom);
   });
 
-  test("picks 'right' when the element is pinned to the left edge", () => {
-    const rect = { top: 350, bottom: 390, left: 5, right: 50, width: 45, height: 40 };
-    expect(pickArrowSide(rect, VIEWPORT_W, VIEWPORT_H)).toBe("right");
-  });
-
-  test("a perfectly centered element still returns one of the four sides", () => {
-    const rect = { top: 380, bottom: 420, left: 575, right: 625, width: 50, height: 40 };
-    expect(["top", "bottom", "left", "right"]).toContain(pickArrowSide(rect, VIEWPORT_W, VIEWPORT_H));
+  test("the comet enters from the right edge and stops outside the element", () => {
+    for (const rect of [at(500, 380), at(1015, 380), at(1015, 10)]) {
+      const { start, end } = layoutComet(rect, VW, VH, PILL_W, PILL_H);
+      expect(start.x).toBeGreaterThanOrEqual(VW);
+      const inside = end.x > rect.left && end.x < rect.right && end.y > rect.top && end.y < rect.bottom;
+      expect(inside).toBe(false);
+    }
   });
 });

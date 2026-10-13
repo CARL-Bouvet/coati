@@ -117,7 +117,7 @@ export async function redetectTab(tabId) {
     // T47: the injection-refused error no longer carries the page address
     // (neither browser embeds it), so the origin is
     // read from tabs.get() instead. Legitimate here specifically: this
-    // function only runs inside a genuine gesture (icon click, context menu,
+    // function only runs inside a genuine gesture (icon click,
     // shortcut, the encart's read button), whose activeTab grant already gives tab metadata
     // regardless of any scripting/host permission. If we already hold this
     // site's permission, extraction failed for some other reason (a

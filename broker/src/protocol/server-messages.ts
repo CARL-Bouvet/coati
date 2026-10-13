@@ -123,6 +123,16 @@ export interface SettingsMessage {
    * secret (unlike apiKey, never included here): see config.ts's
    * CoatiConfig.baseUrl. Absent for every other provider. */
   baseUrl?: string;
+  /** Every configured openai-compat service, whichever provider is active. Absent when none. */
+  services?: CompatServiceInfo[];
+}
+
+/** One configured openai-compat service. `hasKey` says a key is stored for its origin; the key
+ * itself is never sent. */
+export interface CompatServiceInfo {
+  baseUrl: string;
+  model?: string;
+  hasKey: boolean;
 }
 
 // Reply to a settings.test request — a FREE connection probe for the three built-in providers (an external module

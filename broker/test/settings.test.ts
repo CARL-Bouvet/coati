@@ -490,7 +490,7 @@ describe("settings.test", () => {
 // a Bearer token to whatever baseUrl was configured, and moving baseUrl from
 // one host to another carried the previous host's key along. A secret must
 // only ever reach the service it was entered for — see config.ts's
-// resolveApiKey/setApiKey/pruneStaleOpenAiCompatKey and docs/PROTOCOL.md.
+// resolveApiKey/setApiKey and docs/PROTOCOL.md.
 describe("apiKeys — per-provider isolation", () => {
   test("switching claude-api -> openai-compat never sends the claude-api key to the new server", async () => {
     let capturedAuth: string | null = null;
@@ -524,7 +524,7 @@ describe("apiKeys — per-provider isolation", () => {
     ws.close();
   });
 
-  test("moving openai-compat's baseUrl to a different origin erases the stored key", async () => {
+  test("moving openai-compat's baseUrl keeps the first service's key, bound to its own origin", async () => {
     __setOpenAiFetch((async () =>
       new Response(JSON.stringify({ data: [{ id: "m1" }] }), {
         status: 200,
@@ -540,30 +540,38 @@ describe("apiKeys — per-provider isolation", () => {
         id: "org1",
         provider: "openai-compat",
         baseUrl: "http://127.0.0.1:1234/v1",
+        model: "m-first",
         apiKey: "sk-oc-first-host",
       }),
     );
-    const first = (await nextMessage(ws)) as SettingsMessage;
-    expect(first.available.find((p) => p.id === "openai-compat")!.configured).toBe(true);
-    let onDisk = JSON.parse(readFileSync(join(configDir, "config.json"), "utf8"));
-    expect(onDisk.apiKeys["openai-compat"]).toMatchObject({
-      key: "sk-oc-first-host",
-      origin: "http://127.0.0.1:1234",
-    });
-
-    // Move baseUrl to a different host, no apiKey in this patch: the key
-    // bound to the OLD origin must be erased, not carried over.
-    ws.send(JSON.stringify({ type: "settings.set", id: "org2", baseUrl: "http://127.0.0.1:5678/v1" }));
     await nextMessage(ws);
-    // openai-compat's `configured` flag reflects reachability, not key
-    // presence (its auth is optional — LM Studio, Ollama's /v1 don't need
-    // one), so the erasure is checked directly on disk instead.
+    ws.send(JSON.stringify({ type: "settings.set", id: "org2", baseUrl: "http://127.0.0.1:5678/v1" }));
+    const second = (await nextMessage(ws)) as SettingsMessage;
+    expect(second.model).toBeUndefined();
+    expect(second.services).toEqual([
+      { baseUrl: "http://127.0.0.1:1234/v1", model: "m-first", hasKey: true },
+      { baseUrl: "http://127.0.0.1:5678/v1", hasKey: false },
+    ]);
+    let onDisk = JSON.parse(readFileSync(join(configDir, "config.json"), "utf8"));
+    expect(onDisk.apiKeys["openai-compat"]).toEqual({ "http://127.0.0.1:1234": "sk-oc-first-host" });
+
+    // Switching back restores the first service's model; its key is still there.
+    ws.send(JSON.stringify({ type: "settings.set", id: "org3", baseUrl: "http://127.0.0.1:1234/v1" }));
+    const back = (await nextMessage(ws)) as SettingsMessage;
+    expect(back.model).toBe("m-first");
+    expect(back.baseUrl).toBe("http://127.0.0.1:1234/v1");
+
+    // Removal is explicit, per service, and takes only that service's key.
+    ws.send(JSON.stringify({ type: "settings.set", id: "org4", removeBaseUrl: "http://127.0.0.1:1234/v1" }));
+    const removed = (await nextMessage(ws)) as SettingsMessage;
+    expect(removed.services).toEqual([{ baseUrl: "http://127.0.0.1:5678/v1", hasKey: false }]);
+    expect(removed.baseUrl).toBeUndefined();
     onDisk = JSON.parse(readFileSync(join(configDir, "config.json"), "utf8"));
-    expect(onDisk.apiKeys?.["openai-compat"]).toBeUndefined();
+    expect(onDisk.apiKeys).toBeUndefined();
     ws.close();
   });
 
-  test("a settings.set carrying both a new baseUrl and a new apiKey binds the key to the new origin", async () => {
+  test("a settings.set carrying both a new baseUrl and a new apiKey binds the key to the new origin only", async () => {
     __setOpenAiFetch((async () =>
       new Response(JSON.stringify({ data: [{ id: "m1" }] }), {
         status: 200,
@@ -591,14 +599,36 @@ describe("apiKeys — per-provider isolation", () => {
         apiKey: "sk-oc-new-host",
       }),
     );
-    const after = (await nextMessage(ws)) as SettingsMessage;
-    expect(after.available.find((p) => p.id === "openai-compat")!.configured).toBe(true);
+    await nextMessage(ws);
     const onDisk = JSON.parse(readFileSync(join(configDir, "config.json"), "utf8"));
-    expect(onDisk.apiKeys["openai-compat"]).toMatchObject({
-      key: "sk-oc-new-host",
-      origin: "http://127.0.0.1:9999",
+    expect(onDisk.apiKeys["openai-compat"]).toEqual({
+      "http://127.0.0.1:1234": "sk-oc-old-host",
+      "http://127.0.0.1:9999": "sk-oc-new-host",
     });
     ws.close();
+  });
+
+  test("a config.json with the single openai-compat key slot becomes one service, key kept", async () => {
+    const { loadConfig, resolveApiKey } = await import("../src/config.ts");
+    const { mkdirSync, writeFileSync } = await import("node:fs");
+    const configDir = makeTmpDir("coati-settings-slot-migration-");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(
+      join(configDir, "config.json"),
+      JSON.stringify({
+        provider: "openai-compat",
+        model: "deepseek-chat",
+        baseUrl: "https://api.deepseek.com/v1",
+        apiKeys: { "openai-compat": { key: "sk-ds", origin: "https://api.deepseek.com" } },
+      }),
+      { mode: 0o600 },
+    );
+    const loaded = loadConfig({ configDir, dataDir: configDir });
+    expect(loaded.compatServices).toEqual([{ baseUrl: "https://api.deepseek.com/v1", model: "deepseek-chat" }]);
+    expect(loaded.apiKeys?.["openai-compat"]).toEqual({ "https://api.deepseek.com": "sk-ds" });
+    expect(resolveApiKey(loaded, "openai-compat")).toBe("sk-ds");
+    // Another origin never receives it.
+    expect(resolveApiKey({ ...loaded, baseUrl: "https://api.openai.com/v1" }, "openai-compat")).toBeUndefined();
   });
 
   // Unit-level, not through startServer: startServer(config, ...) takes an

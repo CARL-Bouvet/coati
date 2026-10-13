@@ -129,6 +129,7 @@
     model: "meta-llama/llama-3.3-70b-instruct:free",
     models: [],
     baseUrl: "https://openrouter.ai/api/v1",
+    services: [{ baseUrl: "https://openrouter.ai/api/v1", hasKey: true }, { baseUrl: "https://api.deepseek.com/v1", hasKey: true }],
     available: [
       { id: "openai-compat", available: true, configured: true, label: "Compatible OpenAI" },
       { id: "claude-api", available: true, configured: true, label: "Clé API Anthropic" },
@@ -450,6 +451,7 @@
         model: "mistralai/mistral-small-3.2",
         models: [],
         baseUrl: "https://openrouter.ai/api/v1",
+        services: [{ baseUrl: "https://openrouter.ai/api/v1", hasKey: true }, { baseUrl: "https://api.deepseek.com/v1", hasKey: true }],
         available: [
           { id: "openai-compat", available: true, configured: true, label: "Compatible OpenAI" },
           { id: "claude-api", available: true, configured: false, label: "Clé API Anthropic" },
@@ -529,6 +531,7 @@
         model: "gpt-5-mini",
         models: [],
         baseUrl: "https://api.openai.com/v1",
+        services: [{ baseUrl: "https://api.openai.com/v1", hasKey: true }],
         available: [
           { id: "openai-compat", available: true, configured: true, label: "Compatible OpenAI" },
           { id: "claude-api", available: false, configured: false, reason: "no Anthropic API key configured", label: "Clé API Anthropic" },

@@ -111,8 +111,8 @@ export function contextBudgetError(context: Context | undefined): string | undef
 // "Broker-side limits": "the receive
 // log line may carry a validated pageKind and fact/entry counts; never a
 // label, a value, a title, or any other page content." pageKind/factsCount/
-// itemsCount are optional so chat/act (which
-// carry no pageKind) keep their existing "-"/0/0 shape.
+// itemsCount are optional so chat (which
+// carries no pageKind) keep their existing "-"/0/0 shape.
 export function logRequestReceived(
   type: string,
   id: string,

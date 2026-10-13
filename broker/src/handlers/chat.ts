@@ -58,7 +58,7 @@ import type { Lang } from "../messages.ts";
 import type { SettingsCtx } from "./settings.ts";
 
 // Per-connection cap on simultaneously in-flight model streams. Without it, an
-// authenticated client sending N chat/summarize/act messages back to back
+// authenticated client sending N chat/summarize messages back to back
 // spawns N provider calls with no limit. See docs/PROTOCOL.md "Limites".
 export const MAX_CONCURRENT_STREAMS = 3;
 
@@ -257,7 +257,7 @@ async function resolveVisionSupport(
 }
 
 /** Shared SYNCHRONOUS preamble for every streaming request type
- * (chat/summarize/act): log receipt, reject an
+ * (chat/summarize): log receipt, reject an
  * oversized payload, reject a full concurrency cap, reject an unknown
  * configured provider. Returns the resolved provider/opts/startedAt on
  * success, or `undefined` once it has already sent an error and logged the
@@ -342,7 +342,7 @@ async function gateVisionSupport(
 }
 
 /** Shared preamble for the two SYNCHRONOUS-build streaming request types
- * (summarize/act, and a `chat` with no `page`): gate, then optionally
+ * (summarize, and a `chat` with no `page`): gate, then optionally
  * gate vision, then buildPrompt/runStream. */
 export function handleStreamingRequest(
   ws: { send(data: string): unknown },
@@ -656,7 +656,7 @@ export interface OnDemandChat {
 /**
  * Entry point for a `chat` the model may answer by asking for the page or a
  * web search — see handleMessage's "chat" case (handlers/dispatch.ts), the
- * only caller. Gates exactly like any other chat/summarize/act (size,
+ * only caller. Gates exactly like any other chat/summarize (size,
  * concurrency, provider), then hands off to the async loop below.
  */
 export function handleChatPageOnDemand(

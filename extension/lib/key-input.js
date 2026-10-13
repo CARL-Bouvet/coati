@@ -232,15 +232,20 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     remove.classList.remove("apikey-clear--confirm");
   }
 
-  function entryFrom(settings) {
-    return (settings?.available ?? []).find((p) => p.id === provider) ?? null;
+  /** Whether the local program holds a key for this provider (for openai-compat: for the active
+   * service's address). */
+  function keyStored(settings) {
+    if (provider === "openai-compat") {
+      return Boolean(settings?.services?.some((svc) => svc.baseUrl === settings.baseUrl && svc.hasKey));
+    }
+    return Boolean((settings?.available ?? []).find((p) => p.id === provider)?.configured);
   }
 
   function handleBrokerMessage(message) {
     if (!message) return;
     if (message.type === "settings" && saveId && (message.id === saveId || !message.id)) {
       saveId = null;
-      configured = Boolean(entryFrom(message)?.configured);
+      configured = keyStored(message);
       if (state === "saving") {
         if (configured) {
           verify();

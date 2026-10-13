@@ -122,18 +122,6 @@ export interface SummarizeMessage {
   context: Context;
 }
 
-// "shorten" added for the panel's selection context menu (Raccourcir) —
-// see docs/PROTOCOL.md and the matching addition in model.ts's ACT_VERB.
-export type ActAction = "translate" | "rewrite" | "explain" | "shorten";
-
-export interface ActMessage {
-  type: "act";
-  id: string;
-  action: ActAction;
-  text: string;
-  params?: { targetLang?: string; [key: string]: unknown };
-}
-
 export interface PromptsListMessage {
   type: "prompts.list";
   id: string;
@@ -205,10 +193,16 @@ export interface SettingsSetMessage {
   /**
    * Base URL of the `openai-compat` provider's server, e.g. "http://localhost:1234/v1". NOT a
    * secret — unlike apiKey, it IS echoed back in the `settings` response (see
-   * SettingsMessage.baseUrl below). An empty string means "forget the stored
-   * address", same semantics as apiKey. Omitted means "leave unchanged".
+   * SettingsMessage.baseUrl below). Makes this address the active openai-compat service, adding
+   * it to the configured services when new; other services and their keys are kept. Omitted
+   * means "leave unchanged".
    */
   baseUrl?: string;
+  /**
+   * Removes the configured openai-compat service at this address, with its stored key (unless
+   * another service shares the origin). The only way a service goes away.
+   */
+  removeBaseUrl?: string;
   /**
    * (EXTRA task — docs/PROTOCOL.md §9bis).
    * Forgets a stored key WITHOUT touching the active provider/model or any
@@ -260,7 +254,6 @@ export type ClientMessage =
   | AuthMessage
   | ChatMessage
   | SummarizeMessage
-  | ActMessage
   | PromptsListMessage
   | PromptsSaveMessage
   | PromptsDeleteMessage

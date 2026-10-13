@@ -3,7 +3,7 @@ import { t } from "../lib/i18n-page.js";
 import { api } from "../lib/browser-compat.js";
 import { newId } from "./panel-state.js";
 import { addMessage } from "./message-render.js";
-import { parseStoredPointEffect, POINT_EFFECT_KEY } from "./point-effect.js";
+import { parseStoredPointEffect, POINT_EFFECT_KEY, DEFAULT_POINT_EFFECT } from "./point-effect.js";
 import { getYouTubeVideoIdFromUrl } from "./timestamps.js";
 import { currentTabId } from "./panel.js";
 
@@ -28,16 +28,95 @@ export function onPointButtonClick(button, entry) {
     clearPointer(currentTabId);
     return;
   }
+  pointWithButton(button, entry);
+}
+
+// Draws (or redraws) `button`'s target and marks it as the pressed one.
+function pointWithButton(button, entry) {
   const previous = activePointButton;
   activePointButton = button;
   button.setAttribute("aria-pressed", "true");
-  if (previous) previous.setAttribute("aria-pressed", "false");
-  pointAtElement(currentTabId, entry).then((ok) => {
+  if (previous && previous !== button) previous.setAttribute("aria-pressed", "false");
+  return pointAtElement(currentTabId, entry).then((ok) => {
     if (!ok && activePointButton === button) {
       activePointButton = null;
       button.setAttribute("aria-pressed", "false");
     }
   });
+}
+
+// Highlight intensity, bottom notch first, with each level's name.
+const POINT_LEVELS = ["subtle", "strong", "spectacular"];
+const POINT_LEVEL_NAMES = {
+  subtle: "panel_point_level_subtle",
+  strong: "panel_point_level_strong",
+  spectacular: "panel_point_level_spectacular",
+};
+
+function renderPointLevel(slider, level) {
+  const index = POINT_LEVELS.indexOf(level);
+  slider.dataset.level = level;
+  slider.setAttribute("aria-valuenow", String(index));
+  slider.setAttribute("aria-valuetext", t(POINT_LEVEL_NAMES[level]));
+  slider.querySelectorAll(".point-level-notch").forEach((notch, i) => notch.classList.toggle("is-on", i === index));
+}
+
+/**
+ * The small vertical 3-notch slider next to an answer's first "Montrer : …"
+ * button. Moving it (arrow keys or a click on a notch) saves the level as
+ * the default for every later "Montrer" and redraws that button's target at
+ * once, from the user's own input event (the gesture rule).
+ */
+export function buildPointLevelSlider(button, entry) {
+  const slider = document.createElement("span");
+  slider.className = "point-level";
+  slider.tabIndex = 0;
+  slider.setAttribute("role", "slider");
+  slider.setAttribute("aria-orientation", "vertical");
+  slider.setAttribute("aria-label", t("panel_point_level_label"));
+  slider.setAttribute("aria-valuemin", "0");
+  slider.setAttribute("aria-valuemax", String(POINT_LEVELS.length - 1));
+  POINT_LEVELS.forEach((_, i) => {
+    const notch = document.createElement("span");
+    notch.className = "point-level-notch";
+    notch.dataset.index = String(i);
+    slider.appendChild(notch);
+  });
+  renderPointLevel(slider, DEFAULT_POINT_EFFECT);
+  api.storage.local
+    .get([POINT_EFFECT_KEY])
+    .then((stored) => renderPointLevel(slider, parseStoredPointEffect(stored?.[POINT_EFFECT_KEY])))
+    .catch(() => {});
+
+  const choose = (index) => {
+    const level = POINT_LEVELS[Math.max(0, Math.min(POINT_LEVELS.length - 1, index))];
+    if (level === slider.dataset.level) return;
+    const sliders = [...document.querySelectorAll(".point-level")];
+    for (const other of sliders) renderPointLevel(other, level);
+    // A failed redraw posts a notice, which re-renders the conversation:
+    // focus then moves to this answer's rebuilt slider.
+    const position = document.activeElement === slider ? sliders.indexOf(slider) : -1;
+    api.storage.local
+      .set({ [POINT_EFFECT_KEY]: level })
+      .catch(() => {})
+      .then(() => pointWithButton(button, entry))
+      .then(() => {
+        if (position >= 0 && !slider.isConnected) document.querySelectorAll(".point-level")[position]?.focus();
+      });
+  };
+  slider.addEventListener("keydown", (event) => {
+    const now = POINT_LEVELS.indexOf(slider.dataset.level);
+    const last = POINT_LEVELS.length - 1;
+    const next = { ArrowUp: now + 1, ArrowRight: now + 1, ArrowDown: now - 1, ArrowLeft: now - 1, PageUp: last, End: last, PageDown: 0, Home: 0 }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    choose(next);
+  });
+  slider.addEventListener("click", (event) => {
+    const notch = event.target.closest(".point-level-notch");
+    if (notch) choose(Number(notch.dataset.index));
+  });
+  return slider;
 }
 
 // Highlights the element a "Montrer : …" button names, on the CURRENT page
@@ -61,8 +140,8 @@ export async function pointAtElement(tabId, entry) {
     return false;
   }
   try {
-    // Read fresh at click time (not cached) — a change in Options should
-    // apply to the very next "Montrer : …" click, not the next panel open.
+    // Read fresh at click time (not cached): a level picked on any answer's
+    // slider applies to the very next "Montrer : …" click.
     const stored = await api.storage.local.get([POINT_EFFECT_KEY]).catch(() => ({}));
     const effect = parseStoredPointEffect(stored[POINT_EFFECT_KEY]);
     await api.scripting.executeScript({ target: { tabId }, files: POINTER_FILES });

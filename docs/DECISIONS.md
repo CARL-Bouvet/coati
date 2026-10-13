@@ -22,6 +22,7 @@ One line per decision still in force. A decision only reopens on new evidence, n
 | T25 | Provider availability checked only when the panel opens, no billed call (`provider.status`, 60 s cache). |
 | T26 | No automatic provider switch — only a user-issued `settings.set` changes it; switching providers changes who receives page content. |
 | T45 | Generic page reading comes before any paid module — visible-block heuristics (`checkVisibility`, shadow DOM, repeated sibling blocks) benefit every site for free. |
+| T46 | Removed: the page right-click entry (and the selection menu) are gone, with the `contextMenus` permission. Coati reads a page only from the toolbar icon or the keyboard shortcut. |
 | T48 | Native Messaging delivers the extension a key drawn fresh on every broker start (`broker-key.json`, mode 0600); the legacy pasted-secret path (`legacyPairing`) stays off by default, for Flatpak/Snap browsers only. |
 | T49 | Handshake `v: 2` is a mutual HMAC challenge-response, broker proves first; key never crosses the wire; nonces/proofs validated as `^[0-9a-f]{64}$` before any decoding; constant-time comparison; cap of 16 concurrent unauthenticated connections. Peer UID not enforced on macOS/Windows — file permissions on the key carry that case instead. |
 | T50–T53 | UI/UX decisions for the read button, first-run checklist, model picker, and Ollama responsiveness tuning (timeouts, warm-up, context sizing) — still in force, detail in commit history rather than here. |

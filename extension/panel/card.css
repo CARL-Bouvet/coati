@@ -1,19 +1,21 @@
 /* Site card (T27-T29) and its encart —
  * styled here rather than in panel.css so the two files stay disjoint. Only the shared
  * variables from lib/theme.css are used, never a literal color/size, so
- * light/dark and the capture variants apply here too. */
+ * light/dark and the dev look apply here too. */
 
 .site-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
+  margin: var(--space-3) var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--card);
+  box-shadow: var(--shadow-raised);
   /* Fixed-ish height across states (T27: no layout jump on tab switch) —
    * the head row always reserves its line, whether or not it has content. */
-  min-height: calc(var(--line-height) * 1em + var(--space-2) * 2 + 2px);
+  min-height: calc(var(--line-height) * 1em + var(--space-3) * 2 + 2px);
   /* Only the message list may shrink in a short window: squeezed, the card's
    * last row of buttons overlapped its bottom border (seen at 300 px tall). */
   flex-shrink: 0;
@@ -82,23 +84,28 @@
 .encart-read {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   /* Never shrinks: at 320 px the site name gives way (ellipsis), not the verb. */
   flex: 0 0 auto;
   height: 28px;
   padding: 0 var(--space-2) 0 2px;
   border: 1px solid var(--accent);
   border-radius: 999px;
-  background: var(--bg);
+  background: var(--card);
   color: var(--fg);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-m);
   font-weight: 600;
   cursor: pointer;
 }
 
 .encart-read:hover {
   background: var(--case-head-bg);
+  box-shadow: var(--shadow-hover);
+}
+
+.encart-read:active {
+  box-shadow: var(--shadow-pressed);
 }
 
 .encart-read:focus-visible,
@@ -169,7 +176,7 @@
 /* After a refusal only: one muted line under the head row. */
 .encart-read-note {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-s);
   line-height: 1.4;
   color: var(--muted);
 }
@@ -204,7 +211,7 @@
   padding: 0;
   margin: 0;
   font: inherit;
-  font-size: 0.85em;
+  font-size: var(--text-s);
   color: var(--muted);
   cursor: pointer;
 }
@@ -214,12 +221,14 @@
   cursor: not-allowed;
 }
 
+/* Off: a recessed grey track. On: caramel with a soft halo. */
 .switch-track {
   position: relative;
   width: 30px;
   height: 17px;
   border-radius: 9px;
   background: var(--border);
+  box-shadow: var(--shadow-field);
   transition: background-color 0.15s ease;
 }
 
@@ -230,12 +239,14 @@
   width: 13px;
   height: 13px;
   border-radius: 50%;
-  background: var(--bg);
+  background: var(--card);
+  box-shadow: var(--shadow-raised);
   transition: transform 0.15s ease;
 }
 
 .switch--on .switch-track {
   background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
 }
 
 .switch--on .switch-thumb {
@@ -250,9 +261,9 @@
 
 /* The encart: the site's own buttons (rendered by panel.js's renderEncart(),
  * ordered by encart-items.js) followed by the static "Mes prompts ↗" button.
- * Font-size set here (matching the buttons' own 13px below) so the
+ * Font-size set here (matching the buttons' own size below) so the
  * max-height calc's `em` means the same thing regardless of the panel's
- * --font-size (theme.css capture variants). Beyond three rows, it scrolls —
+ * --font-size. Beyond three rows, it scrolls —
  * Scroll-padding-block keeps a focused button clear of the edge.
  * Three and a half rows, not three: with overlay scrollbars (macOS, some
  * Linux setups) nothing else would show that more buttons — including
@@ -263,8 +274,8 @@
   flex-wrap: wrap;
   align-content: flex-start;
   gap: var(--space-2);
-  font-size: 13px;
-  max-height: calc(3.5 * (1.3em + 8px) + 3 * var(--space-2));
+  font-size: var(--text-s);
+  max-height: calc(3.5 * (1.3em + 10px) + 3 * var(--space-2));
   overflow-y: auto;
   scroll-padding-block: var(--space-1);
   scrollbar-width: thin;
@@ -279,28 +290,28 @@
 
 /* Card buttons: tighter padding than the rest of the panel. */
 .site-card-actions .toolbar-button {
-  font-size: 13px;
+  font-size: var(--text-s);
   line-height: 1.3;
-  padding: 3px var(--space-2);
+  padding: var(--space-1) var(--space-2);
 }
 
-/* :not(.toolbar-button--primary) — the first button (any site, any kind)
- * keeps the caramel primary look instead ("Coati's
- * first suggestion on a popular site keeps the
- * primary style", widened to "whichever kind ends up first, since the user
- * controls the order"). Without this guard,
- * card.css loading after panel.css would win the cascade on the shared
- * `background`/`border-color` declarations at equal specificity. */
-.site-card-suggestion:not(.toolbar-button--primary) {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-  color: var(--fg);
-  cursor: pointer;
+/* On a card, secondary buttons take the secondary tone and only rise on
+ * hover. :not(.toolbar-button--primary) — the first suggestion (any site,
+ * any kind, the user controls the order) keeps the caramel primary look;
+ * without this guard, card.css loading after panel.css would win the
+ * cascade on `background` at equal specificity. */
+:is(.site-card, .first-run, .never-connected) .toolbar-button:not(.toolbar-button--primary) {
+  background: var(--surface);
+  box-shadow: none;
 }
 
-.site-card-suggestion:not(.toolbar-button--primary):hover {
-  border-color: var(--accent);
+:is(.site-card, .first-run, .never-connected) .toolbar-button:not(.toolbar-button--primary):hover {
+  background: var(--card-hover);
+  box-shadow: var(--shadow-hover);
+}
+
+:is(.site-card, .first-run, .never-connected) .toolbar-button:not(.toolbar-button--primary):active {
+  box-shadow: var(--shadow-pressed);
 }
 
 /* "Mes prompts ↗" — quiet/ghost, clearly secondary, always the encart's last
@@ -308,7 +319,7 @@
 .site-card-my-prompts {
   border: none;
   background: none;
-  padding: 3px var(--space-2);
+  padding: var(--space-1) var(--space-2);
   margin: 0;
   font: inherit;
   color: var(--muted);
@@ -345,11 +356,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  margin: var(--space-2) var(--space-3) 0;
+  margin: var(--space-4) var(--space-3) 0;
   padding: var(--space-3);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--card);
+  box-shadow: var(--shadow-raised);
   flex-shrink: 0;
 }
 
@@ -367,7 +379,7 @@
 
 .first-run-title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-l);
   font-weight: 700;
   line-height: 1.3;
 }
@@ -376,7 +388,7 @@
  * second standalone notice while this card is still showing). */
 .first-run-never-connected {
   margin: calc(-1 * var(--space-1)) 0 0;
-  font-size: 13px;
+  font-size: var(--text-m);
   line-height: 1.4;
   color: var(--muted);
 }
@@ -392,7 +404,7 @@
 
 .first-run-lang {
   margin: var(--space-2) 0 0;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -400,7 +412,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  font-size: 13px;
+  font-size: var(--text-m);
   line-height: 1.4;
 }
 
@@ -412,7 +424,7 @@
   height: 18px;
   border-radius: 50%;
   border: 1.5px solid currentColor;
-  font-size: 11px;
+  font-size: var(--text-s);
   font-weight: 700;
   line-height: 1;
 }
@@ -451,9 +463,9 @@
 }
 
 .first-run-action {
-  font-size: 13px;
+  font-size: var(--text-s);
   line-height: 1.3;
-  padding: 3px var(--space-2);
+  padding: var(--space-1) var(--space-2);
 }
 
 .first-run-action:focus-visible {
@@ -470,15 +482,17 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  margin: var(--space-2) var(--space-3) 0;
+  margin: var(--space-4) var(--space-3) 0;
   padding: var(--space-3);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--card);
+  box-shadow: var(--shadow-raised);
   flex-shrink: 0;
 }
 
-/* Same decoration rule as .help-popover::after (panel.css). */
+/* Decoration, never layout: a faint background anchored bottom-right,
+ * clipped by its box. One file per theme. */
 .never-connected {
   position: relative;
   overflow: hidden;
@@ -513,7 +527,7 @@
   background: var(--accent);
   color: var(--accent-fg);
   font-weight: 700;
-  font-size: 18px;
+  font-size: var(--text-l);
   line-height: 1;
 }
 .help-badge::before { content: "?"; }
@@ -528,16 +542,38 @@
 
 .never-connected-title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-l);
   font-weight: 700;
   line-height: 1.3;
 }
 
 .never-connected-text {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-m);
   line-height: 1.4;
   color: var(--muted);
+}
+
+/* Dev look (lib/theme.css flattens the tokens): the site band back flush
+ * against the header, cards and chips on their former flat tones. */
+html.mode-dev .site-card {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  min-height: calc(var(--line-height) * 1em + var(--space-2) * 2 + 2px);
+}
+
+html.mode-dev :is(.first-run, .never-connected) {
+  margin-top: var(--space-2);
+  background: var(--surface);
+}
+
+html.mode-dev :is(.site-card, .first-run, .never-connected) .toolbar-button:not(.toolbar-button--primary) {
+  background: var(--bg);
+}
+
+html.mode-dev .site-card-suggestion:not(.toolbar-button--primary):hover {
+  border-color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {

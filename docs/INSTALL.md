@@ -1,9 +1,9 @@
 # Installing Coati
 
-Coati has two pieces: the extension, in the browser, and the **broker**, a small program that
-runs on your machine and talks to the model. This document installs the broker.
+Coati has two pieces: the extension, in the browser, and the **local program** (`coati-broker`),
+which runs on your machine and talks to the model. This document installs the local program.
 
-The broker ships as a single executable, `coati-broker`, which also acts as a **native host**: a
+It ships as a single executable, `coati-broker`, which also acts as a **native host**: a
 program the browser launches itself, at the extension's request, to hand it the key that opens
 the connection to the broker — this pairs the extension with no gesture from you. Detail:
 `docs/PROTOCOL.md`, "Native host". Supported browsers: Chrome, Chromium, Brave, Edge, Firefox.
@@ -26,7 +26,7 @@ Get-FileHash .\coati-broker-windows-x64.exe -Algorithm SHA256     # Windows
 
 Don't install the file if the checksum doesn't match.
 
-## 2. Install the broker
+## 2. Install the local program
 
 Run from the decompressed source archive, passing the downloaded executable's path. Safe to
 rerun.
@@ -107,9 +107,12 @@ Studio, OpenAI, Mistral, OpenRouter, DeepSeek, or any compatible address (key st
 program, never in the extension). For Ollama itself, prefer the **Ollama (local)** provider over
 its `/v1` endpoint — through that endpoint Coati can't grow the reading window.
 
-**What you should see**: a "Getting started" card on first open, three checks (local program
-detected, model connected, page access granted). With the first two green, click **Read the
-page**, grant site access when asked. Provider status shows at the panel's bottom.
+Which model fits your machine: see "Which model" in the README.
+
+**What you should see**: click the Coati toolbar icon (or press `Alt+Shift+C`). A "Getting
+started" card shows three checks (local program detected, model connected, page access granted).
+With the first two green, ask a question about the page and grant site access when asked.
+Provider status shows at the panel's bottom.
 
 ## 6. Uninstall
 

@@ -34,8 +34,7 @@
 //     the panel: a click on the main button (`summarize()`), a site-card
 //     suggestion (`runSuggestion()` — same page-attached path as a library
 //     prompt sent with "Read the page" checked), the "Read the page"
-//     toggle being ON at send time (`sendChat()`), or a
-//     context-menu action on selected text. Each of those calls
+//     toggle being ON at send time (`sendChat()`). Each of those calls
 //     `extractFromTab()` and, once real content came back, refines the type
 //     and relabels the button via `applyDetectedContext()`.
 //   - Page access, "path B" (docs/DECISIONS.md T50, amended T42/T43): while
@@ -92,7 +91,7 @@ import {
   PERMISSION_REDETECT_SKIP_MS,
 } from "./first-run-wiring.js";
 import { sendChat } from "./composer-send.js";
-import { cancelActive, onEraseClick } from "./request-watch.js";
+import { cancelActive, eraseConversation } from "./request-watch.js";
 import { requestPrompts, requestPrefs, openMyPromptsPage, saveCurrentAsPrompt, updateSavePromptEnabled } from "./prompts-wiring.js";
 import {
   DEV_MODE_KEY,
@@ -107,7 +106,6 @@ import {
 import { redetectTab, redetectTabFromMetadata, openedFromGesture, lastRedetectTabId, lastRedetectAt } from "./page-detect.js";
 import { updateSiteCard, onPromptsMessage, onPrefsMessage } from "./site-card.js";
 import { activeTabId } from "./page-extract.js";
-import { drainPendingAction } from "./pending-action.js";
 import { onChunk, onProgress, onDone, onError } from "./chat-stream.js";
 import { onPageRequest } from "./page-request.js";
 import { onSearchRequest, onOpenRequest } from "./web-search.js";
@@ -182,7 +180,7 @@ async function init() {
   els.cancel.addEventListener("click", cancelActive);
   els.openMyPrompts.addEventListener("click", openMyPromptsPage);
   els.savePrompt.addEventListener("click", saveCurrentAsPrompt);
-  els.eraseConversation.addEventListener("click", onEraseClick);
+  els.eraseConversation.addEventListener("click", eraseConversation);
   // "Dev mode" (docs/PROTOCOL.md "Page on demand") — replaces the former
   // "Read the page"/"See the screen" switches. Turning it OFF is immediate;
   // turning it ON for the very first time ever shows the risk/cost
@@ -298,7 +296,6 @@ async function init() {
     refreshReadButton();
   }
 
-  await drainPendingAction();
   await showBuildInfo();
 }
 
@@ -329,11 +326,6 @@ function onRuntimeMessage(message) {
       requestPrompts();
       requestPrefs();
     }
-    return;
-  }
-
-  if (message.type === "coati:pending-action") {
-    drainPendingAction();
     return;
   }
 

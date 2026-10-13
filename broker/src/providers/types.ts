@@ -55,7 +55,7 @@ export interface StatusCheck {
 /** Closed set of `settings.test-result.code` values a provider's
  * `testConnection` can report on failure (docs/PROTOCOL.md) — a subset of `ErrorCode` (protocol.ts)
  * plus `model-missing`, which is NOT a general ErrorCode (it never appears on
- * a chat/summarize/act `error` message — those report the same underlying
+ * a chat/summarize `error` message — those report the same underlying
  * condition as `model-unavailable`, see ollama.ts's streamAnswer) but IS
  * useful here to tell "Ollama unreachable" apart from "Ollama is up but this
  * model isn't pulled", mirroring provider.status's own `model-missing`

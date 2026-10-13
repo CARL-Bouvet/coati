@@ -11,7 +11,7 @@
 // captureScreen() itself needs the Chromium e2e run separately.
 //
 // B0 finding: `captureVisibleTab` needs `activeTab` (icon click,
-// keyboard shortcut, or a context-menu click that grants it) — the broad
+// or keyboard shortcut) — the broad
 // `optional_host_permissions` ("http://*/*", "https://*/*") do NOT satisfy
 // it. captureScreen() never tries to request anything itself; panel.js
 // classifies the rejection and tells the user which gesture to make.

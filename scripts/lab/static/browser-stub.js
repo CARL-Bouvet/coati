@@ -339,13 +339,13 @@
           });
         }, 20);
       }
-      // Chat/summarize/act/cancel: the streaming state is reached by staying
+      // Chat/summarize/cancel: the streaming state is reached by staying
       // in-flight (no "done"/"error" ever arrives) — the default. Fixtures
       // that need to show a recovery block (retry button etc.) set
-      // `chatErrorReply`: any `chat` (or summarize/act) then triggers an
+      // `chatErrorReply`: any `chat` (or summarize) then triggers an
       // immediate scripted error reply so pendingRetries stays populated and
       // the retry button renders.
-      if (fixture.chatErrorReply && (payload.type === "chat" || payload.type === "summarize" || payload.type === "act")) {
+      if (fixture.chatErrorReply && (payload.type === "chat" || payload.type === "summarize")) {
         var chatId = payload.id;
         var errorReply = fixture.chatErrorReply;
         setTimeout(function () {
@@ -359,7 +359,7 @@
       // broker messages sent, in order, for the request's own id (progress,
       // chunk, error…). Without a terminal message the request stays in
       // flight, frozen on the last step (the waiting-line states).
-      if (fixture.chatScript && (payload.type === "chat" || payload.type === "summarize" || payload.type === "act")) {
+      if (fixture.chatScript && (payload.type === "chat" || payload.type === "summarize")) {
         var scriptId = payload.id;
         fixture.chatScript.forEach(function (step) {
           setTimeout(function () {

@@ -30,6 +30,12 @@ export interface ModuleConfigEntry {
   options?: Record<string, unknown>;
 }
 
+/** One configured `openai-compat` service. */
+export interface CompatService {
+  baseUrl: string;
+  model?: string;
+}
+
 export interface CoatiConfig {
   port: number;
   allowedExtensionIds: string[];
@@ -48,27 +54,26 @@ export interface CoatiConfig {
   /**
    * BYOK secrets, keyed per provider — NEVER a single global field: a secret must only ever reach
    * the service it was entered for. `claude-api` is a bare string (Anthropic has exactly one
-   * base URL, no origin to bind against). `openai-compat` carries its key
-   * together with the URL *origin* it was entered for (`new URL(baseUrl)
-   * .origin` at settings.set time) — resolveApiKey() below only returns it
-   * when the CURRENT baseUrl still has that same origin, so switching
-   * openai-compat's baseUrl to a different host (OpenRouter → DeepSeek…)
-   * never carries the old host's key along; the entry is pruned instead (see
-   * server.ts's settingsCtx().applySettings). WRITE-ONLY end to end: accepted
-   * by `settings.set`, persisted here (0600, same as the rest of this file),
-   * and NEVER read back into a `settings`/`settings.set` response — see
-   * server.ts's buildSettingsPayload and CLAUDE.md security rule #1 (no
-   * secret reaches the extension). Never logged, never included in an error
-   * message — see providers/claude-api.ts and providers/openai-compat.ts.
+   * base URL, no origin to bind against). `openai-compat` is a map from URL *origin*
+   * (`new URL(baseUrl).origin`) to the key entered for it: resolveApiKey() only returns the entry
+   * of the CURRENT baseUrl's origin, so one service's key never reaches another host, and
+   * switching between configured services keeps every key. WRITE-ONLY end to end: accepted by
+   * `settings.set`, persisted here (0600, same as the rest of this file), and NEVER read back
+   * into a `settings`/`settings.set` response (only a `hasKey` boolean is) — see
+   * handlers/settings.ts's buildSettingsPayload and CLAUDE.md security rule #1. Never logged,
+   * never included in an error message — see providers/claude-api.ts and providers/openai-compat.ts.
    */
   apiKeys?: {
     "claude-api"?: string;
-    "openai-compat"?: { key: string; origin: string };
+    "openai-compat"?: Record<string, string>;
   };
-  /** Base URL of the `openai-compat` provider's server, e.g. "http://localhost:1234/v1" for LM
-   * Studio. NOT a secret — see server.ts's buildSettingsPayload, which echoes it back in
-   * `settings` for the active provider, unlike apiKey. Validated (https, or
-   * http restricted to loopback) at settings.set time — see protocol.ts's
+  /** The `openai-compat` services the user configured, each with the model last used on it. The
+   * active one is `baseUrl`. Removing a service is explicit (removeCompatService). */
+  compatServices?: CompatService[];
+  /** Base URL of the ACTIVE `openai-compat` service, e.g. "http://localhost:1234/v1" for LM
+   * Studio; always one of `compatServices`. NOT a secret — handlers/settings.ts's
+   * buildSettingsPayload echoes it back in `settings` for the active provider, unlike apiKey.
+   * Validated (https, or http restricted to loopback) at settings.set time — see protocol.ts's
    * isValidBaseUrl. */
   baseUrl?: string;
   /** External provider modules to load at startup — see ModuleConfigEntry
@@ -178,8 +183,18 @@ export function isProviderId(v: unknown): v is ProviderId {
   return typeof v === "string" && PROVIDER_ID_RE.test(v);
 }
 
-/** Reads config.json's raw `apiKeys` object (new shape) tolerantly, dropping
- * anything malformed rather than throwing. Exported for tests. */
+function originOf(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Reads config.json's raw `apiKeys` object tolerantly, dropping anything malformed rather than
+ * throwing. The `openai-compat` entry is a map origin → key; the older single `{ key, origin }`
+ * slot is read as a one-entry map. Exported for tests. */
 export function parseApiKeys(raw: unknown): CoatiConfig["apiKeys"] {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const obj = raw as Record<string, unknown>;
@@ -190,37 +205,72 @@ export function parseApiKeys(raw: unknown): CoatiConfig["apiKeys"] {
   const oc = obj["openai-compat"];
   if (oc && typeof oc === "object" && !Array.isArray(oc)) {
     const ocObj = oc as Record<string, unknown>;
-    if (typeof ocObj.key === "string" && ocObj.key && typeof ocObj.origin === "string" && ocObj.origin) {
-      apiKeys["openai-compat"] = { key: ocObj.key, origin: ocObj.origin };
+    const map: Record<string, string> = {};
+    if (typeof ocObj.key === "string" && typeof ocObj.origin === "string") {
+      if (ocObj.key && ocObj.origin) map[ocObj.origin] = ocObj.key;
+    } else {
+      for (const [origin, key] of Object.entries(ocObj)) {
+        if (typeof key === "string" && key && originOf(origin) === origin) map[origin] = key;
+      }
     }
+    if (Object.keys(map).length > 0) apiKeys["openai-compat"] = map;
   }
   return Object.keys(apiKeys).length > 0 ? apiKeys : undefined;
+}
+
+/** Reads the raw `compatServices` array tolerantly. A config.json written before several services
+ * existed has only `baseUrl` (and the model in `lastModels`): that address becomes the one entry,
+ * so nothing configured is lost. Exported for tests. */
+export function parseCompatServices(
+  raw: unknown,
+  baseUrl: string | undefined,
+  legacyModel: string | undefined,
+): CompatService[] | undefined {
+  const services: CompatService[] = [];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (!item || typeof item !== "object") continue;
+      const { baseUrl: url, model } = item as Record<string, unknown>;
+      if (typeof url !== "string" || !originOf(url) || services.some((s) => s.baseUrl === url)) continue;
+      services.push(typeof model === "string" && model ? { baseUrl: url, model } : { baseUrl: url });
+    }
+  }
+  if (baseUrl && !services.some((s) => s.baseUrl === baseUrl)) {
+    services.push(legacyModel ? { baseUrl, model: legacyModel } : { baseUrl });
+  }
+  return services.length > 0 ? services : undefined;
 }
 
 /**
  * Resolves the API key a provider should actually receive for a request,
  * NEVER the raw stored value — see CoatiConfig.apiKeys's doc for the
  * security reasoning. `claude-api` gets its key unconditionally (no origin
- * to bind: Anthropic has one fixed API host). `openai-compat` only gets its
- * key back when `config.baseUrl`'s current origin still matches the origin
- * it was stored under — a baseUrl moved to another host never leaks the
- * previous host's key. Every other provider id (built-in with no BYOK slot,
+ * to bind: Anthropic has one fixed API host). `openai-compat` only gets the
+ * key stored for `config.baseUrl`'s own origin — a baseUrl moved to another
+ * host never leaks the previous host's key. Every other provider id (built-in with no BYOK slot,
  * or an external module) gets `undefined`: there is no defined storage for
  * it, so nothing is ever handed out by accident.
  */
 export function resolveApiKey(config: CoatiConfig, providerId: ProviderId): string | undefined {
   if (providerId === "claude-api") return config.apiKeys?.["claude-api"];
   if (providerId === "openai-compat") {
-    const stored = config.apiKeys?.["openai-compat"];
-    if (!stored || !config.baseUrl) return undefined;
-    try {
-      if (new URL(config.baseUrl).origin === stored.origin) return stored.key;
-    } catch {
-      return undefined;
-    }
-    return undefined;
+    const origin = originOf(config.baseUrl);
+    return origin ? config.apiKeys?.["openai-compat"]?.[origin] : undefined;
   }
   return undefined;
+}
+
+/** Whether a stored key exists for the service at `baseUrl` — a boolean, never the key. */
+export function hasCompatKey(config: CoatiConfig, baseUrl: string): boolean {
+  const origin = originOf(baseUrl);
+  return Boolean(origin && config.apiKeys?.["openai-compat"]?.[origin]);
+}
+
+function withoutEmpty(apiKeys: NonNullable<CoatiConfig["apiKeys"]>): CoatiConfig["apiKeys"] {
+  if (apiKeys["openai-compat"] && Object.keys(apiKeys["openai-compat"]).length === 0) {
+    delete apiKeys["openai-compat"];
+  }
+  return Object.keys(apiKeys).length > 0 ? apiKeys : undefined;
 }
 
 /**
@@ -229,8 +279,8 @@ export function resolveApiKey(config: CoatiConfig, providerId: ProviderId): stri
  * binds the key to `config.baseUrl`'s CURRENT origin (must already be set —
  * see server.ts's applySettings, which applies a `baseUrl` patch before this
  * so a settings.set carrying both binds to the new address, not the old
- * one). An unknown provider id (no defined BYOK slot) is a no-op: there is
- * nowhere safe to put it.
+ * one); other services' keys are untouched. An unknown provider id (no defined BYOK slot) is a
+ * no-op: there is nowhere safe to put it.
  */
 export function setApiKey(
   config: CoatiConfig,
@@ -242,43 +292,42 @@ export function setApiKey(
     if (key === "") delete apiKeys["claude-api"];
     else apiKeys["claude-api"] = key;
   } else if (providerId === "openai-compat") {
-    if (key === "") {
-      delete apiKeys["openai-compat"];
-    } else if (config.baseUrl) {
-      try {
-        apiKeys["openai-compat"] = { key, origin: new URL(config.baseUrl).origin };
-      } catch {
-        // Malformed baseUrl: nothing safe to bind the key to — dropped.
-      }
+    const origin = originOf(config.baseUrl);
+    // No usable baseUrl: nothing to bind the key's origin to — dropped rather than stored
+    // without an origin.
+    if (origin) {
+      const map = { ...apiKeys["openai-compat"] };
+      if (key === "") delete map[origin];
+      else map[origin] = key;
+      apiKeys["openai-compat"] = map;
     }
-    // No baseUrl configured yet: nothing to bind the key's origin to — dropped
-    // silently rather than stored without an origin (which resolveApiKey
-    // could never safely match against later).
   }
-  return Object.keys(apiKeys).length > 0 ? apiKeys : undefined;
+  return withoutEmpty(apiKeys);
 }
 
-/**
- * Drops the stored `openai-compat` key if `config.baseUrl`'s current origin
- * no longer matches the origin it was bound to (or if there is no baseUrl at
- * all) — called after applying a `baseUrl` patch, before applying any
- * `apiKey` patch from the same settings.set (see server.ts's applySettings).
- */
-export function pruneStaleOpenAiCompatKey(config: CoatiConfig): CoatiConfig["apiKeys"] {
-  const stored = config.apiKeys?.["openai-compat"];
-  if (!stored) return config.apiKeys;
-  let matches = false;
-  if (config.baseUrl) {
-    try {
-      matches = new URL(config.baseUrl).origin === stored.origin;
-    } catch {
-      matches = false;
-    }
+/** Adds `baseUrl` to the configured services (no-op when present). Pure. */
+export function addCompatService(config: CoatiConfig, baseUrl: string): CompatService[] {
+  const services = config.compatServices ?? [];
+  return services.some((s) => s.baseUrl === baseUrl) ? services : [...services, { baseUrl }];
+}
+
+/** Removes the service at `baseUrl` and its key (unless another service shares the origin);
+ * `baseUrl` is cleared when it was the active one. Pure; the only way a service or its key goes away. */
+export function removeCompatService(config: CoatiConfig, baseUrl: string): CoatiConfig {
+  const services = (config.compatServices ?? []).filter((s) => s.baseUrl !== baseUrl);
+  const origin = originOf(baseUrl);
+  const apiKeys: NonNullable<CoatiConfig["apiKeys"]> = { ...config.apiKeys };
+  if (origin && apiKeys["openai-compat"] && !services.some((s) => originOf(s.baseUrl) === origin)) {
+    const map = { ...apiKeys["openai-compat"] };
+    delete map[origin];
+    apiKeys["openai-compat"] = map;
   }
-  if (matches) return config.apiKeys;
-  const apiKeys = { ...config.apiKeys };
-  delete apiKeys["openai-compat"];
-  return Object.keys(apiKeys).length > 0 ? apiKeys : undefined;
+  return {
+    ...config,
+    compatServices: services.length > 0 ? services : undefined,
+    apiKeys: withoutEmpty(apiKeys),
+    baseUrl: config.baseUrl === baseUrl ? undefined : config.baseUrl,
+  };
 }
 
 /** Pure: validates one raw `modules` array entry's shape (`path` a non-empty
@@ -375,6 +424,9 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
       );
     }
   }
+  const baseUrl = typeof obj.baseUrl === "string" && obj.baseUrl ? obj.baseUrl : undefined;
+  const model = typeof obj.model === "string" && obj.model ? obj.model : undefined;
+  const lastModels = parseLastModels(obj.lastModels, obj);
   return {
     port: FIXED_PORT,
     allowedExtensionIds: Array.isArray(obj.allowedExtensionIds)
@@ -385,7 +437,7 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
     // resulting id actually names a provider this broker knows about (built
     // in or loaded from `modules`) is checked at runtime, not here.
     provider: isProviderId(obj.provider) ? obj.provider : DEFAULT_CONFIG.provider,
-    model: typeof obj.model === "string" && obj.model ? obj.model : undefined,
+    model,
     // Rejected (not silently kept) when it fails isAllowedOllamaUrl — a bad
     // scheme, embedded credentials, or a non-loopback http host — falling
     // back to the default rather than sending page content to whatever that
@@ -408,10 +460,15 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
     apiKeys: parseApiKeys(obj.apiKeys) ?? (typeof obj.apiKey === "string" && obj.apiKey
       ? { "claude-api": obj.apiKey }
       : undefined),
-    baseUrl: typeof obj.baseUrl === "string" && obj.baseUrl ? obj.baseUrl : undefined,
+    baseUrl,
+    compatServices: parseCompatServices(
+      obj.compatServices,
+      baseUrl,
+      lastModels?.["openai-compat"] ?? (obj.provider === "openai-compat" ? model : undefined),
+    ),
     modules: parseModuleConfigEntries(obj.modules),
     legacyPairing,
-    lastModels: parseLastModels(obj.lastModels, obj),
+    lastModels,
   };
 }
 

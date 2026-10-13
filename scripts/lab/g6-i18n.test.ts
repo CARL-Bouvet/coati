@@ -107,14 +107,11 @@ function stripComments(source: string): string {
 
 const FRENCH_ACCENT_RE = /[àâäéèêëïîôöùûüçÀÂÄÉÈÊËÏÎÔÖÙÛÜÇ]/;
 
-// U1 bug (development notes): service-worker.js's context-menu titles
-// ("Reformuler", "Raccourcir", "Expliquer", "Traduire", "Lire cette page
-// avec Coati") were hardcoded French with NO accented character at all, so
-// the scan above missed every one of them. This second, word-boundary pass
-// catches unmistakably-French function words and verbs that have no English
-// homograph — short enough to stay a allow-listable heuristic (same
-// `// i18n-allow: <reason>` escape hatch as the accent scan), not a full
-// parser.
+// French strings with no accented character slip past the scan above. This
+// second, word-boundary pass catches unmistakably-French function words and
+// verbs that have no English homograph — short enough to stay an
+// allow-listable heuristic (same `// i18n-allow: <reason>` escape hatch as the
+// accent scan), not a full parser.
 const FRENCH_WORD_RE = /\b(avec|cette|lire|reformuler|raccourcir|expliquer|traduire)\b/i;
 
 function listFiles(dir: string, exts: string[], out: string[] = []): string[] {

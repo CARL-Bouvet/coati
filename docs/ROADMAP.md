@@ -77,3 +77,5 @@ Low-severity items, none blocking.
 - **Windows testing** — the installer and native-host path are least exercised there.
 - **Chinese translation review** — `extension/_locales/zh_CN` is machine-translated and needs a
   native speaker's pass.
+- **Developer-tools button** — a Coati button inside the browser's developer tools ("Analyse
+  this element"), dev mode only.
