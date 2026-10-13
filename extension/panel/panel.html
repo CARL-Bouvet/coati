@@ -37,6 +37,8 @@
         >?</button>
         <div id="helpPopover" class="help-popover" role="tooltip">
           <p class="help-popover-text" data-i18n="panelHelpPopoverText"></p>
+          <p id="helpShortcut" class="help-popover-text help-popover-shortcut"></p>
+          <button id="helpShortcutSet" class="toolbar-button help-popover-shortcut" type="button" hidden data-i18n="panel_help_shortcut_set"></button>
         </div>
       </span>
       <button id="openOptions" class="icon-button" type="button" data-i18n-title="panel_settings_title">⚙︎</button>
@@ -101,6 +103,7 @@
       <span id="promptSavedNotice" class="prompt-saved-notice" aria-live="polite"></span>
       <button id="savePrompt" class="icon-button" type="button" data-i18n-title="panel_save_prompt" data-i18n-aria-label="panel_save_prompt" disabled>💾</button>
     </div>
+    <p id="internalPageNotice" class="history-notice" aria-live="polite" hidden data-i18n="panel_internal_page"></p>
     <p id="historyNotice" class="history-notice" aria-live="polite" hidden></p>
     <textarea id="input" class="composer-input" data-i18n-placeholder="panel_input_placeholder" placeholder="Write to Coati…" rows="1"></textarea>
     <div class="composer-actions">

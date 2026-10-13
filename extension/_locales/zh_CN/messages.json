@@ -678,6 +678,24 @@
   "panelHelpPopoverText": {
     "message": "Coati 需要一个 AI 模型才能作答：本地运行（免费且私密）或在线使用（需创建密钥）。教程将逐步指导您。点击此按钮即可打开教程。"
   },
+  "panel_internal_page": {
+    "message": "Coati 无法读取浏览器内部页面。您的问题将不附带页面发送。"
+  },
+  "panel_help_shortcut": {
+    "message": "打开 Coati：$KEYS$",
+    "placeholders": {
+      "keys": {
+        "content": "$1",
+        "example": "Alt+Shift+C"
+      }
+    }
+  },
+  "panel_help_shortcut_none": {
+    "message": "未设置快捷键"
+  },
+  "panel_help_shortcut_set": {
+    "message": "设置快捷键"
+  },
   "panel_unreadable_hint": {
     "message": "问题将在不附带页面的情况下发送。"
   },

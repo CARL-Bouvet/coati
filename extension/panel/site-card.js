@@ -41,6 +41,11 @@ export function onPromptsMessage(message) {
   updateSiteCard();
 }
 
+/** The line above the composer saying the open page is one Coati cannot read. */
+export function setInternalPageNotice(shown) {
+  els.internalPageNotice.hidden = !shown;
+}
+
 export function onPrefsMessage(message) {
   prefsSites = message.sites && typeof message.sites === "object" ? message.sites : {};
   updateSiteCard();

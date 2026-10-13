@@ -24,6 +24,36 @@ export function isPdfUrl(url) {
   }
 }
 
+// Pages the browser never lets an extension read (or a PDF viewer it renders itself).
+const INTERNAL_SCHEMES = new Set([
+  "brave:", "chrome:", "edge:", "about:", "chrome-extension:", "moz-extension:",
+  "view-source:", "devtools:", "chrome-untrusted:", "chrome-error:",
+]);
+const STORE_HOSTS = new Set([
+  "chromewebstore.google.com", "chrome.google.com", "microsoftedge.microsoft.com", "addons.mozilla.org",
+]);
+// Chromium's refusals to inject into such a page; its address is not always visible to the panel.
+const INTERNAL_ERROR =
+  /cannot access (?:a |contents of url ")?(?:chrome|brave|edge|about|devtools|view-source|chrome-extension|chrome-untrusted|chrome-error)[a-z-]*:|extensions gallery cannot be scripted/i;
+
+/** True for a browser-internal page, an extension page, a browser store page or a PDF. */
+export function isInternalPageUrl(url) {
+  if (typeof url !== "string" || !url) return false;
+  try {
+    const u = new URL(url);
+    if (INTERNAL_SCHEMES.has(u.protocol)) return true;
+    return (STORE_HOSTS.has(u.hostname) && (u.hostname !== "chrome.google.com" || u.pathname.startsWith("/webstore"))) || isPdfUrl(url);
+  } catch {
+    return false;
+  }
+}
+
+/** True when `err` is the browser refusing to read such a page: a PDF (`internal`
+ * flag set by page-extract.js) or an injection refused for an internal address. */
+export function isInternalPageFailure(err) {
+  return err?.internal === true || INTERNAL_ERROR.test(err && typeof err.message === "string" ? err.message : "");
+}
+
 /** Maps extract.js's `context.readability` ("ok" | "canvas" | "empty",
  * amendment T45/T46) to the ready-to-display French message, or `null` when
  * the page is readable (or the field is absent — an older client). */

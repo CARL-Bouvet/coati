@@ -386,6 +386,12 @@ export const PAGE_READ_DECLINED_NOTE =
   "or say plainly that you need the page content and cannot answer without it — never pretend to " +
   "have read it.";
 
+// Spliced into a chat whose current page the browser does not let Coati read.
+export const PAGE_UNREADABLE_NOTE =
+  "The page the user has open cannot be read by Coati (an internal browser page or a document viewer). " +
+  "Answer from your own knowledge if the question allows it. If the question needs that page, say plainly " +
+  "that Coati cannot read it. Do not ask the user to copy and paste the page.";
+
 /** Everything page-controlled (title, url, videoId, text, facts, items) lives
  * INSIDE the fence. Nothing page-controlled may appear above/outside it — a
  * title placed above the fence would sit in the zone the system prompt

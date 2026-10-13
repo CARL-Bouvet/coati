@@ -6,7 +6,8 @@
 import { classifyPageType, classifyPageTypeFromMetadata } from "../content/detect.js";
 import { api, IS_GECKO } from "../lib/browser-compat.js";
 import { faviconSrc } from "./card-state.js";
-import { updateSiteCard, beginCardDetection, endCardDetection } from "./site-card.js";
+import { updateSiteCard, beginCardDetection, endCardDetection, setInternalPageNotice } from "./site-card.js";
+import { isInternalPageUrl, isInternalPageFailure } from "./unreadable.js";
 import { refreshReadButton, renderReadButton } from "./first-run-wiring.js";
 import { extractFromTab } from "./page-extract.js";
 import { currentTabId } from "./panel.js";
@@ -36,6 +37,7 @@ export function resetPageState() {
   pageKind = null;
   currentPageUrl = null;
   currentFavIconUrl = null;
+  setInternalPageNotice(false);
   updateSiteCard();
 }
 
@@ -109,8 +111,9 @@ export async function redetectTab(tabId) {
     const context = await extractFromTab(tabId);
     applyDetectedContext(context);
     return true;
-  } catch {
+  } catch (err) {
     resetPageState();
+    setInternalPageNotice(isInternalPageFailure(err));
     // T47: the injection-refused error no longer carries the page address
     // (neither browser embeds it — verified 2026-09-29), so the origin is
     // read from tabs.get() instead. Legitimate here specifically: this
@@ -125,6 +128,7 @@ export async function redetectTab(tabId) {
       const tab = await api.tabs.get(tabId);
       knownOrigin = tab?.url ? new URL(tab.url).origin : null;
       currentFavIconUrl = tab?.url ? iconFor(tab) : null;
+      if (isInternalPageUrl(tab?.url)) setInternalPageNotice(true);
     } catch {
       knownOrigin = null;
     }
@@ -165,6 +169,7 @@ export async function redetectTabFromMetadata(tabId) {
     }
     currentPageUrl = tab.url;
     currentFavIconUrl = iconFor(tab);
+    setInternalPageNotice(isInternalPageUrl(tab.url));
     pageType = classifyPageTypeFromMetadata({ url: tab.url, title: tab.title });
       refreshReadButton();
     updateSiteCard();

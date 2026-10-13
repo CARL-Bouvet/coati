@@ -57,7 +57,14 @@ export function handleMessage(
         image: message.image,
         build: () =>
           buildPrompt(
-            { kind: "chat", text: message.text, context: message.context, image: message.image, history: message.history },
+            {
+              kind: "chat",
+              text: message.text,
+              context: message.context,
+              image: message.image,
+              history: message.history,
+              pageUnreadable: message.pageUnreadable,
+            },
             lang,
           ),
       });

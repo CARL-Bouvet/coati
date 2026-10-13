@@ -129,7 +129,7 @@ function labelHost(label) {
 const withoutWww = (host) => host.replace(/^www\./, "");
 
 /** Context for linkVerdict from the answer's source addresses and the current page. */
-export function linkContext(sourceUrls, pageUrl, readUntrusted) {
+export function linkContext(sourceUrls, pageUrl, readUntrusted, offeredTitles = "") {
   const urls = new Set();
   const hosts = [];
   for (const href of [...sourceUrls, pageUrl]) {
@@ -139,12 +139,12 @@ export function linkContext(sourceUrls, pageUrl, readUntrusted) {
     hosts.push(new URL(normalized).hostname);
   }
   const page = typeof pageUrl === "string" ? parse(pageUrl) : null;
-  return { sourceUrls: urls, sourceHosts: hosts, pageHost: page?.hostname, readUntrusted: !!readUntrusted };
+  return { sourceUrls: urls, sourceHosts: hosts, pageHost: page?.hostname, readUntrusted: !!readUntrusted, offeredTitles: offeredTitles.toLowerCase() };
 }
 
 /**
  * ctx: { sourceUrls: Set<string> (normalized), sourceHosts: string[], pageHost?: string,
- * readUntrusted: boolean }. Returns { verdict: "clickable" | "memory" | "refused", reason?, host, like? }.
+ * readUntrusted: boolean, offeredTitles: string }. Returns { verdict: "clickable" | "memory" | "refused", reason?, host, like? }.
  * Reasons: "form", "misleading-label", "lookalike" (with `like`, the imitated host), "not-in-sources".
  */
 export function linkVerdict(href, label, ctx) {
@@ -161,5 +161,7 @@ export function linkVerdict(href, label, ctx) {
   const like = lookalikeOf(host, [...ctx.sourceHosts, ctx.pageHost]);
   if (like) return { verdict: "refused", reason: "lookalike", host, like };
 
-  return ctx.readUntrusted ? { verdict: "refused", reason: "not-in-sources", host } : { verdict: "memory", host };
+  // A page title sent with the question is page data: a link it names is not "from memory".
+  const named = ctx.offeredTitles && ctx.offeredTitles.includes(registrableDomain(host));
+  return ctx.readUntrusted || named ? { verdict: "refused", reason: "not-in-sources", host } : { verdict: "memory", host };
 }

@@ -678,6 +678,24 @@
   "panelHelpPopoverText": {
     "message": "Coati needs an AI model to answer: on your computer (free and private) or online (a key to create). The tutorial walks you through it step by step. Click this button to open it."
   },
+  "panel_internal_page": {
+    "message": "Coati can’t read the browser’s internal pages. Your questions go without the page."
+  },
+  "panel_help_shortcut": {
+    "message": "Open Coati: $KEYS$",
+    "placeholders": {
+      "keys": {
+        "content": "$1",
+        "example": "Alt+Shift+C"
+      }
+    }
+  },
+  "panel_help_shortcut_none": {
+    "message": "No shortcut set"
+  },
+  "panel_help_shortcut_set": {
+    "message": "Set a shortcut"
+  },
   "panel_unreadable_hint": {
     "message": "The question is sent without the page."
   },

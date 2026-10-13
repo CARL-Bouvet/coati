@@ -6,7 +6,7 @@ import { withDeadline } from "../lib/deadline.js";
 import { ACCESS_DENIED_HINT, EXTRACTION_TIMEOUT_LABEL } from "../lib/labels.js";
 import { panelState, newId } from "./panel-state.js";
 import { currentTabId } from "./panel.js";
-import { isPdfUrl, readabilityMessage, stripReadability, PDF_MESSAGE } from "./unreadable.js";
+import { isPdfUrl, isInternalPageUrl, isInternalPageFailure, readabilityMessage, stripReadability, PDF_MESSAGE } from "./unreadable.js";
 import { addMessage } from "./message-render.js";
 import { persistConversation } from "./conversation-store.js";
 import { setStreamingUi, sendClientMessage } from "./request-watch.js";
@@ -41,9 +41,10 @@ class ExtractionTimeoutError extends Error {
  * extract.js reporting `readability: "canvas" | "empty"` — see "Unreadable
  * pages" below. `message` is the ready-to-display French text. */
 class UnreadablePageError extends Error {
-  constructor(message) {
+  constructor(message, internal = false) {
     super(message);
     this.name = "UnreadablePageError";
+    this.internal = internal;
   }
 }
 
@@ -138,6 +139,8 @@ export async function activeTabId() {
 export function reportExtractionError(err, { accessDenied, other }) {
   if (err instanceof UnreadablePageError) {
     addMessage({ id: newId(), role: "system", text: err.message });
+  } else if (isInternalPageFailure(err)) {
+    addMessage({ id: newId(), role: "system", text: t("panel_internal_page") });
   } else if (looksLikeAccessDenied(err)) {
     addMessage({ id: newId(), role: "system", text: accessDenied });
   } else {
@@ -198,7 +201,7 @@ export async function extractReadableFromTab(tabId) {
   } catch {
     tab = null;
   }
-  if (isPdfUrl(tab?.url)) throw new UnreadablePageError(PDF_MESSAGE);
+  if (isInternalPageUrl(tab?.url)) throw new UnreadablePageError(isPdfUrl(tab.url) ? PDF_MESSAGE : t("panel_internal_page"), true);
 
   const context = await extractFromTab(tabId);
   // YouTube has its own path: without a transcript the text is only the

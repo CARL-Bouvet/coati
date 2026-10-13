@@ -678,6 +678,24 @@
   "panelHelpPopoverText": {
     "message": "Coati a besoin d'un modèle d'IA pour répondre : sur votre ordinateur (gratuit et privé) ou en ligne (une clé à créer). Le tutoriel vous guide pas à pas. Cliquez sur ce bouton pour l'ouvrir."
   },
+  "panel_internal_page": {
+    "message": "Coati ne peut pas lire les pages internes du navigateur. Vos questions partent sans la page."
+  },
+  "panel_help_shortcut": {
+    "message": "Ouvrir Coati : $KEYS$",
+    "placeholders": {
+      "keys": {
+        "content": "$1",
+        "example": "Alt+Shift+C"
+      }
+    }
+  },
+  "panel_help_shortcut_none": {
+    "message": "Aucun raccourci défini"
+  },
+  "panel_help_shortcut_set": {
+    "message": "Définir un raccourci"
+  },
   "panel_unreadable_hint": {
     "message": "La question part sans la page."
   },

@@ -1020,6 +1020,20 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     ws.close();
   });
 
+  test("pageUnreadable: a trusted note says the page cannot be read, with or without abilities", async () => {
+    for (const [id, extra] of [["u1", {}], ["u2", { abilities: ["search"] }]] as const) {
+      const prompts: string[] = [];
+      const server = boot(scriptedProvider(`fixture-unreadable-${id}`, [["no page needed"]], prompts));
+      const ws = await connect(server);
+      const messages = collectMessages(ws);
+      ws.send(JSON.stringify({ type: "chat", id, text: "what is this page?", pageUnreadable: true, ...extra }));
+      await waitFor(messages, (m) => m.type === "done");
+      expect(prompts[0]).toContain("cannot be read by Coati");
+      expect(prompts[0]).toContain("Do not ask the user to copy and paste");
+      ws.close();
+    }
+  });
+
   test("chat.searchQuery sends search.request without a prior model call", async () => {
     const prompts: string[] = [];
     const server = boot(scriptedProvider("fixture-search-3", [["Per [S1]."]], prompts));

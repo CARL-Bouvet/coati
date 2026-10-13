@@ -4,6 +4,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   isPdfUrl,
+  isInternalPageUrl,
+  isInternalPageFailure,
   readabilityMessage,
   stripReadability,
   PDF_MESSAGE,
@@ -118,5 +120,35 @@ describe("ACCESS_DENIED_HINT (T47) names the three gestures", () => {
     expect(ACCESS_DENIED_HINT).toMatch(/icône/);
     expect(ACCESS_DENIED_HINT).toMatch(/Lire cette page avec Coati/);
     expect(ACCESS_DENIED_HINT).toMatch(/raccourci/);
+  });
+});
+
+describe("browser-internal pages", () => {
+  test("internal schemes, store pages and PDFs are internal; ordinary pages are not", () => {
+    for (const url of [
+      "brave://settings/",
+      "chrome://extensions/shortcuts",
+      "edge://settings",
+      "about:blank",
+      "chrome-extension://abc/options.html",
+      "view-source:https://example.com/",
+      "https://chromewebstore.google.com/detail/x",
+      "https://chrome.google.com/webstore/category/extensions",
+      "https://example.com/report.pdf",
+    ]) {
+      expect(isInternalPageUrl(url)).toBe(true);
+    }
+    for (const url of ["https://example.com/", "https://chrome.google.com/intl/en/about", "", undefined, "not a url"]) {
+      expect(isInternalPageUrl(url as string)).toBe(false);
+    }
+  });
+
+  test("failure: the PDF flag and Chromium's refusal texts, not a missing host permission", () => {
+    expect(isInternalPageFailure({ internal: true })).toBe(true);
+    expect(isInternalPageFailure(new Error("Cannot access a chrome:// URL"))).toBe(true);
+    expect(isInternalPageFailure(new Error('Cannot access contents of url "chrome-extension://abc/x.html".'))).toBe(true);
+    expect(isInternalPageFailure(new Error("The extensions gallery cannot be scripted."))).toBe(true);
+    expect(isInternalPageFailure(new Error("Cannot access contents of the page. Extension manifest must request permission to access the respective host."))).toBe(false);
+    expect(isInternalPageFailure(undefined)).toBe(false);
   });
 });

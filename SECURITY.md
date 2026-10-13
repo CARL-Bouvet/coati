@@ -55,8 +55,8 @@ and allows 16 unproven connections at once. The extension keeps the key in sessi
 - *Links.* A link in an answer is clickable only if it is `https` to a domain name (no IP, port or
   `user@`), with its domain shown beside it (`xn--…` for look-alike scripts). Once the
   conversation has read or searched anything, only links found in the sources or the current page
-  stay clickable, compared in full (fragment included); the title and address offered with a
-  question count as read content. A domain imitating a source, or a label reading as another
+  stay clickable, compared in full (fragment included). A link whose domain is named in a page
+  title sent with a question is never "from memory". A domain imitating a source, or a label reading as another
   domain, stays text. With nothing read, a link is clickable but marked "from memory, check it".
   A link opens only when you click it, in a new tab. Rules: `docs/DECISIONS.md` (T61).
 - *Show.* The model can point at an element; Coati only highlights it. It never clicks, types,

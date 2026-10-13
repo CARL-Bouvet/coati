@@ -142,11 +142,11 @@ export function historyAlertState({ totalExchanges, sentExchanges, historyKept }
   return null;
 }
 
-/** True when anything untrusted reached the model in `messages`: a page read,
- * a search, or the title and address of a page offered on demand. */
+/** True when page content or search results reached the model in `messages`
+ * (a title offered on demand does not count: see `linkContext`). */
 export function readUntrustedIn(messages) {
   return messages.some(
-    (m) => m.readsPage === true || m.pageOnDemand === true || m.pageRead === true || m.readContent === true || !!m.pageReading || !!m.sources?.length || !!m.searchMention,
+    (m) => m.readsPage === true || m.pageRead === true || m.readContent === true || !!m.pageReading || !!m.sources?.length || !!m.searchMention,
   );
 }
 

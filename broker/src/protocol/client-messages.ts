@@ -63,6 +63,8 @@ export interface ChatMessage {
   abilities?: ChatAbility[];
   /** Search at once for this query, without a prior model call. */
   searchQuery?: string;
+  /** The current page cannot be read (docs/PROTOCOL.md "chat"). */
+  pageUnreadable?: boolean;
 }
 
 // Amendement 2026-10-09 (lot 7, "page on demand" — docs/PROTOCOL.md "Page

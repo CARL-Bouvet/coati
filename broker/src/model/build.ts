@@ -26,6 +26,7 @@ import {
   pageOnDemandInstruction,
   pageDevEscalationInstruction,
   PAGE_READ_DECLINED_NOTE,
+  PAGE_UNREADABLE_NOTE,
   type PromptSource,
   type SearchContent,
   type PageMeta,
@@ -90,6 +91,10 @@ export type PromptInput =
        * `declinedPageRead`.
        */
       offerDevRead?: boolean;
+      /** The client cannot read the current page (internal browser page,
+       * PDF viewer): a trusted note says so. Ignored when `context` or
+       * `page` is present. */
+      pageUnreadable?: boolean;
     }
   | { kind: "summarize"; context: Context }
   | { kind: "act"; action: ActAction; text: string; params?: { targetLang?: string } };
@@ -373,6 +378,9 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
       }
       if (input.declinedPageRead) {
         parts.push(PAGE_READ_DECLINED_NOTE);
+      }
+      if (input.pageUnreadable && !input.context && !input.page) {
+        parts.push(PAGE_UNREADABLE_NOTE);
       }
       // Amendement 2026-10-09 (lot 7 fix): offers the dev marker on a re-run
       // that already carries the page's TEXT content (see offerDevRead's

@@ -267,15 +267,16 @@ export function wasNearBottom() {
 
 /** What an answer's links are checked against (docs/DECISIONS.md T61): the
  * sources found so far in the conversation, the current page, and whether this
- * answer or an earlier one read the page, searched, or sent the page's title
- * and address (untrusted page data). */
+ * answer or an earlier one read the page or searched, and the page titles sent
+ * with the questions (untrusted page data). */
 function answerLinks(msg) {
   const conversation = panelState.conversation;
   const idx = conversation.indexOf(msg);
   const upTo = [...conversation.slice(0, idx === -1 ? conversation.length : idx), msg];
   const readUntrusted = readUntrustedIn(upTo);
   const urls = upTo.flatMap((m) => (m.sources ?? []).map((s) => s.url));
-  return { ctx: linkContext(urls, currentPageUrl, readUntrusted), t };
+  const titles = upTo.map((m) => m.offeredTitle ?? "").join(" ");
+  return { ctx: linkContext(urls, currentPageUrl, readUntrusted, titles), t };
 }
 
 export function renderMessage(msg, { append = false } = {}) {

@@ -8,7 +8,8 @@ import { panelState, newId } from "./panel-state.js";
 import { ACCESS_DENIED_HINT } from "../lib/labels.js";
 import { currentTabId, resizeComposer } from "./panel.js";
 import { extractReadableFromTab, extractFromTab, reportExtractionError, openYouTubeTranscript } from "./page-extract.js";
-import { stripReadability } from "./unreadable.js";
+import { stripReadability, isInternalPageFailure } from "./unreadable.js";
+import { setInternalPageNotice } from "./site-card.js";
 import { addMessage } from "./message-render.js";
 import { persistConversation } from "./conversation-store.js";
 import { setStreamingUi, sendClientMessage } from "./request-watch.js";
@@ -59,16 +60,25 @@ export async function sendChat() {
 
   // Extract at send time only — never on every keystroke.
   let context;
+  let pageUnreadable = false;
   try {
     context = await extractForChat();
+    setInternalPageNotice(false);
   } catch (err) {
     // No switch to turn page reading off any more: an unreadable tab must
     // never block a question. Say why the page is out of reach, then send
     // the question without it (the model answers, or says it needs the page).
-    reportExtractionError(err, {
-      accessDenied: t("panel_access_denied_sent", [ACCESS_DENIED_HINT]),
-      other: (e) => t("panel_read_error_sent", [e.message]),
-    });
+    // A browser-internal page gets the line above the composer instead of a
+    // chat message, and the model is told the page cannot be read.
+    pageUnreadable = isInternalPageFailure(err);
+    if (pageUnreadable) {
+      setInternalPageNotice(true);
+    } else {
+      reportExtractionError(err, {
+        accessDenied: t("panel_access_denied_sent", [ACCESS_DENIED_HINT]),
+        other: (e) => t("panel_read_error_sent", [e.message]),
+      });
+    }
     context = undefined;
   }
 
@@ -83,7 +93,7 @@ export async function sendChat() {
   if (context && hasFeature("pageOnDemand")) {
     await sendChatMessage(text0, undefined, context);
   } else {
-    await sendChatMessage(text0, context);
+    await sendChatMessage(text0, context, undefined, undefined, pageUnreadable);
   }
 }
 
@@ -99,7 +109,7 @@ function pageMetaFor(context) {
  * broker offers "pageOnDemand" and `extraction` is passed (sendChat() only),
  * the wire carries `page` metadata instead of `context`; `extraction` is kept
  * for a later `page.request`. */
-export async function sendChatMessage(text, context, extraction, searchQuery) {
+export async function sendChatMessage(text, context, extraction, searchQuery, pageUnreadable) {
   const id = newId();
   // History: computed
   // from `conversation` BEFORE the two addMessage() calls below push this
@@ -143,6 +153,7 @@ export async function sendChatMessage(text, context, extraction, searchQuery) {
     readsPage: !pageOnDemand && !!context,
     approvedSearch: searchQuery,
     pageOnDemand,
+    offeredTitle: wirePage?.title,
     elementsSnapshot: buildElementsSnapshot(context),
   });
 
@@ -168,6 +179,7 @@ export async function sendChatMessage(text, context, extraction, searchQuery) {
     history: wireHistory,
     abilities,
     searchQuery,
+    pageUnreadable: pageUnreadable || undefined,
   };
   pendingRetries.set(id, wire);
   await sendClientMessage({ ...wire, id });

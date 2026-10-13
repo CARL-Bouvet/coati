@@ -72,7 +72,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 
 | Type | Key fields | Purpose |
 |---|---|---|
-| `chat` | `text`, `context?`, `image?`, `history?`, `page?`, `devMode?`, `abilities?`, `searchQuery?` | Ask the model a question. `context` carries page/selection content up front; `page` (title/url/kind?/chars), sent only when `context` is absent, offers the page's metadata only — see "Page on demand" below. `abilities` (`"search"`) lists what the panel can do beyond reading; `searchQuery` (1–200 chars) asks the broker to search right away — see "Search" |
+| `chat` | `text`, `context?`, `image?`, `history?`, `page?`, `devMode?`, `abilities?`, `searchQuery?`, `pageUnreadable?` | Ask the model a question. `context` carries page/selection content up front; `page` (title/url/kind?/chars), sent only when `context` is absent, offers the page's metadata only — see "Page on demand" below. `abilities` (`"search"`) lists what the panel can do beyond reading; `searchQuery` (1–200 chars) asks the broker to search right away — see "Search"; `pageUnreadable` (`true`) says the current page is one the browser does not let Coati read (an internal browser page, a PDF viewer): the question carries no page and the model is told so |
 | `page.content` | `target` (the `chat`'s own id), `level` (`"text"`\|`"dev"`), `context` | Answers a `page.request`: the page's content, same `Context` shape a `chat` would have carried up front (for `level: "dev"`, `context.text` holds cleaned HTML). |
 | `page.decline` | `target` | Answers a `page.request`: the user declined to share the page. |
 | `search.content` | `target`, `query`, `results: [{ n, title, url, snippet }]` | Answers a `search.request`: the results, no page. |

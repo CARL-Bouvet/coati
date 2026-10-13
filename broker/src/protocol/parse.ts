@@ -198,7 +198,8 @@ export function parseClientMessage(raw: string): ParseResult {
       const devMode = typeof parsed.devMode === "boolean" ? parsed.devMode : undefined;
       const abilities = parseAbilities(parsed.abilities);
       const searchQuery = parseSearchQuery(parsed.searchQuery);
-      return { ok: true, message: { type: "chat", id, text: parsed.text, context, image, history, page, devMode, abilities, searchQuery } };
+      const pageUnreadable = parsed.pageUnreadable === true ? true : undefined;
+      return { ok: true, message: { type: "chat", id, text: parsed.text, context, image, history, page, devMode, abilities, searchQuery, pageUnreadable } };
     }
     case "summarize": {
       const context = parseContext(parsed.context);

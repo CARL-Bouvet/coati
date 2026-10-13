@@ -650,6 +650,7 @@ export interface OnDemandChat {
   history?: HistoryEntry[];
   abilities?: ChatAbility[];
   searchQuery?: string;
+  pageUnreadable?: boolean;
 }
 
 /**
@@ -778,6 +779,7 @@ async function runChatPageOnDemandLoop(
         offerSearch: canSearch && turnsLeft() && searches < SEARCH_MAX_PER_QUESTION && roomLeft(),
         offerOpen: canSearch && turnsLeft() && openable([...resultUrls.keys()]).length > 0 && roomLeft(),
         history: message.history,
+        pageUnreadable: message.pageUnreadable,
       },
       lang,
     );

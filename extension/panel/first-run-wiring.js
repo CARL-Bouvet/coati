@@ -12,6 +12,7 @@ import { panelState } from "./panel-state.js";
 import { suggestionsFor, siteKeyFor } from "../lib/suggestions.js";
 import { permissionPatternsFor } from "../lib/suggestions-data.js";
 import { hostFromUrl } from "./card-state.js";
+import { shortcutKeys, actionShortcut } from "../lib/shortcut.js";
 import {
   readButtonState,
   ALL_SITES_ORIGINS,
@@ -94,15 +95,36 @@ export function renderNeverConnected() {
   els.neverConnected.hidden = false;
 }
 
-/** Hover/focus → popover with the help text; Escape or losing focus closes
- * it; a click anywhere on the button opens the tutorial directly (U2). */
+/** The real shortcut for opening Coati, read from the browser (the manifest
+ * only suggests one); a button to the browser's shortcut page when none is set. */
+async function renderHelpShortcut() {
+  const commands = await Promise.resolve(api.commands?.getAll?.()).catch(() => []);
+  const keys = shortcutKeys(actionShortcut(commands));
+  els.helpShortcut.textContent = keys.length > 0 ? t("panel_help_shortcut", [keys.join("+")]) : t("panel_help_shortcut_none");
+  els.helpShortcutSet.hidden = keys.length > 0 || IS_GECKO;
+}
+
+/** Hover/focus on the button or the popover → popover with the help text and
+ * the shortcut; Escape or losing focus closes it; a click on the button opens
+ * the tutorial directly (U2). */
 export function wireHelpButton() {
-  const show = () => els.helpPopover.classList.add("is-visible");
+  const wrap = els.helpPopover.parentElement;
+  let hideTimer;
+  const show = () => {
+    clearTimeout(hideTimer);
+    renderHelpShortcut();
+    els.helpPopover.classList.add("is-visible");
+  };
   const hide = () => els.helpPopover.classList.remove("is-visible");
-  els.helpButton.addEventListener("mouseenter", show);
-  els.helpButton.addEventListener("mouseleave", hide);
-  els.helpButton.addEventListener("focus", show);
-  els.helpButton.addEventListener("blur", hide);
+  // A short delay lets the pointer cross the gap between the button and the popover.
+  const hideSoon = () => {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(hide, 250);
+  };
+  wrap.addEventListener("mouseenter", show);
+  wrap.addEventListener("mouseleave", hideSoon);
+  wrap.addEventListener("focusin", show);
+  wrap.addEventListener("focusout", hideSoon);
   els.helpButton.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       hide();
@@ -110,6 +132,7 @@ export function wireHelpButton() {
     }
   });
   els.helpButton.addEventListener("click", openModelTutorial);
+  els.helpShortcutSet.addEventListener("click", () => api.tabs.create({ url: "chrome://extensions/shortcuts" }));
 }
 
 export async function refreshAllSitesGranted() {
