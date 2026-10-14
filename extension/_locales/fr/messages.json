@@ -733,6 +733,9 @@
   "options_model_title": {
     "message": "Modèle"
   },
+  "options_nav_label": {
+    "message": "Sections des réglages"
+  },
   "options_model_help": {
     "message": "Le modèle qui répond à vos demandes. Ce choix est enregistré par le programme local, sur cette machine."
   },

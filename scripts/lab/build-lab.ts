@@ -261,6 +261,7 @@ async function main() {
     // CSS, copied verbatim (light) or dark-rewritten (dark) into the exact
     // same relative paths the real pages already use.
     copyCss("lib/theme.css", tree);
+    copyCss("lib/components.css", tree);
     copyCss("panel/panel.css", tree);
     copyCss("panel/card.css", tree);
     copyCss("options.css", tree);

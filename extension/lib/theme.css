@@ -250,7 +250,9 @@
   accent-color: var(--accent);
 }
 
-/* Confirmation dialogs (dev mode, sensitive data) — panel and options page. */
+/* Confirmation dialogs (dev mode, sensitive data) — panel and options page.
+ * The box is a .c-card and its buttons are .c-button (lib/components.css);
+ * here only the overlay, the width, and a wider padding and floating shadow. */
 .dev-mode-dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -264,11 +266,10 @@
 .dev-mode-dialog {
   max-width: 420px;
   width: 100%;
-  padding: var(--space-4);
-  background: var(--card);
   color: var(--fg);
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius);
+}
+.c-card.dev-mode-dialog {
+  padding: var(--space-4);
   box-shadow: var(--overlay-shadow), var(--shadow-raised);
 }
 .dev-mode-dialog-title {
@@ -283,26 +284,4 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
-}
-.dev-mode-dialog-actions button {
-  font: inherit;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius);
-  border: 1px solid var(--control-border);
-  background: var(--card);
-  color: var(--fg);
-  box-shadow: var(--shadow-raised);
-  cursor: pointer;
-}
-.dev-mode-dialog-actions button:hover {
-  background: var(--card-hover);
-  box-shadow: var(--shadow-hover);
-}
-.dev-mode-dialog-actions .dev-mode-dialog-confirm {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-fg);
-}
-.dev-mode-dialog-actions .dev-mode-dialog-confirm:hover {
-  background: var(--accent-hover);
 }

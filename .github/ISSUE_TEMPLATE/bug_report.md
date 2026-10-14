@@ -4,8 +4,8 @@ about: Report something that does not work as expected
 labels: bug
 ---
 
-**Coati version**
-Shown at the bottom of the side panel.
+**Coati version and local program version**
+Extension version: bottom of the side panel. Local program: the release tag you downloaded.
 
 **OS and version**
 e.g. Windows 11 23H2, macOS 14.5, Ubuntu 24.04
@@ -13,8 +13,8 @@ e.g. Windows 11 23H2, macOS 14.5, Ubuntu 24.04
 **Browser and version**
 e.g. Chrome 125, Brave 1.66, Edge 124, Firefox 126
 
-**Provider and model**
-e.g. Ollama (local) / llama3.2, or the provider and model name shown in Coati settings
+**Model runtime and model**
+e.g. Ollama / llama3.2, LM Studio / qwen2.5-7b, or the service and model shown in Coati settings
 
 **Steps to reproduce**
 1.

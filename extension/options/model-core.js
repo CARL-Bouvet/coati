@@ -370,6 +370,9 @@ function renderCurrent(settings) {
   // No model named: a local server has none chosen yet; an online service
   // answers with its own default.
   const noModel = local ? t("options_current_no_model") : t("options_current_default_model");
+  // The card's background (options.css): the sniffing coati once a model
+  // answers, a pale "?" until then.
+  els.currentModel.dataset.model = entry?.available && (settings.model || !local) ? "set" : "none";
   els.currentModelName.textContent = settings.model ? shortModelName(settings.model) : noModel;
   els.currentModelName.title = settings.model ?? "";
   fitCurrentName();

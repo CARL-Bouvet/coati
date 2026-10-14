@@ -20,7 +20,7 @@ export {
  * as the former `#attachPage`/`#attachScreen` it replaces. */
 export function setDevModeChecked(checked) {
   els.devMode.setAttribute("aria-checked", String(checked));
-  els.devMode.classList.toggle("switch--on", checked);
+  els.devMode.classList.toggle("c-switch--on", checked);
 }
 
 export function isDevModeChecked() {

@@ -63,7 +63,7 @@ function showUndoNotice(erased, erasedRetries) {
   label.textContent = `${t("panel_conversation_cleared")} · `;
   const undo = document.createElement("button");
   undo.type = "button";
-  undo.className = "link-button";
+  undo.className = "c-link";
   undo.textContent = t("panel_undo");
   undo.addEventListener("click", () => {
     clearTimeout(erasedUndoTimer);

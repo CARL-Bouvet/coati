@@ -30,6 +30,8 @@ and allows 16 unproven connections at once. The extension keeps the key in sessi
 - On Linux, the connecting process must belong to your user.
 - Accepts a closed set of typed JSON messages; anything else is rejected, never executed.
 - Model credentials stay in the broker's config on your machine. The extension never holds them.
+  Each online service has its own key, bound to that service's origin and sent only there;
+  switching service keeps the keys, and the broker never sends a key back to the extension.
   Config and key files are written 0600, in folders set to 0700 (not applicable on Windows, see
   below).
 
@@ -37,7 +39,8 @@ and allows 16 unproven connections at once. The extension keeps the key in sessi
 - Never reads a password field's value. Dev-level reading drops every field value, scripts,
   styles and comments.
 - Never builds page-sourced HTML: answers are rendered node by node.
-- Permissions: `activeTab` at install; "all sites" is optional and asked at the first feature that
+- Permissions: `sidePanel`, `activeTab`, `storage`, `scripting`, `alarms`, `favicon` at install
+  (no `tabs`, no `contextMenus`); "all sites" is optional and asked at the first feature that
   needs it.
 - The background script accepts internal messages only from the extension's own pages.
 

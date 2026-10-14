@@ -89,7 +89,7 @@ function el(tag, className, text) {
   return node;
 }
 
-function externalLink(href, text, className = "link") {
+function externalLink(href, text, className = "c-text-link") {
   const a = el("a", className, text);
   a.href = href;
   a.target = "_blank";
@@ -110,8 +110,8 @@ function searchTip() {
  * fine; Coati never READS the clipboard. `block`: several lines, kept as typed. */
 function commandLine(command, { block = false } = {}) {
   const wrap = el("div", "setup-command");
-  const code = el("code", block ? "setup-command-text setup-command-text--block" : "setup-command-text", command);
-  const copy = el("button", "button-secondary setup-copy", t("setup_copy"));
+  const code = el("code", block ? "c-field setup-command-text setup-command-text--block" : "c-field setup-command-text", command);
+  const copy = el("button", "c-button c-button--small setup-copy", t("setup_copy"));
   copy.type = "button";
   copy.addEventListener("click", async () => {
     let ok = false;
@@ -137,12 +137,12 @@ function commandLine(command, { block = false } = {}) {
 
 /** One numbered step. `setState("todo"|"busy"|"done"|"failed", text?)`. */
 function makeStep(number, title) {
-  const li = el("li", "setup-step");
+  const li = el("li", "c-card setup-step");
   li.dataset.state = "todo";
   const mark = el("span", "setup-step-mark", String(number));
   mark.setAttribute("aria-hidden", "true");
   const main = el("div", "setup-step-main");
-  const heading = el("h3", "setup-step-title", title);
+  const heading = el("h3", "c-title", title);
   const body = el("div", "setup-step-body");
   const result = el("p", "setup-step-result");
   result.setAttribute("role", "status");
@@ -214,7 +214,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   install.body.append(el("p", "setup-text", t("setup_local_install_text")));
   const downloads = el("p", "setup-links");
   if (os) {
-    downloads.append(externalLink(OLLAMA_DOWNLOADS[os], t("setup_local_download_for", [OS_NAMES[os]]), "setup-primary-link"));
+    downloads.append(externalLink(OLLAMA_DOWNLOADS[os], t("setup_local_download_for", [OS_NAMES[os]]), "c-button c-button--primary"));
   }
   const otherOs = el("span", "setup-other-os");
   otherOs.append(os ? t("setup_local_other_os") : t("setup_local_download"), " ");
@@ -242,7 +242,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
 
   // Step 2 — is Ollama answering?
   running.body.append(el("p", "setup-text", t("setup_local_running_text")));
-  const runningCheck = actionButton(t("setup_local_running_check"), "setup-check setup-check-ollama");
+  const runningCheck = actionButton(t("setup_local_running_check"), "c-button c-button--primary setup-check-ollama");
   runningCheck.addEventListener("click", () => checkOllama(false));
   checkButtons.push(runningCheck);
   running.body.append(runningCheck);
@@ -314,7 +314,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
         const tr = el("tr", i === suggestedRow ? "setup-model-row setup-model-row--suggested" : "setup-model-row");
         const memoryCell = el("td");
         memoryCell.append(radioCell(row, t("setup_local_memory_row", [formatNumber(row.minGb)])));
-        if (i === suggestedRow) memoryCell.append(" ", el("span", "setup-tag", t("setup_local_suggested")));
+        if (i === suggestedRow) memoryCell.append(" ", el("span", "c-chip c-chip--active", t("setup_local_suggested")));
         tr.append(memoryCell, el("td", "setup-model-name", row.model), el("td", null, t("setup_size_gb", [formatNumber(row.downloadGb)])));
         tbody.append(tr);
       });
@@ -338,9 +338,9 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
         tr.dataset.fit = row.fit;
         const modelCell = el("td");
         modelCell.append(radioCell(row, row.model));
-        if (row.recommended) modelCell.append(" ", el("span", "setup-tag", t("setup_local_suggested")));
+        if (row.recommended) modelCell.append(" ", el("span", "c-chip c-chip--active", t("setup_local_suggested")));
         if (installedOllamaModel(row.model)) {
-          modelCell.append(" ", el("span", "setup-tag setup-tag--installed", t("setup_local_installed_tag")));
+          modelCell.append(" ", el("span", "c-chip", t("setup_local_installed_tag")));
         }
         tr.append(
           modelCell,
@@ -386,7 +386,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   // suggested row's model into the config — choosing is done in the
   // installed list at the top of the tab (options.js), which this check
   // refreshes through `onModels`.
-  const modelCheck = actionButton(t("setup_local_model_check"), "setup-check setup-check-model");
+  const modelCheck = actionButton(t("setup_local_model_check"), "c-button c-button--primary setup-check-model");
   modelCheck.addEventListener("click", () => checkChosenModel());
   checkButtons.push(modelCheck);
   model.body.append(modelCheck);
@@ -402,7 +402,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   const lmLinks = el("p", "setup-links");
   lmLinks.append(externalLink(LM_STUDIO.downloadUrl, t("setup_lmstudio_download")));
   lmBody.append(lmLinks);
-  const lmButton = actionButton(t("setup_lmstudio_use"), "button-secondary setup-check setup-check-lmstudio");
+  const lmButton = actionButton(t("setup_lmstudio_use"), "c-button setup-check-lmstudio");
   const lmResult = el("p", "setup-step-result");
   lmResult.setAttribute("role", "status");
   lmResult.hidden = true;
@@ -585,7 +585,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   // Step 1 — said BEFORE the choice: free models may keep the texts.
   const warning = el("p", "setup-warning", t("setup_online_free_warning"));
   service.body.append(warning);
-  const serviceList = el("div", "setup-services");
+  const serviceList = el("div", "c-card setup-services");
   serviceList.setAttribute("role", "radiogroup");
   serviceList.setAttribute("aria-label", t("setup_online_service_title"));
   const serviceRadios = new Map();
@@ -594,7 +594,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   const othersBody = el("div", "fold-body setup-services");
   others.append(othersBody);
   for (const entry of ONLINE_PROVIDERS) {
-    const option = el("label", "setup-service");
+    const option = el("label", "c-row setup-service");
     option.dataset.service = entry.id;
     const radio = el("input");
     radio.type = "radio";
@@ -659,7 +659,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
     body.replaceChildren();
     const links = el("p", "setup-links");
     links.append(
-      externalLink(entry.signupUrl, t("setup_online_signup", [entry.name]), "setup-primary-link"),
+      externalLink(entry.signupUrl, t("setup_online_signup", [entry.name]), "c-button c-button--primary"),
       " ",
       externalLink(entry.keysUrl, t("setup_online_keys_page")),
     );

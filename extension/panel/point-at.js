@@ -69,7 +69,7 @@ function renderPointLevel(slider, level) {
  */
 export function buildPointLevelSlider(button, entry) {
   const slider = document.createElement("span");
-  slider.className = "point-level";
+  slider.className = "c-tooltip point-level";
   slider.tabIndex = 0;
   slider.setAttribute("role", "slider");
   slider.setAttribute("aria-orientation", "vertical");

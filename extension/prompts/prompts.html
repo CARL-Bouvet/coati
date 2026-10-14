@@ -2,28 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title data-i18n="prompts_page_title">My prompts — Coati</title>
   <link rel="stylesheet" href="../lib/theme.css" />
+  <link rel="stylesheet" href="../lib/components.css" />
   <link rel="stylesheet" href="prompts.css" />
 </head>
 <body>
+  <header class="page-head">
+    <div class="page-head-inner">
+      <h1 data-i18n="prompts_heading">My prompts</h1>
+    </div>
+  </header>
+
   <div id="connectionBanner" class="connection-banner" hidden>
     <span id="connectionBannerText"></span>
   </div>
 
-  <header class="prompts-header">
-    <h1 data-i18n="prompts_heading">My prompts</h1>
-    <p class="help" data-i18n="prompts_intro">
+  <div class="page">
+    <p class="intro" data-i18n="prompts_intro">
       A case holds a site's prompts: Coati's suggestions and yours, mixed together, in the order you choose.
     </p>
-  </header>
 
-  <section id="allSitesNotice" class="all-sites-notice" hidden>
-    <p id="allSitesText" class="all-sites-text"></p>
-    <button id="allSitesRevoke" class="all-sites-revoke" type="button"></button>
-  </section>
+    <section id="allSitesNotice" class="c-card all-sites-notice" hidden>
+      <p id="allSitesText" class="all-sites-text"></p>
+      <button id="allSitesRevoke" class="c-button c-button--small all-sites-revoke" type="button"></button>
+    </section>
 
-  <main id="board" class="board"></main>
+    <main id="board" class="board"></main>
+  </div>
 
   <script src="prompts.js" type="module"></script>
 </body>

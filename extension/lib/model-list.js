@@ -287,7 +287,7 @@ export function renderModelList(container, reply, opts) {
   }
 
   function entryButton(entry) {
-    let className = entry.current ? "model-item model-item--current" : "model-item";
+    let className = entry.current ? "c-row model-item model-item--current" : "c-row model-item";
     // Still selectable, only muted — the words below say why.
     if (entry.fit === "too-big" && typeof entry.gpuPercent !== "number") className += " model-item--too-big";
     const button = itemButton(className, "menuitemradio");
@@ -370,7 +370,7 @@ export function renderModelList(container, reply, opts) {
   if (onAdd) {
     const separator = el("div", "model-list-separator");
     separator.setAttribute("role", "separator");
-    const add = itemButton("model-item model-item--add", "menuitem");
+    const add = itemButton("c-row model-item model-item--add", "menuitem");
     add.textContent = t("model_list_add");
     add.addEventListener("click", () => onAdd());
     focusables.push(add);
@@ -401,7 +401,7 @@ export function renderStaleBrokerMenu(container, { t, onOpenSettings }) {
   note.setAttribute("aria-disabled", "true");
   note.tabIndex = -1;
 
-  const settingsButton = el("button", "model-item model-item--add", t("panel_open_settings"));
+  const settingsButton = el("button", "c-row model-item model-item--add", t("panel_open_settings"));
   settingsButton.type = "button";
   settingsButton.setAttribute("role", "menuitem");
   settingsButton.tabIndex = -1;

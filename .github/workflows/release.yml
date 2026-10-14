@@ -1,7 +1,8 @@
 name: release
 
 # Goal G4 "binaries + Windows CI": tag a version (v0.1.0, v1.2.3, ...) to get
-# a GitHub release with the 5 standalone coati-broker binaries attached.
+# a GitHub release with the 5 standalone coati-broker binaries and the two extension zips
+# (coati-chrome.zip, coati-firefox.zip) attached.
 # Cross-compiled all at once on ubuntu-latest via scripts/build-binaries.sh —
 # `bun build --compile --target=bun-<os>-<arch>` downloads each target's bun
 # runtime, no need for 5 separate runners.
@@ -62,9 +63,14 @@ jobs:
           EOF
           HOME="$fakehome" dist/bin/coati-broker-linux-x64 --check-modules
 
+      - name: build extension zips
+        run: bash scripts/build.sh
+
       - name: SHA256SUMS
-        working-directory: dist/bin
-        run: sha256sum coati-broker-* > SHA256SUMS
+        run: |
+          cp dist/coati-chrome.zip dist/coati-firefox.zip dist/bin/
+          cd dist/bin
+          sha256sum coati-broker-* coati-chrome.zip coati-firefox.zip > SHA256SUMS
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -109,4 +115,6 @@ jobs:
             dist/bin/coati-broker-darwin-arm64 \
             dist/bin/coati-broker-darwin-x64 \
             dist/bin/coati-broker-windows-x64.exe \
+            dist/bin/coati-chrome.zip \
+            dist/bin/coati-firefox.zip \
             dist/bin/SHA256SUMS

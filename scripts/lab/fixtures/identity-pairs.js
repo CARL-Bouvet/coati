@@ -13,9 +13,9 @@
     ".topbar{--bg:#2A2C30;--fg:#EDEEF0;--muted:#B4B7BE;--surface:#34373D;--border:#2A2C30;" +
     "--accent:#D98323;--accent-fg:#1F2023;--status-connected:#5fd88a;--status-connecting:#f0b429;" +
     "--status-disconnected:#f2b8b5;--status-idle:#8A8E96;color:var(--fg);}" +
-    ".topbar .icon-button{color:var(--fg);}";
+    ".topbar .c-icon-button{color:var(--fg);}";
   // Slate blue, the secondary tone, on the panel's plain links ("Mes prompts").
-  var C1_LINK = ".link-button:not(.link-button--danger){color:";
+  var C1_LINK = ".c-link:not(.c-link--danger){color:";
   var C1_CSS_LIGHT = C1_HEADER_CSS + C1_LINK + "#4A6A88;}";
   var C1_CSS_DARK = C1_HEADER_CSS + C1_LINK + "#8AA4BE;}";
 

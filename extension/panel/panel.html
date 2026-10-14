@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Coati</title>
   <link rel="stylesheet" href="../lib/theme.css" />
+  <link rel="stylesheet" href="../lib/components.css" />
   <link rel="stylesheet" href="panel.css" />
   <link rel="stylesheet" href="card.css" />
 </head>
@@ -28,12 +29,12 @@
       <span id="langSelectorMount"></span>
       <button
         id="helpButton"
-        class="icon-button"
+        class="c-icon-button"
         type="button"
         data-i18n-title="panelHelpButtonLabel"
         data-i18n-aria-label="panelHelpButtonLabel"
       >?</button>
-      <button id="openOptions" class="icon-button" type="button" data-i18n-title="panel_settings_title">⚙︎</button>
+      <button id="openOptions" class="c-icon-button" type="button" data-i18n-title="panel_settings_title">⚙︎</button>
     </span>
   </header>
 
@@ -46,7 +47,7 @@
     </span>
   </div>
 
-  <section id="siteCard" class="site-card" data-state="unreadable" aria-live="polite">
+  <section id="siteCard" class="site-card c-card" data-state="unreadable" aria-live="polite">
     <div class="site-card-head">
       <span class="site-card-icons">
         <span id="siteCardSpinner" class="site-card-spinner" hidden aria-hidden="true"></span>
@@ -57,8 +58,8 @@
         <span id="readPageLabel" class="encart-read-label"></span>
       </button>
       <span id="siteCardLabel" class="site-card-label"></span>
-      <button id="devMode" class="switch" type="button" role="switch" aria-checked="false" hidden>
-        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+      <button id="devMode" class="c-switch" type="button" role="switch" aria-checked="false" hidden>
+        <span class="c-switch-track" aria-hidden="true"><span class="c-switch-thumb"></span></span>
         <span class="switch-text" data-i18n="panel_dev_mode">Dev mode</span>
       </button>
     </div>
@@ -69,28 +70,28 @@
     </div>
   </section>
 
-  <section id="firstRun" class="first-run" aria-labelledby="firstRunTitle" hidden>
+  <section id="firstRun" class="first-run c-card" aria-labelledby="firstRunTitle" hidden>
     <div class="first-run-head">
       <img class="first-run-logo" src="../icons/icon48.png" alt="" width="28" height="28" />
-      <h2 id="firstRunTitle" class="first-run-title"></h2>
+      <h2 id="firstRunTitle" class="c-title"></h2>
     </div>
     <p id="firstRunNeverConnected" class="first-run-never-connected" data-i18n="neverConnectedTitle" hidden></p>
     <ol id="firstRunSteps" class="first-run-steps"></ol>
     <p id="firstRunLang" class="first-run-lang"></p>
   </section>
 
-  <section id="neverConnected" class="never-connected" aria-labelledby="neverConnectedTitle" hidden>
-    <span class="help-badge" aria-hidden="true"></span>
+  <section id="neverConnected" class="never-connected c-card" aria-labelledby="neverConnectedTitle" hidden>
+    <span class="c-badge help-badge" aria-hidden="true"></span>
     <div class="never-connected-body">
-      <h2 id="neverConnectedTitle" class="never-connected-title" data-i18n="neverConnectedTitle"></h2>
+      <h2 id="neverConnectedTitle" class="c-title" data-i18n="neverConnectedTitle"></h2>
       <p class="never-connected-text" data-i18n="neverConnectedBody"></p>
-      <button id="neverConnectedAction" class="toolbar-button toolbar-button--primary" type="button" data-i18n="neverConnectedAction"></button>
+      <button id="neverConnectedAction" class="c-button c-button--primary" type="button" data-i18n="neverConnectedAction"></button>
     </div>
   </section>
 
   <div class="thread-bar">
     <p id="historyNotice" class="history-notice" aria-live="polite" hidden></p>
-    <button id="eraseConversation" class="link-button link-button--danger" type="button" data-i18n="panel_erase_conversation">Clear the conversation</button>
+    <button id="eraseConversation" class="c-link c-link--danger" type="button" data-i18n="panel_erase_conversation">Clear the conversation</button>
   </div>
 
   <main id="messages" class="messages" aria-live="polite"></main>
@@ -98,13 +99,13 @@
   <footer class="composer">
     <p id="internalPageNotice" class="history-notice" aria-live="polite" hidden data-i18n="panel_internal_page"></p>
     <span id="promptSavedNotice" class="prompt-saved-notice" aria-live="polite"></span>
-    <div class="composer-field">
-      <textarea id="input" class="composer-input" data-i18n-placeholder="panel_input_placeholder" placeholder="Write to Coati…" rows="1"></textarea>
-      <button id="savePrompt" class="icon-button save-prompt" type="button" data-i18n-aria-label="panel_save_prompt" aria-disabled="true"><span class="save-prompt-icon" aria-hidden="true">💾</span></button>
+    <div class="c-field composer-field">
+      <textarea id="input" class="c-input composer-input" data-i18n-placeholder="panel_input_placeholder" placeholder="Write to Coati…" rows="1"></textarea>
+      <button id="savePrompt" class="c-icon-button c-tooltip save-prompt" type="button" data-i18n-aria-label="panel_save_prompt" aria-disabled="true"><svg class="c-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h7.5l2.5 2.5v8.5H3z M5.5 2.5v3h4.5v-3 M5.5 13.5v-4h5v4" /></svg></button>
     </div>
     <div class="composer-actions">
-      <button id="cancel" class="composer-button composer-button--ghost" type="button" hidden data-i18n="panel_cancel">Cancel</button>
-      <button id="send" class="composer-button" type="button" data-i18n="panel_send">Send</button>
+      <button id="cancel" class="c-button c-button--large c-button--danger" type="button" hidden data-i18n="panel_cancel">Cancel</button>
+      <button id="send" class="c-button c-button--primary c-button--large" type="button" data-i18n="panel_send">Send</button>
     </div>
   </footer>
 

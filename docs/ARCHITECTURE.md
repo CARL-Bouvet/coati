@@ -4,10 +4,10 @@
 
 | Area | Lines | Role |
 |---|---|---|
-| `extension/panel/` | ~7,500 | side panel: chat, page reading, "Show", screenshot, history (40 files) |
+| `extension/panel/` | ~7,500 | side panel: chat, page reading, "Show" (with its level slider), screenshot, history, guided tour (`tour.js`, the header's "?") (40 files) |
 | `extension/` root + `options/` | ~4,100 | settings page (`options.css` ~1,500, setup tutorial ~790) |
 | `extension/content/` | ~2,600 | page reading (`extract/`, 9 files; `extract-dev.js`, dev level) + "Show" pointer |
-| `extension/lib/` | ~2,500 | shared helpers: i18n, pairing, key entry, model list, `structured-data.js` (JSON-LD/microdata product data read from opened result pages) |
+| `extension/lib/` | ~2,500 | shared helpers: i18n, pairing, key entry, model list, `components.css` + `icons.js` (buttons, cards, fields and line icons shared by the panel, the settings page and "My prompts"), `structured-data.js` (JSON-LD/microdata product data read from opened result pages) |
 | `extension/_locales/` | ~2,700 | en/fr/zh_CN text (~890 each) |
 | `extension/prompts/` | ~1,300 | "My prompts" page |
 | `extension/background/` | ~760 | service worker (connection to the local program) |
@@ -58,6 +58,22 @@ default `createProvider(host, options)` returning a `ModelProvider`: `id`, `labe
 `MODEL_TIMEOUT_MS`, the error classes to throw, and a prefixed logger — never a path into the
 broker's own source. A module that fails to load is logged and skipped, never fatal. Full
 interface and example: `docs/PROTOCOL.md`, "Model providers".
+
+## Online services and keys
+
+The OpenAI-compatible provider can hold several services (`compatServices` in `config.json`,
+`broker/src/config.ts`), one active at a time. Each service has its own key in
+`apiKeys["openai-compat"]`, a map from the service's origin to its key. A key is sent only to its
+own origin, and switching service keeps every key; removing a service is explicit. The Claude API
+key is a separate entry (`apiKeys["claude-api"]`). Keys are write-only: settings replies carry a
+`hasKey` boolean, never the key.
+
+## Panel look
+
+Two looks share the same components: the normal look (cards) and the dev look (`mode-dev` on
+`<html>`, flat and bordered), which keeps the plain appearance. Both read their tokens from
+`lib/theme.css`. The extension has no context menus; Coati reads a page only from the toolbar icon
+or the keyboard shortcut.
 
 ## Why
 

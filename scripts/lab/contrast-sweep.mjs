@@ -64,7 +64,7 @@ const SELECTOR = [
 // contrast (>= 3:1 against their background) rather than the text-vs-bg
 // rule above — the "Lire la page" switch track has no text of its
 // own to measure.
-const UI_SELECTOR = [".switch-track"].join(", ");
+const UI_SELECTOR = [".c-switch-track", ".switch-track"].join(", ");
 
 // --- 2. In-page contrast machinery (runs inside the browser context). ------
 const PAGE_SCRIPT = `

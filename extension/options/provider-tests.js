@@ -103,11 +103,11 @@ function renderTestResult(result, message) {
     headline.textContent = t("options_claude_cli_auth_required");
     result.appendChild(el("span", "test-result-detail", t("options_claude_cli_paste_hint")));
 
-    const command = el("code", "test-result-command", CLAUDE_CLI_LOGIN_COMMAND);
+    const command = el("code", "c-field test-result-command", CLAUDE_CLI_LOGIN_COMMAND);
     command.tabIndex = 0;
     result.appendChild(command);
 
-    const copyBtn = buttonEl(t("options_copy_command"), "button-secondary button-small test-result-copy");
+    const copyBtn = buttonEl(t("options_copy_command"), "c-button c-button--small test-result-copy");
     copyBtn.addEventListener("click", () => {
       navigator.clipboard?.writeText(CLAUDE_CLI_LOGIN_COMMAND).catch(() => {});
     });

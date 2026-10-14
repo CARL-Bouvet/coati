@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title data-i18n="options_page_title">Settings — Coati</title>
   <link rel="stylesheet" href="lib/theme.css" />
+  <link rel="stylesheet" href="lib/components.css" />
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
@@ -22,196 +23,209 @@
     </div>
   </header>
 
-  <main class="page">
-    <!-- 1. Model: current model, then two tabs "On this computer" /
-         "Online" (same labels as the panel's model menu). The setup
-         guide (options-setup.js) lives inside the tabs:
-         Ollama steps under the local tab, API-key steps under "Add a service".
-         Deep links: #setup, #setup-ollama-speedup, #provider-<id>. -->
-    <section id="modelSection" class="section section--model" aria-labelledby="h-model">
-      <h2 id="h-model" data-i18n="options_model_title">Model</h2>
+  <div class="page">
+    <!-- Section menu: the current section is marked by options/section-nav.js. -->
+    <nav id="sectionNav" class="section-nav" data-i18n-aria-label="options_nav_label" aria-label="Settings sections">
+      <a class="c-row" href="#modelSection" data-i18n="options_model_title">Model</a>
+      <a class="c-row" href="#devModeSection" data-i18n="options_dev_mode_title">Dev mode</a>
+      <a class="c-row" href="#shortcutSection" data-i18n="options_shortcut_title">Keyboard shortcut</a>
+      <a class="c-row" href="#sitesSection" data-i18n="options_sites_title">Activated sites</a>
+      <a class="c-row" href="#historySection" data-i18n="options_history_title">History</a>
+      <a class="c-row" href="#aboutSection" data-i18n="options_about_title">About</a>
+    </nav>
 
-      <div class="current-model">
+    <main class="page-content">
+      <!-- 1. Model: current model, then two tabs "On this computer" /
+           "Online" (same labels as the panel's model menu). The setup
+           guide (options-setup.js) lives inside the tabs:
+           Ollama steps under the local tab, API-key steps under "Add a service".
+           Deep links: #setup, #setup-ollama-speedup, #provider-<id>. -->
+      <section id="modelSection" class="section" aria-labelledby="h-model">
+        <h2 id="h-model" class="c-title" data-i18n="options_model_title">Model</h2>
+
         <p id="modelDisconnected" class="notice" hidden data-i18n="options_model_disconnected">
           The local program isn't responding: open it on your computer, then come back to this page to see or change the model.
         </p>
         <div id="setupIntro" class="setup-intro" hidden>
-          <img class="setup-illustration" src="illustrations/coati-resting.png" alt="" width="128" height="56" />
-          <div class="setup-intro-text">
-            <p data-i18n="setup_intro_need">To answer you, Coati needs an AI model.</p>
-            <p class="help" data-i18n="setup_intro_local_program">The local program, installed with Coati on this computer, connects your browser to that model.</p>
-          </div>
+          <p data-i18n="setup_intro_need">To answer you, Coati needs an AI model.</p>
+          <p class="help" data-i18n="setup_intro_local_program">The local program, installed with Coati on this computer, connects your browser to that model.</p>
         </div>
-        <div id="currentModel" class="current-line" hidden>
+        <!-- data-model="set|none" (options/model-core.js) picks the card's
+             background: the coati sniffing the screen, or a pale "?". -->
+        <div id="currentModel" class="c-card current-line" hidden>
           <div class="current-text">
-            <span class="current-eyebrow" data-i18n="options_current_label">Current model</span>
-            <span id="currentModelName" class="current-name"></span>
-            <span id="currentModelWhere" class="current-where"></span>
+            <span class="c-section-title" data-i18n="options_current_label">Current model</span>
+            <span id="currentModelName" class="c-title current-name"></span>
+            <span id="currentModelWhere" class="help"></span>
             <span id="currentModelState" class="current-state" hidden></span>
           </div>
-          <button id="currentTest" type="button" class="button-secondary current-test" data-i18n="options_test_short">Test</button>
+          <button id="currentTest" type="button" class="c-button current-test" data-i18n="options_test_short">Test</button>
           <span id="currentTestResult" class="test-result current-test-result" role="status"></span>
         </div>
-      </div>
 
-      <div id="modelTabs" class="model-tabs" role="tablist" aria-labelledby="h-model">
-        <button type="button" role="tab" id="tabLocal" class="model-tab" data-tab="local" aria-controls="panelLocal" aria-selected="true" data-i18n="model_list_local">On this computer</button>
-        <button type="button" role="tab" id="tabOnline" class="model-tab" data-tab="online" aria-controls="panelOnline" aria-selected="false" tabindex="-1" data-i18n="model_list_online">Online</button>
-      </div>
-
-      <!-- Tab "On this computer": installed models (one click = settings.set),
-           then options-setup.js appends three folds: the Ollama guide (with the
-           suggested models), "Speed up Ollama", LM Studio. -->
-      <div id="panelLocal" class="tab-panel" role="tabpanel" aria-labelledby="tabLocal">
-        <p class="help tab-lead" data-i18n="setup_path_local_text">Free and private: your texts never leave the computer. Needs a recent computer.</p>
-        <div class="tab-block">
-          <div class="block-head">
-            <h3 id="h-installed" class="block-title" data-i18n="options_installed_title">Installed models</h3>
-            <button id="modelsRefresh" type="button" class="button-secondary button-small" data-i18n="options_refresh">Refresh</button>
-          </div>
-          <div id="modelsAvailableList" class="model-list" role="group" aria-labelledby="h-installed"></div>
-          <p id="modelsLoading" class="model-list-note" hidden data-i18n="model_list_loading">Looking for models…</p>
-          <div id="modelFieldSlotLocal" class="model-field-slot"></div>
+        <div id="modelTabs" class="model-tabs" role="tablist" aria-labelledby="h-model">
+          <button type="button" role="tab" id="tabLocal" class="c-row model-tab" data-tab="local" aria-controls="panelLocal" aria-selected="true" data-i18n="model_list_local">On this computer</button>
+          <button type="button" role="tab" id="tabOnline" class="c-row model-tab" data-tab="online" aria-controls="panelOnline" aria-selected="false" tabindex="-1" data-i18n="model_list_online">Online</button>
         </div>
-        <div id="setupLocal" class="tab-folds"></div>
-      </div>
 
-      <!-- Tab "Online": configured services, "Add a service"
-           (the online guide + another OpenAI-compatible address), spending cap. -->
-      <div id="panelOnline" class="tab-panel" role="tabpanel" aria-labelledby="tabOnline" hidden>
-        <p class="help tab-lead" data-i18n="setup_path_online_text">Simpler: create a key with a service. Free or paid, depending on the service.</p>
-        <div class="tab-block">
-          <h3 id="h-services" class="block-title" data-i18n="options_services_title">Configured services</h3>
-          <p id="servicesEmpty" class="model-list-note" hidden data-i18n="options_services_empty">No online service yet.</p>
-          <ul id="serviceList" class="service-list" aria-labelledby="h-services"></ul>
-        </div>
-        <div class="tab-folds">
-          <details id="addService" class="fold">
-            <summary data-i18n="options_add_service">Add a service</summary>
-            <div class="fold-body">
-              <div id="setupOnline" class="setup-online"></div>
-              <details id="otherAddress" class="fold fold--inner">
-                <summary data-i18n="options_other_address_title">Another OpenAI-compatible address</summary>
-                <div id="otherAddressBody" class="fold-body"></div>
-              </details>
+        <!-- Tab "On this computer": installed models (one click = settings.set),
+             then options-setup.js appends three folds: the Ollama guide (with the
+             suggested models), "Speed up Ollama", LM Studio. -->
+        <div id="panelLocal" class="tab-panel" role="tabpanel" aria-labelledby="tabLocal">
+          <p class="help" data-i18n="setup_path_local_text">Free and private: your texts never leave the computer. Needs a recent computer.</p>
+          <div class="tab-block">
+            <div class="block-head">
+              <h3 id="h-installed" class="c-section-title" data-i18n="options_installed_title">Installed models</h3>
+              <button id="modelsRefresh" type="button" class="c-button c-button--small" data-i18n="options_refresh">Refresh</button>
             </div>
-          </details>
+            <div id="modelsAvailableList" class="c-card model-list" role="group" aria-labelledby="h-installed"></div>
+            <p id="modelsLoading" class="help" hidden data-i18n="model_list_loading">Looking for models…</p>
+            <div id="modelFieldSlotLocal" class="model-field-slot"></div>
+          </div>
+          <div id="setupLocal" class="tab-folds"></div>
         </div>
-        <div class="tab-block spending-cap">
-          <h3 class="block-title" data-i18n="options_cap_title">Spending cap</h3>
-          <p class="help help--tight" data-i18n="options_cap_text">Paid services bill by usage. Set a monthly cap on their site:</p>
-          <p id="capLinks" class="cap-links"></p>
+
+        <!-- Tab "Online": configured services, "Add a service"
+             (the online guide + another OpenAI-compatible address), spending cap. -->
+        <div id="panelOnline" class="tab-panel" role="tabpanel" aria-labelledby="tabOnline" hidden>
+          <p class="help" data-i18n="setup_path_online_text">Simpler: create a key with a service. Free or paid, depending on the service.</p>
+          <div class="tab-block">
+            <h3 id="h-services" class="c-section-title" data-i18n="options_services_title">Configured services</h3>
+            <p id="servicesEmpty" class="help" hidden data-i18n="options_services_empty">No online service yet.</p>
+            <ul id="serviceList" class="service-list" aria-labelledby="h-services"></ul>
+          </div>
+          <div class="tab-folds">
+            <details id="addService" class="fold">
+              <summary data-i18n="options_add_service">Add a service</summary>
+              <div class="fold-body">
+                <div id="setupOnline" class="setup-online"></div>
+                <details id="otherAddress" class="fold fold--inner">
+                  <summary data-i18n="options_other_address_title">Another OpenAI-compatible address</summary>
+                  <div id="otherAddressBody" class="fold-body"></div>
+                </details>
+              </div>
+            </details>
+          </div>
+          <div class="tab-block">
+            <h3 class="c-section-title" data-i18n="options_cap_title">Spending cap</h3>
+            <p class="help" data-i18n="options_cap_text">Paid services bill by usage. Set a monthly cap on their site:</p>
+            <p id="capLinks" class="cap-links"></p>
+          </div>
         </div>
-      </div>
 
-      <!-- Model name for the active provider: moved by options.js into the
-           active online service's settings, or under the installed list when
-           the local program cannot list the models (older version). -->
-      <div id="modelField" class="field" hidden>
-        <label for="modelSelect" id="modelLabel" data-i18n="options_model_name_label">Model name</label>
-        <select id="modelSelect" hidden></select>
-        <div class="inline-row">
-          <input id="modelInput" type="text" aria-labelledby="modelLabel" data-i18n-placeholder="options_model_name_placeholder" placeholder="e.g. llama3.2 (optional)" hidden />
-          <button id="modelSave" type="button" class="button-secondary" hidden data-i18n="options_model_save">Save the model</button>
+        <!-- Model name for the active provider: moved by options.js into the
+             active online service's settings, or under the installed list when
+             the local program cannot list the models (older version). -->
+        <div id="modelField" class="field" hidden>
+          <label for="modelSelect" id="modelLabel" data-i18n="options_model_name_label">Model name</label>
+          <select id="modelSelect" class="c-field c-input" hidden></select>
+          <div class="inline-row">
+            <input id="modelInput" class="c-field c-input" type="text" aria-labelledby="modelLabel" data-i18n-placeholder="options_model_name_placeholder" placeholder="e.g. llama3.2 (optional)" hidden />
+            <button id="modelSave" type="button" class="c-button" hidden data-i18n="options_model_save">Save the model</button>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- 2. Default of the panel's "Dev mode" switch (docs/PROTOCOL.md
-         "Page on demand"). Replaces the former "Read the page" checkbox:
-         reading is on-demand now, this only controls the dev extraction
-         level's starting value. -->
-    <section class="section" aria-labelledby="h-dev-mode">
-      <h2 id="h-dev-mode" data-i18n="options_dev_mode_title">Dev mode</h2>
-      <label class="check-row">
-        <input id="devMode" type="checkbox" />
-        <span data-i18n="options_dev_mode_checkbox">Let the model read the page's full HTML structure</span>
-      </label>
-      <p class="help help--under-check" data-i18n="options_dev_mode_help">
-        Starting value of the panel's "Dev mode" switch. Sends more data (higher cost) and may expose personal
-        data present on the page.
-      </p>
-    </section>
-
-    <!-- 3. Keyboard shortcut (read-only here; edited in the browser). -->
-    <section class="section" aria-labelledby="h-shortcut">
-      <h2 id="h-shortcut" data-i18n="options_shortcut_title">Keyboard shortcut</h2>
-      <div class="shortcut-row">
-        <span class="shortcut-label" data-i18n="extCommandOpen">Open Coati</span>
-        <span id="shortcutKeys" class="shortcut-keys"></span>
-        <button id="shortcutEdit" type="button" class="button-secondary" hidden data-i18n="options_shortcut_edit">Change the shortcut</button>
-      </div>
-      <p id="shortcutHelp" class="help" hidden data-i18n="options_shortcut_help">
-        To change it: about:addons, gear icon, then "Manage Extension Shortcuts".
-      </p>
-    </section>
-
-    <!-- 4. Per-site host permissions + link to the prompt library. -->
-    <section class="section" aria-labelledby="h-sites">
-      <h2 id="h-sites" data-i18n="options_sites_title">Activated sites</h2>
-      <p id="siteTogglesHelp" class="help"></p>
-      <ul id="siteToggles" class="site-toggles"></ul>
-      <p class="help help--link">
-        <span data-i18n="options_sites_link_intro">The prompts suggested on each site are set in</span>
-        <a id="openPrompts" class="link" href="prompts/prompts.html" data-i18n="options_sites_link_text">My prompts</a>.
-      </p>
-    </section>
-
-    <!-- 5. Conversation retention. -->
-    <section class="section" aria-labelledby="h-history">
-      <h2 id="h-history" data-i18n="options_history_title">History</h2>
-      <p class="help" data-i18n="options_history_help">
-        The conversation is kept on this computer, unencrypted, then erased after this delay.
-      </p>
-      <div class="field">
-        <label for="retention" data-i18n="options_retention_label">Keep for</label>
-        <select id="retention">
-          <option value="7" data-i18n="options_retention_7d">7 days</option>
-          <option value="30" data-i18n="options_retention_30d">30 days</option>
-          <option value="90" data-i18n="options_retention_90d">90 days</option>
-          <option value="never" data-i18n="options_retention_never">No limit</option>
-        </select>
-      </div>
-    </section>
-
-    <!-- 6. About. -->
-    <section class="section" aria-labelledby="h-about">
-      <h2 id="h-about" data-i18n="options_about_title">About</h2>
-      <dl class="about-list">
-        <dt data-i18n="options_about_version">Version</dt>
-        <dd id="aboutVersion">…</dd>
-        <dt data-i18n="options_about_fingerprint">Code fingerprint</dt>
-        <dd><code id="aboutFingerprint">…</code></dd>
-        <dt data-i18n="options_about_license">License</dt>
-        <dd>AGPL-3.0</dd>
-        <dt data-i18n="options_about_source">Source code</dt>
-        <dd><a class="link" href="https://github.com/CARL-Bouvet/coati" target="_blank" rel="noopener noreferrer">github.com/CARL-Bouvet/coati</a></dd>
-      </dl>
-    </section>
-
-    <!-- 7. Browser without a native program (Flatpak, Snap): manual pairing. -->
-    <details id="legacyPairing" class="section advanced">
-      <summary><h2 data-i18n="options_legacy_title">Browser with no native program (Flatpak, Snap)</h2></summary>
-      <div class="advanced-body">
-        <div class="field">
-          <label for="token" data-i18n="options_legacy_token_label">Pairing secret</label>
-          <p class="help help--tight">
-            <span data-i18n="options_legacy_token_help_before">Only if your browser (Flatpak, Snap) cannot launch a native program. In a terminal, run</span>
-            <code>coati-broker --show-pairing-secret</code>
-            <span data-i18n="options_legacy_token_help_after">, then paste the secret here. It is never written to disk.</span>
-          </p>
-          <input id="token" type="password" autocomplete="off" data-i18n-placeholder="options_legacy_token_placeholder" placeholder="Paste the secret here" />
+      <!-- 2. Default of the panel's "Dev mode" switch (docs/PROTOCOL.md
+           "Page on demand"): the same switch, same storage key. -->
+      <section id="devModeSection" class="section" aria-labelledby="h-dev-mode">
+        <h2 id="h-dev-mode" class="c-title" data-i18n="options_dev_mode_title">Dev mode</h2>
+        <div class="setting-row">
+          <div>
+            <p id="devModeLabel" class="setting-label" data-i18n="options_dev_mode_checkbox">Let the model read the page's full HTML structure</p>
+            <p id="devModeHelp" class="help" data-i18n="options_dev_mode_help">
+              Starting value of the panel's "Dev mode" switch. Sends more data (higher cost) and may expose personal
+              data present on the page.
+            </p>
+          </div>
+          <button id="devMode" class="c-switch" type="button" role="switch" aria-checked="false" aria-labelledby="devModeLabel" aria-describedby="devModeHelp">
+            <span class="c-switch-track" aria-hidden="true"><span class="c-switch-thumb"></span></span>
+          </button>
         </div>
-        <div class="actions">
-          <button id="save" type="button" data-i18n="options_legacy_save">Save</button>
-          <span id="status" class="status status--unknown">
-            <span class="status-dot"></span>
-            <span class="status-label">…</span>
+      </section>
+
+      <!-- 3. Keyboard shortcut (read-only here; edited in the browser). -->
+      <section id="shortcutSection" class="section" aria-labelledby="h-shortcut">
+        <h2 id="h-shortcut" class="c-title" data-i18n="options_shortcut_title">Keyboard shortcut</h2>
+        <div class="setting-row">
+          <span class="shortcut-keys-row">
+            <span data-i18n="extCommandOpen">Open Coati</span>
+            <span id="shortcutKeys" class="shortcut-keys"></span>
           </span>
+          <button id="shortcutEdit" type="button" class="c-button" hidden data-i18n="options_shortcut_edit">Change the shortcut</button>
         </div>
-      </div>
-    </details>
-  </main>
+        <p id="shortcutHelp" class="help" hidden data-i18n="options_shortcut_help">
+          To change it: about:addons, gear icon, then "Manage Extension Shortcuts".
+        </p>
+      </section>
+
+      <!-- 4. Per-site host permissions + link to the prompt library. -->
+      <section id="sitesSection" class="section" aria-labelledby="h-sites">
+        <h2 id="h-sites" class="c-title" data-i18n="options_sites_title">Activated sites</h2>
+        <p id="siteTogglesHelp" class="help"></p>
+        <ul id="siteToggles" class="site-toggles"></ul>
+        <p class="help">
+          <span data-i18n="options_sites_link_intro">The prompts suggested on each site are set in</span>
+          <a id="openPrompts" class="c-text-link" href="prompts/prompts.html" data-i18n="options_sites_link_text">My prompts</a>.
+        </p>
+      </section>
+
+      <!-- 5. Conversation retention. -->
+      <section id="historySection" class="section" aria-labelledby="h-history">
+        <h2 id="h-history" class="c-title" data-i18n="options_history_title">History</h2>
+        <p class="help" data-i18n="options_history_help">
+          The conversation is kept on this computer, unencrypted, then erased after this delay.
+        </p>
+        <div class="field">
+          <label for="retention" data-i18n="options_retention_label">Keep for</label>
+          <select id="retention" class="c-field c-input">
+            <option value="7" data-i18n="options_retention_7d">7 days</option>
+            <option value="30" data-i18n="options_retention_30d">30 days</option>
+            <option value="90" data-i18n="options_retention_90d">90 days</option>
+            <option value="never" data-i18n="options_retention_never">No limit</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- 6. About. -->
+      <section id="aboutSection" class="section" aria-labelledby="h-about">
+        <h2 id="h-about" class="c-title" data-i18n="options_about_title">About</h2>
+        <dl class="about-list">
+          <dt data-i18n="options_about_version">Version</dt>
+          <dd id="aboutVersion">…</dd>
+          <dt data-i18n="options_about_fingerprint">Code fingerprint</dt>
+          <dd><code id="aboutFingerprint">…</code></dd>
+          <dt data-i18n="options_about_license">License</dt>
+          <dd>AGPL-3.0</dd>
+          <dt data-i18n="options_about_source">Source code</dt>
+          <dd><a class="c-text-link" href="https://github.com/CARL-Bouvet/coati" target="_blank" rel="noopener noreferrer">github.com/CARL-Bouvet/coati</a></dd>
+        </dl>
+      </section>
+
+      <!-- 7. Browser without a native program (Flatpak, Snap): manual pairing. -->
+      <details id="legacyPairing" class="section fold">
+        <summary data-i18n="options_legacy_title">Browser with no native program (Flatpak, Snap)</summary>
+        <div class="fold-body">
+          <div class="field">
+            <label for="token" data-i18n="options_legacy_token_label">Pairing secret</label>
+            <p class="help">
+              <span data-i18n="options_legacy_token_help_before">Only if your browser (Flatpak, Snap) cannot launch a native program. In a terminal, run</span>
+              <code>coati-broker --show-pairing-secret</code>
+              <span data-i18n="options_legacy_token_help_after">, then paste the secret here. It is never written to disk.</span>
+            </p>
+            <input id="token" class="c-field c-input" type="password" autocomplete="off" data-i18n-placeholder="options_legacy_token_placeholder" placeholder="Paste the secret here" />
+          </div>
+          <div class="inline-row">
+            <button id="save" type="button" class="c-button c-button--primary" data-i18n="options_legacy_save">Save</button>
+            <span id="status" class="status status--unknown">
+              <span class="status-dot"></span>
+              <span class="status-label">…</span>
+            </span>
+          </div>
+        </div>
+      </details>
+    </main>
+  </div>
 
   <script src="options.js" type="module"></script>
 </body>

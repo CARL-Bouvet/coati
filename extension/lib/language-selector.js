@@ -46,7 +46,7 @@ export function mountLanguageSelector(container, { compact = true } = {}) {
   const button = document.createElement("button");
   button.type = "button";
   button.id = compact ? "langSelectorButton" : "languageSelectorButton";
-  button.className = compact ? "icon-button lang-button" : "lang-button lang-button--full";
+  button.className = compact ? "c-icon-button lang-button" : "lang-button lang-button--full";
   button.setAttribute("aria-haspopup", "menu");
   button.setAttribute("aria-expanded", "false");
 
@@ -59,7 +59,7 @@ export function mountLanguageSelector(container, { compact = true } = {}) {
   for (const lang of [...SUPPORTED_LANGS, UI_LANG_AUTO]) {
     const item = document.createElement("button");
     item.type = "button";
-    item.className = "lang-menu-item";
+    item.className = "c-row lang-menu-item";
     item.setAttribute("role", "menuitemradio");
     item.textContent = itemLabel(lang);
     item.addEventListener("click", () => {

@@ -49,7 +49,7 @@ async function appendShortcut(container) {
   line.textContent = keys.length > 0 ? t("panel_help_shortcut", [keys.join("+")]) : t("panel_help_shortcut_none");
   container.appendChild(line);
   if (keys.length === 0 && !IS_GECKO) {
-    const set = makeButton("link-button", () => api.tabs.create({ url: "chrome://extensions/shortcuts" }));
+    const set = makeButton("c-link",() => api.tabs.create({ url: "chrome://extensions/shortcuts" }));
     set.textContent = t("panel_help_shortcut_set");
     container.appendChild(set);
   }
@@ -150,9 +150,9 @@ export function startTour() {
   foot.className = "tour-foot";
   const counter = document.createElement("span");
   counter.className = "tour-counter";
-  const skip = makeButton("link-button tour-skip", endTour);
+  const skip = makeButton("c-link tour-skip", endTour);
   skip.textContent = t("panel_tour_skip");
-  const nextButton = makeButton("composer-button tour-next", next);
+  const nextButton = makeButton("c-button c-button--primary c-button--large tour-next", next);
   foot.append(counter, skip, nextButton);
   bubble.append(text, extra, foot);
   overlay.append(hole, bubble);

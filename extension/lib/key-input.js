@@ -96,7 +96,7 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
 
   const input = document.createElement("input");
   input.type = "password";
-  input.className = "key-input-field";
+  input.className = "c-field c-input key-input-field";
   input.setAttribute("autocomplete", "off");
   input.setAttribute("spellcheck", "false");
   input.setAttribute("autocapitalize", "off");
@@ -105,14 +105,14 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
 
   const reveal = document.createElement("button");
   reveal.type = "button";
-  reveal.className = "button-secondary key-input-reveal";
+  reveal.className = "c-button key-input-reveal";
   reveal.setAttribute("aria-pressed", "false");
   reveal.textContent = t("keyInput_show");
   reveal.addEventListener("click", () => setRevealed(input.type === "password"));
 
   const save = document.createElement("button");
   save.type = "button";
-  save.className = "key-input-save";
+  save.className = "c-button c-button--primary key-input-save";
   save.textContent = t("keyInput_save");
   save.addEventListener("click", submit);
   input.addEventListener("keydown", (event) => {
@@ -139,13 +139,13 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
 
   const retry = document.createElement("button");
   retry.type = "button";
-  retry.className = "button-secondary key-input-retry";
+  retry.className = "c-button key-input-retry";
   retry.textContent = t("keyInput_retry");
   retry.addEventListener("click", () => verify());
 
   const remove = document.createElement("button");
   remove.type = "button";
-  remove.className = "apikey-clear key-input-delete";
+  remove.className = "c-button c-button--danger key-input-delete";
   remove.textContent = t("keyInput_delete");
   remove.addEventListener("click", onDeleteClick);
 
@@ -159,7 +159,7 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     const li = addNote(t("keyInput_note_spending_cap"));
     li.append(" ");
     const link = document.createElement("a");
-    link.className = "link";
+    link.className = "c-text-link";
     link.href = limitsUrl;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
@@ -214,7 +214,7 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     if (!deleteConfirmPending) {
       deleteConfirmPending = true;
       remove.textContent = t("keyInput_delete_confirm");
-      remove.classList.add("apikey-clear--confirm");
+      remove.classList.add("is-armed");
       deleteConfirmTimer = setTimeout(resetDeleteConfirm, DELETE_CONFIRM_MS);
       return;
     }
@@ -229,7 +229,7 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     deleteConfirmPending = false;
     clearTimeout(deleteConfirmTimer);
     remove.textContent = t("keyInput_delete");
-    remove.classList.remove("apikey-clear--confirm");
+    remove.classList.remove("is-armed");
   }
 
   /** Whether the local program holds a key for this provider (for openai-compat: for the active

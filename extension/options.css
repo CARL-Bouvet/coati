@@ -1,47 +1,20 @@
-/* Coati options page.
+/* Coati options page — layout only. Every control, card, chip and focus
+ * ring comes from lib/components.css, so the page speaks the side panel's
+ * component language.
  *
- * Proportion contract — every number below is a variable in :root or a
- * lib/theme.css token, nowhere else:
- *   column    one centred column at every width, max 640 px; sides 24 px
- *             (≤ 560 px: 16 px). Wide windows only grow the margins.
- *   band      dark header band, full width, ≥ 56 px tall; its content aligned
- *             on the column (title · status · FR/EN/中).
- *   rhythm    4 px grid: 8 inside a group, 16 between groups, 24 between
- *             the titled blocks of a tab panel, 32 between sections.
- *   type      four sizes: 20 (h2, current model) / 16 (h3, folds, step
- *             titles, header title) / 14 (body, help, buttons) / 12 (eyebrows,
- *             tags, states, keys, notes). Help is split from body by tone.
- *             ≤ 480 px the current model drops to 16 so a typical id
- *             (llama-3.3-70b-instruct:free) holds on one line at 320 px.
- *   volume    cards (current model, service rows, setup steps, choice rows)
- *             are raised, borderless, padded 16-20; fields are recessed with
- *             a thin low-contrast border; segmented choices are raised pills
- *             on a recessed track.
- *   states    hover lifts (--shadow-hover), press sinks (--shadow-pressed),
- *             disabled loses its shadow and contrast, focus keeps the soft
- *             caramel ring (--focus-ring).
- *   controls  40 px (inputs, selects, buttons, tabs), small buttons 32 px,
- *             choice rows ≥ 44 px.
- * Caramel is a fill (dark text on it) or a graphic mark, never a text
- * colour on a light background. */
+ * Layout: the dark band, then a section menu (left, sticky) and one content
+ * column (max 680 px). At 720 px and below, the menu becomes a horizontal
+ * row above the content, sticky at the top. Inside a section, one rhythm:
+ * 12 px between blocks, 16 px inside the model tabs, 48 px between sections. */
 
 * { box-sizing: border-box; }
 
 :root {
-  --page-width: 640px;
+  --content-width: 680px;
+  --nav-width: 184px;
+  --page-gap: 48px;
   --page-pad-x: 24px;
-  --head-min-height: 56px;
-  --section-gap: 32px;
-  --block-gap: 24px;
-  --group-gap: 16px;
-  --fs-title: 20px;
-  --fs-model: 20px;
-  --control-line: 22px;
-  --row-min-height: 44px;
-  --check-size: 16px;
-  --check-indent: 24px;
-  --card-pad: 16px;
-  --card-pad-l: 20px;
+  --section-gap: 48px;
 }
 
 body {
@@ -53,353 +26,139 @@ body {
   background: var(--bg);
 }
 
-.page {
-  max-width: var(--page-width);
-  margin: 0 auto;
-  padding: var(--section-gap) var(--page-pad-x) 64px;
+button,
+input,
+select {
+  font-family: inherit;
 }
 
-/* --- Header band ----------------------------------------------------------
- * Dark in both themes: the band re-scopes the shared tokens to their header
- * values, as the panel's .topbar does, so the status dot, the language
- * button and its menu stay readable whatever the page theme. */
-
-.page-head {
-  --bg: var(--header-bg);
-  --fg: var(--header-fg);
-  --muted: var(--header-muted);
-  --surface: var(--header-surface);
-  --accent: var(--header-accent);
-  --status-connected: var(--header-status-connected);
-  --status-connecting: var(--header-status-connecting);
-  --status-disconnected: var(--header-status-disconnected);
-  --status-idle: var(--header-status-idle);
-  background: var(--bg);
-  color: var(--fg);
-}
-
-.page-head-inner {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  grid-template-areas: "title status lang";
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  max-width: var(--page-width);
-  min-height: var(--head-min-height);
-  margin: 0 auto;
-  padding: var(--space-2) var(--page-pad-x);
-}
-
-h1 {
-  grid-area: title;
-  margin: 0;
-  font-size: var(--text-l);
-  line-height: 1.25;
-  font-weight: 650;
-}
-
-.page-head .status {
-  grid-area: status;
-  padding: var(--space-1) var(--space-3);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--fg);
-}
-
-.page-head-lang { grid-area: lang; }
-
-/* Language selector (lib/language-selector.js, compact): same shape as the
- * panel's header button. Overrides the page-wide primary <button>. */
-.lang-selector { position: relative; }
-
-.page-head .lang-button {
-  min-width: 2.6em;
-  min-height: 32px;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-s);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--fg);
-  background: transparent;
-  border: 1px solid var(--surface);
-  border-radius: var(--radius);
-  box-shadow: none;
-}
-
-.page-head .lang-button:hover,
-.page-head .lang-button:active {
-  background: var(--surface);
-  border-color: var(--surface);
-  box-shadow: none;
-}
-
-.lang-menu {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  min-width: 12em;
-  padding: var(--space-1);
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--overlay-shadow);
-}
-
-.lang-menu .lang-menu-item {
-  min-height: 0;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-m);
-  font-weight: 400;
-  text-align: left;
-  color: inherit;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius);
-  box-shadow: none;
-}
-
-.lang-menu .lang-menu-item:hover,
-.lang-menu .lang-menu-item:focus-visible {
-  background: var(--surface);
-}
-
-.lang-menu .lang-menu-item--active {
-  font-weight: 600;
-  color: var(--accent);
-}
-
-/* --- Sections ------------------------------------------------------------ */
-
-.section + .section { margin-top: var(--section-gap); }
-
-h2 {
-  margin: 0 0 var(--space-2);
-  font-size: var(--fs-title);
-  line-height: 1.3;
-  font-weight: 650;
-}
-
-.help {
-  margin: 0 0 var(--group-gap);
-  color: var(--muted);
-}
-
-.help--tight { margin-bottom: var(--space-2); }
-.help--under-check { margin: var(--space-1) 0 0 var(--check-indent); }
-.help--link { margin: var(--group-gap) 0 0; }
-
-.notice {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--fg);
-}
+p { margin: 0; }
 
 code { font-size: var(--text-s); }
 
-/* --- Controls ------------------------------------------------------------ */
+/* --- Band (.page-head, lib/components.css) ------------------------------- */
+
+.page-head-inner,
+.page {
+  max-width: calc(var(--nav-width) + var(--page-gap) + var(--content-width) + 2 * var(--page-pad-x));
+  margin: 0 auto;
+  padding-inline: var(--page-pad-x);
+}
+
+/* --- Menu + column ------------------------------------------------------- */
+
+.page {
+  display: grid;
+  grid-template-columns: var(--nav-width) minmax(0, var(--content-width));
+  gap: var(--page-gap);
+  padding-block: var(--space-5) 64px;
+}
+
+.section-nav {
+  position: sticky;
+  top: var(--space-5);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.page-content {
+  min-width: 0;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  scroll-margin-top: var(--space-5);
+}
+
+.section + .section {
+  margin-top: var(--section-gap);
+}
+
+.help { color: var(--muted); }
+
+.notice {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
 
 .field {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-2);
 }
 
-.field > label,
-.field-label {
-  font-weight: 500;
-}
-
-/* Recessed field: thin low-contrast outline, inner shadow; the ring stays
- * on while it has focus. */
-input[type="password"],
-input[type="text"],
-select {
-  padding: var(--space-2) var(--space-3);
-  font-family: inherit;
-  font-size: var(--text-m);
-  line-height: var(--control-line);
-  color: var(--fg);
-  background: var(--field-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-field);
-}
-
-input[type="password"]:focus,
-input[type="text"]:focus,
-select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: var(--shadow-field), var(--focus-ring);
-}
-
-select {
-  max-width: 100%;
-  align-self: flex-start;
-}
+.field > label { font-weight: 600; }
 
 .inline-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
 }
 
-.inline-row > input { flex: 1; min-width: 180px; }
+.inline-row > input { flex: 1 1 180px; }
 
 .inline-row:not(:has(> :not([hidden]))) { display: none; }
 
-/* Primary: caramel fill, dark text, raised. */
-button {
-  padding: var(--space-2) var(--space-4);
-  font-family: inherit;
-  font-size: var(--text-m);
-  line-height: var(--control-line);
-  font-weight: 500;
-  color: var(--accent-fg);
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-raised);
-  cursor: pointer;
-}
-
-button:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  box-shadow: var(--shadow-hover);
-}
-
-button:active {
-  background: var(--accent-active);
-  border-color: var(--accent-active);
-  box-shadow: var(--shadow-pressed);
-}
-
-/* Secondary: a raised card. */
-.button-secondary,
-.test-button,
-.service-use {
-  color: var(--fg);
-  background: var(--control-bg);
-  border-color: var(--control-border);
-}
-
-.button-secondary:hover,
-.test-button:hover,
-.service-use:hover {
-  background: var(--control-bg-hover);
-  border-color: var(--control-border);
-}
-
-.button-secondary:active,
-.test-button:active,
-.service-use:active {
-  background: var(--control-bg);
-  border-color: var(--control-border);
-}
-
-.button-small {
-  padding: var(--space-1) var(--space-3);
-}
-
-button:disabled,
-button:disabled:hover,
-button:disabled:active {
-  opacity: 0.55;
-  box-shadow: none;
-  cursor: not-allowed;
-}
-
-button:focus-visible,
-summary:focus-visible,
-a:focus-visible,
-code:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-.link {
-  color: var(--link);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.link:hover { text-decoration-thickness: 2px; }
-
-.check-row {
+/* A setting and its control on one line, the control on the right. */
+.setting-row {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
 }
 
-.check-row input[type="checkbox"],
-.site-toggle input[type="checkbox"] {
-  width: var(--check-size);
-  height: var(--check-size);
-  margin: 0;
-  flex: none;
-}
+.setting-label { font-weight: 600; }
 
-input[type="checkbox"]:focus-visible,
-input[type="radio"]:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
+.setting-row .help { margin-top: var(--space-1); }
 
-/* --- Connection status (header pill + token row) --------------------------- */
+/* --- 1. Model ------------------------------------------------------------ */
 
-.status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-s);
-  color: var(--muted);
-}
-
-.status-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--status-idle);
-}
-
-.status--connected .status-dot { background: var(--status-connected); }
-.status--connecting .status-dot,
-.status--handshaking .status-dot,
-.status--handshake-timeout .status-dot { background: var(--status-connecting); }
-.status--disconnected .status-dot,
-.status--no-token .status-dot,
-.status--no-host .status-dot,
-.status--broker-untrusted .status-dot { background: var(--status-disconnected); }
-
-/* --- 1. Model ---------------------------------------------------------------- */
-
-.section--model > h2 { margin-bottom: var(--group-gap); }
-
-/* Current model: the one fact the page is opened for. */
-.current-model {
-  display: flex;
-  flex-direction: column;
-  gap: var(--group-gap);
-}
-
+/* The current model, over a pale background on its right: the sniffing
+ * coati once a model answers, a large "?" until then. Decoration only:
+ * behind the content, clipped by the card, never in the flow. */
 .current-line {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2) var(--space-4);
-  padding: var(--card-pad-l);
-  background: var(--card);
-  border-radius: calc(var(--radius) + 2px);
-  box-shadow: var(--shadow-raised);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.current-line::after {
+  position: absolute;
+  z-index: -1;
+  right: 96px;
+  bottom: -18px;
+  width: 168px;
+  height: 108px;
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+.current-line[data-model="set"]::after {
+  content: "";
+  background: url("illustrations/coati-sniff-screen.webp") no-repeat right bottom / contain;
+}
+
+.current-line[data-model="none"]::after {
+  content: "?";
+  right: 112px;
+  bottom: -40px;
+  width: auto;
+  height: auto;
+  font-size: 152px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--muted);
 }
 
 .current-text {
@@ -409,29 +168,9 @@ input[type="radio"]:focus-visible {
   min-width: 0;
 }
 
-.current-eyebrow {
-  font-size: var(--text-s);
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.current-name {
-  font-size: var(--fs-model);
-  line-height: 1.2;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-/* Set by options.js (fitCurrentName) only when the id is wider than the
- * line: wrapping is the last resort. */
-.current-name--wrap {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.current-where { color: var(--muted); }
-
-.current-state { font-weight: 500; }
+/* One line unless the id is wider than the card (options.js fitCurrentName). */
+.current-name { white-space: nowrap; }
+.current-name--wrap { white-space: normal; overflow-wrap: anywhere; }
 
 .current-state[data-tone="todo"],
 .service-state[data-tone="todo"] { color: var(--warning); }
@@ -441,112 +180,94 @@ input[type="radio"]:focus-visible {
 .current-test-result { grid-column: 1 / -1; }
 .current-test-result:empty { display: none; }
 
-/* Tabs "On this computer" / "Online": raised pills on a recessed track, two
- * equal halves at every width. Selected = raised card, heavier weight and a
- * caramel underline (never colour alone). */
 .model-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: var(--space-1);
-  margin-top: var(--group-gap);
-  padding: var(--space-1);
-  background: var(--surface);
-  border-radius: calc(var(--radius) + 2px);
-  box-shadow: var(--shadow-field);
+  margin-top: var(--space-2);
 }
 
-.model-tabs .model-tab {
-  padding: var(--space-2);
-  font-weight: 500;
-  color: var(--fg);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  box-shadow: none;
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
-.model-tabs .model-tab:hover {
-  background: var(--control-bg-hover);
-  border-color: transparent;
-  box-shadow: var(--shadow-raised);
+.tab-panel[hidden] { display: none; }
+
+.tab-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
-
-.model-tabs .model-tab:active {
-  background: var(--card);
-  box-shadow: var(--shadow-pressed);
-}
-
-.model-tabs .model-tab[aria-selected="true"] {
-  font-weight: 650;
-  background: var(--control-bg);
-  border-color: var(--control-border);
-  box-shadow: var(--shadow-raised), inset 0 -3px 0 var(--accent);
-}
-
-.model-tabs .model-tab:focus-visible {
-  box-shadow: var(--focus-ring);
-}
-
-.tab-panel { margin-top: var(--group-gap); }
-
-.tab-lead { margin-bottom: var(--block-gap); }
-
-.tab-block + .tab-block,
-.tab-block + .tab-folds,
-.tab-folds + .tab-block { margin-top: var(--block-gap); }
 
 .block-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-bottom: var(--space-2);
 }
-
-h3.block-title {
-  margin: 0 0 var(--space-2);
-  font-size: var(--text-l);
-  line-height: 1.35;
-  font-weight: 600;
-}
-
-.block-head > h3.block-title { margin: 0; }
 
 .model-field-slot:empty { display: none; }
-.model-field-slot { margin-top: var(--group-gap); }
+
+/* Installed models: lib/model-list.js rows in one card. */
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1);
+}
+
+.model-list:empty { display: none; }
+
+.model-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* The tab already says "On this computer": screen readers only. */
+.model-list-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.model-list .model-item { padding: var(--space-2); }
+
+.model-item-fit[data-fit="gpu"] { color: var(--success); }
+.model-item-fit[data-fit="shared"] { color: var(--warning); }
 
 /* Folds (<details>): the guide, "Speed up Ollama", LM Studio, "Add a
- * service" — a stack of divided rows with one chevron style. Inner folds
- * ("Other services", "Other address", a service's key and model) drop the
- * rules. */
-.tab-folds > .fold {
-  border-top: 1px solid var(--divider);
-}
-
-.tab-folds > .fold:last-child {
-  border-bottom: 1px solid var(--divider);
-}
+ * service", the legacy pairing. Inner folds drop the rules. */
+.tab-folds > .fold { border-top: 1px solid var(--divider); }
+.tab-folds > .fold:last-child { border-bottom: 1px solid var(--divider); }
 
 .fold > summary {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--row-min-height);
+  min-height: 44px;
   list-style: none;
   cursor: pointer;
-  font-size: var(--text-l);
   font-weight: 600;
   border-radius: var(--radius);
 }
 
 .fold > summary::-webkit-details-marker { display: none; }
 
-.fold > summary::before,
-.advanced summary::before {
+.fold > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.fold > summary::before {
   content: "";
   flex: none;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   margin: 0 var(--space-1);
   border-right: 2px solid var(--muted);
   border-bottom: 2px solid var(--muted);
@@ -554,49 +275,30 @@ h3.block-title {
   transition: transform 0.15s;
 }
 
-.fold[open] > summary::before,
-.advanced[open] summary::before { transform: rotate(45deg); }
-
-.fold > summary:hover::before,
-.advanced summary:hover::before { border-color: var(--fg); }
-
-.fold > summary:hover,
-.advanced summary:hover h2 {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 4px;
-}
+.fold[open] > summary::before { transform: rotate(45deg); }
 
 .fold-body {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: var(--group-gap);
-  padding: var(--space-1) 0 var(--group-gap);
+  gap: var(--space-3);
+  padding: var(--space-1) 0 var(--space-4);
 }
 
-.fold--inner > summary {
-  min-height: 32px;
-  font-size: var(--text-m);
-  font-weight: 500;
-}
-
+.fold--inner > summary { min-height: 32px; }
 .fold--inner > .fold-body { padding-bottom: var(--space-1); }
 
 @media (prefers-reduced-motion: reduce) {
-  .fold > summary::before,
-  .advanced summary::before { transition: none; }
+  .fold > summary::before { transition: none; }
 }
 
-/* Configured online services: one raised card each; the one in use carries
- * a caramel edge and a filled "In use" tag. */
+/* Configured online services: one card each. */
 .service-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .service {
@@ -604,15 +306,6 @@ h3.block-title {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2) var(--space-3);
-  min-height: var(--row-min-height);
-  padding: var(--space-3) var(--card-pad);
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-raised);
-}
-
-.service--active {
-  box-shadow: var(--shadow-raised), inset 4px 0 0 var(--accent);
 }
 
 .service-head {
@@ -628,16 +321,7 @@ h3.block-title {
   overflow-wrap: anywhere;
 }
 
-.service-tag,
-.setup-tag {
-  display: inline-block;
-  padding: 0 var(--space-2);
-  font-size: var(--text-s);
-  font-weight: 600;
-  color: var(--accent-fg);
-  background: var(--accent);
-  border-radius: 999px;
-}
+.service--active .service-name { color: var(--accent-mark); }
 
 .service-state { font-size: var(--text-s); }
 
@@ -653,73 +337,10 @@ h3.block-title {
 
 .service-result:empty { display: none; }
 
-/* "Remove" replaces the key component's own "Delete key" in a
- * row (same two-step confirm, one place to remove a service). */
+/* The row's own "Remove" replaces the key component's "Delete the key". */
 .service .key-input-delete { display: none; }
 
-.cap-links { margin: 0; }
-
-/* "Search the docs": service choice as two raised radio cards (Brave
- * first), the key component, then "Check" + its quota note and the folded
- * how-to. */
-.search-providers {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
-  gap: var(--space-2);
-  margin: var(--space-2) 0 var(--group-gap);
-}
-
-.search-provider,
-.setup-service {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--row-min-height);
-  padding: var(--space-3) var(--card-pad);
-  background: var(--control-bg);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-raised);
-  cursor: pointer;
-}
-
-.search-provider { font-weight: 600; }
-
-.search-provider:hover,
-.setup-service:hover {
-  background: var(--control-bg-hover);
-  box-shadow: var(--shadow-hover);
-}
-
-.search-provider:has(input:checked),
-.setup-service:has(input:checked) {
-  box-shadow: var(--shadow-raised), inset 0 0 0 2px var(--accent);
-}
-
-.search-provider input,
-.setup-model-choice input,
-.setup-service input {
-  width: var(--check-size);
-  height: var(--check-size);
-  margin: 0;
-  flex: none;
-}
-
-.search-check-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-3);
-  margin-top: var(--group-gap);
-}
-
-.search-check-row .help { margin: 0; }
-
-.search-block .fold--inner { margin-top: var(--space-2); }
-
-.search-guide-steps li + li { margin-top: var(--space-1); }
-
-/* --- Key entry component (lib/key-input.js) ---------------------------------
- * Shared by the active service's settings and the setup guide. */
+/* --- Key entry (lib/key-input.js) and other address --------------------- */
 
 .key-input {
   display: flex;
@@ -728,37 +349,32 @@ h3.block-title {
   min-width: 0;
 }
 
-.key-input-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.key-input-row > input {
-  flex: 1 1 12em;
-  min-width: 0;
-}
-
-.key-input-status-row {
+.key-input-row,
+.key-input-status-row,
+.baseurl-field {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--space-2);
 }
+
+.key-input-row > input,
+.baseurl-field > input { flex: 1 1 12em; min-width: 0; }
 
 .key-input-status {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  margin: 0;
   flex: 1 1 14em;
   color: var(--muted);
 }
 
-.key-input-status[data-tone="ok"] { color: var(--success); font-weight: 500; }
-.key-input-status[data-tone="error"] { color: var(--danger); }
-.key-input-mark:empty { display: none; }
+.key-input-status[data-tone="ok"] { color: var(--success); }
+.key-input-status[data-tone="error"],
+.baseurl-error { color: var(--danger); }
 .key-input-mark { font-weight: 700; }
+.key-input-mark:empty,
+.baseurl-error:empty { display: none; }
 
 .key-input-notes {
   margin: 0;
@@ -767,247 +383,58 @@ h3.block-title {
   color: var(--muted);
 }
 
-.key-input-notes li + li { margin-top: var(--space-1); }
+.baseurl-error { flex-basis: 100%; }
 
-.apikey-clear {
-  color: var(--danger);
-  background: var(--control-bg);
-  border-color: var(--control-border);
-}
-
-.apikey-clear:hover {
-  background: var(--banner-bg);
-  border-color: var(--control-border);
-}
-
-.apikey-clear:active {
-  background: var(--banner-bg);
-  border-color: var(--control-border);
-}
-
-.apikey-clear--confirm {
-  color: var(--bg);
-  background: var(--danger);
-  border-color: var(--danger);
-  font-weight: 600;
-}
-
-/* Same specificity as .apikey-clear:hover (0,2,0) — must declare its own
- * background explicitly, otherwise the base hover background (--banner-bg)
- * applies here too while the text stays --bg, losing contrast. */
-.apikey-clear--confirm:hover {
-  color: var(--bg);
-  background: var(--danger-hover);
-  border-color: var(--danger-hover);
-}
-
-.apikey-clear--confirm:active {
-  color: var(--bg);
-  background: var(--danger-active);
-  border-color: var(--danger-active);
-}
-
-/* "Other OpenAI-compatible address": preset select + address +
- * save. baseUrl is not a secret. */
-.baseurl-field {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.baseurl-field input[type="text"] {
-  flex: 1 1 12em;
-  min-width: 0;
-}
-
-.baseurl-error {
-  flex-basis: 100%;
-  color: var(--danger);
-}
-
-.baseurl-error:empty {
-  display: none;
-}
-
-/* --- "Test" results --------------------------------------------------------- */
+/* --- "Test" results ------------------------------------------------------ */
 
 .test-result--ok { color: var(--success); }
 .test-result--error { color: var(--danger); }
 
-.test-result-headline { display: block; }
-.test-result-detail {
-  display: block;
-  margin-top: var(--space-1);
-  color: var(--muted);
-  font-size: var(--text-s);
-}
-.test-result-command {
-  display: block;
-  margin-top: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  background: var(--field-bg);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-field);
-  font-family: monospace;
-  font-size: var(--text-s);
-  cursor: text;
-  user-select: all;
-}
+.test-result-headline,
+.test-result-detail,
+.test-result-command { display: block; }
+
+.test-result-detail,
+.test-result-command,
 .test-result-copy { margin-top: var(--space-1); }
 
-/* --- Available models (lib/model-list.js) ---------------------------------------
- * Same list as the panel's model menu, as toggle buttons (aria-pressed) that
- * look like choices: raised rows, ≥ 44 px, the current one with a caramel
- * edge, a filled mark and a heavier name. Overrides the page-wide primary <button>. */
-
-.model-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  width: 100%;
-}
-
-.model-list-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-/* The tab already says "On this computer": the list's own group heading
- * stays for screen readers only. */
-.model-list-heading {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
-.model-list .model-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  width: 100%;
-  min-height: var(--row-min-height);
-  padding: var(--space-3) var(--card-pad);
-  font-weight: 400;
-  line-height: var(--line-height);
-  text-align: left;
-  color: var(--fg);
-  background: var(--card);
-  border: 1px solid var(--control-border);
-  box-shadow: var(--shadow-raised);
-}
-
-.model-list .model-item:hover {
-  background: var(--card-hover);
-  border-color: var(--control-border);
-  box-shadow: var(--shadow-hover);
-}
-
-.model-list .model-item:active {
-  background: var(--card);
-  border-color: var(--control-border);
-  box-shadow: var(--shadow-pressed);
-}
-
-.model-list .model-item--current,
-.model-list .model-item--current:hover {
-  box-shadow: var(--shadow-raised), inset 4px 0 0 var(--accent);
-}
-
-.model-list .model-item:focus-visible {
-  box-shadow: var(--focus-ring);
-}
-
-/* Radio-like mark: an empty ring for every choice, filled (caramel ring and
- * dot) for the model in use — the shape says it, not the colour alone. The
- * ✓ glyph lib/model-list.js writes is kept for screen readers' sake only
- * (aria-hidden anyway) and not drawn. */
-.model-item-check {
-  flex: none;
-  width: var(--check-size);
-  height: var(--check-size);
-  margin-top: 2px;
-  font-size: 0;
-  border: 2px solid var(--border);
-  border-radius: 50%;
-}
-
-.model-item--current .model-item-check {
-  border-color: var(--fg);
-  background: radial-gradient(circle, var(--fg) 0 3.5px, transparent 4px);
-}
-
-.model-item-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.model-item-name {
-  font-weight: 500;
-  overflow-wrap: anywhere;
-}
-
-.model-item--current .model-item-name {
-  font-weight: 650;
-}
-
-.model-item-detail,
-.model-item-note {
+.test-result-detail {
   font-size: var(--text-s);
   color: var(--muted);
 }
 
-/* The fit note carries its meaning in words; the tone only supports it. */
-.model-item-fit[data-fit="gpu"] { color: var(--success); }
-.model-item-fit[data-fit="shared"] { color: var(--warning); }
-
-.model-list-note {
-  margin: 0;
-  padding: var(--space-1) 0;
-  color: var(--muted);
+.test-result-command,
+.setup-command-text {
+  padding: var(--space-2) var(--space-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--text-s);
+  overflow-wrap: anywhere;
+  user-select: all;
 }
 
-/* Too big for this machine — still selectable, only muted; the
- * words "too big for this computer" carry the meaning, not colour. */
-.model-item--too-big .model-item-name {
-  color: var(--muted);
-}
+/* --- 3. Shortcut, 4. Sites, 6. About ------------------------------------ */
 
-/* --- 3. Shortcut ------------------------------------------------------------ */
-
-.shortcut-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-}
-
+.shortcut-keys-row,
 .shortcut-keys {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1);
-  margin-right: auto;
+  gap: var(--space-2);
 }
 
+.shortcut-keys { gap: var(--space-1); }
+
 kbd {
-  display: inline-block;
   min-width: 24px;
   padding: 0 var(--space-2);
   font-family: inherit;
   font-size: var(--text-s);
   font-weight: 600;
-  line-height: 20px;
+  line-height: 22px;
   text-align: center;
-  color: var(--fg);
   background: var(--card);
-  border: 1px solid var(--divider);
-  border-bottom: 2px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
 }
 
 .shortcut-plus,
@@ -1016,17 +443,13 @@ kbd {
   color: var(--muted);
 }
 
-.shortcut-row + .help { margin: var(--space-2) 0 0; }
-
-/* --- 4. Sites ---------------------------------------------------------------- */
-
 .site-toggles {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .site-toggle label {
@@ -1036,290 +459,131 @@ kbd {
   cursor: pointer;
 }
 
-/* --- 6. About ---------------------------------------------------------------- */
+.site-toggle input { margin: 0; }
 
 .about-list {
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: var(--space-2) var(--space-4);
-  margin: var(--group-gap) 0 0;
+  margin: 0;
 }
 
 .about-list dt { color: var(--muted); }
 .about-list dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 
-/* --- 7. Advanced (Flatpak/Snap) ------------------------------------------------ */
+/* --- Setup guide (options-setup.js): numbered step cards ----------------- */
 
-.advanced summary {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  list-style: none;
-  cursor: pointer;
-  border-radius: var(--radius);
-}
-
-.advanced summary::-webkit-details-marker { display: none; }
-
-.advanced summary h2 { margin: 0; }
-
-.advanced-body {
-  margin-top: var(--group-gap);
-  display: flex;
-  flex-direction: column;
-  gap: var(--group-gap);
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-/* --- Setup guide (options-setup.js), inside the tabs --------------------------
- * Each step is a raised card: a 28 px numbered mark, then the text. */
-
-/* The one-line "why" with the coati icon, shown while no model answers yet. */
 .setup-intro {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.setup-intro p { margin: 0; }
-.setup-intro .help { margin-top: var(--space-1); }
-
-.setup-illustration {
-  flex: none;
-  width: 112px;
-  height: auto;
-  align-self: center;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .setup-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--group-gap);
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .setup-step {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   gap: var(--space-3);
-  padding: var(--card-pad);
-  background: var(--card);
-  border-radius: calc(var(--radius) + 2px);
-  box-shadow: var(--shadow-raised);
 }
 
 .setup-step-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   width: 28px;
   height: 28px;
   border-radius: 50%;
   font-size: var(--text-s);
   font-weight: 600;
-  color: var(--fg);
   background: var(--surface);
 }
 
-/* Done / failed: coloured glyph and ring on the card — same text-on-card
- * contrast as the success/danger lines. */
-.setup-step[data-state="done"] .setup-step-mark {
-  color: var(--success);
-  background: var(--card);
-  border: 2px solid var(--success);
-}
+.setup-step[data-state="done"] .setup-step-mark { color: var(--success); background: none; border: 2px solid var(--success); }
+.setup-step[data-state="failed"] .setup-step-mark { color: var(--danger); background: none; border: 2px solid var(--danger); }
 
-.setup-step[data-state="failed"] .setup-step-mark {
-  color: var(--danger);
-  background: var(--card);
-  border: 2px solid var(--danger);
-}
-
-.setup-step-main {
+.setup-step-main,
+.setup-step-body,
+.setup-speedup-os,
+.setup-services {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
-  padding-top: var(--space-1);
 }
 
-h3.setup-step-title {
-  margin: 0;
-  font-size: var(--text-l);
-  line-height: 1.25;
-  font-weight: 600;
-}
+.setup-step-main { padding-top: 3px; }
 
-.setup-step-body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
+.setup-step-body { align-items: flex-start; }
 
 .setup-step-body > * { max-width: 100%; }
 
-.setup-text,
-.setup-links {
-  margin: 0;
-}
-
-.setup-links {
+.setup-links,
+.setup-command,
+.setup-env-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-3);
+  width: 100%;
 }
 
-.setup-other-os {
+.setup-other-os,
+.setup-env-value,
+.setup-model-fit,
+.setup-service-detail {
   font-size: var(--text-s);
   color: var(--muted);
 }
 
-.setup-primary-link {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-2) var(--space-4);
-  line-height: var(--control-line);
-  font-weight: 500;
-  color: var(--accent-fg);
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-raised);
-  text-decoration: none;
-}
+.setup-os-list { margin: 0; padding-left: var(--space-5); }
 
-.setup-primary-link:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  box-shadow: var(--shadow-hover);
-}
+.setup-speedup-steps > li + li { margin-top: var(--space-2); }
+.setup-speedup-steps > li > * + * { margin-top: var(--space-1); }
 
-.setup-primary-link:active {
-  background: var(--accent-active);
-  border-color: var(--accent-active);
-  box-shadow: var(--shadow-pressed);
-}
-
-.setup-os-list {
-  margin: 0;
-  padding-left: var(--space-5);
-}
-
-.setup-step-result {
-  margin: 0;
-  color: var(--muted);
-}
-
+.setup-step-result { color: var(--muted); }
 .setup-step[data-state="done"] > .setup-step-main > .setup-step-result,
 .setup-step-result[data-tone="ok"] { color: var(--success); }
 .setup-step[data-state="failed"] > .setup-step-main > .setup-step-result,
 .setup-step-result[data-tone="error"] { color: var(--danger); }
 
-.setup-command {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-}
+.setup-command-text { flex: 1 1 14em; min-width: 0; }
+.setup-command-text--block { white-space: pre-wrap; }
 
-.setup-command-text {
-  flex: 1 1 14em;
-  min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: var(--text-s);
-  background: var(--field-bg);
-  border: 1px solid var(--divider);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-field);
-  overflow-wrap: anywhere;
-}
+.setup-env-row > .setup-command { flex: 1 1 16em; width: auto; }
 
-/* Several lines pasted as one (systemd's [Service] block). */
-.setup-command-text--block {
-  white-space: pre-wrap;
-}
-
-/* "Speed up Ollama": one short block per OS, this machine's first. */
-.setup-speedup-os {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  width: 100%;
-}
-
-.setup-speedup-os-title {
+.setup-speedup-os-title,
+h4.setup-subtitle {
   margin: var(--space-2) 0 0;
   font-size: var(--text-m);
   font-weight: 600;
 }
 
-/* Plain list items (a flex <li> would lose its number). */
-.setup-speedup-steps > li + li {
-  margin-top: var(--space-2);
-}
+.setup-table-wrap { width: 100%; overflow-x: auto; }
 
-.setup-speedup-steps > li > * + * {
-  margin-top: var(--space-1);
-}
+.setup-models { width: 100%; border-collapse: collapse; }
 
-.setup-env-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-3);
-  width: 100%;
-}
-
-.setup-env-row > .setup-command {
-  flex: 1 1 16em;
-  width: auto;
-}
-
-.setup-env-value {
-  font-size: var(--text-s);
-  color: var(--muted);
-}
-
-.setup-table-wrap {
-  width: 100%;
-  overflow-x: auto;
-}
-
-.setup-models {
-  width: 100%;
-  border-collapse: collapse;
+.setup-models th,
+.setup-models td {
+  padding: var(--space-2);
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--divider);
 }
 
 .setup-models th {
-  padding: var(--space-1) var(--space-2);
-  text-align: left;
   font-size: var(--text-s);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--muted);
-  border-bottom: 1px solid var(--divider);
 }
 
-.setup-models td {
-  padding: var(--space-2);
-  border-bottom: 1px solid var(--divider);
-  vertical-align: middle;
-}
-
-.setup-model-row--suggested td {
-  background: var(--surface);
-}
+.setup-model-row--suggested td { background: var(--accent-tint); }
 
 .setup-model-choice {
   display: inline-flex;
@@ -1333,30 +597,9 @@ h3.setup-step-title {
   overflow-wrap: anywhere;
 }
 
-.setup-tag--installed {
-  font-weight: 500;
-  color: var(--fg);
-  background: var(--surface);
-}
-
-/* Download suggestions filtered by the machine. */
-.setup-model-fit {
-  font-size: var(--text-s);
-  color: var(--muted);
-}
-
-.setup-memory-hint:empty {
-  display: none;
-}
-
-h4.setup-subtitle {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-m);
-  font-weight: 600;
-}
+.setup-memory-hint:empty { display: none; }
 
 .setup-warning {
-  margin: 0;
   padding: var(--space-3) var(--space-4);
   color: var(--banner-fg);
   background: var(--banner-bg);
@@ -1364,97 +607,83 @@ h4.setup-subtitle {
   border-radius: var(--radius);
 }
 
-.setup-services {
+.setup-services { gap: 2px; padding: var(--space-1); }
+
+.setup-service {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-2);
-  width: 100%;
+  padding: var(--space-2);
 }
 
-.setup-service { align-items: flex-start; }
+.setup-service input { margin: 3px 0 0; }
 
-.setup-service input { margin-top: var(--space-1); }
+.setup-service-text { display: flex; flex-direction: column; min-width: 0; }
 
-.setup-service-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
+/* --- Narrow: the menu becomes a row above the content -------------------- */
 
-.setup-service-name { font-weight: 600; }
+@media (max-width: 720px) {
+  :root { --page-pad-x: 16px; }
 
-.setup-service-detail {
-  font-size: var(--text-s);
-  color: var(--muted);
-}
-
-/* --- Narrow ----------------------------------------------------------------- */
-
-@media (max-width: 560px) {
-  :root {
-    --page-pad-x: 16px;
-    --card-pad-l: 16px;
-  }
-  .setup-intro { gap: var(--space-3); }
-  .setup-illustration { width: 88px; }
-}
-
-@media (max-width: 480px) {
-  :root { --fs-model: 16px; }
-
-  /* Band: title + language on one line, status underneath. */
-  .page-head-inner {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "title lang" "status status";
-  }
-  .page-head .status { justify-self: start; }
-
-  /* Current model: the id gets the full width, "Test" goes under it. */
-  .current-line { grid-template-columns: minmax(0, 1fr); }
-  .current-test { justify-self: start; }
-
-  /* A service row stacks: name and state, then its buttons. */
-  .service { grid-template-columns: minmax(0, 1fr); }
-  .service-actions { justify-content: flex-start; }
-
-  .setup-step { padding: var(--space-3); }
-
-  /* Each suggestion row stacks into a block — line 1: choice + tags, line 2:
-   * size · fit, aligned under the name. Table roles are set explicitly in
-   * options-setup.js, so the display change keeps the semantics. */
-  .setup-models--host,
-  .setup-models--host tbody {
+  .page {
     display: block;
-    width: 100%;
+    padding-top: 0;
   }
 
-  .setup-models--host thead,
-  .setup-models--host thead tr,
-  .setup-models--host thead th {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  /* Left padding = radio + its gap: line 2 (and its wrapped lines) align
-   * with the model name; line 1 pulls the radio back into it. */
-  .setup-models--host tr {
-    display: block;
-    padding: var(--space-2) var(--space-2) var(--space-2) calc(var(--space-2) + var(--check-size) + var(--space-2));
+  .section-nav {
+    top: 0;
+    z-index: 5;
+    flex-direction: row;
+    gap: var(--space-1);
+    margin: 0 calc(-1 * var(--page-pad-x)) var(--space-4);
+    padding: var(--space-2) var(--page-pad-x);
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: var(--bg);
     border-bottom: 1px solid var(--divider);
   }
 
-  .setup-models--host .setup-model-row--suggested {
-    background: var(--surface);
+  .section-nav .c-row {
+    flex: none;
+    white-space: nowrap;
   }
 
-  .setup-models--host td,
-  .setup-models--host .setup-model-row--suggested td {
+  .section { scroll-margin-top: 64px; }
+}
+
+@media (max-width: 480px) {
+  .current-line { grid-template-columns: minmax(0, 1fr); }
+  .current-line::after { right: -12px; }
+  .current-line[data-model="none"]::after { right: 8px; }
+  .current-test { justify-self: start; }
+
+  .setting-row { gap: var(--space-3); }
+
+  .service { grid-template-columns: minmax(0, 1fr); }
+  .service-actions { justify-content: flex-start; }
+
+  /* Each suggestion row stacks: choice + tags, then size · fit under the
+   * name. Table roles are set in options-setup.js, so the semantics hold. */
+  .setup-models--host,
+  .setup-models--host tbody { display: block; width: 100%; }
+
+  .setup-models--host thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .setup-models--host tr {
+    display: block;
+    padding: var(--space-2) var(--space-2) var(--space-2) calc(var(--space-4) + 16px);
+    border-bottom: 1px solid var(--divider);
+  }
+
+  .setup-models--host .setup-model-row--suggested { background: var(--accent-tint); }
+
+  .setup-models--host td {
     display: inline;
     padding: 0;
     border: none;
@@ -1463,13 +692,10 @@ h4.setup-subtitle {
 
   .setup-models--host td:first-child {
     display: block;
-    margin: 0 0 var(--space-1) calc(-1 * (var(--check-size) + var(--space-2)));
+    margin: 0 0 var(--space-1) calc(-8px - 16px);
   }
 
-  /* Separator only between two present parts, glued to the fit text's
-   * first word (no-break space) so it never dangles at a line end. */
   .setup-models--host .setup-model-size + .setup-model-fit::before {
     content: " \00b7\00a0";
-    color: var(--muted);
   }
 }

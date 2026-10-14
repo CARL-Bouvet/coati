@@ -33,6 +33,7 @@ textarea {
   --muted: var(--header-muted);
   --surface: var(--header-surface);
   --accent: var(--header-accent);
+  --accent-mark: var(--header-accent);
   --status-connected: var(--header-status-connected);
   --status-connecting: var(--header-status-connecting);
   --status-disconnected: var(--header-status-disconnected);
@@ -46,68 +47,10 @@ textarea {
   color: var(--fg);
 }
 
-.topbar .icon-button {
-  color: var(--fg);
-}
-
 .header-tools {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-}
-
-/* Language selector (U1) — mounted by lib/language-selector.js. The compact
- * button matches #openOptions exactly (same .icon-button base: same size,
- * padding, hover surface); only the content and font-size differ, since a
- * 2-character code ("EN", "FR") needs less room than the gear glyph. */
-.lang-selector {
-  position: relative;
-}
-
-.lang-button {
-  font-size: var(--text-s);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  min-width: 1.8em;
-  text-align: center;
-}
-
-.lang-menu {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  min-width: 10em;
-  padding: var(--space-1);
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--overlay-shadow);
-}
-
-.lang-menu-item {
-  border: none;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius);
-  cursor: pointer;
-  font-size: var(--text-m);
-}
-
-.lang-menu-item:hover,
-.lang-menu-item:focus-visible {
-  background: var(--surface);
-  outline: none;
-}
-
-.lang-menu-item--active {
-  font-weight: 600;
-  color: var(--accent);
 }
 
 .brand {
@@ -121,21 +64,6 @@ textarea {
   font-weight: 600;
 }
 
-.status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--text-s);
-  color: var(--muted);
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--status-idle);
-}
-
 /* Model-missing problem: the status text itself
  * becomes a button opening the model menu — underline on hover/focus is
  * enough, no colour change (it isn't an error, just an actionable detail). */
@@ -147,16 +75,6 @@ textarea {
 .status-label--action:focus-visible {
   text-decoration: underline;
 }
-
-.status--connected .status-dot { background: var(--status-connected); }
-.status--connecting .status-dot,
-.status--handshaking .status-dot,
-.status--handshake-timeout .status-dot { background: var(--status-connecting); }
-.status--disconnected .status-dot,
-.status--no-token .status-dot,
-.status--no-host .status-dot,
-.status--broker-untrusted .status-dot { background: var(--status-disconnected); }
-.status--pairing-retry .status-dot { background: var(--status-connecting); }
 
 /* Model pill + menu: right after "Connected". The
  * brand row wraps, so on a 320 px panel the pill drops under the status
@@ -278,69 +196,21 @@ textarea {
   color: var(--muted);
 }
 
-.model-item,
+/* Model rows: lib/components.css. An inert row: the list row's box, highlighted on keyboard focus only. */
 .model-list-note {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  width: 100%;
   border: none;
   background: transparent;
-  color: inherit;
+  color: var(--muted);
   text-align: left;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius);
   font-size: var(--text-m);
-}
-
-.model-item {
-  cursor: pointer;
-}
-
-.model-item:hover,
-.model-item:focus-visible,
-.model-list-note:focus-visible {
-  background: var(--surface);
-  outline: none;
-}
-
-.model-list-note {
-  color: var(--muted);
   cursor: default;
 }
 
-.model-item-check {
-  flex: none;
-  width: 1em;
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.model-item-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.model-item-name {
-  overflow-wrap: anywhere;
-}
-
-.model-item--current .model-item-name {
-  font-weight: 600;
-  color: var(--accent);
-}
-
-.model-item-detail,
-.model-item-note {
-  font-size: var(--text-s);
-  color: var(--muted);
-}
-
-/* Too big for this machine — still selectable, only muted; the
- * words "too big for this computer" carry the meaning, not colour. */
-.model-item--too-big .model-item-name {
-  color: var(--muted);
+.model-list-note:focus-visible {
+  background: var(--surface);
+  outline: none;
 }
 
 /* "Add a model…": no checkmark column, aligned with the names. */
@@ -404,97 +274,6 @@ textarea {
   background: var(--accent-hover);
 }
 
-.icon-button {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: var(--text-l);
-  padding: var(--space-1);
-  border-radius: var(--radius);
-}
-
-.icon-button:hover {
-  background: var(--surface);
-}
-
-/* Secondary buttons: raised card, lifted on hover, pressed in on click. */
-.toolbar-button {
-  border: 1px solid var(--control-border);
-  background: var(--card);
-  box-shadow: var(--shadow-raised);
-  border-radius: var(--radius);
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-m);
-  cursor: pointer;
-  color: var(--fg);
-}
-
-.toolbar-button:hover {
-  background: var(--card-hover);
-  box-shadow: var(--shadow-hover);
-}
-
-.toolbar-button:active {
-  box-shadow: var(--shadow-pressed);
-}
-
-.toolbar-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.toolbar-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: var(--card);
-  box-shadow: none;
-}
-
-.toolbar-button--primary {
-  background: var(--accent);
-  color: var(--accent-fg);
-  border-color: var(--accent);
-}
-
-/* .toolbar-button--primary:hover has the same specificity (0,2,0) as
- * .toolbar-button:hover above; it must declare its own background
- * explicitly to win the cascade, otherwise the generic hover background
- * (--surface) applies while the text stays --accent-fg, losing contrast. */
-.toolbar-button--primary:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  color: var(--accent-fg);
-}
-
-.toolbar-button--primary:active {
-  background: var(--accent-active);
-  border-color: var(--accent-active);
-  color: var(--accent-fg);
-}
-
-.link-button {
-  border: none;
-  background: transparent;
-  color: var(--link);
-  font: inherit;
-  font-size: var(--text-s);
-  text-decoration: underline;
-  cursor: pointer;
-  padding: var(--space-1) 2px;
-}
-
-.link-button:hover {
-  filter: brightness(0.85);
-}
-
-.link-button--danger {
-  color: var(--muted);
-}
-
-.link-button--danger:hover {
-  color: var(--danger);
-}
-
 /* "Saved for <site>" — the disquette's calm, temporary confirmation (no
  * title asked, no dialog), right above the field. Wraps instead of
  * truncating: the unknown-address notice must be read whole at 320 px. */
@@ -537,7 +316,7 @@ textarea {
   flex: 1 1 12em;
 }
 
-body:has(> .messages:empty) .thread-bar .link-button--danger {
+body:has(> .messages:empty) .thread-bar .c-link--danger {
   display: none;
 }
 
@@ -546,7 +325,7 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
 }
 
 /* "Conversation cleared · Undo": a small tinted band, Undo in bold. */
-.history-notice:has(> .link-button) {
+.history-notice:has(> .c-link) {
   flex: 0 1 auto;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius);
@@ -554,7 +333,7 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
   color: var(--fg);
 }
 
-.history-notice > .link-button {
+.history-notice > .c-link {
   padding: 0 2px;
   font-weight: 600;
 }
@@ -968,7 +747,7 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
 }
 
 /* The composer: a raised card at the foot of the panel. Notices first, then
- * the field (💾 inside it: it saves what was typed), then Send. */
+ * the field (the save button inside it saves what was typed), then Send. */
 .composer {
   display: flex;
   flex-direction: column;
@@ -1019,7 +798,6 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
  * small recessed vertical track with three notches, bottom = subtle,
  * top = spectacular; the chosen notch is the larger caramel dot. */
 .point-level {
-  position: relative;
   display: inline-flex;
   flex-direction: column-reverse;
   vertical-align: middle;
@@ -1062,22 +840,12 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
   outline-offset: 2px;
 }
 
-/* Recessed field shared by the textarea and the 💾 button; the focus ring
- * stays on while the textarea has focus. */
+/* One recessed field (.c-field) around the textarea and the save button. */
 .composer-field {
   display: flex;
   align-items: flex-end;
   gap: var(--space-1);
   padding-right: var(--space-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--field-bg);
-  box-shadow: var(--shadow-field);
-}
-
-.composer-field:has(> .composer-input:focus) {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-field), var(--focus-ring);
 }
 
 /* One line at rest; composer-autogrow.js sets the height (CSSOM) as the text
@@ -1088,25 +856,19 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
   min-width: 0;
   resize: none;
   overflow-y: hidden;
-  font-family: inherit;
-  font-size: var(--text-m);
-  line-height: var(--line-height);
-  padding: var(--space-2);
   border: none;
   outline: none;
   background: transparent;
-  color: var(--fg);
 }
 
 .composer-input--overflow {
   overflow-y: auto;
 }
 
-/* Its tooltip is its own aria-label, on hover and on keyboard focus. While
- * the field is empty it is aria-disabled (still focusable, so the tooltip
- * stays readable): the icon alone fades to grey. */
+/* Its tooltip (.c-tooltip) is its own aria-label. While the field is empty
+ * it is aria-disabled (still focusable, so the tooltip stays readable): the
+ * icon alone fades. */
 .save-prompt {
-  position: relative;
   flex: none;
   margin-bottom: var(--space-1);
   line-height: 20px;
@@ -1120,8 +882,7 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
   background: transparent;
 }
 
-.save-prompt[aria-disabled="true"] .save-prompt-icon {
-  filter: grayscale(1);
+.save-prompt[aria-disabled="true"] .c-icon {
   opacity: 0.4;
 }
 
@@ -1219,10 +980,9 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
   }
 }
 
-/* Tooltips drawn from the control's own accessible text, on hover and on
- * keyboard focus: 💾's label, the "Show" slider's current level. */
+/* Tooltip anchors (.c-tooltip): the save button's label, the "Show"
+ * slider's current level. */
 .save-prompt::after {
-  content: attr(aria-label);
   right: 0;
 }
 
@@ -1232,81 +992,10 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
   transform: translateX(-50%);
 }
 
-:is(.save-prompt, .point-level)::after {
-  position: absolute;
-  bottom: calc(100% + var(--space-2));
-  z-index: 10;
-  width: max-content;
-  max-width: 220px;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius);
-  background: var(--header-bg);
-  color: var(--header-fg);
-  box-shadow: var(--overlay-shadow);
-  font-size: var(--text-s);
-  line-height: 1.3;
-  text-align: left;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 0.12s ease, visibility 0.12s;
-}
-
-:is(.save-prompt, .point-level):is(:hover, :focus-visible)::after {
-  opacity: 1;
-  visibility: visible;
-}
-
 .composer-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
-}
-
-.composer-button {
-  border: none;
-  background: var(--accent);
-  color: var(--accent-fg);
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-raised);
-  cursor: pointer;
-  font-size: var(--text-m);
-  font-weight: 600;
-}
-
-.composer-button:hover {
-  background: var(--accent-hover);
-  box-shadow: var(--shadow-hover);
-}
-
-.composer-button:active {
-  background: var(--accent-active);
-  box-shadow: var(--shadow-pressed);
-}
-
-.composer-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.composer-button--ghost,
-.composer-button--ghost:active {
-  background: transparent;
-  color: var(--danger);
-  border: 1px solid var(--banner-border);
-  box-shadow: none;
-}
-
-.composer-button--ghost:hover {
-  background: var(--banner-bg);
-  box-shadow: none;
-}
-
-.composer-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  box-shadow: none;
 }
 
 .build-info {
@@ -1383,9 +1072,6 @@ html.mode-dev .message--assistant {
 
 .search-sources-title {
   margin: 0 0 var(--space-1);
-  font-size: var(--text-s);
-  font-weight: 600;
-  color: var(--muted);
 }
 
 .search-sources-list {

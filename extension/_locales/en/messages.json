@@ -733,6 +733,9 @@
   "options_model_title": {
     "message": "Model"
   },
+  "options_nav_label": {
+    "message": "Settings sections"
+  },
   "options_model_help": {
     "message": "The model that answers your requests. This choice is saved by the local program, on this machine."
   },

@@ -103,7 +103,7 @@ function appendLine(node, className, text) {
 function buildSearchButton(msg, query) {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "toolbar-button search-suggest-button";
+  button.className = "c-button search-suggest-button";
   button.textContent = t("panel_search_button", [query]);
   button.addEventListener("click", () => {
     if (panelState.activeRequestId) return;
@@ -122,7 +122,7 @@ function buildSearchAccessBlock(msg) {
   appendLine(wrap, "search-status-line", t("panel_search_needs_access"));
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "toolbar-button";
+  button.className = "c-button";
   button.textContent = t("panel_search_allow");
   button.addEventListener("click", async () => {
     const granted = await api.permissions.request({ origins: ALL_SITES_ORIGINS }).catch(() => false);
@@ -145,7 +145,7 @@ function buildSearchConfirmBlock(msg, query) {
   for (const [allowed, key] of [[true, "panel_search_confirm_allow"], [false, "panel_search_confirm_refuse"]]) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = allowed ? "toolbar-button toolbar-button--primary" : "toolbar-button";
+    button.className = allowed ? "c-button c-button--primary" : "c-button";
     button.textContent = t(key);
     button.addEventListener("click", () => answerSearchConfirm(msg.id, allowed));
     wrap.appendChild(button);
@@ -165,7 +165,7 @@ function buildSearchMentionBlock(msg) {
   details.appendChild(summary);
   const addList = (title, items) => {
     if (items.length === 0) return;
-    appendLine(details, "search-sources-title", title);
+    appendLine(details, "c-section-title search-sources-title", title);
     const list = document.createElement("ul");
     list.className = "search-sources-list";
     for (const item of items) {
@@ -198,7 +198,7 @@ function buildSearchMentionBlock(msg) {
 function buildSourcesBlock(sources) {
   const wrap = document.createElement("div");
   wrap.className = "search-sources";
-  appendLine(wrap, "search-sources-title", t("panel_sources_title"));
+  appendLine(wrap, "c-section-title search-sources-title", t("panel_sources_title"));
   const list = document.createElement("ul");
   list.className = "search-sources-list";
   for (const source of sources) {

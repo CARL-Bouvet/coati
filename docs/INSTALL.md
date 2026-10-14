@@ -13,8 +13,9 @@ No step needs administrator rights.
 
 From the [releases page](https://github.com/CARL-Bouvet/coati/releases), take from the same
 release: the executable for your system (`coati-broker-linux-x64`/`-arm64`,
-`coati-broker-darwin-arm64`/`-x64`, `coati-broker-windows-x64.exe`), `SHA256SUMS`, and the
-"Source code" archive (install scripts + templates). Decompress the source archive, then verify:
+`coati-broker-darwin-arm64`/`-x64`, `coati-broker-windows-x64.exe`), `SHA256SUMS`, the
+extension for your browser (`coati-chrome.zip` or `coati-firefox.zip`), and the "Source code"
+archive (install scripts + templates). Decompress the source archive, then verify:
 
 ```sh
 sha256sum --check --ignore-missing SHA256SUMS                    # Linux
@@ -63,20 +64,24 @@ opening a port.
 
 ## 4. Load the extension
 
-The extension is the `extension/` folder of the decompressed source archive — don't move or
-delete it.
+Take the extension from the release assets: unzip `coati-chrome.zip` (Chrome, Chromium, Brave,
+Edge) or `coati-firefox.zip` (Firefox) into a folder you keep — don't move or delete it. Their
+checksums are in `SHA256SUMS`. Alternative: the `extension/` folder of the decompressed source
+archive works the same way for Chrome-family browsers.
 
 **Chrome, Chromium, Brave, Edge**: open the extensions page (`chrome://extensions`,
 `brave://extensions`, `edge://extensions`), enable **Developer mode**, **Load unpacked**, pick
-`extension/`. The id is fixed by the manifest's `key`, so pairing works immediately, even after a
-reload. After an update: replace the folder's contents, click **Reload**.
+the unzipped folder (or `extension/`). The id is fixed by the manifest's `key`, so pairing works
+immediately, even after a reload. After an update: replace the folder's contents, click
+**Reload**.
 
 **Firefox**: needs a real `manifest.json` on disk, not a zip.
 
-- *Temporary (dev)*: `./scripts/build.sh` → `dist/stage/firefox/`; declare the native host once
-  with `bash scripts/dev-native-host.sh --all`; in Firefox,
-  `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** → pick
-  `dist/stage/firefox/manifest.json`. Disappears on restart; after a code change, rebuild and
+- *Temporary*: unzip `coati-firefox.zip` (or build it: `./scripts/build.sh` →
+  `dist/stage/firefox/`); declare the native host once with
+  `bash scripts/dev-native-host.sh --all` (from the source archive); in Firefox,
+  `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** → pick the unzipped
+  `manifest.json`. Disappears on restart; after a code change, rebuild and
   click **Reload**.
 - *Permanent*: Firefox requires AMO signing even for personal use. Create a free account at
   [addons.mozilla.org/developers](https://addons.mozilla.org/developers/), build

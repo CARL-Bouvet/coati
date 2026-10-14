@@ -257,7 +257,7 @@ async function renderFirstRunLang() {
   );
   const change = document.createElement("button");
   change.type = "button";
-  change.className = "link-button";
+  change.className = "c-link";
   change.textContent = t("panel_first_run_lang_change");
   change.addEventListener("click", () => langSelector.open());
   els.firstRunLang.appendChild(change);
@@ -340,7 +340,7 @@ function firstRunStep(check, value, onAction, extraNode) {
     if (extraNode) body.appendChild(extraNode);
     const action = document.createElement("button");
     action.type = "button";
-    action.className = "toolbar-button first-run-action";
+    action.className = "c-button c-button--small first-run-action";
     action.textContent = text.action;
     action.addEventListener("click", onAction);
     body.appendChild(action);

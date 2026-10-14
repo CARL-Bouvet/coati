@@ -12,6 +12,7 @@ import { ALL_SITES_ORIGINS } from "../panel/read-button.js";
 import Sortable from "../vendor/sortable/sortable.esm.js";
 import { coatiItemsForSite, computeCaseItems as computeCaseItemsPure, buildCaseDescriptors as buildCaseDescriptorsPure, replaceInOrder } from "./prompts-cases.js";
 import { t, applyI18n, reloadOnLanguageChange } from "../lib/i18n-page.js";
+import { createIcon } from "../lib/icons.js";
 
 applyI18n(document);
 
@@ -246,9 +247,8 @@ function buildRowsList(siteKey, items) {
   return list;
 }
 
-// Head case (Romain's
-// correction at goal launch): full board width, coloured background, NO
-// case title of its own — two parts instead:
+// Head case: first card, full board width, NO case title of its own — two
+// parts instead:
 //   - "*" ("On all sites"): the only heading in the case, always
 //     shown (heading + muted empty line when empty, same as any other
 //     always-shown case);
@@ -258,7 +258,7 @@ function buildRowsList(siteKey, items) {
 //     part. The literal string "@unsorted" never reaches the DOM.
 function buildHeadCaseElement() {
   const section = document.createElement("section");
-  section.className = "prompt-case prompt-case--head";
+  section.className = "c-card prompt-case prompt-case--head";
 
   const parts = document.createElement("div");
   parts.className = "prompt-case-head-parts";
@@ -266,7 +266,7 @@ function buildHeadCaseElement() {
   const part1 = document.createElement("div");
   part1.className = "prompt-case-head-part";
   const heading = document.createElement("h2");
-  heading.className = "prompt-case-title";
+  heading.className = "c-title prompt-case-title";
   heading.textContent = t("prompts_all_sites_heading");
   part1.appendChild(heading);
 
@@ -299,13 +299,13 @@ function buildHeadCaseElement() {
 
 function buildCaseElement(descriptor, items) {
   const section = document.createElement("section");
-  section.className = "prompt-case";
+  section.className = "c-card prompt-case";
   section.dataset.site = descriptor.key;
 
   const headRow = document.createElement("div");
   headRow.className = "prompt-case-head-row";
   const heading = document.createElement("h2");
-  heading.className = "prompt-case-title";
+  heading.className = "c-title prompt-case-title";
   heading.textContent = descriptor.title;
   headRow.appendChild(heading);
   headRow.appendChild(buildActiveSwitch(descriptor.key));
@@ -324,7 +324,7 @@ function buildCaseElement(descriptor, items) {
   if (coatiItemsForSite(SITES, descriptor.key).length > 0 && removedCount > 0) {
     const restore = document.createElement("button");
     restore.type = "button";
-    restore.className = "prompt-case-restore";
+    restore.className = "c-link prompt-case-restore";
     restore.textContent = t("prompts_restore_suggestions");
     restore.addEventListener("click", () => prefsSet(descriptor.key, { removed: [] }));
     section.appendChild(restore);
@@ -335,28 +335,24 @@ function buildCaseElement(descriptor, items) {
 
 // --- "Active" switch -------
 // One per SITE case (popular or user's own) — never in the head case, which
-// has no single site key to activate. Same `role="switch"` button shape as
-// the panel's "Read page" (extension/panel/panel.html:36-39), duplicated
-// rather than imported: this page has no build step to share a partial
-// (same rationale as prompts.css's .connection-banner comment).
+// has no single site key to activate. The shared `.c-switch`.
 
 function buildActiveSwitch(siteKey) {
   const btn = document.createElement("button");
   btn.type = "button";
-  btn.className = "switch prompt-case-switch";
+  btn.className = "c-switch prompt-case-switch";
   btn.setAttribute("role", "switch");
   btn.setAttribute("aria-checked", "false");
   btn.dataset.site = siteKey;
 
   const track = document.createElement("span");
-  track.className = "switch-track";
+  track.className = "c-switch-track";
   track.setAttribute("aria-hidden", "true");
   const thumb = document.createElement("span");
-  thumb.className = "switch-thumb";
+  thumb.className = "c-switch-thumb";
   track.appendChild(thumb);
 
   const text = document.createElement("span");
-  text.className = "switch-text";
   text.textContent = t("prompts_active_switch");
 
   btn.appendChild(track);
@@ -391,7 +387,7 @@ async function refreshActiveSwitch(btn) {
   // accessible description (the notice line) is still announced.
   if (allSitesGranted) {
     btn.setAttribute("aria-checked", "true");
-    btn.classList.add("switch--on");
+    btn.classList.add("c-switch--on");
     btn.setAttribute("aria-disabled", "true");
     btn.setAttribute("aria-describedby", "allSitesText");
     return;
@@ -402,7 +398,7 @@ async function refreshActiveSwitch(btn) {
   const granted = patterns.length > 0 && (await api.permissions.contains({ origins: patterns }).catch(() => false));
   if (allSitesGranted) return; // granted meanwhile — the branch above already ran
   btn.setAttribute("aria-checked", String(granted));
-  btn.classList.toggle("switch--on", granted);
+  btn.classList.toggle("c-switch--on", granted);
 }
 
 // Re-read the "all sites" grant and every switch, on load and on
@@ -428,8 +424,7 @@ function buildRowElement(caseKey, item, index, total) {
   row.className = "prompt-row";
   row.dataset.key = item.key;
   row.dataset.kind = item.kind;
-  const isEditingThis = editing && editing.key === item.key;
-  if (isEditingThis) row.classList.add("is-editing");
+  const isEditingThis = Boolean(editing) && editing.key === item.key;
 
   const main = document.createElement("div");
   main.className = "prompt-row-main";
@@ -437,7 +432,7 @@ function buildRowElement(caseKey, item, index, total) {
   const handle = document.createElement("span");
   handle.className = "prompt-handle";
   handle.setAttribute("aria-hidden", "true");
-  handle.textContent = "⠿";
+  handle.append(createIcon("grip"));
   main.appendChild(handle);
 
   const isAction = item.kind === "coati" && Boolean(item.action);
@@ -446,12 +441,13 @@ function buildRowElement(caseKey, item, index, total) {
     // YouTube's "Summarize this video" — not a stored prompt, nothing to
     // expand (FACTS: "not editable (no expand)"), but still movable/deletable.
     label = document.createElement("span");
-    label.className = "prompt-row-label prompt-row-label--static";
+    label.className = "c-row prompt-row-label prompt-row-label--static";
     label.title = t("prompts_action_title");
   } else {
     label = document.createElement("button");
     label.type = "button";
-    label.className = "prompt-row-label";
+    label.className = "c-row prompt-row-label";
+    label.setAttribute("aria-expanded", String(isEditingThis));
     label.addEventListener("click", () => openEditor(caseKey, item));
   }
   label.textContent = item.label;
@@ -462,8 +458,8 @@ function buildRowElement(caseKey, item, index, total) {
 
   const up = document.createElement("button");
   up.type = "button";
-  up.className = "prompt-row-up";
-  up.textContent = "▲";
+  up.className = "c-icon-button prompt-row-up";
+  up.append(createIcon("chevron-up"));
   up.setAttribute("aria-label", t("prompts_move_up_aria", [item.label]));
   up.disabled = index === 0;
   up.addEventListener("click", () => moveWithinCase(caseKey, item.key, -1));
@@ -471,8 +467,8 @@ function buildRowElement(caseKey, item, index, total) {
 
   const down = document.createElement("button");
   down.type = "button";
-  down.className = "prompt-row-down";
-  down.textContent = "▼";
+  down.className = "c-icon-button prompt-row-down";
+  down.append(createIcon("chevron-down"));
   down.setAttribute("aria-label", t("prompts_move_down_aria", [item.label]));
   down.disabled = index === total - 1;
   down.addEventListener("click", () => moveWithinCase(caseKey, item.key, 1));
@@ -481,8 +477,9 @@ function buildRowElement(caseKey, item, index, total) {
   const del = document.createElement("button");
   del.type = "button";
   const armed = armedDeleteKey === item.key;
-  del.className = armed ? "prompt-row-delete is-armed" : "prompt-row-delete";
-  del.textContent = armed ? t("prompts_delete_confirm") : "🗑";
+  del.className = armed ? "c-button c-button--small is-armed prompt-row-delete" : "c-icon-button prompt-row-delete";
+  if (armed) del.textContent = t("prompts_delete_confirm");
+  else del.append(createIcon("trash"));
   del.setAttribute(
     "aria-label",
     armed ? t("prompts_delete_confirm_aria", [item.label]) : t("prompts_delete_aria", [item.label]),
@@ -503,10 +500,12 @@ function buildEditorElement() {
   wrap.className = "prompt-editor";
 
   const titleLabel = document.createElement("label");
+  titleLabel.className = "c-section-title";
   titleLabel.textContent = t("prompts_editor_title_label");
   titleLabel.htmlFor = "promptEditorTitle";
   const titleInput = document.createElement("input");
   titleInput.type = "text";
+  titleInput.className = "c-field c-input";
   titleInput.id = "promptEditorTitle";
   titleInput.value = editing.title;
   titleInput.addEventListener("input", () => {
@@ -515,9 +514,11 @@ function buildEditorElement() {
   titleInput.addEventListener("keydown", handleEditorKeydown);
 
   const bodyLabel = document.createElement("label");
+  bodyLabel.className = "c-section-title";
   bodyLabel.textContent = t("prompts_editor_body_label");
   bodyLabel.htmlFor = "promptEditorBody";
   const bodyInput = document.createElement("textarea");
+  bodyInput.className = "c-field c-input";
   bodyInput.id = "promptEditorBody";
   bodyInput.value = editing.body;
 
@@ -525,12 +526,12 @@ function buildEditorElement() {
   actions.className = "prompt-editor-actions";
   const cancel = document.createElement("button");
   cancel.type = "button";
-  cancel.className = "is-secondary";
+  cancel.className = "c-button";
   cancel.textContent = t("panel_cancel");
   cancel.addEventListener("click", () => closeEditor());
   const save = document.createElement("button");
   save.type = "button";
-  save.className = "is-primary";
+  save.className = "c-button c-button--primary";
   save.textContent = t("options_save");
   save.addEventListener("click", () => commitEditor());
   const updateSaveDisabled = () => {

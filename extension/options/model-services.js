@@ -44,14 +44,17 @@ export function renderServices(settings) {
  * the active row folds its settings (key, model) underneath. */
 function buildServiceRow(entry, settings) {
   const active = entry.active;
-  const row = el("li", active ? "service service--active" : "service");
+  const row = el("li", active ? "c-card service service--active" : "c-card service");
   // Stable anchor for the panel's deep link (#provider-<id>); with several openai-compat
   // services, the active one carries it.
   if (entry.id !== "openai-compat" || active) row.id = `provider-${entry.id}`;
 
   const head = el("div", "service-head");
+  // The service in use is marked as the panel marks the current model: ✓ and
+  // a caramel name, plus the "In use" chip.
+  if (active) head.append(el("span", "model-item-check", "✓")); // i18n-allow: symbol
   head.append(el("span", "service-name", serviceName(entry.id, settings, entry.baseUrl)));
-  if (active) head.append(el("span", "service-tag", t("options_service_active")));
+  if (active) head.append(el("span", "c-chip c-chip--active", t("options_service_active")));
   const state = serviceState(entry);
   const stateNode = el("span", "service-state", state.text);
   stateNode.dataset.tone = state.tone;
@@ -60,14 +63,14 @@ function buildServiceRow(entry, settings) {
   const actions = el("div", "service-actions");
   const connected = status === "connected";
   if (!active) {
-    const use = buttonEl(t("options_service_use"), "button-small service-use");
+    const use = buttonEl(t("options_service_use"), "c-button c-button--small");
     use.disabled = !connected;
     use.addEventListener("click", () => setProvider(entry.id, undefined, entry.baseUrl));
     actions.append(use);
   }
   // settings.test probes the active address: an inactive openai-compat service is tested once in use.
   const testable = entry.id !== "openai-compat" || active;
-  const test = buttonEl(t("options_test_short"), "button-secondary button-small test-button");
+  const test = buttonEl(t("options_test_short"), "c-button c-button--small test-button");
   test.addEventListener("click", () => testProvider(entry.id, "row"));
   if (testable) actions.append(test);
   if (entry.id === "claude-api" || entry.id === "openai-compat") actions.append(buildRemoveButton(entry));
@@ -105,11 +108,11 @@ const REMOVE_CONFIRM_MS = 5000;
 const removeArmed = new Map(); // service key -> timer
 
 function buildRemoveButton(entry) {
-  const button = buttonEl(t("options_service_remove"), "button-small apikey-clear service-remove");
+  const button = buttonEl(t("options_service_remove"), "c-button c-button--small c-button--danger service-remove");
   button.disabled = status !== "connected";
   const paintArmed = (armed) => {
     button.textContent = armed ? t("options_service_remove_confirm") : t("options_service_remove");
-    button.classList.toggle("apikey-clear--confirm", armed);
+    button.classList.toggle("is-armed", armed);
   };
   paintArmed(removeArmed.has(entry.key));
   button.addEventListener("click", () => {
@@ -171,7 +174,7 @@ export function renderCapLinks() {
   const paid = ONLINE_PROVIDERS.filter((service) => service.limitsUrl && service.group !== "free" && !service.prepaid);
   paid.forEach((service, index) => {
     if (index > 0) els.capLinks.append(" · ");
-    const link = el("a", "link", service.name);
+    const link = el("a", "c-text-link", service.name);
     link.href = service.limitsUrl;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
@@ -275,7 +278,7 @@ function setBaseUrl(baseUrl) {
 function buildBaseUrlField() {
   const wrap = el("div", "baseurl-field");
 
-  const presetSelect = document.createElement("select");
+  const presetSelect = el("select", "c-field c-input");
   presetSelect.setAttribute("aria-label", t("options_other_address_title"));
   const customOption = el("option", null, t("options_other_address"));
   customOption.value = "";
@@ -286,7 +289,7 @@ function buildBaseUrlField() {
     presetSelect.appendChild(option);
   }
 
-  const input = document.createElement("input");
+  const input = el("input", "c-field c-input");
   input.type = "text";
   input.autocomplete = "off";
   input.placeholder = "http://localhost:1234/v1";
@@ -302,7 +305,7 @@ function buildBaseUrlField() {
     setBaseUrl(input.value);
   });
 
-  const saveBtn = buttonEl(t("options_save_address"), "button-secondary");
+  const saveBtn = buttonEl(t("options_save_address"), "c-button");
   saveBtn.addEventListener("click", () => {
     const value = input.value.trim();
     if (!value) return;

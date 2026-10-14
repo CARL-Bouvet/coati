@@ -1,0 +1,578 @@
+/*
+ * Coati components — the side panel's component language, shared by the
+ * panel, the options page and the "My prompts" page. Loaded right after
+ * lib/theme.css; uses its tokens only, so light/dark and the panel's dev
+ * look (`mode-dev` on <html>) apply here too. Page stylesheets load after
+ * this one and only add layout (margins, flex, position), never a new look.
+ *
+ * Button       .c-button  (secondary)  + --primary, --large, --small, --danger
+ *              (+ .is-armed: the second click of a two-step delete)
+ * Icon button  .c-icon-button
+ * Link button  .c-link  + --danger      Text link  .c-text-link
+ * Icon         .c-icon  (inline <svg>, lib/icons.js)
+ * Card         .c-card  (raised; secondary buttons on it take the chip tone)
+ * Field        .c-field (recessed box)  .c-input (the text inside it)
+ * Switch       .c-switch > .c-switch-track > .c-switch-thumb  + --on
+ * Chip         .c-chip  + --active      Badge  .c-badge
+ * Titles       .c-title  .c-section-title
+ * List row     .c-row  (active: aria-selected, aria-current or a checked input)
+ * Model list   lib/model-list.js rows
+ * Tooltip      .c-tooltip  (shows its own aria-label)
+ * Page band    .page-head > .page-head-inner  (the pages' dark top band)
+ *
+ * Active item: a pale caramel band (--accent-tint) and a heavier weight;
+ * caramel marks (✓) use --accent-mark, readable on both light and dark.
+ *
+ * Every interactive component shows the same keyboard focus ring: a 2 px
+ * caramel outline, 2 px away. Fields show --focus-ring instead.
+ */
+
+/* --- Button --------------------------------------------------------------
+ * Secondary: raised card, lifted on hover, pressed in on click. Always a
+ * 1 px border (transparent in the normal look) so every variant shares one
+ * box model. Disabled keeps its resting look, faded. Also styles an <a>. */
+.c-button {
+  display: inline-block;
+  line-height: normal;
+  text-align: center;
+  text-decoration: none;
+  border: 1px solid var(--control-border);
+  background: var(--card);
+  box-shadow: var(--shadow-raised);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2);
+  font-family: inherit;
+  font-size: var(--text-m);
+  cursor: pointer;
+  color: var(--fg);
+}
+
+.c-button:hover:not(:disabled) {
+  background: var(--card-hover);
+  box-shadow: var(--shadow-hover);
+}
+
+.c-button:active:not(:disabled) {
+  box-shadow: var(--shadow-pressed);
+}
+
+.c-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Caramel, dark text on it. */
+.c-button--primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+.c-button--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.c-button--primary:active:not(:disabled) {
+  background: var(--accent-active);
+  border-color: var(--accent-active);
+}
+
+/* The main action of a form (the panel's Send): borderless, 8 x 16 px
+ * around the text. */
+.c-button--large {
+  border: none;
+  padding: var(--space-2) var(--space-4);
+  font-weight: 600;
+}
+
+/* Inside dense groups (the site card's prompts, first-run steps). */
+.c-button--small {
+  font-size: var(--text-s);
+  line-height: 1.3;
+}
+
+/* Stops or removes something: outlined, red text, never raised. */
+.c-button--danger,
+.c-button--danger:active:not(:disabled) {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--banner-border);
+  box-shadow: none;
+}
+
+.c-button--danger:hover:not(:disabled) {
+  background: var(--banner-bg);
+  box-shadow: none;
+}
+
+/* Armed: the next click deletes. Filled red, page-coloured text. */
+.c-button.is-armed,
+.c-button.is-armed:active:not(:disabled) {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.c-button.is-armed:hover:not(:disabled) {
+  background: var(--danger-hover);
+  border-color: var(--danger-hover);
+}
+
+/* Chip: a secondary button on a card takes the card's secondary tone and
+ * only rises on hover. */
+.c-card .c-button:not(.c-button--primary, .c-button--danger, .is-armed) {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.c-card .c-button:not(.c-button--primary, .c-button--danger, .is-armed):hover:not(:disabled) {
+  background: var(--card-hover);
+  box-shadow: var(--shadow-hover);
+}
+
+.c-card .c-button:not(.c-button--primary, .c-button--danger, .is-armed):active:not(:disabled) {
+  box-shadow: var(--shadow-pressed);
+}
+
+/* Dev look: cards turn --surface, so chips go back to the page tone. */
+html.mode-dev .c-card .c-button:not(.c-button--primary, .c-button--danger, .is-armed) {
+  background: var(--bg);
+}
+
+/* --- Icon button: no box until hovered. --------------------------------- */
+.c-icon-button {
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-l);
+  padding: var(--space-1);
+  border-radius: var(--radius);
+}
+
+.c-icon-button:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.c-icon-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* --- Link button: an action that reads as a link. ----------------------- */
+.c-link {
+  border: none;
+  background: transparent;
+  color: var(--link);
+  font: inherit;
+  font-size: var(--text-s);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: var(--space-1) 2px;
+}
+
+.c-link:hover {
+  filter: brightness(0.85);
+}
+
+/* Destructive but secondary: muted until hovered. */
+.c-link--danger {
+  color: var(--muted);
+}
+
+.c-link--danger:hover {
+  color: var(--danger);
+}
+
+/* --- Text link: a link inside running text. ----------------------------- */
+.c-text-link {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.c-text-link:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* --- Icon: 16 px line drawing in the text colour. ----------------------- */
+.c-icon {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* --- Card: raised, no visible border in the normal look. ---------------- */
+.c-card {
+  padding: var(--space-3);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-raised);
+}
+
+/* --- Field: a recessed box. Put .c-field on the input itself, or on a
+ * wrapper holding the input and its inline buttons (the ring then follows
+ * the input's focus, not the buttons'). ---------------------------------- */
+.c-field {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  box-shadow: var(--shadow-field);
+  color: var(--fg);
+}
+
+.c-field:focus,
+.c-field:has(> :is(input, textarea, select):focus) {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-field), var(--focus-ring);
+}
+
+.c-input {
+  font-family: inherit;
+  font-size: var(--text-m);
+  line-height: var(--line-height);
+  padding: var(--space-2);
+  color: var(--fg);
+}
+
+/* --- Switch: a native <button role="switch">; Space and Enter toggle it.
+ * Off: a recessed grey track. On: caramel with a soft halo. -------------- */
+.c-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: var(--text-s);
+  line-height: normal;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.c-switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Locked (aria-disabled, still focusable so its description is read): the
+ * label keeps its colour, only the track dims. */
+.c-switch[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.c-switch[aria-disabled="true"] .c-switch-track {
+  opacity: 0.6;
+}
+
+.c-switch-track {
+  position: relative;
+  width: 30px;
+  height: 17px;
+  border-radius: 9px;
+  background: var(--border);
+  box-shadow: var(--shadow-field);
+  transition: background-color 0.15s ease;
+}
+
+.c-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: var(--shadow-raised);
+  transition: transform 0.15s ease;
+}
+
+.c-switch--on .c-switch-track {
+  /* --accent-mark: plain --accent is under 3:1 on white cards. */
+  background: var(--accent-mark);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+.c-switch--on .c-switch-thumb {
+  transform: translateX(13px);
+}
+
+/* --- Badge: a caramel disc around one glyph. ----------------------------- */
+.c-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 700;
+  font-size: var(--text-l);
+  line-height: 1;
+}
+
+/* --- Titles -------------------------------------------------------------- */
+.c-title {
+  margin: 0;
+  font-size: var(--text-l);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.c-section-title {
+  margin: 0;
+  font-size: var(--text-s);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* --- Chip: a short status word. ------------------------------------------ */
+.c-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: var(--text-s);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.c-chip--active {
+  background: var(--accent-tint);
+}
+
+/* --- List row: flat until hovered or focused; the active one (selected
+ * tab, current section, checked choice, open item) sits on the pale
+ * caramel band. ---------------------------------------------------------- */
+.c-row {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  font-size: var(--text-m);
+  line-height: normal;
+}
+
+:is(button, a, label).c-row {
+  cursor: pointer;
+}
+
+.c-row:is(button, a, label, [tabindex]):is(:hover, :focus-visible) {
+  background: var(--surface);
+  outline: none;
+}
+
+.c-row:is([aria-selected="true"], [aria-current="true"], [aria-expanded="true"], :has(> input:checked)),
+.c-row:is([aria-selected="true"], [aria-current="true"], [aria-expanded="true"], :has(> input:checked)):is(:hover, :focus-visible) {
+  background: var(--accent-tint);
+  font-weight: 600;
+}
+
+/* The band alone would hide the focus on the active row. */
+.c-row:is([aria-selected="true"], [aria-current="true"], [aria-expanded="true"]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* --- Model list (lib/model-list.js): the panel's model menu and the
+ * options page's installed models. The current model: ✓ and a caramel name. */
+.model-item,
+.model-list-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.model-item-check {
+  flex: none;
+  width: 1em;
+  color: var(--accent-mark);
+  font-weight: 600;
+}
+
+.model-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.model-item-name {
+  overflow-wrap: anywhere;
+}
+
+.model-item--current .model-item-name {
+  font-weight: 600;
+  color: var(--accent-mark);
+}
+
+/* Too big for this machine: still selectable, only muted; the words say why. */
+.model-item--too-big .model-item-name,
+.model-item-detail,
+.model-item-note {
+  color: var(--muted);
+}
+
+.model-item-detail,
+.model-item-note {
+  font-size: var(--text-s);
+}
+
+/* --- Connection status: a coloured dot and a short label. ---------------- */
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-s);
+  line-height: normal;
+  color: var(--muted);
+}
+
+.status-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-idle);
+}
+
+.status--connected .status-dot { background: var(--status-connected); }
+.status--connecting .status-dot,
+.status--handshaking .status-dot,
+.status--handshake-timeout .status-dot,
+.status--pairing-retry .status-dot { background: var(--status-connecting); }
+.status--disconnected .status-dot,
+.status--no-token .status-dot,
+.status--no-host .status-dot,
+.status--broker-untrusted .status-dot { background: var(--status-disconnected); }
+
+/* --- Language selector (lib/language-selector.js, compact): a .c-icon-button
+ * showing the 2-character code ("EN", "FR") and its menu of .c-row items. */
+.lang-selector {
+  position: relative;
+}
+
+.lang-button {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  min-width: 1.8em;
+  text-align: center;
+}
+
+.lang-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 10em;
+  padding: var(--space-1);
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--overlay-shadow);
+}
+
+.lang-menu-item--active {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* --- Tooltip: the control's own aria-label, above it, on hover and on
+ * keyboard focus. Pages set the horizontal anchor (left/right). ---------- */
+.c-tooltip {
+  position: relative;
+}
+
+.c-tooltip::after {
+  content: attr(aria-label);
+  position: absolute;
+  bottom: calc(100% + var(--space-2));
+  z-index: 10;
+  width: max-content;
+  max-width: 220px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--header-bg);
+  color: var(--header-fg);
+  box-shadow: var(--overlay-shadow);
+  font-size: var(--text-s);
+  line-height: 1.3;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, visibility 0.12s;
+}
+
+.c-tooltip:is(:hover, :focus-visible)::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* --- Page band: dark in both themes, like the panel's top bar (same token
+ * scoping). The page sets .page-head-inner's width and side padding. The
+ * title sits left, everything after it right. ---------------------------- */
+.page-head {
+  --bg: var(--header-bg);
+  --fg: var(--header-fg);
+  --muted: var(--header-muted);
+  --surface: var(--header-surface);
+  --accent: var(--header-accent);
+  --accent-mark: var(--header-accent);
+  --status-connected: var(--header-status-connected);
+  --status-connecting: var(--header-status-connecting);
+  --status-disconnected: var(--header-status-disconnected);
+  --status-idle: var(--header-status-idle);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.page-head-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 56px;
+}
+
+.page-head h1 {
+  margin: 0 auto 0 0;
+  font-size: var(--text-l);
+  font-weight: 600;
+}
+
+/* --- Focus ring ---------------------------------------------------------- */
+:is(.c-button, .c-icon-button, .c-link, .c-text-link, .c-switch):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.c-switch:focus-visible {
+  border-radius: var(--radius);
+}

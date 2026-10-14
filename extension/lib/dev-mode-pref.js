@@ -45,7 +45,7 @@ export function confirmDevModeActivation(doc) {
     backdrop.className = "dev-mode-dialog-backdrop";
 
     const dialog = doc.createElement("div");
-    dialog.className = "dev-mode-dialog";
+    dialog.className = "c-card dev-mode-dialog";
     dialog.setAttribute("role", "alertdialog");
     dialog.setAttribute("aria-modal", "true");
 
@@ -65,12 +65,12 @@ export function confirmDevModeActivation(doc) {
 
     const cancelBtn = doc.createElement("button");
     cancelBtn.type = "button";
-    cancelBtn.className = "button-secondary";
+    cancelBtn.className = "c-button";
     cancelBtn.textContent = t("dev_mode_confirm_cancel");
 
     const confirmBtn = doc.createElement("button");
     confirmBtn.type = "button";
-    confirmBtn.className = "dev-mode-dialog-confirm";
+    confirmBtn.className = "c-button c-button--primary";
     confirmBtn.textContent = t("dev_mode_confirm_turn_on");
 
     actions.appendChild(cancelBtn);

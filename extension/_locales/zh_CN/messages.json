@@ -733,6 +733,9 @@
   "options_model_title": {
     "message": "模型"
   },
+  "options_nav_label": {
+    "message": "设置分区"
+  },
   "options_model_help": {
     "message": "用于回答请求的模型。此选项由本地程序保存在本机上。"
   },

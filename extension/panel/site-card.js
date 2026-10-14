@@ -125,7 +125,7 @@ function renderEncart(siteKey, coatiItems) {
   buttons.forEach((button, index) => {
     const el = document.createElement("button");
     el.type = "button";
-    el.className = `toolbar-button site-card-suggestion${index === 0 ? " toolbar-button--primary" : ""}`;
+    el.className = `c-button c-button--small site-card-suggestion${index === 0 ? " c-button--primary" : ""}`;
     el.textContent = button.label;
     el.disabled = !!panelState.activeRequestId;
     el.addEventListener("click", () => runEncartButton(button));

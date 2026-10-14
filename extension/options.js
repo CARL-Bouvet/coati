@@ -26,12 +26,14 @@ import { mountLanguageSelector } from "./lib/language-selector.js";
 import { els } from "./options/dom-refs.js";
 import { setupShortcut, showAbout } from "./options/shortcut-about.js";
 import { renderSiteToggles } from "./options/site-toggles.js";
+import { watchSections } from "./options/section-nav.js";
 import { applyStatus, requestSettings, handleBrokerMessage, wireModelSettings } from "./options/model-core.js";
 
 applyI18n(document);
 // Same compact selector (FR/EN/中) as the panel's header, in the page's
 // anthracite band — the "Language" section is gone.
 mountLanguageSelector(document.getElementById("languageSelectorMount"), { compact: true });
+watchSections(document.getElementById("sectionNav"));
 
 // U1 — live language switch: this page also has module-level t() tables
 // (labels.js, model-provider-presets.js, shortcut.js) in its import graph;
@@ -65,12 +67,13 @@ async function init() {
   // ONE preference. Default off (unlike the former attachPage default of
   // "on"): dev mode sends more data and may expose personal data, so it
   // never turns itself on silently.
-  els.devMode.checked = parseStoredDevMode(data[DEV_MODE_KEY]);
+  setDevModeSwitch(parseStoredDevMode(data[DEV_MODE_KEY]));
   // First-ever activation goes through the same risk/cost confirmation
   // dialog as the panel's switch (reused from lib/dev-mode-pref.js, not duplicated).
-  // Declined: the checkbox reverts, nothing is written.
-  els.devMode.addEventListener("change", async () => {
-    if (!els.devMode.checked) {
+  // Declined: the switch stays off, nothing is written.
+  els.devMode.addEventListener("click", async () => {
+    if (els.devMode.getAttribute("aria-checked") === "true") {
+      setDevModeSwitch(false);
       api.storage.local.set({ [DEV_MODE_KEY]: false });
       return;
     }
@@ -80,19 +83,17 @@ async function init() {
       .catch(() => false);
     if (!acknowledged) {
       const confirmed = await confirmDevModeActivation(document);
-      if (!confirmed) {
-        els.devMode.checked = false;
-        return;
-      }
+      if (!confirmed) return;
       await api.storage.local.set({ [DEV_MODE_ACKNOWLEDGED_KEY]: true }).catch(() => {});
     }
+    setDevModeSwitch(true);
     api.storage.local.set({ [DEV_MODE_KEY]: true });
   });
   // The panel writes the same key too: adopt its value if changed while
   // this page is open.
   api.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && DEV_MODE_KEY in changes) {
-      els.devMode.checked = parseStoredDevMode(changes[DEV_MODE_KEY].newValue);
+      setDevModeSwitch(parseStoredDevMode(changes[DEV_MODE_KEY].newValue));
     }
   });
 
@@ -156,6 +157,12 @@ async function applyPastedKey(value) {
   // I4: clear the field once applied — nothing left
   // sitting visible/selectable in the DOM after the secret has done its job.
   els.token.value = "";
+}
+
+/** `#devMode` is a `role="switch"` button, as in the panel (panel/dev-mode.js). */
+function setDevModeSwitch(checked) {
+  els.devMode.setAttribute("aria-checked", String(checked));
+  els.devMode.classList.toggle("c-switch--on", checked);
 }
 
 async function saveRetention() {

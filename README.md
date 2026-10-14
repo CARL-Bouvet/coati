@@ -1,7 +1,10 @@
 # Coati
 
-A side panel for your browser that answers questions about the page you're on, using your own AI
-model.
+A coati pokes its nose into everything. This one pokes into the pages you're reading — only when
+you ask.
+
+It's a browser side panel that talks to your own AI model. Ask a question; Coati reads the page if
+it needs to, shows you what it read, and answers. No cloud relay, no background activity.
 
 - **Reads only when needed.** The model asks for the page when your question needs it, and every
   answer shows how much it read (or that it did not read the page).
@@ -14,6 +17,14 @@ model.
 ![Coati's side panel in the light theme, answering a question with "Show" buttons next to the steps](docs/img/panel-light.png)
 ![Coati's side panel in the dark theme, answering a question with "Show" buttons next to the steps](docs/img/panel-dark.png)
 ![Coati's settings page: configured model services, dev mode, keyboard shortcut and site access](docs/img/settings.png)
+
+## Help wanted
+
+Coati has only been tested on Linux. If you're on **macOS or Windows**, try the install and open an
+issue when something breaks — the [issue templates](https://github.com/CARL-Bouvet/coati/issues/new/choose)
+ask the right questions. Same if you run a local model through an OpenAI-compatible address (LM
+Studio, llama.cpp server, vLLM…), use Firefox, or can review the Chinese interface. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for how.
 
 ## Quick start
 

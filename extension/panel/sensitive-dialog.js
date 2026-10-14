@@ -32,7 +32,7 @@ export function confirmSendSensitivePage(doc, kinds, kTokens) {
     backdrop.className = "dev-mode-dialog-backdrop";
 
     const dialog = doc.createElement("div");
-    dialog.className = "dev-mode-dialog";
+    dialog.className = "c-card dev-mode-dialog";
     dialog.setAttribute("role", "alertdialog");
     dialog.setAttribute("aria-modal", "true");
 
@@ -53,12 +53,12 @@ export function confirmSendSensitivePage(doc, kinds, kTokens) {
 
     const cancelBtn = doc.createElement("button");
     cancelBtn.type = "button";
-    cancelBtn.className = "button-secondary";
+    cancelBtn.className = "c-button";
     cancelBtn.textContent = t("sensitive_dialog_cancel");
 
     const sendBtn = doc.createElement("button");
     sendBtn.type = "button";
-    sendBtn.className = "dev-mode-dialog-confirm";
+    sendBtn.className = "c-button c-button--primary";
     sendBtn.textContent = t("sensitive_dialog_send");
 
     actions.appendChild(cancelBtn);
