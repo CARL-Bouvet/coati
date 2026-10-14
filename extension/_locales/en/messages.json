@@ -3,7 +3,7 @@
     "message": "Coati"
   },
   "extDescription": {
-    "message": "Local AI assistant: summarize a page or a video, chat with a model, act on a selection, through a local program that runs on your machine."
+    "message": "Side-panel assistant for the page you're on, with your own AI model, local or online, through a small program on your computer."
   },
   "extCommandOpen": {
     "message": "Open Coati"

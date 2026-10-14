@@ -1,74 +1,63 @@
 # Coati
 
-A coati pokes its nose into everything. This one pokes into the pages you're reading — only when
-you ask.
+<!-- Coati illustration goes here -->
 
-It's a browser side panel that talks to your own AI model. Ask a question; Coati reads the page if
-it needs to, shows you what it read, and answers. No cloud relay, no background activity.
+Coati is a virtual assistant that lives in a side panel of your browser. Plug in your own AI
+model, on your computer (Ollama) or online, and get in-depth web searches, summaries of articles
+and YouTube videos, and more.
 
-- **Reads only when needed.** The model asks for the page when your question needs it, and every
-  answer shows how much it read (or that it did not read the page).
-- **Your model, local or online.** Ollama, LM Studio, Claude, OpenAI, Mistral, OpenRouter or any
-  OpenAI-compatible address. Coati ships no AI.
-- **Show.** Coati points at the element on the page; you click it.
-- **Web search** in your browser's own engine, in a visible tab, with sources and checked links.
-- **Ready-made prompts** you can set per site.
+![Coati's side panel next to the Wikipedia article "Coati", summing it up in five points with qwen3:4b running locally in Ollama](docs/img/coati-wikipedia.png)
 
-![Coati's side panel in the light theme, answering a question with "Show" buttons next to the steps](docs/img/panel-light.png)
-![Coati's side panel in the dark theme, answering a question with "Show" buttons next to the steps](docs/img/panel-dark.png)
-![Coati's settings page: configured model services, dev mode, keyboard shortcut and site access](docs/img/settings.png)
+Coati has only been tested on Linux so far. Reports from macOS and Windows are welcome.
 
-## Help wanted
+## Install
 
-Coati has only been tested on Linux. If you're on **macOS or Windows**, try the install and open an
-issue when something breaks — the [issue templates](https://github.com/CARL-Bouvet/coati/issues/new/choose)
-ask the right questions. Same if you run a local model through an OpenAI-compatible address (LM
-Studio, llama.cpp server, vLLM…), use Firefox, or can review the Chinese interface. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for how.
+1. Download the local program and the extension from the
+   [latest release](https://github.com/CARL-Bouvet/coati/releases/latest), then follow
+   [docs/INSTALL.md](docs/INSTALL.md).
+2. Load the extension in Chrome, Brave, Edge or Chromium (developer mode), or in Firefox as a
+   temporary add-on.
+3. Click the Coati icon or press `Alt+Shift+C`. A guided tour opens the first time, and the
+   settings help you choose a model.
 
-## Quick start
+## Choosing a model
 
-1. Install the local program: [docs/INSTALL.md](docs/INSTALL.md) (Linux, macOS, Windows).
-2. Load the extension unpacked (Chrome, Brave, Edge, Chromium: developer mode; Firefox: see
-   [docs/INSTALL.md](docs/INSTALL.md)).
-3. Pick a model (below) in Coati's settings.
-4. Click the Coati toolbar icon (or press `Alt+Shift+C`) and ask about the page.
+A small local model is enough to summarize a page, an article or a YouTube video.
 
-## Which model
+Web search over several steps needs a stronger model. In our tests, Claude Sonnet (online) ran
+several searches and opened the right pages, while local models of 4 to 8B parameters usually ran
+a single search and sometimes invented details such as prices. Larger local models, and other
+online models (GPT, Mistral, the free models on [OpenRouter](https://openrouter.ai)), have not
+been measured yet.
 
-There is no single right model: it depends on your machine. For a local model with
-[Ollama](https://ollama.com), Coati's setup guide reads your graphics card's memory and recommends
-the largest of these that fits in it (without a graphics card, the smallest):
+With [Ollama](https://ollama.com), the setup guide reads the memory of your graphics card and
+suggests the largest model from its list that fits, from `qwen3.5:2b` to `gemma4:12b`. Any other
+model Ollama runs works too.
 
-| Model | Download |
-|---|---|
-| `qwen3.5:2b` | 2.7 GB |
-| `qwen3.5:4b` | 3.3 GB |
-| `qwen3:8b` | 5.2 GB |
-| `qwen3.5:9b` | 6.6 GB |
-| `gemma4:12b` | 7.7 GB |
-
-A model that does not fit in graphics memory still works, but slowly. A summary of a page, an
-article or a YouTube video works well with a small model.
-
-For multi-step web search, use an online model: Claude, GPT, Mistral… or free ones via
-[OpenRouter](https://openrouter.ai). Free models may keep what you send.
+Free online models may keep what you send them. Check the provider's privacy settings before
+sending anything confidential.
 
 ## Why a local program
 
 An extension's storage is not encrypted on disk, and an extension is exposed to every page you
-visit. Coati keeps your API keys and credentials in a small program on your own machine, which
-listens on `127.0.0.1` only. The extension talks to it over a WebSocket and holds no credential.
-The contract between the two is [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
+visit. Coati keeps your API keys in a small program on your own computer, which listens on
+`127.0.0.1` only. The extension talks to it over a WebSocket and holds no credential. The
+contract between the two is [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 
-## Privacy & security
+## Privacy and security
 
-- Nothing goes through our servers, and there is no telemetry. Page content leaves your machine
-  only if you chose an online model.
-- Password field values are never read. Page text is treated as data, never as instructions, and
-  Coati never pays, sends, deletes, publishes or signs in.
-- The local program accepts only the paired extension, on `127.0.0.1`. Details and how to report
-  a vulnerability: [SECURITY.md](SECURITY.md).
+Coati has no server of its own and sends no telemetry. Page content leaves your computer only
+when you use an online model. Coati never reads password fields, and passes page text to the
+model as data. On a page, it only reads and highlights: it never clicks, types, pays, sends,
+deletes, publishes or signs in. The local program accepts only the paired extension. Details, and how to report a
+vulnerability, are in [SECURITY.md](SECURITY.md).
+
+## Contributing
+
+Bug reports and tests on other systems, browsers and models help most. Open an issue with one of
+the [templates](https://github.com/CARL-Bouvet/coati/issues/new/choose), or pick one labelled
+[help wanted](https://github.com/CARL-Bouvet/coati/labels/help%20wanted).
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how to run the tests and the UI lab.
 
 ## Docs
 
@@ -76,18 +65,15 @@ The contract between the two is [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the pieces fit together.
 - [docs/PROTOCOL.md](docs/PROTOCOL.md): the extension ↔ local program contract.
 - [docs/DECISIONS.md](docs/DECISIONS.md): design decisions and why.
-- [docs/ROADMAP.md](docs/ROADMAP.md): what's next, help wanted.
+- [docs/ROADMAP.md](docs/ROADMAP.md): what's next.
 - [SECURITY.md](SECURITY.md): threat boundary, reporting a vulnerability.
-
-Feedback: [GitHub Issues](https://github.com/CARL-Bouvet/coati/issues).
 
 ## License
 
-AGPL-3.0, see [`LICENSE`](LICENSE). The Coati name and logo are not covered by the AGPL license.
-The code is open so you can check what Coati promises instead of taking our word for it.
+AGPL-3.0, see [`LICENSE`](LICENSE). The Coati name and logo are not covered by the AGPL.
 
 ## Interface languages
 
-English, French and Simplified Chinese. The Chinese interface is machine-translated and awaits
-review by a native speaker.
+English, French and Simplified Chinese. The Chinese interface is machine-translated and has not
+been reviewed by a native speaker yet.
 中文界面由机器翻译生成，尚待母语者审校。

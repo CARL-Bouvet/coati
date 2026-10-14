@@ -3,7 +3,7 @@
     "message": "Coati"
   },
   "extDescription": {
-    "message": "Assistant IA local : résumer une page ou une vidéo, discuter avec un modèle, agir sur une sélection, via un programme local qui tourne sur votre machine."
+    "message": "Assistant en panneau latéral pour la page ouverte, avec votre modèle d'IA local ou en ligne, via un programme sur votre ordinateur."
   },
   "extCommandOpen": {
     "message": "Ouvrir Coati"

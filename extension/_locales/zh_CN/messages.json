@@ -3,7 +3,7 @@
     "message": "Coati"
   },
   "extDescription": {
-    "message": "本地 AI 助手：总结页面或视频，与模型对话，对所选内容执行操作，通过运行在本机的本地程序实现。"
+    "message": "侧边栏助手，针对当前页面，使用您自己的 AI 模型（本地或在线），通过您电脑上的一个小程序运行。"
   },
   "extCommandOpen": {
     "message": "打开 Coati"
