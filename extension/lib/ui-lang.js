@@ -21,7 +21,7 @@ export const UI_LANG_AUTO = "auto";
 
 /** chrome.storage.local key for the user's explicit choice ("auto" | one of
  * SUPPORTED_LANGS). Never storage.session: this is a preference, not a
- * secret (CLAUDE.md rule #1 doesn't apply — storage.local is fine here). */
+ * secret (project rule 17 doesn't apply — storage.local is fine here). */
 export const UI_LANG_STORAGE_KEY = "uiLang";
 
 export function normalizeLang(raw) {

@@ -77,7 +77,7 @@ async function relaunchMessage(msg) {
   }
 }
 
-/** Real DOM node, no innerHTML (CLAUDE.md rule #3). Sits below the bubble
+/** Real DOM node, no innerHTML (project rule 16). Sits below the bubble
  * (see the `.message-user-bubble` wrapper in renderMessage()), visible on
  * hover/keyboard focus, always in the tab order (card.css). */
 function buildRelaunchButton(msg) {
@@ -408,7 +408,7 @@ export function renderMessage(msg, { append = false } = {}) {
  * Walks a rendered message's text nodes and turns `[mm:ss]`/`[h:mm:ss]`
  * timestamps into clickable <button>s. Built as real DOM nodes
  * (createElement/textContent), never via string-concatenated HTML — the
- * text driving this is model output, and CLAUDE.md rule #3 says page/model
+ * text driving this is model output, and project rule 16 says page/model
  * content is data, never markup, full stop.
  */
 export function linkifyTimestamps(container, videoId) {
@@ -445,7 +445,7 @@ export function linkifyTimestamps(container, videoId) {
  * "Montrer : …" <button>s, same split as linkifyTimestamps() above. The
  * button's visible label always comes from `elements` (the extraction),
  * never from the model's surrounding text — see element-refs.js's own
- * header. No innerHTML anywhere (CLAUDE.md rule #3).
+ * header. No innerHTML anywhere (project rule 16).
  *
  * `elementsSnapshot` is THIS message's own `{extractionId, elements}` (see
  * its field's comment on the assistant message object) — every button

@@ -136,7 +136,7 @@ export function parseHistory(v: unknown): HistoryEntry[] | undefined {
 // on demand". Metadata about a page the model may ask to read later, on a
 // `chat` that carries no `context` at all (see parse.ts: the two are never
 // both honoured on the same message). `title`/`url` are page-controlled —
-// same trust level as Context.title/url (CLAUDE.md rule #3) — bounded the
+// same trust level as Context.title/url (project rule 16) — bounded the
 // same way (PAGE_META_TITLE_MAX/PAGE_META_URL_MAX) rather than left
 // unbounded like Context's own url/title, since there is no existing
 // numeric-budget check (server.ts's contextBudgetError) this field goes

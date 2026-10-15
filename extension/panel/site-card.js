@@ -115,7 +115,7 @@ export function renderSiteCard(state, result) {
  * own case (Coati suggestions minus removed, plus the user's prompts for
  * that site), then "All sites" — "My prompts ↗" is a separate, static
  * button in the markup, always last. Real DOM
- * nodes, textContent only (CLAUDE.md rule #3): a prompt's title/body is
+ * nodes, textContent only (project rule 16): a prompt's title/body is
  * user data, a suggestion's label ships with the extension — same
  * discipline either way. The first button keeps the primary/caramel style
  * whatever its kind, since the user controls the order (see report). */

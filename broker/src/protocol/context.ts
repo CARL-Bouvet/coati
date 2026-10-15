@@ -48,7 +48,7 @@ export interface Context {
   videoId?: string;
 
   // Optional, page-controlled data —
-  // same trust level as `text` (CLAUDE.md rule #3). See model.ts's
+  // same trust level as `text` (project rule 16). See model.ts's
   // renderContext for how they're fenced, and server.ts's
   // contextBudgetError for the numeric caps ("Broker-side limits").
   pageKind?: PageKind;

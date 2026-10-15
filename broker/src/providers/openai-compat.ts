@@ -7,6 +7,7 @@
 // at once — see both for the established shape.
 
 import {
+  answerStopSequences,
   buildSystemPrompt,
   FIRST_TOKEN_TIMEOUT_LOCAL_MS,
   FIRST_TOKEN_TIMEOUT_REMOTE_MS,
@@ -593,6 +594,7 @@ export async function* streamAnswer(
           model,
           stream: true,
           stream_options: { include_usage: true },
+          stop: answerStopSequences(built.nonce),
           // "historique": past turns rendered
           // as real alternating messages, between the system turn and the
           // current one — never merged into either.

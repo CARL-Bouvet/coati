@@ -5,7 +5,6 @@ import { describeError } from "../lib/labels.js";
 import { panelState } from "./panel-state.js";
 import { pendingRetries } from "./chat-stream.js";
 import { currentProvider, currentProviderLinks, openProviderSettings, SESSION_AUTH_PROVIDERS } from "./model-status.js";
-import { copyCommand, OLLAMA_DEFAULT_MODEL } from "./first-run-wiring.js";
 import { retryRequest } from "./request-watch.js";
 
 // --- Quota / rate-limit / overloaded / model-missing recovery -------------
@@ -87,33 +86,10 @@ export function buildProviderOverloadRecoveryBlock(msg) {
 }
 
 /** model-missing: the provider is reachable, it's specifically this model
- * that's refused — the fix is always a settings change, no retry. Ollama is
- * special-cased (spec): a copyable `ollama pull …` row, reusing
- * buildOllamaCommandRow()'s own command/copy pattern, rather than a settings
- * button (Ollama's "settings" is just picking a model that IS installed —
- * pulling the missing one is the more direct fix). */
+ * that's refused — the fix is always a settings change, no retry. */
 export function buildModelMissingRecoveryBlock() {
   const block = document.createElement("div");
   block.className = "recovery-block";
-  if (currentProvider === "ollama") {
-    // No configured-model name reaches the panel on a chat error either
-    // (same limit as buildOllamaCommandRow(), docs/PROTOCOL.md "Model
-    // provider": provider.modelMissing's message is a fixed sentence, not
-    // templated with the model) — falls back to Ollama's own default.
-    const command = `ollama pull ${OLLAMA_DEFAULT_MODEL}`;
-    const row = document.createElement("div");
-    row.className = "recovery-command";
-    const code = document.createElement("code");
-    code.textContent = command;
-    const copyBtn = document.createElement("button");
-    copyBtn.type = "button";
-    copyBtn.className = "recovery-copy";
-    copyBtn.textContent = AUTH_REQUIRED_TEXT.copy;
-    copyBtn.addEventListener("click", () => copyCommand(copyBtn, command));
-    row.append(code, copyBtn);
-    block.appendChild(row);
-    return block;
-  }
   const settingsBtn = document.createElement("button");
   settingsBtn.type = "button";
   settingsBtn.className = "recovery-copy";

@@ -95,7 +95,7 @@ export async function summarize() {
   const id = newId();
   const label = mainButtonLabel();
   // Never the URL here: it is persisted to chrome.storage.local unencrypted
-  // (CLAUDE.md rule #1) and a URL can carry a session token. Title only, with
+  // (project rule 17) and a URL can carry a session token. Title only, with
   // a neutral fallback rather than reaching for context.url.
   const description = (context.title || "").trim() || t("common_this_page_lowercase");
   addMessage({ id: `${id}-u`, role: "user", text: `${label} : ${description}`, relaunch: { type: "summarize" } });

@@ -89,8 +89,7 @@ describe("_locales — zh_CN translation is complete (TODO-translate.txt removed
 // --- Scan for leftover French literals outside _locales/ -------------------
 //
 // Heuristic, not a parser: strip // and /* */ comments (where French prose
-// legitimately lives — code comments stay French-friendly per this repo's
-// CLAUDE.md, "Langue"), then look for accented characters or a short list of
+// legitimately lives), then look for accented characters or a short list of
 // unmistakably-French function words in what remains. False positives are
 // allow-listed inline with `// i18n-allow: <reason>` on the same line.
 

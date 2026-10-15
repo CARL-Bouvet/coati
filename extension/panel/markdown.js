@@ -1,6 +1,6 @@
 // Coati side panel — markdown renderer.
 //
-// CLAUDE.md rule #3: model/page text is data, never markup. This module
+// project rule 16: model/page text is data, never markup. This module
 // never touches innerHTML/outerHTML/insertAdjacentHTML/DOMParser — every
 // node it produces goes through createElement/createTextNode, so whatever
 // a model writes (including literal "<script>" or HTML-looking text) can

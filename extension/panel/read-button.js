@@ -26,7 +26,7 @@ export const READ_BUTTON_TEXT = {
 // never `*://` (Chrome silently rejects it).
 export const ALL_SITES_ORIGINS = ["http://*/*", "https://*/*"];
 
-// storage.local keys — preferences, never secrets (CLAUDE.md rule #1).
+// storage.local keys — preferences, never secrets (project rule 17).
 export const ALL_SITES_DECLINED_KEY = "coati:allSitesDeclined";
 export const READ_BUTTON_USED_KEY = "coati:readButtonUsed";
 

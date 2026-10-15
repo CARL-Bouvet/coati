@@ -746,7 +746,7 @@
     "message": "模型名称"
   },
   "options_model_name_placeholder": {
-    "message": "例如：llama3.2（可选）"
+    "message": "模型名称（可选）"
   },
   "options_model_save": {
     "message": "保存模型"
@@ -1055,46 +1055,25 @@
     "message": "打开任意网页，然后点击浏览器工具栏中的 Coati 图标。如果看不到它，请点击拼图形状的图标并固定 Coati。"
   },
   "setup_local_install_title": {
-    "message": "安装 Ollama"
+    "message": "安装本地模型工具"
   },
   "setup_local_install_text": {
-    "message": "Ollama 是一款免费软件，可在您的电脑上运行模型。"
+    "message": "二选一。两者都免费，都在您的电脑上运行模型。"
   },
-  "setup_local_download_for": {
-    "message": "下载适用于 $OS$ 的 Ollama",
-    "placeholders": {
-      "os": {
-        "content": "$1",
-        "example": "Windows"
-      }
-    }
+  "setup_local_download_ollama": {
+    "message": "下载 Ollama"
   },
-  "setup_local_other_os": {
-    "message": "其他系统："
+  "setup_local_download_lmstudio": {
+    "message": "下载 LM Studio"
   },
-  "setup_local_download": {
-    "message": "下载 Ollama："
+  "setup_local_why_ollama": {
+    "message": "默认使用 Ollama：通过 Ollama 自己的 API，Coati 会按页面大小调整模型的上下文；通过兼容 OpenAI 的 API（LM Studio）则无法调整，较长的页面可能被截断。"
   },
-  "setup_local_linux_install": {
-    "message": "在 Linux 上，也可以通过终端安装："
-  },
-  "setup_local_start_intro": {
-    "message": "然后启动它："
-  },
-  "setup_local_start_windows": {
-    "message": "从“开始”菜单打开 Ollama；其图标会出现在时钟旁边。"
-  },
-  "setup_local_start_mac": {
-    "message": "从“应用程序”文件夹打开 Ollama；其图标会出现在菜单栏中。"
-  },
-  "setup_local_start_linux": {
-    "message": "安装程序会自动启动它。如果未运行，请在终端中运行以下命令："
-  },
-  "setup_local_running_title": {
-    "message": "检查 Ollama 是否响应"
+  "setup_local_connect_title": {
+    "message": "连接 Coati"
   },
   "setup_local_running_text": {
-    "message": "Coati 将切换到 Ollama，并检查它在本电脑上是否响应。"
+    "message": "使用 Ollama 时，Coati 会切换到它，并检查它在本电脑上是否响应。"
   },
   "setup_local_running_check": {
     "message": "使用 Ollama 并检查"
@@ -1106,64 +1085,53 @@
     "message": "Ollama 无响应。请确认它已启动（第 1 步），然后重试。"
   },
   "setup_local_model_title": {
-    "message": "下载模型"
+    "message": "用它下载模型"
   },
   "setup_local_model_text": {
-    "message": "请选择与您电脑内存（RAM）相符的一行。内存越大，可用的模型越强，但下载也越大。"
+    "message": "Coati 不推荐任何模型：合适的模型取决于您的电脑。每个工具都说明了如何下载："
   },
-  "setup_local_memory_known": {
-    "message": "根据浏览器信息，本电脑至少有 $GB$ GB 内存（浏览器最多只报告 8 GB）。",
+  "setup_local_docs_ollama": {
+    "message": "Ollama：快速入门"
+  },
+  "setup_local_docs_lmstudio": {
+    "message": "LM Studio：下载模型"
+  },
+  "setup_local_find_text": {
+    "message": "可在 Ollama 模型库或 Hugging Face 上找到模型。"
+  },
+  "setup_local_find_ollama": {
+    "message": "Ollama 模型库"
+  },
+  "setup_local_find_hf": {
+    "message": "Hugging Face（GGUF）"
+  },
+  "setup_local_cap_gpu": {
+    "message": "不超过约 $GPU$ GB 的模型可在显卡上运行（快）；更大的模型（最大约 $MAX$ GB）在内存中运行（较慢）。",
     "placeholders": {
-      "gb": {
+      "gpu": {
         "content": "$1",
-        "example": "8"
+        "example": "4.9"
+      },
+      "max": {
+        "content": "$2",
+        "example": "12.9"
       }
     }
   },
-  "setup_local_memory_unknown": {
-    "message": "浏览器未提供本电脑的内存信息：请在系统信息中查看。"
-  },
-  "setup_local_col_memory": {
-    "message": "电脑内存"
-  },
-  "setup_local_col_model": {
-    "message": "模型"
-  },
-  "setup_local_col_size": {
-    "message": "下载大小"
-  },
-  "setup_local_memory_row": {
-    "message": "$GB$ GB 或以上",
+  "setup_local_cap_unified": {
+    "message": "不超过约 $GB$ GB 的模型可在这块统一内存上流畅运行；更大的模型放不下。",
     "placeholders": {
       "gb": {
         "content": "$1",
-        "example": "8"
+        "example": "10.5"
       }
     }
-  },
-  "setup_local_suggested": {
-    "message": "推荐"
-  },
-  "setup_size_gb": {
-    "message": "$GB$ GB",
-    "placeholders": {
-      "gb": {
-        "content": "$1",
-        "example": "3,3"
-      }
-    }
-  },
-  "setup_local_pull_text": {
-    "message": "打开终端（Windows：PowerShell；macOS：终端），粘贴以下命令，然后等待下载完成。"
-  },
-  "setup_local_model_check": {
-    "message": "检查模型"
   },
   "setup_local_model_ok": {
     "message": "模型已就绪。"
   },
   "setup_local_model_missing": {
-    "message": "模型 $MODEL$ 尚未在 Ollama 中：请运行上面的命令并等待下载完成。",
+    "message": "模型 $MODEL$ 尚未在 Ollama 中：请下载它（第 2 步）。",
     "placeholders": {
       "model": {
         "content": "$1",
@@ -1172,16 +1140,10 @@
     }
   },
   "setup_local_no_model": {
-    "message": "Ollama 中尚未安装任何模型：请运行上面的命令。"
-  },
-  "setup_lmstudio_title": {
-    "message": "高级：LM Studio"
+    "message": "Ollama 中尚未安装任何模型：请下载一个（第 2 步）。"
   },
   "setup_lmstudio_text": {
-    "message": "LM Studio 是另一款在您电脑上运行模型的应用。安装后，在应用内下载一个模型，然后启动其本地服务器（“Developer”标签页，“Start Server”按钮）。"
-  },
-  "setup_lmstudio_download": {
-    "message": "下载 LM Studio"
+    "message": "在 LM Studio 中，打开 Developer 标签页并打开 Start server（默认是关闭的）。"
   },
   "setup_lmstudio_use": {
     "message": "使用 LM Studio 并检查"
@@ -1574,24 +1536,6 @@
       }
     }
   },
-  "setup_local_models_check": {
-    "message": "检查可用模型"
-  },
-  "setup_local_models_text": {
-    "message": "Ollama 里已经有模型了？Coati 会在这里列出它们，点一下即可选择用哪一个来回答。"
-  },
-  "setup_local_suggestions_title": {
-    "message": "可下载的模型"
-  },
-  "setup_local_model_installed": {
-    "message": "$MODEL$ 已安装。请在下方的可用模型列表中选择它。",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "gemma3:4b"
-      }
-    }
-  },
   "setup_local_model_chosen": {
     "message": "Coati 现在使用 $MODEL$。",
     "placeholders": {
@@ -1619,9 +1563,6 @@
       }
     }
   },
-  "setup_local_model_text_host": {
-    "message": "根据这台电脑的内存，以下模型可以在本机运行。模型越大，回答越好，但速度越慢。"
-  },
   "setup_local_host_vram": {
     "message": "这台电脑：$RAM$ GB 内存，$VRAM$ GB 显存。",
     "placeholders": {
@@ -1635,8 +1576,8 @@
       }
     }
   },
-  "setup_local_host_vram_unknown": {
-    "message": "这台电脑：$RAM$ GB 内存，显存未知。",
+  "setup_local_host_ram": {
+    "message": "这台电脑：$RAM$ GB 内存。",
     "placeholders": {
       "ram": {
         "content": "$1",
@@ -1653,23 +1594,8 @@
       }
     }
   },
-  "setup_local_col_fit": {
-    "message": "在这台电脑上"
-  },
   "setup_local_none_fit": {
-    "message": "列表中没有适合这台电脑的模型。使用在线服务会更顺畅。"
-  },
-  "setup_local_installed_tag": {
-    "message": "已安装"
-  },
-  "setup_local_installed_no_pull": {
-    "message": "$MODEL$ 已安装，无需下载。",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "qwen3.5:4b"
-      }
-    }
+    "message": "这台电脑的内存不足以运行本地模型。使用在线服务会更顺畅。"
   },
   "model_list_provider_local": {
     "message": "在这台电脑上"
@@ -1741,7 +1667,7 @@
     "message": "密钥和模型"
   },
   "options_local_guide_title": {
-    "message": "分步安装 Ollama 和推荐模型"
+    "message": "分步设置本地模型"
   },
   "options_current_default_model": {
     "message": "服务的默认模型"
@@ -1918,6 +1844,6 @@
     "message": "直接在问题里提出要求：Coati 会搜索网页、打开它选中的页面并引用来源。搜索需要“所有网站”权限。"
   },
   "setup_search_model": {
-    "message": "搜索和比较时，在线模型（Claude、GPT、Mistral…）效果好得多。8B 及以下的本地模型通常只搜索一次，并可能编造价格等细节；llama3.2 几乎从不搜索。"
+    "message": "搜索和比较时，在线模型效果好得多。8B 及以下的本地模型通常只搜索一次，并可能编造价格等细节。"
   }
 }

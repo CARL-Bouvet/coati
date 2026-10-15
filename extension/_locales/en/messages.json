@@ -746,7 +746,7 @@
     "message": "Model name"
   },
   "options_model_name_placeholder": {
-    "message": "e.g. llama3.2 (optional)"
+    "message": "Model name (optional)"
   },
   "options_model_save": {
     "message": "Save the model"
@@ -1055,46 +1055,25 @@
     "message": "Open any web page, then click the Coati icon in the browser toolbar. If it isn't there, click the puzzle-piece icon and pin Coati."
   },
   "setup_local_install_title": {
-    "message": "Install Ollama"
+    "message": "Install a local model tool"
   },
   "setup_local_install_text": {
-    "message": "Ollama is free software that runs the model on your computer."
+    "message": "Pick one. Both are free and run the model on your computer."
   },
-  "setup_local_download_for": {
-    "message": "Download Ollama for $OS$",
-    "placeholders": {
-      "os": {
-        "content": "$1",
-        "example": "Windows"
-      }
-    }
+  "setup_local_download_ollama": {
+    "message": "Download Ollama"
   },
-  "setup_local_other_os": {
-    "message": "Other systems:"
+  "setup_local_download_lmstudio": {
+    "message": "Download LM Studio"
   },
-  "setup_local_download": {
-    "message": "Download Ollama:"
+  "setup_local_why_ollama": {
+    "message": "Ollama is the default: through its own API, Coati sizes the model's context to the page. Through the OpenAI-compatible API (LM Studio), it can't, and long pages may be cut."
   },
-  "setup_local_linux_install": {
-    "message": "On Linux, you can also install it from a terminal:"
-  },
-  "setup_local_start_intro": {
-    "message": "Then start it:"
-  },
-  "setup_local_start_windows": {
-    "message": "Open Ollama from the Start menu; its icon appears next to the clock."
-  },
-  "setup_local_start_mac": {
-    "message": "Open Ollama from the Applications folder; its icon appears in the menu bar."
-  },
-  "setup_local_start_linux": {
-    "message": "The installer starts it for you. If it isn't running, run this command in a terminal:"
-  },
-  "setup_local_running_title": {
-    "message": "Check that Ollama responds"
+  "setup_local_connect_title": {
+    "message": "Connect Coati"
   },
   "setup_local_running_text": {
-    "message": "Coati will switch to Ollama and check that it responds on this computer."
+    "message": "With Ollama, Coati switches to it and checks that it responds on this computer."
   },
   "setup_local_running_check": {
     "message": "Use Ollama and check"
@@ -1106,64 +1085,53 @@
     "message": "Ollama isn't responding. Check that it is running (step 1), then try again."
   },
   "setup_local_model_title": {
-    "message": "Download a model"
+    "message": "Download a model with it"
   },
   "setup_local_model_text": {
-    "message": "Pick the row that matches your computer's memory (RAM). More memory allows a more capable model, but a bigger download."
+    "message": "Coati recommends no model: the right one depends on your computer. Each tool explains how to download one:"
   },
-  "setup_local_memory_known": {
-    "message": "Your browser says this computer has at least $GB$ GB of memory (it never reports more than 8 GB).",
+  "setup_local_docs_ollama": {
+    "message": "Ollama: getting started"
+  },
+  "setup_local_docs_lmstudio": {
+    "message": "LM Studio: download a model"
+  },
+  "setup_local_find_text": {
+    "message": "Find models in the Ollama library or on Hugging Face."
+  },
+  "setup_local_find_ollama": {
+    "message": "Ollama library"
+  },
+  "setup_local_find_hf": {
+    "message": "Hugging Face (GGUF)"
+  },
+  "setup_local_cap_gpu": {
+    "message": "A model up to about $GPU$ GB runs on the graphics card (fast); larger ones, up to about $MAX$ GB, run in memory (slower).",
     "placeholders": {
-      "gb": {
+      "gpu": {
         "content": "$1",
-        "example": "8"
+        "example": "4.9"
+      },
+      "max": {
+        "content": "$2",
+        "example": "12.9"
       }
     }
   },
-  "setup_local_memory_unknown": {
-    "message": "Your browser doesn't report this computer's memory: check your system information."
-  },
-  "setup_local_col_memory": {
-    "message": "Computer memory"
-  },
-  "setup_local_col_model": {
-    "message": "Model"
-  },
-  "setup_local_col_size": {
-    "message": "Download"
-  },
-  "setup_local_memory_row": {
-    "message": "$GB$ GB or more",
+  "setup_local_cap_unified": {
+    "message": "A model up to about $GB$ GB runs well on this shared memory; larger ones don't fit.",
     "placeholders": {
       "gb": {
         "content": "$1",
-        "example": "8"
+        "example": "10.5"
       }
     }
-  },
-  "setup_local_suggested": {
-    "message": "suggested"
-  },
-  "setup_size_gb": {
-    "message": "$GB$ GB",
-    "placeholders": {
-      "gb": {
-        "content": "$1",
-        "example": "3,3"
-      }
-    }
-  },
-  "setup_local_pull_text": {
-    "message": "Open a terminal (Windows: PowerShell; macOS: Terminal), paste this command, then wait for the download to finish."
-  },
-  "setup_local_model_check": {
-    "message": "Check the model"
   },
   "setup_local_model_ok": {
     "message": "The model is ready."
   },
   "setup_local_model_missing": {
-    "message": "The model $MODEL$ isn't in Ollama yet: run the command above and wait for the download to finish.",
+    "message": "The model $MODEL$ isn't in Ollama yet: download it (step 2).",
     "placeholders": {
       "model": {
         "content": "$1",
@@ -1172,16 +1140,10 @@
     }
   },
   "setup_local_no_model": {
-    "message": "No model is installed in Ollama yet: run the command above."
-  },
-  "setup_lmstudio_title": {
-    "message": "Advanced: LM Studio"
+    "message": "No model is installed in Ollama yet: download one (step 2)."
   },
   "setup_lmstudio_text": {
-    "message": "LM Studio is another app that runs a model on your computer. Install it, download a model from the app, then start its local server (“Developer” tab, “Start Server” button)."
-  },
-  "setup_lmstudio_download": {
-    "message": "Download LM Studio"
+    "message": "In LM Studio, open the Developer tab and turn on Start server (it is off by default)."
   },
   "setup_lmstudio_use": {
     "message": "Use LM Studio and check"
@@ -1574,24 +1536,6 @@
       }
     }
   },
-  "setup_local_models_check": {
-    "message": "Check available models"
-  },
-  "setup_local_models_text": {
-    "message": "Already have models in Ollama? Coati lists them here; one click picks the one that answers."
-  },
-  "setup_local_suggestions_title": {
-    "message": "Models to download"
-  },
-  "setup_local_model_installed": {
-    "message": "$MODEL$ is installed. Pick it in the list of available models below.",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "gemma3:4b"
-      }
-    }
-  },
   "setup_local_model_chosen": {
     "message": "Coati now uses $MODEL$.",
     "placeholders": {
@@ -1619,9 +1563,6 @@
       }
     }
   },
-  "setup_local_model_text_host": {
-    "message": "These models run on this computer, based on its memory. A bigger model answers better, but more slowly."
-  },
   "setup_local_host_vram": {
     "message": "This computer: $RAM$ GB of memory, $VRAM$ GB of graphics memory.",
     "placeholders": {
@@ -1635,8 +1576,8 @@
       }
     }
   },
-  "setup_local_host_vram_unknown": {
-    "message": "This computer: $RAM$ GB of memory, graphics memory unknown.",
+  "setup_local_host_ram": {
+    "message": "This computer: $RAM$ GB of memory.",
     "placeholders": {
       "ram": {
         "content": "$1",
@@ -1653,23 +1594,8 @@
       }
     }
   },
-  "setup_local_col_fit": {
-    "message": "On this computer"
-  },
   "setup_local_none_fit": {
-    "message": "None of these models fits on this computer. An online service will be more comfortable."
-  },
-  "setup_local_installed_tag": {
-    "message": "already installed"
-  },
-  "setup_local_installed_no_pull": {
-    "message": "$MODEL$ is already installed: nothing to download.",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "qwen3.5:4b"
-      }
-    }
+    "message": "This computer is short on memory for a local model. An online service will be more comfortable."
   },
   "model_list_provider_local": {
     "message": "on this computer"
@@ -1741,7 +1667,7 @@
     "message": "Key and model"
   },
   "options_local_guide_title": {
-    "message": "Install Ollama and a recommended model, step by step"
+    "message": "Set up a local model, step by step"
   },
   "options_current_default_model": {
     "message": "Service's default model"
@@ -1918,6 +1844,6 @@
     "message": "Ask in your question: Coati searches the web, opens the pages it picks and cites its sources. Searching needs the \"all sites\" permission."
   },
   "setup_search_model": {
-    "message": "For searches and comparisons, an online model (Claude, GPT, Mistral…) does far better. Local models up to 8B usually run a single search and may invent details such as prices; llama3.2 almost never searches."
+    "message": "For searches and comparisons, an online model does far better. Local models up to 8B usually run a single search and may invent details such as prices."
   }
 }

@@ -4,10 +4,10 @@ Coati has two pieces: the extension, in the browser, and the **local program** (
 which runs on your machine and talks to the model. This document installs the local program.
 
 It ships as a single executable, `coati-broker`, which also acts as a **native host**: a
-program the browser launches itself, at the extension's request, to hand it the key that opens
-the connection to the broker — this pairs the extension with no gesture from you. Detail:
-`docs/PROTOCOL.md`, "Native host". Supported browsers: Chrome, Chromium, Brave, Edge, Firefox.
-No step needs administrator rights.
+program the browser launches at the extension's request to hand it the key that opens the
+connection to the broker. Pairing needs no action from you. Detail: `docs/PROTOCOL.md`, "Native
+host". Supported browsers: Chrome, Chromium, Brave, Edge, Firefox. No step needs administrator
+rights.
 
 ## 1. Download and verify
 
@@ -42,12 +42,13 @@ powershell -ExecutionPolicy Bypass -File scripts\install\install-windows.ps1 -Bi
 
 Each installs: the executable (`~/.local/bin/coati-broker` Linux,
 `~/Library/Application Support/Coati/` macOS, `%LOCALAPPDATA%\Coati\` Windows); an
-auto-starting service (systemd user unit, launchd agent, or a Windows scheduled task,
-`CoatiBroker`); the native-host manifest (`com.getcoati.broker.json`) registered with each
-already-installed browser. Options: `--no-service`/`-NoService`, `--dry-run`/`-DryRun`, and on
-Linux/macOS `--all` to declare every browser (otherwise only the ones already installed). On
-Windows, all five browsers are always declared. Windows also restricts the data folder's ACL to
-your account, `SYSTEM`, and Administrators.
+auto-starting service (systemd user unit `coati-broker`, launchd agent `com.getcoati.broker`, or
+a Windows scheduled task `CoatiBroker`); the native-host manifest (`com.getcoati.broker.json`
+on Linux/macOS, `com.getcoati.broker.chromium.json` and `.firefox.json` on Windows, registered
+under `HKCU`) for each already-installed browser. Options: `--no-service`/`-NoService`,
+`--dry-run`/`-DryRun`, and on Linux/macOS `--all` to declare every browser (otherwise only the
+ones already installed). On Windows, all five browsers are always declared. Windows also
+restricts the config and data folders' ACL to your account, `SYSTEM`, and Administrators.
 
 **Unsigned executables**: published binaries carry no Apple/Microsoft developer signature. The
 installer removes the "downloaded from the internet" mark itself. If still blocked: macOS
@@ -58,9 +59,8 @@ installer removes the "downloaded from the internet" mark itself. If still block
 
 Created by the broker on first start (on Windows, `~` means `%USERPROFILE%`):
 `~/.config/coati/config.json` (configuration), `~/.local/share/coati/` (data, including
-`broker-key.json`, drawn fresh on every start). Provider modules
-(`docs/ARCHITECTURE.md`, "Modules"): `coati-broker --check-modules` checks they load without
-opening a port.
+`broker-key.json`, drawn fresh on every start). For provider modules (`docs/ARCHITECTURE.md`,
+"Modules"), `coati-broker --check-modules` checks they load without opening a port.
 
 ## 4. Load the extension
 
@@ -87,8 +87,8 @@ immediately, even after a reload. After an update: replace the folder's contents
   [addons.mozilla.org/developers](https://addons.mozilla.org/developers/), build
   `dist/coati-firefox.zip`, submit at
   [.../addon/submit/distribution](https://addons.mozilla.org/developers/addon/submit/distribution)
-  choosing **On your own** (not the public store). Mozilla's automated review (no human review on
-  this path) takes minutes; install the signed `.xpi` by dragging it into Firefox, or
+  choosing **On your own** (not the public store). Install the signed `.xpi` by dragging it
+  into Firefox, or
   `about:addons` → gear → **Install Add-on From File…**. To republish: bump `"version"` in both
   `extension/manifest.json` and `extension/manifest.firefox.json` (kept in sync) — AMO won't
   re-sign the same version twice for the same id (`coati@getcoati.com`, never changes).
@@ -100,24 +100,24 @@ immediately, even after a reload. After an update: replace the folder's contents
 Default provider: **Ollama**, fully local (`http://127.0.0.1:11434`). Coati never picks a model
 on its own — with none configured, the broker refuses requests.
 
-**Ollama (recommended to start)**: install [Ollama](https://ollama.com), then
-`ollama pull llama3.2` (~2 GB; any chat model works, bigger ones answer better but load slower).
-In the extension's settings (Coati icon → **Open settings**): provider **Ollama (local)**, pick
-`llama3.2` from the installed-models list. Ollama's default 4096-token window silently truncates;
-Coati requests a window sized to the page (up to 16384 tokens) — a long page uses more memory and
-triggers a reload when the size changes.
+**Local model**: install [Ollama](https://ollama.com/download) or
+[LM Studio](https://lmstudio.ai/download), then download a model with it by following the
+tool's own guide ([Ollama](https://docs.ollama.com/quickstart),
+[LM Studio](https://lmstudio.ai/docs/app/basics/download-model)). In the extension's settings
+(Coati icon → **Open settings**, "On this computer" tab), the step-by-step guide connects Coati
+to the tool; pick your model from the installed-models list. Coati sets the context window itself (8192 to 32768
+tokens, depending on the model and your memory); a larger window uses more memory.
 
-**Other providers**: **Claude (API key)** — your own Anthropic key; **OpenAI-compatible** — LM
+**Other providers**: **Claude (Anthropic)** — your own Anthropic key; **OpenAI-compatible** — LM
 Studio, OpenAI, Mistral, OpenRouter, DeepSeek, or any compatible address (key stored by the local
 program, never in the extension). For Ollama itself, prefer the **Ollama (local)** provider over
 its `/v1` endpoint — through that endpoint Coati can't grow the reading window.
 
-Which model fits your machine: see "Which model" in the README.
+Which model fits your machine: see "Choosing a model" in the [README](../README.md#choosing-a-model).
 
 **What you should see**: click the Coati toolbar icon (or press `Alt+Shift+C`). A "Getting
 started" card shows three checks (local program detected, model connected, page access granted).
 With the first two green, ask a question about the page and grant site access when asked.
-Provider status shows at the panel's bottom.
 
 ## 6. Uninstall
 
@@ -138,7 +138,7 @@ A sandboxed browser can't launch the native host. Manual pairing, off by default
 1. `~/.config/coati/config.json`: set `"legacyPairing": true`, then
    `systemctl --user restart coati-broker`.
 2. `~/.local/bin/coati-broker --show-pairing-secret` to print the secret.
-3. Extension settings → "Browser without a native host (Flatpak, Snap)" → paste → **Save**.
+3. Extension settings → "Browser with no native program (Flatpak, Snap)" → paste → **Save**.
 
 The extension keeps the secret in memory only — paste it again after every browser restart. The
 secret is permanent and readable by any program under your account

@@ -62,7 +62,7 @@ export function classifyPageType(signals = {}) {
 
 /**
  * Classifies from `tab.url`/`tab.title` alone — no DOM, no page read. Used on
- * tab switch, where the gesture rule (CLAUDE.md rule 5) forbids injecting
+ * tab switch, where the gesture rule (project rule 10) forbids injecting
  * the content script just because the active tab changed.
  *
  * Only signals that are genuinely legible from the URL/title alone are

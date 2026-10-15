@@ -263,21 +263,12 @@ async function renderFirstRunLang() {
   els.firstRunLang.appendChild(change);
 }
 
-// Ollama's two "model" failure reasons (docs/PROTOCOL.md "Provider
-// availability") each have one exact terminal command that fixes them — no
-// configured-model name reaches the panel (provider.status-result carries
-// none), so "ollama pull" falls back to llama3.2, Ollama's own default.
-export const OLLAMA_DEFAULT_MODEL = "llama3.2";
-
-/** @returns {HTMLElement|null} a copyable-command row for the first-run
- * "model" step, only when the last provider.status-result points at one of
- * Ollama's two fixable states — null otherwise (settings button is enough). */
+/** @returns {HTMLElement|null} a copyable `ollama serve` row for the first-run
+ * "model" step when Ollama is not running — null otherwise: choosing and
+ * installing a model is the settings tutorial's job (Coati names no model). */
 export function buildOllamaCommandRow() {
-  let command;
-  if (lastProviderReason === "ollama-unreachable") command = "ollama serve";
-  else if (lastProviderReason === "model-missing" || lastProviderReason === "no-model-installed") {
-    command = `ollama pull ${OLLAMA_DEFAULT_MODEL}`;
-  } else return null;
+  if (lastProviderReason !== "ollama-unreachable") return null;
+  const command = "ollama serve";
 
   const row = document.createElement("div");
   row.className = "recovery-command";

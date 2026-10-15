@@ -6,6 +6,7 @@ import {
   classifyFit,
   currentModelVision,
   FIT_CONSTANTS,
+  fitLimitsGb,
   fitNoteKey,
   groupModels,
   isCurrentLocal,
@@ -16,9 +17,7 @@ import {
   sameModel,
   shortModelName,
   sizeInGb,
-  suggestForHost,
 } from "../../extension/lib/model-list.js";
-import { OLLAMA_SUGGESTIONS } from "../../extension/lib/setup-data.js";
 import { computeFit, FIT_CONSTANTS as BROKER_FIT_CONSTANTS } from "../../broker/src/host.ts";
 
 const ROMAIN = { ramGb: 16, vramGb: 6.4, unifiedMemory: false };
@@ -75,35 +74,11 @@ describe("machine capacity (lot 4) — copy of the local program's rule", () => 
     expect(readHost({ ramGb: 16, vramGb: null, unifiedMemory: true })).toEqual(MAC_16);
   });
 
-  test("curated list has no qwen3:4b (thinking-only)", () => {
-    expect(OLLAMA_SUGGESTIONS.map((r) => r.model)).not.toContain("qwen3:4b");
-  });
-
-  test("Romain's machine: qwen3.5:4b recommended (largest gpu), bigger ones shared", () => {
-    const rows = suggestForHost(OLLAMA_SUGGESTIONS, ROMAIN);
-    const byModel = Object.fromEntries(rows.map((r) => [r.model, r]));
-    expect(rows.filter((r) => r.recommended).map((r) => r.model)).toEqual(["qwen3.5:4b"]);
-    expect(byModel["qwen3.5:2b"].fit).toBe("gpu");
-    expect(byModel["qwen3:8b"].fit).toBe("shared");
-    expect(byModel["qwen3.5:9b"].fit).toBe("shared");
-    expect(byModel["gemma4:12b"].fit).toBe("shared");
-  });
-
-  test("Mac with 16 GB unified: everything gpu, largest recommended", () => {
-    const rows = suggestForHost(OLLAMA_SUGGESTIONS, MAC_16);
-    expect(rows.every((r) => r.fit === "gpu")).toBe(true);
-    expect(rows.find((r) => r.recommended)?.model).toBe("gemma4:12b");
-  });
-
-  test("unknown VRAM: CPU rule, too-big hidden, smallest shared recommended", () => {
-    const rows = suggestForHost(OLLAMA_SUGGESTIONS, NO_VRAM_16);
-    expect(rows.map((r) => r.model)).toEqual(["qwen3.5:2b", "qwen3.5:4b", "qwen3:8b"]);
-    expect(rows.every((r) => r.fit === "shared")).toBe(true);
-    expect(rows.find((r) => r.recommended)?.model).toBe("qwen3.5:2b");
-  });
-
-  test("a tiny machine gets no suggestion at all", () => {
-    expect(suggestForHost(OLLAMA_SUGGESTIONS, { ramGb: 4, vramGb: null, unifiedMemory: false })).toEqual([]);
+  test("fitLimitsGb: size limits per kind of machine, in GB", () => {
+    expect(fitLimitsGb(ROMAIN)).toEqual({ gpu: 4.9, shared: 12.9 });
+    expect(fitLimitsGb(MAC_16)).toEqual({ gpu: 10.5, shared: 10.5 });
+    expect(fitLimitsGb(NO_VRAM_16)).toEqual({ gpu: 0, shared: 6.5 });
+    expect(fitLimitsGb({ ramGb: 2, vramGb: null, unifiedMemory: false })).toEqual({ gpu: 0, shared: 0 });
   });
 
   test("fitNoteKey: measured gpuPercent wins over the estimate", () => {

@@ -1,6 +1,6 @@
 // Unit tests for the external provider module loader (docs/ARCHITECTURE.md,
 // docs/PROTOCOL.md) — broker/src/providers/registry.ts.
-// Covers the four cases CLAUDE.md security rule #3 requires: a valid module
+// Covers four cases: a valid module
 // loads, a broken module (import throws, bad shape, missing default export)
 // is logged and skipped rather than crashing, and a missing file behaves the
 // same way. Never loads anything but a local file path.
@@ -9,6 +9,7 @@ import { describe, expect, test, afterEach } from "bun:test";
 import { join } from "node:path";
 import { loadProviderModules, initRegistry, getProviders, __resetProvidersForTests } from "../src/providers/registry.ts";
 import { buildProviderHost, type ProviderLogger } from "../src/providers/host.ts";
+import { parseModuleConfigEntries } from "../src/config.ts";
 
 const FIXTURES = join(import.meta.dir, "fixtures", "modules");
 
@@ -132,4 +133,10 @@ describe("initRegistry — installs built-ins + loaded modules as the process-wi
     await expect(initRegistry([{ path: join(FIXTURES, "throwing-provider.ts") }])).resolves.toBeDefined();
     expect(getProviders().map((p) => p.id)).toEqual(["ollama", "claude-api", "openai-compat"]);
   });
+});
+
+test("config.json `modules`: only absolute filesystem paths are kept", () => {
+  const abs = join(FIXTURES, "valid-provider.ts");
+  const raw = [{ path: abs }, { path: "./mod.ts" }, { path: "mod.ts" }, { path: "https://evil.example/mod.ts" }, { path: "file:///tmp/mod.ts" }, { path: "" }];
+  expect(parseModuleConfigEntries(raw)).toEqual([{ path: abs }]);
 });

@@ -3,15 +3,16 @@
 // (contract with the panel: its "never connected" message and "?" button
 // open that URL) — options.js picks the tab, this file builds the steps:
 //   local  — appended to the "On this computer" tab: one fold with the
-//            Ollama steps (install, check it answers, pull a model sized to
-//            the machine), then "Speed up Ollama", then LM Studio;
+//            steps (install Ollama or LM Studio, download a model with it,
+//            connect Coati), then "Speed up Ollama";
 //   online — appended inside "Add a service" ("Online" tab):
 //            OpenRouter free models first, then Claude and OpenAI (paid),
 //            Mistral and DeepSeek under "Others"; create a key, paste it in
 //            the shared key component (lib/key-input.js).
 // Both end on "Try it on a page". Each step is ticked as soon as the
 // existing probes say it succeeded (provider.status for Ollama,
-// settings.test through the key component) — never on a click alone.
+// settings.test for LM Studio and through the key component) — never on a
+// click alone.
 //
 // Every provider fact (URLs, models, prices, quotas) comes from
 // lib/setup-data.js; every sentence from _locales (`setup_*` keys). No
@@ -19,14 +20,12 @@
 
 import { t } from "./lib/i18n-page.js";
 import { createKeyInput } from "./lib/key-input.js";
-import { groupModels, readHost, sameModel, shortModelName, suggestForHost } from "./lib/model-list.js";
+import { fitLimitsGb, groupModels, readHost, sameModel, shortModelName } from "./lib/model-list.js";
 import {
-  OLLAMA_DOWNLOADS,
-  OLLAMA_LINUX_INSTALL_COMMAND,
-  OLLAMA_START_COMMAND,
+  OLLAMA,
+  OLLAMA_LIBRARY_URL,
+  HUGGING_FACE_GGUF_URL,
   OLLAMA_SPEEDUP,
-  OLLAMA_MODELS_BY_MEMORY,
-  OLLAMA_SUGGESTIONS,
   LM_STUDIO,
   ONLINE_PROVIDERS,
   COST_BASIS_WORDS,
@@ -42,18 +41,6 @@ export function detectOs(nav = globalThis.navigator) {
   if (raw.startsWith("mac")) return "mac";
   if (raw.includes("linux") && !raw.includes("android")) return "linux";
   return null;
-}
-
-/** Index of the OLLAMA_MODELS_BY_MEMORY row that likely fits this machine,
- * or -1 when the browser does not tell. navigator.deviceMemory is coarse and
- * capped at 8 (Chromium), so ">= 8" can mean any bigger machine too. */
-export function suggestedModelRow(deviceMemory, rows = OLLAMA_MODELS_BY_MEMORY) {
-  if (typeof deviceMemory !== "number" || !(deviceMemory > 0)) return -1;
-  let index = 0;
-  rows.forEach((row, i) => {
-    if (deviceMemory >= row.minGb) index = i;
-  });
-  return index;
 }
 
 function uiLocale() {
@@ -197,228 +184,103 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   const checkButtons = [];
 
   const os = detectOs();
-  const suggestedRow = suggestedModelRow(navigator.deviceMemory);
-  let chosenModel = OLLAMA_MODELS_BY_MEMORY[Math.max(0, suggestedRow)].model;
 
   // --- Local path: Ollama ------------------------------------------------------
 
   const guide = fold("setupLocalGuide", t("options_local_guide_title"));
   const localList = el("ol", "setup-steps");
   const install = makeStep(1, t("setup_local_install_title"));
-  const running = makeStep(2, t("setup_local_running_title"));
-  const model = makeStep(3, t("setup_local_model_title"));
+  const model = makeStep(2, t("setup_local_model_title"));
+  const connect = makeStep(3, t("setup_local_connect_title"));
   const tryLocal = makeStep(4, t("setup_try_title"));
-  localList.append(install.li, running.li, model.li, tryLocal.li);
+  localList.append(install.li, model.li, connect.li, tryLocal.li);
 
-  // Step 1 — download + start.
-  install.body.append(el("p", "setup-text", t("setup_local_install_text")));
+  // Step 1 — two tools, each with its official download page.
   const downloads = el("p", "setup-links");
-  if (os) {
-    downloads.append(externalLink(OLLAMA_DOWNLOADS[os], t("setup_local_download_for", [OS_NAMES[os]]), "c-button c-button--primary"));
-  }
-  const otherOs = el("span", "setup-other-os");
-  otherOs.append(os ? t("setup_local_other_os") : t("setup_local_download"), " ");
-  Object.keys(OLLAMA_DOWNLOADS)
-    .filter((key) => key !== os)
-    .forEach((key, i) => {
-      if (i > 0) otherOs.append(" · ");
-      otherOs.append(externalLink(OLLAMA_DOWNLOADS[key], OS_NAMES[key]));
-    });
-  downloads.append(otherOs);
-  install.body.append(downloads);
-  if (os === "linux") {
-    install.body.append(el("p", "setup-text", t("setup_local_linux_install")), commandLine(OLLAMA_LINUX_INSTALL_COMMAND));
-  }
-  install.body.append(el("p", "setup-text", t("setup_local_start_intro")));
-  const startList = el("ul", "setup-os-list");
-  for (const key of os ? [os] : Object.keys(OS_NAMES)) {
-    const li = el("li", null);
-    if (!os) li.append(el("strong", null, OS_NAMES[key]), " — ");
-    li.append(t(`setup_local_start_${key}`));
-    startList.append(li);
-  }
-  install.body.append(startList);
-  if (os === "linux" || !os) install.body.append(commandLine(OLLAMA_START_COMMAND));
-
-  // Step 2 — is Ollama answering?
-  running.body.append(el("p", "setup-text", t("setup_local_running_text")));
-  const runningCheck = actionButton(t("setup_local_running_check"), "c-button c-button--primary setup-check-ollama");
-  runningCheck.addEventListener("click", () => checkOllama(false));
-  checkButtons.push(runningCheck);
-  running.body.append(runningCheck);
-
-  // Step 3 — pick and pull a model.
-  // When the local program reports the
-  // machine's capacity (`host`), the suggestions are filtered by it
-  // (lib/model-list.js suggestForHost); otherwise (older local program, or
-  // no answer yet) the previous table driven by navigator.deviceMemory.
-  const modelIntro = el("p", "setup-text");
-  const memoryHint = el("p", "help help--tight setup-memory-hint");
-  const suggestionsSlot = el("div", "setup-suggestions");
-  const pullText = el("p", "setup-text", t("setup_local_pull_text"));
-  // Rebuild the copy button so it copies the CURRENT model's command.
-  const pullSlot = el("div", "setup-pull-slot");
-  model.body.append(
-    modelIntro,
-    memoryHint,
-    el("h4", "setup-subtitle", t("setup_local_suggestions_title")),
-    suggestionsSlot,
-    pullText,
-    pullSlot,
+  downloads.append(
+    externalLink(OLLAMA.downloadUrl, t("setup_local_download_ollama"), "c-button c-button--primary"),
+    externalLink(LM_STUDIO.downloadUrl, t("setup_local_download_lmstudio"), "c-button"),
   );
-  // The user's own radio choice survives a re-render (host arriving, an
-  // installed-models check); until then the suggested row is chosen.
-  let userPickedModel = false;
+  install.body.append(el("p", "setup-text", t("setup_local_install_text")), downloads, el("p", "help help--tight", t("setup_local_why_ollama")));
 
-  function installedOllamaModel(name) {
-    const local = lastModels ? groupModels(lastModels).local : [];
-    return local.find((entry) => entry.provider === "ollama" && sameModel(entry.model, name)) ?? null;
-  }
+  // Step 2 — each tool's own beginner docs, what this machine can run, where
+  // to find a model. Coati names no model. The machine lines need `host` from
+  // the local program (older versions don't send it: nothing shown).
+  const hostLine = el("p", "help help--tight setup-memory-hint");
+  const capacityLine = el("p", "help help--tight setup-memory-hint");
+  const docsLinks = el("p", "setup-links");
+  docsLinks.append(
+    externalLink(OLLAMA.docsUrl, t("setup_local_docs_ollama")),
+    " · ",
+    externalLink(LM_STUDIO.docsUrl, t("setup_local_docs_lmstudio")),
+  );
+  const findLinks = el("p", "setup-links");
+  findLinks.append(
+    externalLink(OLLAMA_LIBRARY_URL, t("setup_local_find_ollama")),
+    " · ",
+    externalLink(HUGGING_FACE_GGUF_URL, t("setup_local_find_hf")),
+  );
+  model.body.append(
+    el("p", "setup-text", t("setup_local_model_text")),
+    docsLinks,
+    hostLine,
+    capacityLine,
+    el("p", "setup-text", t("setup_local_find_text")),
+    findLinks,
+  );
 
-  function radioCell(row, labelText) {
-    const label = el("label", "setup-model-choice");
-    const radio = el("input");
-    radio.type = "radio";
-    radio.name = "setupModel";
-    radio.value = row.model;
-    radio.checked = row.model === chosenModel;
-    radio.addEventListener("change", () => {
-      if (!radio.checked) return;
-      chosenModel = row.model;
-      userPickedModel = true;
-      refreshPullCommand();
-    });
-    label.append(radio, labelText);
-    return label;
-  }
-
-  function headerRow(keys) {
-    const thead = el("thead");
-    const tr = el("tr");
-    for (const key of keys) tr.append(el("th", null, t(key)));
-    thead.append(tr);
-    return thead;
-  }
-
-  function renderSuggestions() {
+  /** Machine lines. The graphics-card sentence only when the graphics memory
+   * was measured (`vramGb`); with it unknown, nothing about speed. */
+  function renderHost() {
     const host = lastModels ? readHost(lastModels.host) : null;
-    const table = el("table", "setup-models");
-    const tbody = el("tbody");
-
     if (!host) {
-      modelIntro.textContent = t("setup_local_model_text");
-      memoryHint.textContent =
-        suggestedRow === -1 ? t("setup_local_memory_unknown") : t("setup_local_memory_known", [String(navigator.deviceMemory)]);
-      if (!userPickedModel) chosenModel = OLLAMA_MODELS_BY_MEMORY[Math.max(0, suggestedRow)].model;
-      OLLAMA_MODELS_BY_MEMORY.forEach((row, i) => {
-        const tr = el("tr", i === suggestedRow ? "setup-model-row setup-model-row--suggested" : "setup-model-row");
-        const memoryCell = el("td");
-        memoryCell.append(radioCell(row, t("setup_local_memory_row", [formatNumber(row.minGb)])));
-        if (i === suggestedRow) memoryCell.append(" ", el("span", "c-chip c-chip--active", t("setup_local_suggested")));
-        tr.append(memoryCell, el("td", "setup-model-name", row.model), el("td", null, t("setup_size_gb", [formatNumber(row.downloadGb)])));
-        tbody.append(tr);
-      });
-      table.append(headerRow(["setup_local_col_memory", "setup_local_col_model", "setup_local_col_size"]), tbody);
-    } else {
-      modelIntro.textContent = t("setup_local_model_text_host");
-      memoryHint.textContent = hostLine(host);
-      const rows = suggestForHost(OLLAMA_SUGGESTIONS, host);
-      if (rows.length === 0) {
-        suggestionsSlot.replaceChildren(el("p", "setup-text setup-none-fit", t("setup_local_none_fit")));
-        pullText.hidden = true;
-        pullSlot.replaceChildren();
-        return;
-      }
-      if (!userPickedModel || !rows.some((row) => row.model === chosenModel)) {
-        chosenModel = (rows.find((row) => row.recommended) ?? rows[0]).model;
-        userPickedModel = false;
-      }
-      for (const row of rows) {
-        const tr = el("tr", row.recommended ? "setup-model-row setup-model-row--suggested" : "setup-model-row");
-        tr.dataset.fit = row.fit;
-        const modelCell = el("td");
-        modelCell.append(radioCell(row, row.model));
-        if (row.recommended) modelCell.append(" ", el("span", "c-chip c-chip--active", t("setup_local_suggested")));
-        if (installedOllamaModel(row.model)) {
-          modelCell.append(" ", el("span", "c-chip", t("setup_local_installed_tag")));
-        }
-        tr.append(
-          modelCell,
-          el("td", "setup-model-size", t("setup_size_gb", [formatNumber(row.downloadGb)])),
-          el("td", "setup-model-fit", t(row.fit === "gpu" ? "model_fit_gpu" : "model_fit_shared")),
-        );
-        tbody.append(tr);
-      }
-      // Below 480 px each row stacks into a block (options.css); explicit
-      // roles keep the table semantics a display change would drop.
-      table.classList.add("setup-models--host");
-      table.setAttribute("role", "table");
-      table.append(headerRow(["setup_local_col_model", "setup_local_col_size", "setup_local_col_fit"]), tbody);
-      for (const node of table.querySelectorAll("thead, tbody")) node.setAttribute("role", "rowgroup");
-      for (const node of table.querySelectorAll("tr")) node.setAttribute("role", "row");
-      for (const node of table.querySelectorAll("th")) node.setAttribute("role", "columnheader");
-      for (const node of table.querySelectorAll("td")) node.setAttribute("role", "cell");
-    }
-    const tableWrap = el("div", "setup-table-wrap");
-    tableWrap.append(table);
-    suggestionsSlot.replaceChildren(tableWrap);
-    refreshPullCommand();
-  }
-
-  function hostLine(host) {
-    const ram = formatNumber(host.ramGb);
-    if (host.unifiedMemory) return t("setup_local_host_unified", [ram]);
-    if (host.vramGb === null) return t("setup_local_host_vram_unknown", [ram]);
-    return t("setup_local_host_vram", [ram, formatNumber(host.vramGb)]);
-  }
-
-  function refreshPullCommand() {
-    pullText.hidden = false;
-    const installed = installedOllamaModel(chosenModel);
-    if (installed) {
-      pullText.hidden = true;
-      pullSlot.replaceChildren(el("p", "setup-text setup-already-installed", t("setup_local_installed_no_pull", [chosenModel])));
+      hostLine.textContent = "";
+      capacityLine.textContent = "";
       return;
     }
-    pullSlot.replaceChildren(commandLine(`ollama pull ${chosenModel}`));
+    const ram = formatNumber(host.ramGb);
+    hostLine.textContent = host.unifiedMemory
+      ? t("setup_local_host_unified", [ram])
+      : host.vramGb === null
+        ? t("setup_local_host_ram", [ram])
+        : t("setup_local_host_vram", [ram, formatNumber(host.vramGb)]);
+    const limits = fitLimitsGb(host);
+    capacityLine.textContent =
+      limits.shared === 0
+        ? t("setup_local_none_fit")
+        : host.unifiedMemory
+          ? t("setup_local_cap_unified", [formatNumber(limits.gpu)])
+          : host.vramGb !== null && limits.gpu > 0
+            ? t("setup_local_cap_gpu", [formatNumber(limits.gpu), formatNumber(limits.shared)])
+            : "";
   }
-  // "Check the model" only checks (models.list): it never writes the
-  // suggested row's model into the config — choosing is done in the
-  // installed list at the top of the tab (options.js), which this check
-  // refreshes through `onModels`.
-  const modelCheck = actionButton(t("setup_local_model_check"), "c-button c-button--primary setup-check-model");
-  modelCheck.addEventListener("click", () => checkChosenModel());
-  checkButtons.push(modelCheck);
-  model.body.append(modelCheck);
 
-  // Step 4 — try it.
-  tryLocal.body.append(el("p", "setup-text", t("setup_try_text")), searchTip());
-  guide.body.append(localList);
-
-  // LM Studio (local server speaking the OpenAI format).
-  const lmFold = fold("setupLmStudio", t("setup_lmstudio_title"));
-  const lmBody = lmFold.body;
-  lmBody.append(el("p", "setup-text", t("setup_lmstudio_text")));
-  const lmLinks = el("p", "setup-links");
-  lmLinks.append(externalLink(LM_STUDIO.downloadUrl, t("setup_lmstudio_download")));
-  lmBody.append(lmLinks);
+  // Step 3 — pick the tool; the check never writes a model into the config:
+  // choosing is done in the installed list at the top of the tab (options.js),
+  // refreshed through `onModels` once the check succeeded.
+  const ollamaCheck = actionButton(t("setup_local_running_check"), "c-button c-button--primary setup-check-ollama");
+  ollamaCheck.addEventListener("click", () => checkOllama());
   const lmButton = actionButton(t("setup_lmstudio_use"), "c-button setup-check-lmstudio");
-  const lmResult = el("p", "setup-step-result");
-  lmResult.setAttribute("role", "status");
-  lmResult.hidden = true;
   let lmTestId = null;
   lmButton.addEventListener("click", () => {
     if (!connected) return;
-    lmResult.hidden = false;
-    lmResult.dataset.tone = "neutral";
-    lmResult.textContent = t("setup_checking");
+    connect.setState("busy", t("setup_checking"));
     request({ type: "settings.set", provider: "openai-compat", baseUrl: LM_STUDIO.baseUrl }, () => {
       lmTestId = newId();
       send({ type: "settings.test", id: lmTestId, provider: "openai-compat" });
     });
   });
-  checkButtons.push(lmButton);
-  lmBody.append(lmButton, lmResult);
+  checkButtons.push(ollamaCheck, lmButton);
+  connect.body.append(
+    el("p", "setup-text", t("setup_local_running_text")),
+    ollamaCheck,
+    el("p", "setup-text", t("setup_lmstudio_text")),
+    lmButton,
+  );
+
+  // Step 4 — try it.
+  tryLocal.body.append(el("p", "setup-text", t("setup_try_text")), searchTip());
+  guide.body.append(localList);
 
   // "Speed up Ollama". This
   // machine's OS first (same detectOs() as the download button).
@@ -433,8 +295,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   speedupLinks.append(externalLink(OLLAMA_SPEEDUP.faqUrl, t("setup_speedup_faq")));
   speedupBody.append(speedupLinks);
 
-  // Order: guide (with the suggested models), Speed up, LM Studio.
-  localRoot.append(guide.details, speedup, lmFold.details);
+  localRoot.append(guide.details, speedup);
   guide.details.addEventListener("toggle", () => {
     if (guide.details.open) prefetchModels();
   });
@@ -472,11 +333,10 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
     return section;
   }
 
-  function checkOllama(withModel) {
+  function checkOllama() {
     if (!connected) return;
-    const target = withModel ? model : running;
-    target.setState("busy", t("setup_checking"));
-    const probe = () => request({ type: "provider.status" }, (result) => applyOllamaStatus(result, withModel));
+    connect.setState("busy", t("setup_checking"));
+    const probe = () => request({ type: "provider.status" }, applyOllamaStatus);
     if (settings?.provider !== "ollama") {
       request({ type: "settings.set", provider: "ollama" }, probe);
     } else {
@@ -488,7 +348,6 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
 
   let lastModels = null;
   let modelsInFlight = false;
-  renderSuggestions();
 
   function fetchModels(callback) {
     modelsInFlight = true;
@@ -496,79 +355,41 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
       modelsInFlight = false;
       if (reply?.type === "models") {
         lastModels = reply;
-        renderSuggestions();
+        renderHost();
+        markChosenLocalModel();
         onModels?.(reply);
       }
       callback?.(reply?.type === "models" ? reply : null);
     });
   }
 
-  /** Quietly reads `host` + installed models for the suggestions, once the
+  /** Quietly reads `host` (machine capacity) + installed models, once the
    * local tab is on screen — no step state touched. */
   function prefetchModels() {
     if (!connected || lastModels || modelsInFlight || !localVisible) return;
     fetchModels(null);
   }
 
-  /** Ollama down → step 2 is the one to fix; true when it answered. */
-  function applyOllamaSource(grouped) {
-    if (grouped.ollamaUnreachable) {
-      install.setState("todo");
-      running.setState("failed", t("setup_local_unreachable"));
-      return false;
-    }
-    install.setState("done");
-    running.setState("done", t("setup_local_running_ok"));
-    return true;
-  }
-
-  /** Is the suggested row's model installed? Reads only — never settings.set. */
-  function checkChosenModel() {
-    if (!connected) return;
-    model.setState("busy", t("setup_checking"));
-    fetchModels((reply) => {
-      if (!reply) {
-        model.setState("failed", t("setup_check_unknown"));
-        return;
-      }
-      const grouped = groupModels(reply);
-      if (!applyOllamaSource(grouped)) {
-        model.setState("todo");
-        return;
-      }
-      const found = grouped.local.find((entry) => entry.provider === "ollama" && sameModel(entry.model, chosenModel));
-      if (!found) model.setState("failed", t("setup_local_model_missing", [chosenModel]));
-      else if (found.current) model.setState("done", t("setup_local_model_ok"));
-      else model.setState("done", t("setup_local_model_installed", [shortModelName(found.model)]));
-    });
-  }
-
-  function applyOllamaStatus(result, withModel) {
+  function applyOllamaStatus(result) {
     const reason = result?.reason;
-    if (result?.type !== "provider.status-result" || result.provider !== "ollama") {
-      (withModel ? model : running).setState("failed", t("setup_check_unknown"));
+    if (result?.type !== "provider.status-result" || result.provider !== "ollama" || result.state === "unknown") {
+      connect.setState("failed", t("setup_check_unknown"));
       return;
     }
     if (reason === "ollama-unreachable") {
       install.setState("todo");
-      running.setState("failed", t("setup_local_unreachable"));
-      if (withModel) model.setState("todo");
-      return;
-    }
-    if (result.state === "unknown") {
-      (withModel ? model : running).setState("failed", t("setup_check_unknown"));
+      connect.setState("failed", t("setup_local_unreachable"));
       return;
     }
     install.setState("done");
-    running.setState("done", t("setup_local_running_ok"));
+    connect.setState("done", t("setup_local_running_ok"));
+    fetchModels(null);
     if (reason === "ready") {
       model.setState("done", t("setup_local_model_ok"));
     } else if (reason === "model-missing") {
-      model.setState(withModel ? "failed" : "todo", t("setup_local_model_missing", [settings?.model || chosenModel]));
+      model.setState("failed", settings?.model ? t("setup_local_model_missing", [settings.model]) : t("setup_local_no_model"));
     } else if (reason === "no-model-installed") {
-      model.setState(withModel ? "failed" : "todo", t("setup_local_no_model"));
-    } else {
-      model.setState("failed", t("setup_check_unknown"));
+      model.setState("failed", t("setup_local_no_model"));
     }
   }
 
@@ -730,13 +551,14 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
 
   refreshEnabled();
 
-  /** Step 3 ticked once an installed Ollama model answers (picked in the
-   * tab's installed list, the panel's menu, or already in use). */
+  /** Step 2 ticked once the model in use is an installed local one (picked in
+   * the tab's installed list, the panel's menu, or already in use). */
   function markChosenLocalModel() {
-    const current = settings?.provider === "ollama" && settings.model ? installedOllamaModel(settings.model) : null;
-    if (current && model.state !== "busy") {
-      model.setState("done", t("setup_local_model_chosen", [shortModelName(current.model)]));
-    }
+    if (!settings?.model || !lastModels) return;
+    const current = groupModels(lastModels).local.find(
+      (entry) => entry.provider === settings.provider && sameModel(entry.model, settings.model),
+    );
+    if (current) model.setState("done", t("setup_local_model_chosen", [shortModelName(current.model)]));
   }
 
   return {
@@ -749,7 +571,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
     onModels(reply) {
       if (reply?.type !== "models") return;
       lastModels = reply;
-      renderSuggestions();
+      renderHost();
       markChosenLocalModel();
     },
     /** The "On this computer" tab is shown (true) or hidden (false). */
@@ -777,8 +599,13 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
       }
       if (message.type === "settings.test-result" && lmTestId && message.id === lmTestId) {
         lmTestId = null;
-        lmResult.dataset.tone = message.ok ? "ok" : "error";
-        lmResult.textContent = message.ok ? t("setup_lmstudio_ok") : message.message || t("setup_check_unknown");
+        if (message.ok) {
+          install.setState("done");
+          connect.setState("done", t("setup_lmstudio_ok"));
+          fetchModels(null);
+        } else {
+          connect.setState("failed", message.message || t("setup_check_unknown"));
+        }
       }
     },
     /** Opens the Ollama guide fold (the caller shows the local tab first). */

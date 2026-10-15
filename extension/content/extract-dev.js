@@ -1,5 +1,5 @@
 // Coati content script — "Dev mode" level (docs/PROTOCOL.md "Page on
-// demand", CLAUDE.md product rule 5's planned "dev" level). Injected on its
+// demand", project rule 5's planned "dev" level). Injected on its
 // own via chrome.scripting.executeScript({ files: ["/content/extract-dev.js"] })
 // — see panel/page-request.js's runDevExtraction() — never together with
 // content/extract-files.js's pipeline: this is a different reading level,
@@ -7,7 +7,7 @@
 //
 // Produces the whole document's cleaned HTML: structure only, never a
 // script's behavior, a style's look, or a form field's typed-in value
-// (CLAUDE.md rule #6, "never a password field's value, at any level" —
+// (project rule 6, "never a password field's value, at any level" —
 // generalised here to every field, every level of this cap). Single
 // top-level bare expression statement, same completion-value contract as
 // content/extract.js — nothing declared at file scope, so re-injecting this
@@ -24,7 +24,7 @@
   const MAX_DEV_CHARS = 400000;
   const DROP_TAGS = ["script", "style", "svg", "noscript", "template", "iframe", "link", "meta", "canvas"];
   // Everything else is dropped, case-insensitively, `value` first and
-  // unconditionally (CLAUDE.md rule #6) — an attribute allowlist, not a
+  // unconditionally (project rule 6) — an attribute allowlist, not a
   // denylist, so a new HTML attribute invented tomorrow is dropped by
   // default rather than leaking through unreviewed.
   const KEEP_ATTRS = new Set(["id", "class", "role", "href", "alt", "title", "name", "type", "for", "placeholder"]);

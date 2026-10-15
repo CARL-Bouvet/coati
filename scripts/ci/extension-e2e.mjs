@@ -189,6 +189,19 @@ try {
   const answerText = await page.locator(".message--assistant").last().textContent();
   pass(`assistant answer received from the fake provider: ${answerText.slice(0, 80)}`);
 
+  // The settings page loads as a module graph the lab bundle never exercises.
+  const options = await ctx.newPage();
+  const optionsErrors = [];
+  options.on("pageerror", (e) => optionsErrors.push(String(e)));
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  await waitFor(
+    async () => (await options.locator("#setupLocal .setup-step").count()) > 0,
+    15_000,
+    "settings page renders the local setup guide",
+  );
+  if (optionsErrors.length) throw new Error(`settings page errors:\n${optionsErrors.join("\n")}`);
+  pass("settings page rendered the local setup guide without errors");
+
   console.log("== scripts/ci/extension-e2e.mjs: ALL PASS ==");
 } catch (err) {
   console.error(`FAIL: ${err.stack || err}`);

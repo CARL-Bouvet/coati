@@ -37,7 +37,6 @@
         echoSettingsSet: true,
         labHash: "setup",
         labPlatform: "Windows",
-        labDeviceMemory: 8,
         storageLocal: { "coati:retentionDays": 30 },
         permissions: ["https://www.youtube.com/*"],
       },
@@ -80,11 +79,6 @@
       { provider: "claude-api", model: "claude-sonnet-4-5", local: false },
     ],
     sources: [OLLAMA_OK, { provider: "claude-api", state: "ok" }],
-  };
-  var MODELS_OLLAMA_UNREACHABLE = {
-    current: { provider: "ollama", model: null },
-    entries: [],
-    sources: [{ provider: "ollama", state: "unreachable" }],
   };
   function hostModels(host, entries) {
     return { current: { provider: "ollama", model: null }, entries: entries, sources: [OLLAMA_OK], host: host };
@@ -138,37 +132,30 @@
   };
 
   var GUIDE_STATES = {
-    // First screen: one sentence on the local program, two cards.
+    // First screen: the Ollama path (default), two tools side by side.
     "setup-first": guide({}),
 
     // Same, local program not answering: notice + checks disabled.
     "setup-disconnected": guide({ status: "disconnected" }),
 
-    // Linux, memory not reported: install + start commands, no highlighted row.
-    "setup-local-linux": guide({
-      labPlatform: "Linux",
-      labDeviceMemory: undefined,
-      }),
-
-    // Step 2 failed: Ollama does not answer.
+    // Step 3 failed: Ollama does not answer.
     "setup-local-unreachable": guide({
       providerStatus: OLLAMA_STATUS("ko", "ollama-unreachable"),
       autoAction: steps(click(".setup-check-ollama", 90)),
     }),
 
-    // Steps 1-2 ticked, no model installed yet (step 3 explains).
+    // Ollama answers, no model installed yet (step 2 flagged).
     "setup-local-no-model": guide({
       providerStatus: OLLAMA_STATUS("ko", "no-model-installed"),
       autoAction: steps(click(".setup-check-ollama", 90)),
     }),
 
-    // Step 3 failed: the chosen model (8 GB row, gemma3:4b) is not pulled
-    // yet. « Vérifier le modèle » reads models.list and
-    // shows what IS installed below.
+    // Ollama answers, the chosen model (gemma3:4b) is not downloaded yet;
+    // the installed list shows what IS.
     "setup-local-model-missing": guide({
       providerStatus: OLLAMA_STATUS("ko", "model-missing"),
       models: MODELS_ONE_INSTALLED,
-      autoAction: steps(click(".setup-check-model", 90)),
+      autoAction: steps(click(".setup-check-ollama", 90)),
     }),
 
     // Steps 1-3 ticked: Ollama answers, model present and in use.
@@ -176,45 +163,36 @@
       providerStatus: OLLAMA_STATUS("ok", "ready"),
       settings: Object.assign({}, FRESH_SETTINGS, { model: "gemma3:4b" }),
       models: MODELS_SUGGESTED_IN_USE,
-      autoAction: steps(click(".setup-check-model", 90)),
+      autoAction: steps(click(".setup-check-ollama", 90)),
     }),
 
-
-    // Suggestions filtered by the machine (`host`), read as soon as
-    // the local path opens. Romain's machine: qwen3.5:4b « conseillé »,
-    // qwen3:8b / qwen3.5:9b / gemma4:12b « partagé… »; qwen3:8b already
-    // installed (tag instead of the pull command when chosen).
+    // Machine lines in step 2 (`host`, read as soon as the guide opens).
+    // Graphics memory measured: memory line + graphics-card sentence.
     "setup-local-host-gpu": guide({
       models: hostModels({ ramGb: 16, vramGb: 6.4 }, [
         { provider: "ollama", model: "qwen3:8b", local: true, sizeBytes: 5225387923, fit: "shared" },
       ]),
-      }),
+    }),
 
-    // Mac, 16 GB unified memory: every row fits, gemma4:12b « conseillé ».
+    // Mac, 16 GB unified memory: shared-memory sentence.
     "setup-local-host-mac": guide({
       labPlatform: "macOS",
       models: hostModels({ ramGb: 16, vramGb: null, unifiedMemory: true }, []),
-      }),
-
-    // Graphics memory unknown: CPU rule, three rows « partagé… », the
-    // smallest « conseillé », the two biggest hidden.
-    "setup-local-host-unknown-vram": guide({
-      labPlatform: "Linux",
-      models: hostModels({ ramGb: 16, vramGb: null }, []),
-      }),
-
-    // Same check, Ollama not answering: step 2 flagged, calm line in the list.
-    "setup-local-installed-unreachable": guide({
-      models: MODELS_OLLAMA_UNREACHABLE,
     }),
 
-    // « Avancé : LM Studio » open and checked OK.
+    // Graphics memory unknown (every Windows machine today): only
+    // « Cet ordinateur : 16 Go de mémoire. », nothing about speed.
+    "setup-local-host-unknown-vram": guide({
+      models: hostModels({ ramGb: 16, vramGb: null }, []),
+    }),
+
+    // Older local program, no `host`: no machine lines.
+    "setup-local-no-host": guide({ models: MODELS_ONE_INSTALLED }),
+
+    // LM Studio path: « Utiliser LM Studio et vérifier » answers OK.
     "setup-local-lmstudio": guide({
       testResults: { "openai-compat": { ok: true, message: "Connexion au serveur réussie." } },
-      autoAction: steps(
-        click("#setupLmStudio > summary", 80),
-        click(".setup-check-lmstudio", 100),
-      ),
+      autoAction: steps(click(".setup-check-lmstudio", 100)),
     }),
 
     // « Accélérer Ollama » open, as

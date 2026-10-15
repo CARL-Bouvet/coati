@@ -39,9 +39,9 @@ and allows 16 unproven connections at once. The extension keeps the key in sessi
 - Never reads a password field's value. Dev-level reading drops every field value, scripts,
   styles and comments.
 - Never builds page-sourced HTML: answers are rendered node by node.
-- Permissions: `sidePanel`, `activeTab`, `storage`, `scripting`, `alarms`, `favicon` at install
-  (no `tabs`, no `contextMenus`); "all sites" is optional and asked at the first feature that
-  needs it.
+- Permissions: `sidePanel`, `activeTab`, `storage`, `scripting`, `alarms`, `favicon`,
+  `nativeMessaging`, `search` at install (no `tabs`, no `contextMenus`); "all sites" is optional
+  and asked at the first feature that needs it.
 - The background script accepts internal messages only from the extension's own pages.
 
 **What the model can do.** Page text is sent as fenced data, never as instructions.
@@ -59,8 +59,8 @@ and allows 16 unproven connections at once. The extension keeps the key in sessi
   `user@`), with its domain shown beside it (`xn--…` for look-alike scripts). Once the
   conversation has read or searched anything, only links found in the sources or the current page
   stay clickable, compared in full (fragment included). A link whose domain is named in a page
-  title sent with a question is never "from memory". A domain imitating a source, or a label reading as another
-  domain, stays text. With nothing read, a link is clickable but marked "from memory, check it".
+  title sent with a question is never "from memory". A domain imitating a source, or a label
+  reading as another domain, stays text. With nothing read, a link is clickable but marked "from memory, check it".
   A link opens only when you click it, in a new tab. Rules: `docs/DECISIONS.md` (T61).
 - *Show.* The model can point at an element; Coati only highlights it. It never clicks, types,
   pays, sends, deletes, publishes or signs in.
@@ -81,32 +81,29 @@ and allows 16 unproven connections at once. The extension keeps the key in sessi
 
 ## Known limits
 
-- **Sensitive-data warning.** It only covers dev-level HTML sent to an online model. Text level,
+- The sensitive-data warning covers only dev-level HTML sent to an online model. Text level,
   screenshots and opened pages are not scanned.
-- **Opened pages use your session.** A result page is read with your browser's cookies, on the
-  result's own site only.
-- **Search side channel.** Once you allow a search, the choice of pages the model opens can still
-  carry a few bits to a site that sees the visits.
-- **Shared history.** The conversation is shared across sites and replayed to the model on each
-  question. Clear it to separate contexts.
-- **Fake instructions.** A page can make the model relay instructions (a command to run, a link
-  shown as text). Coati does not detect them; check commands and links before using them.
-- **Dev mode.** It sends hidden text and attributes (`title`, `alt`, `aria-*`…) to the model and
-  lifts the local-address block of the open guard. You confirm it once and accept the risk.
-- **Hidden-text filters.** Text-level reading skips near-zero font, clipped, off-screen and
-  same-colour text. It is a reduction, not a boundary.
-- **Same-account programs.** Any process of your user account can talk to the broker. This is
-  the trust boundary above.
-- **Peer check.** Only Linux checks the connecting user. On macOS and Windows the key file's
-  permissions are the remaining protection, and another local account can fill the 16
-  unauthenticated slots and block pairing.
-- **Windows folders.** The installer sets the ACL on the data and config folders (your account,
-  `SYSTEM`, Administrators); Coati does not re-check it afterwards. Moving the profile or editing
+- A result page is read with your browser's cookies, on the result's own site only.
+- Once you allow a search, the choice of pages the model opens can still carry a few bits to a
+  site that sees the visits.
+- The conversation is shared across sites and replayed to the model on each question. Clear it to
+  separate contexts.
+- A page can make the model relay instructions (a command to run, a link shown as text). Coati
+  does not detect them; check commands and links before using them.
+- Dev mode sends hidden text and attributes (`title`, `alt`, `aria-*`…) to the model and lifts
+  the local-address block of the open guard. You confirm it once and accept the risk.
+- Text-level reading skips near-zero font, clipped, off-screen and same-colour text. This
+  reduces hidden text; it does not stop it.
+- Any process of your user account can talk to the broker. This is the trust boundary above.
+- Only Linux checks the connecting user. On macOS and Windows the key file's permissions are the
+  remaining protection, and another local account can fill the 16 unauthenticated slots and
+  block pairing.
+- On Windows, the installer sets the ACL on the data and config folders (your account, `SYSTEM`,
+  Administrators); Coati does not re-check it afterwards. Moving the profile or editing
   permissions by hand can expose the key.
-- **Plain loopback.** Traffic between the extension and the broker is `ws://`, readable only by
-  your user or root.
-- **Legacy pairing** (Flatpak/Snap browsers). Off by default. When on, the secret is permanent and
+- Traffic between the extension and the broker is `ws://`, readable only by your user or root.
+- Legacy pairing (Flatpak/Snap browsers) is off by default. When on, the secret is permanent and
   readable by any program of your account (`docs/INSTALL.md` explains how to renew it).
-- **Unsigned binaries.** Release executables carry no Apple/Microsoft signature. `SHA256SUMS`
-  checks integrity only (`docs/INSTALL.md`). Releases are built by CI with actions pinned by
-  commit and a frozen lockfile.
+- Release executables carry no Apple/Microsoft signature. `SHA256SUMS` checks integrity only
+  (`docs/INSTALL.md`). Releases are built by CI with actions pinned by commit and a frozen
+  lockfile.

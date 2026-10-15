@@ -292,7 +292,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
   }
 
   return Bun.serve<ConnData, {}>({
-    hostname: "127.0.0.1", // NEVER 0.0.0.0 — see CLAUDE.md non-negotiable rule #2.
+    hostname: "127.0.0.1", // NEVER 0.0.0.0 — see project rule 18.
     port: config.port,
     // docs/PROTOCOL.md: explicit even though it's Bun's own default — a second broker
     // trying to bind the same port must fail, never silently share it.
@@ -533,8 +533,7 @@ if (import.meta.main) {
   const nativeKey = generateBrokerKey();
   // docs/PROTOCOL.md: load
   // config.json's `modules` BEFORE serving anything — a broken module is
-  // logged (by initRegistry itself) and skipped, never fatal (CLAUDE.md
-  // security rule #3).
+  // logged (by initRegistry itself) and skipped, never fatal.
   await initRegistry(config.modules ?? []);
   const server = startServer({ ...config, port }, nativeKey, {
     dataDir: dirs.dataDir,

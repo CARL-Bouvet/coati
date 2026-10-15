@@ -64,14 +64,6 @@
       },
     });
   }
-  if ("labDeviceMemory" in fixture) {
-    Object.defineProperty(navigator, "deviceMemory", {
-      configurable: true,
-      get: function () {
-        return fixture.labDeviceMemory;
-      },
-    });
-  }
 
   // Broker settings stand-in. Only fixtures with `echoSettingsSet: true`
   // apply settings.set (provider/model/baseUrl, apiKey -> `configured`) and

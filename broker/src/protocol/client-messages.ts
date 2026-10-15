@@ -170,7 +170,7 @@ export interface CancelMessage {
 
 // 3 — see docs/PROTOCOL.md's dated. Lets the
 // options page read and change the active model provider. Never carries a
-// secret (no API key field) — see CLAUDE.md rule #1.
+// secret (no API key field) — see project rule 17.
 export interface SettingsGetMessage {
   type: "settings.get";
   id: string;
@@ -184,7 +184,7 @@ export interface SettingsSetMessage {
   model?: string;
   /**
    * The user's own Anthropic API key, for the claude-api provider. WRITE-ONLY
-   * — see config.ts's CoatiConfig.apiKey and CLAUDE.md rule #1: it is
+   * — see config.ts's CoatiConfig.apiKey and project rule 17: it is
    * accepted here, persisted, and never echoed back in any `settings`
    * response. An empty string means "forget the stored key". Omitted means
    * "leave the stored key unchanged", same as every other field here.
@@ -226,7 +226,7 @@ export interface SettingsTestMessage {
 
 // "Provider availability". Sent by the panel
 // once per panel open only (never automatically, never periodically — see
-// CLAUDE.md rule #5, "the gesture rule"). Takes no field beyond `id`: it
+// project rule 10, "the gesture rule"). Takes no field beyond `id`: it
 // always targets the currently active provider.
 export interface ProviderStatusMessage {
   type: "provider.status";

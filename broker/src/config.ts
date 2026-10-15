@@ -2,7 +2,7 @@
 // hard-coded via homedir()) so tests can point at a temp dir.
 
 import { existsSync, readFileSync, chmodSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { homedir } from "node:os";
 import { hardenDir, atomicWriteFileSync } from "./fs-atomic.ts";
 
@@ -22,7 +22,7 @@ export type ProviderId = string;
 /** One entry of config.json's `modules` array — an external provider module,
  * loaded by providers/registry.ts at startup via dynamic `import()`. `path`
  * must be an absolute filesystem path (never a URL, never anything read from
- * the extension or a page — CLAUDE.md security rule #3). `options` is passed
+ * the extension or a page). `options` is passed
  * through, untouched, as the module's `createProvider(host, options)` second
  * argument — see docs/ARCHITECTURE.md. */
 export interface ModuleConfigEntry {
@@ -60,7 +60,7 @@ export interface CoatiConfig {
    * switching between configured services keeps every key. WRITE-ONLY end to end: accepted by
    * `settings.set`, persisted here (0600, same as the rest of this file), and NEVER read back
    * into a `settings`/`settings.set` response (only a `hasKey` boolean is) — see
-   * handlers/settings.ts's buildSettingsPayload and CLAUDE.md security rule #1. Never logged,
+   * handlers/settings.ts's buildSettingsPayload and project rule 17. Never logged,
    * never included in an error message — see providers/claude-api.ts and providers/openai-compat.ts.
    */
   apiKeys?: {
@@ -330,17 +330,17 @@ export function removeCompatService(config: CoatiConfig, baseUrl: string): Coati
   };
 }
 
-/** Pure: validates one raw `modules` array entry's shape (`path` a non-empty
- * string, `options` absent or a plain object) — malformed entries are dropped
- * rather than throwing, same "never crash on a bad config" stance as the rest
- * of loadConfig. Exported for tests. */
+/** Pure: validates one raw `modules` array entry's shape (`path` an absolute
+ * filesystem path, never relative nor a URL; `options` absent or a plain
+ * object) — malformed entries are dropped rather than throwing, same "never
+ * crash on a bad config" stance as the rest of loadConfig. Exported for tests. */
 export function parseModuleConfigEntries(raw: unknown): ModuleConfigEntry[] {
   if (!Array.isArray(raw)) return [];
   const entries: ModuleConfigEntry[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
     const obj = item as Record<string, unknown>;
-    if (typeof obj.path !== "string" || obj.path.length === 0) continue;
+    if (typeof obj.path !== "string" || !isAbsolute(obj.path)) continue;
     const options =
       obj.options && typeof obj.options === "object" && !Array.isArray(obj.options)
         ? (obj.options as Record<string, unknown>)

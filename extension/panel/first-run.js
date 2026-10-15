@@ -47,7 +47,7 @@ export const FIRST_RUN_TEXT = {
 };
 
 export const RELEASES_URL = "https://github.com/CARL-Bouvet/coati/releases/latest";
-// storage.local key — a preference, never a secret (CLAUDE.md rule #1).
+// storage.local key — a preference, never a secret (project rule 17).
 export const FIRST_RUN_DONE_KEY = "coati:firstRunDone";
 // storage.local key — set true the first time an assistant answer completes
 // (panel.js, handleBrokerMessage's "done" case). Unlike FIRST_RUN_DONE_KEY

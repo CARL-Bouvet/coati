@@ -1,5 +1,5 @@
 // Coati — pure detector for obvious sensitive-data patterns in page HTML
-// (CLAUDE.md product rule #8: "Sensitive data: warn, never mask"). Used by
+// (project rule 8: "Sensitive data: warn, never mask"). Used by
 // panel/page-request.js before a dev-level extraction leaves for an online
 // model. No network, no DOM, no state: a string in, a list of kinds out —
 // testable on its own (broker/test/sensitive-scan.test.ts).

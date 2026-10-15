@@ -1,10 +1,8 @@
 # Coati
 
-<!-- Coati illustration goes here -->
-
 Coati is a virtual assistant that lives in a side panel of your browser. Plug in your own AI
-model, on your computer (Ollama) or online, and get in-depth web searches, summaries of articles
-and YouTube videos, and more.
+model, on your computer (Ollama, LM Studio) or online, and get in-depth web searches, summaries
+of articles and YouTube videos, and more.
 
 ![Coati's side panel next to the Wikipedia article "Coati", summing it up in five points with qwen3:4b running locally in Ollama](docs/img/coati-wikipedia.png)
 
@@ -18,21 +16,14 @@ Coati has only been tested on Linux so far. Reports from macOS and Windows are w
 2. Load the extension in Chrome, Brave, Edge or Chromium (developer mode), or in Firefox as a
    temporary add-on.
 3. Click the Coati icon or press `Alt+Shift+C`. A guided tour opens the first time, and the
-   settings help you choose a model.
+   settings walk you through connecting a model on your computer or an online one.
 
 ## Choosing a model
 
-A small local model is enough to summarize a page, an article or a YouTube video.
-
-Web search over several steps needs a stronger model. In our tests, Claude Sonnet (online) ran
-several searches and opened the right pages, while local models of 4 to 8B parameters usually ran
-a single search and sometimes invented details such as prices. Larger local models, and other
-online models (GPT, Mistral, the free models on [OpenRouter](https://openrouter.ai)), have not
-been measured yet.
-
-With [Ollama](https://ollama.com), the setup guide reads the memory of your graphics card and
-suggests the largest model from its list that fits, from `qwen3.5:2b` to `gemma4:12b`. Any other
-model Ollama runs works too.
+Coati recommends no model: the right one depends on your hardware, and the settings page shows
+what your machine can run. Ollama ([library](https://ollama.com/search)) and LM Studio (its
+Discover tab) each offer a catalog; [Hugging Face](https://huggingface.co/models?library=gguf)
+has many more.
 
 Free online models may keep what you send them. Check the provider's privacy settings before
 sending anything confidential.
@@ -49,8 +40,8 @@ contract between the two is [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 Coati has no server of its own and sends no telemetry. Page content leaves your computer only
 when you use an online model. Coati never reads password fields, and passes page text to the
 model as data. On a page, it only reads and highlights: it never clicks, types, pays, sends,
-deletes, publishes or signs in. The local program accepts only the paired extension. Details, and how to report a
-vulnerability, are in [SECURITY.md](SECURITY.md).
+deletes, publishes or signs in. The local program accepts only the paired extension. Details,
+and how to report a vulnerability, are in [SECURITY.md](SECURITY.md).
 
 ## Contributing
 

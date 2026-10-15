@@ -15,7 +15,7 @@
 | `extension/vendor/` | ~3,400 | SortableJS (third-party, prompt drag-and-drop) |
 | `broker/src/` | ~11,400 | local program: handshake, protocol, model prompts, settings |
 | — `broker/src/providers/` | ~2,400 | Ollama, OpenAI-compatible, Claude API |
-| `broker/test/` | ~17,400 | unit + integration tests (3,441 of them) |
+| `broker/test/` | ~17,400 | unit + integration tests |
 | `scripts/install/`, `packaging/` | ~1,850 | Linux/macOS/Windows installers, systemd/launchd/Native Messaging templates |
 | `scripts/brand/` | ~990 | rebuilds the logo from source assets |
 

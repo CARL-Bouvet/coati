@@ -64,37 +64,38 @@ export function readHost(host) {
   };
 }
 
-/** "gpu" | "shared" | "too-big" — same rule as the local program. */
-export function classifyFit(sizeBytes, host) {
-  const needed = sizeBytes + FIT_CONSTANTS.OVERHEAD_BYTES;
+/** Largest model file (bytes) that fits the graphics card (`gpu`) and that
+ * still runs, partly in memory (`shared`). 0 = nothing of that kind fits. */
+function fitLimitsBytes(host) {
+  const ram = host.ramGb * 1e9;
+  const overhead = FIT_CONSTANTS.OVERHEAD_BYTES;
   if (host.unifiedMemory) {
-    return needed <= FIT_CONSTANTS.UNIFIED_RAM_FRACTION * host.ramGb * 1e9 ? "gpu" : "too-big";
+    const gpu = Math.max(0, FIT_CONSTANTS.UNIFIED_RAM_FRACTION * ram - overhead);
+    return { gpu, shared: gpu };
   }
   if (host.vramGb !== null) {
-    const vramBytes = host.vramGb * 1e9;
-    if (needed <= vramBytes) return "gpu";
-    if (needed <= vramBytes + FIT_CONSTANTS.RAM_SUPPLEMENT_FRACTION * host.ramGb * 1e9) return "shared";
-    return "too-big";
+    const vram = host.vramGb * 1e9;
+    return {
+      gpu: Math.max(0, vram - overhead),
+      shared: Math.max(0, vram + FIT_CONSTANTS.RAM_SUPPLEMENT_FRACTION * ram - overhead),
+    };
   }
-  return needed <= FIT_CONSTANTS.CPU_RAM_FRACTION * host.ramGb * 1e9 ? "shared" : "too-big";
+  return { gpu: 0, shared: Math.max(0, FIT_CONSTANTS.CPU_RAM_FRACTION * ram - overhead) };
 }
 
-/**
- * Download suggestions for this machine: "too-big" ones dropped, each kept
- * row tagged with its fit, and ONE `recommended` — the largest "gpu" model,
- * else the smallest "shared" one. Input order is kept.
- * @param {{model: string, downloadGb: number}[]} list
- */
-export function suggestForHost(list, host) {
-  const rows = list
-    .map((row) => ({ ...row, fit: classifyFit(row.downloadGb * 1e9, host), recommended: false }))
-    .filter((row) => row.fit !== "too-big");
-  const gpu = rows.filter((row) => row.fit === "gpu");
-  const pick = gpu.length > 0
-    ? gpu.reduce((a, b) => (b.downloadGb > a.downloadGb ? b : a))
-    : rows.reduce((a, b) => (a === null || b.downloadGb < a.downloadGb ? b : a), null);
-  if (pick) pick.recommended = true;
-  return rows;
+/** "gpu" | "shared" | "too-big" — same rule as the local program. */
+export function classifyFit(sizeBytes, host) {
+  const limits = fitLimitsBytes(host);
+  if (sizeBytes <= limits.gpu) return "gpu";
+  return sizeBytes <= limits.shared ? "shared" : "too-big";
+}
+
+/** The same limits in decimal GB, rounded down to 0.1, for the settings
+ * page ("a model up to about N GB"). */
+export function fitLimitsGb(host) {
+  const { gpu, shared } = fitLimitsBytes(host);
+  const floorGb = (bytes) => Math.floor(bytes / 1e8) / 10;
+  return { gpu: floorGb(gpu), shared: floorGb(shared) };
 }
 
 /** Locale key of the plain-words fit note, or null. A measured GPU share

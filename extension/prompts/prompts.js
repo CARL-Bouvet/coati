@@ -2,7 +2,7 @@
 // case per site, talking to the broker through the service worker exactly
 // like options.js (coati:client-message / coati:broker-message / coati:get-
 // status / coati:status — see extension/options.js:84-99). textContent only,
-// never innerHTML (CLAUDE.md security rule #3): all prompt text ultimately
+// never innerHTML (project rule 16): all prompt text ultimately
 // comes from a stored value the user or a page extraction produced.
 
 import { api } from "../lib/browser-compat.js";

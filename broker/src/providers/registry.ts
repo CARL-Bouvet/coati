@@ -34,7 +34,7 @@ export interface LoadModulesResult {
   providers: ModelProvider[];
   /** One entry per module that failed to load or didn't return a valid
    * provider — never thrown. A broken module must never crash the broker nor
-   * stop the other providers from loading (CLAUDE.md security rule #3). */
+   * stop the other providers from loading. */
   warnings: string[];
 }
 

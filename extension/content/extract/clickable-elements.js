@@ -4,7 +4,7 @@
 // ref -> element map ONLY in this isolated world's global scope
 // (`globalThis.__coatiRefs`), never as a DOM attribute: a page could forge
 // a matching `data-*` attribute of its own and retarget the user's click
-// at a different element (CLAUDE.md rule #3 — page content is read, never
+// at a different element (project rule 16 — page content is read, never
 // written). `pointer.js`, injected later by a separate
 // `chrome.scripting.executeScript` call into the SAME isolated world,
 // resolves a ref back against this exact map at the moment of the user's

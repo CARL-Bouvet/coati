@@ -1,6 +1,6 @@
 // Coverage for extension/lib/sensitive-scan.js — the pure detector behind
-// panel/page-request.js's dev-level sensitive-data dialog (CLAUDE.md
-// product rule #8: warn, never mask). Each kind is checked both ways: a
+// panel/page-request.js's dev-level sensitive-data dialog (project
+// rule 8: warn, never mask). Each kind is checked both ways: a
 // real-shaped example matches, an ordinary run of digits/letters does not.
 
 import { describe, expect, test } from "bun:test";

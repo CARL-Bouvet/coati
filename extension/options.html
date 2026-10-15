@@ -69,8 +69,8 @@
         </div>
 
         <!-- Tab "On this computer": installed models (one click = settings.set),
-             then options-setup.js appends three folds: the Ollama guide (with the
-             suggested models), "Speed up Ollama", LM Studio. -->
+             then options-setup.js appends two folds: the local-model guide and
+             "Speed up Ollama". -->
         <div id="panelLocal" class="tab-panel" role="tabpanel" aria-labelledby="tabLocal">
           <p class="help" data-i18n="setup_path_local_text">Free and private: your texts never leave the computer. Needs a recent computer.</p>
           <div class="tab-block">
@@ -120,7 +120,7 @@
           <label for="modelSelect" id="modelLabel" data-i18n="options_model_name_label">Model name</label>
           <select id="modelSelect" class="c-field c-input" hidden></select>
           <div class="inline-row">
-            <input id="modelInput" class="c-field c-input" type="text" aria-labelledby="modelLabel" data-i18n-placeholder="options_model_name_placeholder" placeholder="e.g. llama3.2 (optional)" hidden />
+            <input id="modelInput" class="c-field c-input" type="text" aria-labelledby="modelLabel" data-i18n-placeholder="options_model_name_placeholder" placeholder="Model name (optional)" hidden />
             <button id="modelSave" type="button" class="c-button" hidden data-i18n="options_model_save">Save the model</button>
           </div>
         </div>

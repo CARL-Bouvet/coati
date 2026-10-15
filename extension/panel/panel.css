@@ -428,7 +428,7 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
 }
 
 /* Markdown rendered by panel/markdown.js — DOM nodes only, no innerHTML
- * (CLAUDE.md #3). Compact scale: the panel owns h1/h2 in its own header,
+ * (project rule 16). Compact scale: the panel owns h1/h2 in its own header,
  * so model output only ever gets h3-h5 (see headingTag() in markdown.js). */
 .message--assistant h3,
 .message--assistant h4,

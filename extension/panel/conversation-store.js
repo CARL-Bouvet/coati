@@ -25,7 +25,7 @@ export async function loadConversation() {
 export function persistConversation() {
   // `elementsSnapshot` is page-derived (element labels are text
   // read off the page) and tab/extraction-specific — kept in memory only,
-  // same reasoning as `context`/`pendingRetries` (CLAUDE.md rule #1). Strip
+  // same reasoning as `context`/`pendingRetries` (project rule 17). Strip
   // it from the COPY written to chrome.storage.local; the in-memory
   // `conversation` objects (and their buttons, already rendered) keep it.
   // `pageReading` (page-request.js's transient "Reading the page…" status)

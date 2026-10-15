@@ -3,7 +3,7 @@
 // written by the level slider next to an answer's first "Montrer" button.
 // Same single-source-of-truth pattern as RETENTION_DAYS_KEY in retention.js.
 //
-// Not a secret (CLAUDE.md rule #1): a visual preference, fine in
+// Not a secret (project rule 17): a visual preference, fine in
 // chrome.storage.local.
 //
 // Deliberately NOT imported by content/pointer.js — that file is a classic

@@ -2,7 +2,7 @@
 //
 // Extracts plain, sanitized TEXT from the page. Never returns HTML, never
 // touches innerHTML: page content is data for the model, never an
-// instruction (see CLAUDE.md, security rule 3). The completion value of this
+// instruction (project rule 16). The completion value of this
 // IIFE becomes the injection result read by the caller (panel.js).
 //
 // Why innerText and not textContent: textContent returns the raw source text,

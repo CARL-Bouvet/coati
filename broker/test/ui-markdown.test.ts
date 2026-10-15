@@ -2,7 +2,7 @@
 // markdown renderer (replaces the old string/innerHTML renderSafeMarkdown).
 // Same pattern/location as the other ui-*.test.ts files (pure logic,
 // imported straight from extension/panel/). No DOM library exists in this
-// repo (no bundler, no new dependency — CLAUDE.md), so renderMarkdown is
+// repo (no bundler, no new dependency — CONTRIBUTING.md), so renderMarkdown is
 // exercised against a tiny hand-rolled DOM shim defined right here, built
 // only from createElement/createTextNode/createDocumentFragment/
 // appendChild/setAttribute/style/textContent — exactly the subset

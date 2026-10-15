@@ -1,7 +1,7 @@
 # Roadmap
 
 Base version scope: Google search and YouTube get first-class handling; other sites go through
-the generic page reader. One lot = one worker = one review.
+the generic page reader.
 
 ## Already done
 
@@ -18,9 +18,9 @@ the generic page reader. One lot = one worker = one review.
 
 ## Lots, in order
 
-**L1 — Screenshot on demand (rule 7).** The "See the screen" switch is gone; the model asks,
-the panel shows a one-click accept (`extension/panel/screenshot.js` keeps the capture code). New signal in `docs/PROTOCOL.md`,
-`extension/panel/*.js`, broker prompt changes.
+**L1 — Screenshot on demand (rule 7).** The model asks for a screenshot and the panel shows a
+one-click accept (`extension/panel/screenshot.js` holds the capture code). Needs a new signal in
+`docs/PROTOCOL.md`, changes in `extension/panel/*.js` and in the broker prompt.
 
 **L2 — Grey icon (rule 19).** `chrome.action.setIcon` with a grey variant when the tab isn't
 accessible, back to colour after the granting click. `extension/background/*.js`, grey icon
@@ -36,7 +36,13 @@ DuckDuckGo; Firefox (`browser.search`) and other engines are in "Help wanted".
 **L4 — Click and type, confirmed (rules 12, 13). Planned, after v0.1.0.** The model would emit a
 click or type marker; the panel would check the element on the live page, refuse forbidden gestures
 (paying, sending, deleting, publishing, signing in), show the element highlighted, and act only on
-"Allow", one action at a time. Removed from v0.1.0 to be judged for intrusiveness first.
+"Allow", one action at a time. Its intrusiveness is to be judged before it ships.
+
+**L5 — Models used on this computer. Planned, right after v0.1.0.** The local program keeps, per
+model, a few measured numbers: speed, how often the model asked for the page, errors. The settings
+show them, so the user compares the models he tried on his own machine. Stored locally only (rule
+20), clearable from the settings. Changes in `broker/src/handlers/`, `docs/PROTOCOL.md` and
+`extension/options/`.
 
 ## Security hardening
 
@@ -49,7 +55,7 @@ Low-severity items, none blocking.
   check is weak (defense in depth); the extension clears its key on a 4401 received before
   `hello`; a crash can leave a stale `broker-key.json`; secrets are not zeroized; origin and key
   rejections differ in timing.
-- Broker: credentials in a URL reach the logs; `modules` paths are not validated; provider
+- Broker: credentials in a URL reach the logs; provider
   responses are not size-capped; the openai-compat reachability error echoes `baseUrl`; `act.params`
   is not validated broker-side.
 - Extension: the open guard misses single-label hosts and private TLDs; the optional `<all_urls>`
@@ -72,10 +78,10 @@ Low-severity items, none blocking.
 
 ## Help wanted
 
-- **Firefox and other search engines** for browser search (L3) — `browser.search` coverage and
+- Firefox and other search engines for browser search (L3): `browser.search` coverage and
   engines beyond Google, Bing, Brave Search and DuckDuckGo (Qwant, Startpage, Ecosia…).
-- **Windows testing** — the installer and native-host path are least exercised there.
-- **Chinese translation review** — `extension/_locales/zh_CN` is machine-translated and needs a
+- Windows testing: the installer and native-host path are least exercised there.
+- Chinese translation review: `extension/_locales/zh_CN` is machine-translated and needs a
   native speaker's pass.
-- **Developer-tools button** — a Coati button inside the browser's developer tools ("Analyse
-  this element"), dev mode only.
+- Developer-tools button: a Coati button inside the browser's developer tools ("Analyse this
+  element"), dev mode only.

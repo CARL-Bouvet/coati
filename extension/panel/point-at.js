@@ -120,7 +120,7 @@ export function buildPointLevelSlider(button, entry) {
 }
 
 // Highlights the element a "Montrer : …" button names, on the CURRENT page
-// of `tabId` — a real click just happened (CLAUDE.md rule #5: this tools the
+// of `tabId` — a real click just happened (project rule 10: this tools the
 // user's own gesture, it never fires on its own). Two separate injections:
 // first `pointer.js` itself (defines
 // `globalThis.__coatiPoint` in that tab's isolated world, does nothing on
@@ -185,7 +185,7 @@ export async function clearPointer(tabId) {
 // Seeks the <video> element of the CURRENT active tab — but only when a real
 // click just happened (this is only ever called from a "click" listener
 // above) AND that tab is showing the same video the summary was made from.
-// CLAUDE.md rule #5 ("the gesture rule"): this tools a gesture the user just
+// project rule 10 ("the gesture rule"): this tools a gesture the user just
 // made, it never fires on its own, never on a timer, never on another tab.
 export async function seekActiveVideoTab(videoId, seconds) {
   try {

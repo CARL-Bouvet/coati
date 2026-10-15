@@ -28,6 +28,12 @@ export function delimiterClose(nonce: string): string {
   return `coati-${nonce}>>>`;
 }
 
+/** Strings that end a streamed answer: a small model that runs past its
+ * answer re-emits a fence marker or writes a fake next "User request:" turn. */
+export function answerStopSequences(nonce: string): string[] {
+  return [delimiterOpen(nonce), delimiterClose(nonce), "User request:"];
+}
+
 // L8: a provider that places its image
 // content block as a bare sibling of the text block (no fence markers of
 // its own around it) relies ENTIRELY on the system prompt's one generic
@@ -235,7 +241,7 @@ export interface SearchContent {
 }
 
 // Results and pages are web content, exactly as untrusted as page content
-// (CLAUDE.md rule #3): one fence, same nonce, sanitizeUntrusted on every
+// (project rule 16): one fence, same nonce, sanitizeUntrusted on every
 // field. Paragraph breaks in page text are kept; queries, titles, urls,
 // snippets are flattened to one line.
 export function renderSearch(search: SearchContent, nonce: string): string {
@@ -311,7 +317,7 @@ export function openFailedNote(refs: readonly number[], reason: string): string 
 
 // "page on demand" — docs/PROTOCOL.md "Page
 // on demand". `page` metadata (title/url/kind/chars) is page-controlled —
-// same trust level as `text` (CLAUDE.md rule #3) — fenced exactly like
+// same trust level as `text` (project rule 16) — fenced exactly like
 // renderContext, own header, own copy of the nonce. `chars` is a number the
 // extension computed client-side (the page's own extracted length), not
 // re-derived here; rendered as-is, it carries no sanitizable string content.
@@ -395,7 +401,7 @@ export const PAGE_UNREADABLE_NOTE =
  * INSIDE the fence. Nothing page-controlled may appear above/outside it — a
  * title placed above the fence would sit in the zone the system prompt
  * treats as trusted. facts/items are
- * data at the same trust level as text (CLAUDE.md rule #3), rendered in the
+ * data at the same trust level as text (project rule 16), rendered in the
  * SAME fence, in the fixed order Title, URL, facts, items, text — text
  * always last, so a forged section header smuggled into `text` can only
  * land after the real sections, never before them. `pageKind` itself is not

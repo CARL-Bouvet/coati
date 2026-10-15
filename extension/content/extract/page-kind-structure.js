@@ -122,7 +122,7 @@ function collectShadowText(root, excludedEls) {
 // their elements into the SAME `excludedEls` subtraction mechanism already
 // used for overlays and contenteditable drafts (`textExcludingNodes`) —
 // no new plumbing, every caller downstream benefits automatically. Page
-// content stays data, never an instruction (CLAUDE.md rule 3); this is a
+// content stays data, never an instruction (project rule 16); this is a
 // conservative reduction of the injection surface, not a security boundary
 // on its own.
 function isNearZeroFontSize(el) {

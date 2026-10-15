@@ -42,7 +42,7 @@ const HELLO_TIMEOUT_MS = 2500;
 
 // docs/PROTOCOL.md, "Extension side": chrome.storage.session
 // keys for the handshake v2 key material. Never chrome.storage.local — see
-// CLAUDE.md rule #1 and the invariants comment below.
+// project rule 17 and the invariants comment below.
 const BROKER_KEY_STORAGE_KEY = "brokerKey";
 const PASTED_KEY_STORAGE_KEY = "pastedKey";
 

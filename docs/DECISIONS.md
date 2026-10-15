@@ -12,9 +12,9 @@ One line per decision still in force. A decision only reopens on new evidence, n
 | T5 | No `<all_urls>`: `activeTab` + optional host permissions — shrinks the blast radius of a compromised content script, avoids manual store review. |
 | T6 | The content script sends sanitized text, never HTML; the broker treats that text as data, never as an instruction — a hostile page writes to the DOM the content script reads; this is the main injection vector for this extension shape. |
 | T7 | Default model provider of the public repo: `ollama`, fully local. `claude-api` (BYOK) is the second built-in provider. |
-| T8 | One repo, one common provider interface (`broker/src/providers/types.ts`): two built-in providers plus external modules loaded dynamically from `config.json`, outside the repo — see `docs/MODULES.md`. |
+| T8 | One repo, one common provider interface (`broker/src/providers/types.ts`): two built-in providers plus external modules loaded dynamically from `config.json`, outside the repo — see "Modules" in `docs/ARCHITECTURE.md`. |
 | T9 | An external provider module (dependencies included) never enters the public repo or the default compiled binary — dynamic loading only, from a path given in `config.json`. |
-| T10 | Superseded by the reading-levels rework (`docs/ROADMAP.md` L2) — per-site declarative, signed recipes are no longer the plan. |
+| T10 | Superseded by the reading levels (text and dev): per-site declarative, signed recipes are no longer the plan. |
 | T20 | The threat boundary is the OS user account, and the code enforces it: exact `Host` allowlist, then peer UID on Linux, before any routing; not enforced on macOS/Windows, stated at startup. |
 | T21 | Superseded by Native Messaging pairing (T48) — session tokens no longer exist. |
 | T22–T23 | Superseded by Native Messaging pairing (T48) — the "one-click" pairing path and `/pair` for Chromium are both removed. |
@@ -41,14 +41,14 @@ One line per decision still in force. A decision only reopens on new evidence, n
 | T66 | Two looks: the normal one, and the dev mode, which keeps the plain look. Both are built from the shared components (`extension/lib/components.css`), so the panel, settings and "My prompts" read as one product. |
 
 ## Superseded, kept for the record
-- T54/T55 (permanent screen switch): to be replaced — the model proposes a screenshot, the user accepts in one click (`docs/ROADMAP.md` L4).
+- T54/T55 (permanent screen switch): to be replaced — the model proposes a screenshot, the user accepts in one click (`docs/ROADMAP.md` L1).
 - T56 (Brave/Tavily search): replaced by T58.
 
 ## Hard constraint — the gesture rule
 Every action Coati performs on a page is a gesture of the user. Coati never acts by itself: no
 background loop, no multi-page crawl, no unprompted interaction (subscribe, like, publish). Coati
-never clicks or types in a page (T59); it only points, and the user clicks. This is load-bearing: Cloudflare's bot taxonomy, platform ToS, and the Chrome Web Store
-all draw the same line, and crossing it loses all three protections at once. The named exception:
+never clicks or types in a page (T59); it only points, and the user clicks. Cloudflare's bot
+taxonomy, platform ToS and the Chrome Web Store all draw the same line. The named exception:
 opening a YouTube transcript is one click on a button YouTube already shows, only in direct
-response to the user's own click or question, on the tab they are looking at — never on page load, never
-looped, never on another tab.
+response to the user's own click or question, on the tab they are looking at — never on page
+load, never looped, never on another tab.

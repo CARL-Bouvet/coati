@@ -31,8 +31,8 @@ let frameLimitNoticeShown = false;
  * (lot "page on demand" — docs/PROTOCOL.md "Page on demand") — only the
  * metadata (`page: {title,url,kind,chars}`) goes on the wire up front; this
  * is what answers a later `page.request { level: "text" }` without reading
- * the page a second time. Never persisted to chrome.storage.local (CLAUDE.md
- * rule #1: it can hold the page's own text) — in-memory only, same
+ * the page a second time. Never persisted to chrome.storage.local (project
+ * rule 17: it can hold the page's own text) — in-memory only, same
  * reasoning as `pendingRetries` (chat-stream.js). */
 export const pendingPageExtractions = new Map();
 

@@ -5,7 +5,7 @@
 # - a real secret pattern (private key, long API key, GitHub token, AWS key);
 #   short fake test keys ("sk-ant-fake") do not trigger it;
 # - a dependency reserved for personal modules, or a reference to the private
-#   repository outside CLAUDE.md. These two patterns are assembled in pieces
+#   repository. These two patterns are assembled in pieces
 #   below so this file does not refuse itself.
 #
 # Install in a clone: cp scripts/hooks/pre-push .git/hooks/pre-push
@@ -36,8 +36,8 @@ while read -r _local_ref local_sha _remote_ref _remote_sha; do
     echo "pre-push: dependency reserved for personal modules, push refused." >&2
     status=1
   fi
-  if git grep -nIF "$PRIVATE_REF" "$local_sha" -- . ':!CLAUDE.md' >&2; then
-    echo "pre-push: reference to private repository outside CLAUDE.md, push refused." >&2
+  if git grep -nIF "$PRIVATE_REF" "$local_sha" -- . >&2; then
+    echo "pre-push: reference to the private repository, push refused." >&2
     status=1
   fi
 done

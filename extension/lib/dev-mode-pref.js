@@ -4,7 +4,7 @@
 // and the options page's checkbox — ONE preference, ONE storage key, same
 // pattern as the former #attachPage switch it replaces (coati:attachPage).
 //
-// Not a secret (CLAUDE.md rule #1): a feature preference, fine in
+// Not a secret (project rule 17): a feature preference, fine in
 // chrome.storage.local, same family as POINT_EFFECT_KEY (point-effect.js).
 //
 // docs/PROTOCOL.md "Page on demand": `devMode: true` on a `chat` offers the
@@ -29,7 +29,7 @@ export function parseStoredDevModeAcknowledged(stored) {
 
 /**
  * Builds the first-activation confirmation dialog as real DOM nodes
- * (CLAUDE.md rule #3 — no innerHTML), appended to `doc.body`, focus-trapped
+ * (project rule 16 — no innerHTML), appended to `doc.body`, focus-trapped
  * (Tab/Shift+Tab cycle between the two buttons only) and closable with
  * Escape (treated as "Cancel"). Resolves `true` ("Turn on" clicked) or
  * `false` (Cancel, Escape, or a click on the backdrop) — never rejects.

@@ -253,7 +253,7 @@
 
   // Everything below is built entirely via createElement/createElementNS and
   // style properties — no innerHTML, no markup string ever touches this
-  // (CLAUDE.md rule #3). It lives inside a CLOSED shadow root so the page's
+  // (project rule 16). It lives inside a CLOSED shadow root so the page's
   // own script cannot read or restyle any of it via `host.shadowRoot`. The
   // one <style> element only ever carries a literal, hardcoded keyframes
   // string written here — never anything derived from page content.
@@ -432,7 +432,7 @@
     pill.style.overflow = "hidden";
     pill.style.textOverflow = "ellipsis";
     pill.style.boxShadow = "0 2px 6px rgba(0, 0, 0, 0.35), 0 0 14px rgba(217, 131, 35, 0.45)";
-    pill.textContent = label || ""; // textContent only — CLAUDE.md rule #3.
+    pill.textContent = label || ""; // textContent only — project rule 16.
     return pill;
   }
 

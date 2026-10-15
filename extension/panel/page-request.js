@@ -91,7 +91,7 @@ export async function onPageRequest(message) {
     await declinePage(id);
     return;
   }
-  // CLAUDE.md product rule #8 ("warn, never mask"): only worth asking when
+  // project rule 8 ("warn, never mask"): only worth asking when
   // the HTML is about to leave the machine — a local model never sends it
   // anywhere.
   if (!isCurrentLocal(currentGroupedModels())) {

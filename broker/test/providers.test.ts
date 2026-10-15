@@ -175,7 +175,7 @@ function fakeTagsResponse(names: string[]): Response {
 }
 
 describe("ollama streamAnswer — end to end against a fake fetch", () => {
-  test("fetch body includes options.num_ctx sized to the prompt", async () => {
+  test("fetch body sizes options.num_ctx to the prompt and stops at the fence or a fake next turn", async () => {
     let capturedBody: unknown;
     __setFetchImplForTests((async (url: string, init?: RequestInit) => {
       if (url.endsWith("/api/tags")) return fakeTagsResponse(["llama3.2:latest"]);
@@ -196,6 +196,7 @@ describe("ollama streamAnswer — end to end against a fake fetch", () => {
     const opts = body.options as Record<string, unknown>;
     expect(typeof opts.num_ctx).toBe("number");
     expect([4096, 8192, 16384]).toContain(opts.num_ctx);
+    expect(opts.stop).toEqual([`<<<coati-${built.nonce}`, `coati-${built.nonce}>>>`, "User request:"]);
   });
 
   test("streams deltas and usage from a full fake /api/chat response", async () => {

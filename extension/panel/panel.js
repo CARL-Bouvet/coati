@@ -8,7 +8,7 @@
 //
 // --- Permission flow for the contextual main button (read before editing) --
 //
-// Rule (CLAUDE.md #5, "the gesture rule"): Coati never reads a page on its
+// Rule (project rule 10, "the gesture rule"): Coati never reads a page on its
 // own. Concretely, for `chrome.scripting.executeScript` against page content:
 //
 //   - On a tab switch (`chrome.tabs.onActivated`) there is NO user gesture —
@@ -51,7 +51,7 @@
 //      injection-refused error itself is NOT mined for the origin — neither
 //      Chrome/Brave nor Firefox embed the page address in it.
 //   - Granted permissions are remembered by the browser — nothing is cached
-//      here (no secrets in chrome.storage, CLAUDE.md rule #1), and
+//      here (no secrets in chrome.storage, project rule 17), and
 //      `chrome.scripting.executeScript` simply works on matching tabs from
 //      then on. Having "all sites" changes WHERE Coati may read, never WHEN:
 //      still only on the gestures listed above.
@@ -332,7 +332,7 @@ function onRuntimeMessage(message) {
   // The toolbar icon was clicked while this panel was already open — the
   // service worker no longer relies on chrome.sidePanel's automatic
   // open-on-click for that case (see service-worker.js). A real page read is
-  // legitimate here: this IS the user's gesture (CLAUDE.md rule 5; T5 in
+  // legitimate here: this IS the user's gesture (project rule 10; T5 in
   // docs/DECISIONS.md). Skipped when init already read this tab via
   // openedFromGesture() because this same click opened the panel.
   if (message.type === "coati:action-clicked") {

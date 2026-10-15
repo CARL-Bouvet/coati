@@ -8,19 +8,12 @@
 
 // --- Local path: Ollama ------------------------------------------------------
 
-/** Download page per OS family (see detectOs() in options-setup.js). */
-export const OLLAMA_DOWNLOADS = {
-  windows: "https://ollama.com/download/windows",
-  mac: "https://ollama.com/download/mac",
-  linux: "https://ollama.com/download/linux",
+/** Official pages that always serve the latest version; the tool's own docs
+ * explain how to download a model. */
+export const OLLAMA = {
+  downloadUrl: "https://ollama.com/download",
+  docsUrl: "https://docs.ollama.com/quickstart",
 };
-
-/** One-line Linux installer, shown as a copyable command on Linux only. */
-export const OLLAMA_LINUX_INSTALL_COMMAND = "curl -fsSL https://ollama.com/install.sh | sh";
-
-/** Command a Linux user runs when the service is not started by the
- * installer (e.g. no systemd). Windows and macOS start the app instead. */
-export const OLLAMA_START_COMMAND = "ollama serve";
 
 /** "Speed up Ollama": flash
  * attention + a q8_0 KV cache, about half the memory the page takes, little
@@ -36,36 +29,15 @@ export const OLLAMA_SPEEDUP = {
   linuxRestartCommand: "sudo systemctl restart ollama",
 };
 
-/** FALLBACK (older local program without `host`): recommended model per
- * amount of memory (RAM) the browser reports. `minGb` is
- * the smallest machine memory the row is meant for; `downloadGb` the size of
- * the download. Order: smallest machine first. */
-export const OLLAMA_MODELS_BY_MEMORY = [
-  { minGb: 4, model: "gemma3:1b", downloadGb: 0.8 },
-  { minGb: 8, model: "gemma3:4b", downloadGb: 3.3 },
-  // gemma3 rather than qwen3: qwen3 is a "thinking" model whose reasoning
-  // leaks into answers through Ollama's OpenAI-compatible path.
-  { minGb: 16, model: "gemma3:12b", downloadGb: 8.1 },
-  { minGb: 32, model: "gemma3:27b", downloadGb: 17 },
-];
+/** Where the user finds a model himself (Coati recommends none). */
+export const OLLAMA_LIBRARY_URL = "https://ollama.com/search";
+export const HUGGING_FACE_GGUF_URL = "https://huggingface.co/models?library=gguf";
 
-/** Download suggestions when the local program reports the machine's
- * capacity (`host` in the `models` reply):
- * filtered and tagged by lib/model-list.js suggestForHost(). Sizes checked
- * on ollama.com. No qwen3:4b: thinking-only, slow. qwen3:8b
- * honours `think: false` (verified on a real Ollama). Smallest first. */
-export const OLLAMA_SUGGESTIONS = [
-  { model: "qwen3.5:2b", downloadGb: 2.7 },
-  { model: "qwen3.5:4b", downloadGb: 3.3 },
-  { model: "qwen3:8b", downloadGb: 5.2 },
-  { model: "qwen3.5:9b", downloadGb: 6.6 },
-  { model: "gemma4:12b", downloadGb: 7.7 },
-];
-
-// --- Local path, advanced: LM Studio ----------------------------------------
+// --- Local path: LM Studio ---------------------------------------------------
 
 export const LM_STUDIO = {
   downloadUrl: "https://lmstudio.ai/download",
+  docsUrl: "https://lmstudio.ai/docs/app/basics/download-model",
   // Same address as the "LM Studio" preset in lib/model-provider-presets.js.
   baseUrl: "http://localhost:1234/v1",
 };

@@ -14,6 +14,7 @@
 // unchanged.
 
 export {
+  answerStopSequences,
   imageFenceOpenText,
   imageFenceCloseText,
   LANGUAGE_NAME,

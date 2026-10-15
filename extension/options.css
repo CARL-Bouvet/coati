@@ -240,7 +240,7 @@ code { font-size: var(--text-s); }
 .model-item-fit[data-fit="gpu"] { color: var(--success); }
 .model-item-fit[data-fit="shared"] { color: var(--warning); }
 
-/* Folds (<details>): the guide, "Speed up Ollama", LM Studio, "Add a
+/* Folds (<details>): the guide, "Speed up Ollama", "Add a
  * service", the legacy pairing. Inner folds drop the rules. */
 .tab-folds > .fold { border-top: 1px solid var(--divider); }
 .tab-folds > .fold:last-child { border-bottom: 1px solid var(--divider); }
@@ -534,9 +534,7 @@ kbd {
   width: 100%;
 }
 
-.setup-other-os,
 .setup-env-value,
-.setup-model-fit,
 .setup-service-detail {
   font-size: var(--text-s);
   color: var(--muted);
@@ -563,38 +561,6 @@ h4.setup-subtitle {
   margin: var(--space-2) 0 0;
   font-size: var(--text-m);
   font-weight: 600;
-}
-
-.setup-table-wrap { width: 100%; overflow-x: auto; }
-
-.setup-models { width: 100%; border-collapse: collapse; }
-
-.setup-models th,
-.setup-models td {
-  padding: var(--space-2);
-  text-align: left;
-  vertical-align: middle;
-  border-bottom: 1px solid var(--divider);
-}
-
-.setup-models th {
-  font-size: var(--text-s);
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.setup-model-row--suggested td { background: var(--accent-tint); }
-
-.setup-model-choice {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-}
-
-.setup-model-name {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  overflow-wrap: anywhere;
 }
 
 .setup-memory-hint:empty { display: none; }
@@ -661,41 +627,4 @@ h4.setup-subtitle {
 
   .service { grid-template-columns: minmax(0, 1fr); }
   .service-actions { justify-content: flex-start; }
-
-  /* Each suggestion row stacks: choice + tags, then size · fit under the
-   * name. Table roles are set in options-setup.js, so the semantics hold. */
-  .setup-models--host,
-  .setup-models--host tbody { display: block; width: 100%; }
-
-  .setup-models--host thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-  }
-
-  .setup-models--host tr {
-    display: block;
-    padding: var(--space-2) var(--space-2) var(--space-2) calc(var(--space-4) + 16px);
-    border-bottom: 1px solid var(--divider);
-  }
-
-  .setup-models--host .setup-model-row--suggested { background: var(--accent-tint); }
-
-  .setup-models--host td {
-    display: inline;
-    padding: 0;
-    border: none;
-    background: none;
-  }
-
-  .setup-models--host td:first-child {
-    display: block;
-    margin: 0 0 var(--space-1) calc(-8px - 16px);
-  }
-
-  .setup-models--host .setup-model-size + .setup-model-fit::before {
-    content: " \00b7\00a0";
-  }
 }

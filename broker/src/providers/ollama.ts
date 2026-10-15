@@ -7,6 +7,7 @@
 
 import { DEFAULT_OLLAMA_URL, isAllowedOllamaUrl } from "../config.ts";
 import {
+  answerStopSequences,
   buildSystemPrompt,
   FIRST_TOKEN_TIMEOUT_LOCAL_MS,
   INACTIVITY_TIMEOUT_MS,
@@ -699,7 +700,7 @@ export async function* streamAnswer(
               ...(hasImage ? { images: built.images!.map((img) => img.data) } : {}),
             },
           ],
-          options: { num_ctx },
+          options: { num_ctx, stop: answerStopSequences(built.nonce) },
         }),
         // Same reasoning as /api/tags/show/ps/generate above: never follow a
         // redirect that could carry page content off-machine

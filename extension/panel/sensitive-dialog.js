@@ -1,6 +1,6 @@
 // Coati — confirmation dialog shown before a dev-level page read leaves for
 // an online model when extension/lib/sensitive-scan.js found an obvious
-// pattern (CLAUDE.md product rule #8: "Sensitive data: warn, never mask").
+// pattern (project rule 8: "Sensitive data: warn, never mask").
 // Same focus-trapped, Escape-closes, backdrop-click-cancels shape as
 // lib/dev-mode-pref.js's confirmDevModeActivation() — kept separate because the
 // two dialogs answer different questions (switch dev mode on vs. send this

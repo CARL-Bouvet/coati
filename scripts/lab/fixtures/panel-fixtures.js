@@ -41,7 +41,7 @@
   // Exercises the DOM-based markdown renderer (extension/panel/markdown.js):
   // a heading, a nested list, a 4-column table, a fenced code block, a
   // blockquote and a link (rendered as plain "label (url)" text, never an
-  // <a> — CLAUDE.md rule #3).
+  // <a> — project rule 16).
   var RICH_ANSWER =
     "### Ce que dit la page\n\n" +
     "- Point principal\n" +
@@ -856,7 +856,7 @@
             id: "e2",
             role: "assistant",
             // Exact copy of panel_error_model_unavailable (_locales/fr) — the
-            // UI never says "broker" (CLAUDE.md rule #3's "programme local").
+            // The UI never says "broker": it says "programme local".
             text: "⚠ Le modèle ne répond pas (indisponible). Le programme local fonctionne normalement ; c'est le modèle qui pose problème. Réessayez dans un instant.",
             // Now carries a "Connecter un modèle" action (tutorial) —
             // this banner had none before.
@@ -984,9 +984,7 @@
       prompts: [],
     },
 
-    // Model-missing sur Ollama :
-    // commande copiable « ollama pull llama3.2 » (buildModelMissingRecovery-
-    // Block spécialisé). Pas de Réessayer.
+    // Model missing on Ollama: settings button, no Retry.
     "error-ollama-model-absent": {
       status: "connected",
       tab: ARTICLE_TAB,
