@@ -62,6 +62,7 @@ describe("FINGERPRINT_FILES parity", () => {
 
   test("covers every code file of the extension (a new module cannot be forgotten)", () => {
     const onDisk = [...new Bun.Glob("**/*.{js,css,html,json}").scanSync(join(ROOT, "extension"))]
+      .map((p) => p.replaceAll("\\", "/"))
       .filter((p) => !p.includes(".claude/") && p !== "manifest.firefox.json")
       .sort();
     expect([...FINGERPRINT_FILES].sort()).toEqual(onDisk);
