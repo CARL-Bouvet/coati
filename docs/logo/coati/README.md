@@ -1,10 +1,7 @@
 # Coati identity — `docs/logo/coati/` folder
 
-Everything in this folder comes out of a single script, from the master logo (`coati.svg`) and
-the Figtree font. The script crops, recolours, and composes with text; it draws nothing.
-
-## Rebuild
-`.tmp/brand-venv/bin/python3 scripts/brand/build-brand.py`
+Everything in this folder was generated from the master logo (`coati.svg`) and the Figtree font:
+cropped, recoloured and composed with text, never drawn.
 
 ## Contents
 - `coati.svg`, `coati-512.png`: master logo, for a light background. Do not edit.

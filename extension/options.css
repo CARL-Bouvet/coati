@@ -120,9 +120,8 @@ code { font-size: var(--text-s); }
 
 /* --- 1. Model ------------------------------------------------------------ */
 
-/* The current model, over a pale background on its right: the sniffing
- * coati once a model answers, a large "?" until then. Decoration only:
- * behind the content, clipped by the card, never in the flow. */
+/* The current model; a large pale "?" on its right until a model answers.
+ * Decoration only: behind the content, clipped by the card, never in the flow. */
 .current-line {
   position: relative;
   display: grid;
@@ -133,28 +132,14 @@ code { font-size: var(--text-s); }
   isolation: isolate;
 }
 
-.current-line::after {
-  position: absolute;
-  z-index: -1;
-  right: 96px;
-  bottom: -18px;
-  width: 168px;
-  height: 108px;
-  opacity: 0.16;
-  pointer-events: none;
-}
-
-.current-line[data-model="set"]::after {
-  content: "";
-  background: url("illustrations/coati-sniff-screen.webp") no-repeat right bottom / contain;
-}
-
 .current-line[data-model="none"]::after {
   content: "?";
+  position: absolute;
+  z-index: -1;
   right: 112px;
   bottom: -40px;
-  width: auto;
-  height: auto;
+  opacity: 0.16;
+  pointer-events: none;
   font-size: 152px;
   font-weight: 800;
   line-height: 1;
@@ -619,7 +604,6 @@ h4.setup-subtitle {
 
 @media (max-width: 480px) {
   .current-line { grid-template-columns: minmax(0, 1fr); }
-  .current-line::after { right: -12px; }
   .current-line[data-model="none"]::after { right: 8px; }
   .current-test { justify-self: start; }
 

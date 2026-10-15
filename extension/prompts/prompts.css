@@ -65,8 +65,8 @@ p { margin: 0; }
   right: 0;
   bottom: calc(-1 * var(--space-4));
   width: 136px;
-  height: 60px;
-  background: url("../illustrations/coati-resting.png") no-repeat right bottom / contain;
+  height: 72px;
+  background: url("../illustrations/coati-resting.webp") no-repeat right bottom / contain;
   opacity: 0.3;
   pointer-events: none;
 }
