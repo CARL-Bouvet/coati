@@ -3,8 +3,6 @@
 import { describe, expect, test } from "bun:test";
 import { groupModels } from "../../extension/lib/model-list.js";
 import {
-  coatiVisible,
-  COATI_VISIBLE_MS,
   isSlowFirstWord,
   progressKey,
   readProgressStage,
@@ -89,33 +87,3 @@ describe("tip after a slow or cut answer", () => {
   });
 });
 
-describe("sniffing coati's 2s window (injected clock, no real timers)", () => {
-  const start = 1_000_000;
-
-  test("visible right when the first progress stage fires", () => {
-    expect(coatiVisible(start, start)).toBe(true);
-  });
-
-  test("still visible just under the window", () => {
-    expect(coatiVisible(start, start + COATI_VISIBLE_MS - 1)).toBe(true);
-  });
-
-  test("gone exactly at the window and after", () => {
-    expect(coatiVisible(start, start + COATI_VISIBLE_MS)).toBe(false);
-    expect(coatiVisible(start, start + COATI_VISIBLE_MS + 5000)).toBe(false);
-  });
-
-  test("a later stage change (loading -> reading) does not restart the window", () => {
-    // startedAt is set once, on the first stage; a later stage at +1900ms
-    // still uses the same startedAt, so "now" close to it must stay hidden
-    // once the original window elapsed.
-    const laterStageAt = start + 1900;
-    expect(coatiVisible(start, laterStageAt)).toBe(true); // still within 2s of the real start
-    expect(coatiVisible(start, laterStageAt + 200)).toBe(false); // 2100ms after the real start
-  });
-
-  test("no stage fired yet: never visible", () => {
-    expect(coatiVisible(undefined, start)).toBe(false);
-    expect(coatiVisible(null, start)).toBe(false);
-  });
-});

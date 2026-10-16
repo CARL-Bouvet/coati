@@ -13,6 +13,7 @@ import {
   INACTIVITY_TIMEOUT_MS,
   ModelTimeoutError,
   ModelStalledError,
+  ModelMissingError,
   ModelUnavailableError,
   ThinkFilter,
   trimHistoryToCharBudget,
@@ -405,9 +406,9 @@ async function listModels(opts: ProviderRuntimeOptions): Promise<string[]> {
  * `provider.status` for ollama: `/api/tags` is local
  * and free, so this is the same 1.5s-bounded probe as isAvailable(), reported
  * through the closed reason-code set the spec defines: `ollama-unreachable`,
- * `model-missing` (a configured model isn't installed), `no-model-installed`
- * (no model configured AND the daemon has none installed either), else
- * `ready`.
+ * `model-missing` (a configured model isn't installed), `no-model-chosen`
+ * (models installed, none configured: chat would fail), `no-model-installed`
+ * (none configured and none installed), else `ready`.
  */
 async function checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck> {
   const baseUrl = resolveBaseUrl(opts.ollamaUrl);
@@ -424,10 +425,7 @@ async function checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck> {
     }
     return { state: "ok", reason: "ready" };
   }
-  if (names.length === 0) {
-    return { state: "ko", reason: "no-model-installed" };
-  }
-  return { state: "ok", reason: "ready" };
+  return { state: "ko", reason: names.length === 0 ? "no-model-installed" : "no-model-chosen" };
 }
 
 /**
@@ -546,7 +544,7 @@ export async function* parseNdjsonStream(body: ReadableStream<Uint8Array>): Asyn
  * streaming endpoint. Requires `opts.model` — unlike claude-api, there is no
  * sane default to silently fall back to (whatever Ollama would pick is
  * unpredictable and may not be installed), so a missing model is reported as
- * ModelUnavailableError immediately rather than attempted. Likewise, a
+ * ModelMissingError ("pick one in settings") immediately rather than attempted. Likewise, a
  * configured model absent from `/api/tags` fails fast with the model named in
  * the message, rather than letting Ollama itself 404 deep into the request.
  */
@@ -556,7 +554,7 @@ export async function* streamAnswer(
 ): AsyncIterable<AnswerEvent> {
   const model = opts.model?.trim();
   if (!model) {
-    throw new ModelUnavailableError("no Ollama model configured — pick one in Coati settings");
+    throw new ModelMissingError(t("testConnection.noModel", built.lang ?? opts.lang ?? DEFAULT_LANG));
   }
   const baseUrl = resolveBaseUrl(opts.ollamaUrl);
 

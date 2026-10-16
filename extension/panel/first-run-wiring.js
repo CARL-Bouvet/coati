@@ -235,8 +235,9 @@ export function renderFirstRun() {
   els.firstRunTitle.textContent = FIRST_RUN_TEXT.title;
   // U2: the "never spoken to a model" fact, folded into the card instead of
   // stacking the standalone notice under it (renderNeverConnected() stays
-  // hidden while this card shows) — same text, one line under the title.
-  els.firstRunNeverConnected.hidden = panelState.modelEverAnswered;
+  // hidden while this card shows) — same text, one line under the title,
+  // gone as soon as the model step is ticked (it would contradict it).
+  els.firstRunNeverConnected.hidden = panelState.modelEverAnswered || checks.model === "ok";
   els.firstRunSteps.replaceChildren(
     firstRunStep("program", checks.program, () => api.tabs.create({ url: RELEASES_URL })),
     firstRunStep("model", checks.model, openModelTutorial, buildOllamaCommandRow()),

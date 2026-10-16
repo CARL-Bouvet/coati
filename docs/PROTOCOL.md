@@ -317,7 +317,7 @@ the cache. A probe that throws, or an unknown provider, gives `unknown` / `probe
 
 | Provider | `state` / `reason` |
 |---|---|
-| `ollama` | `ko` / `ollama-unreachable`; `ko` / `model-missing` (the configured model isn't installed); `ko` / `no-model-installed` (no model configured and none installed); else `ok` / `ready` |
+| `ollama` | `ko` / `ollama-unreachable`; `ko` / `model-missing` (the configured model isn't installed); `ko` / `no-model-chosen` (models installed, none configured); `ko` / `no-model-installed` (no model configured and none installed); else `ok` / `ready` |
 | `claude-api` | `ko` / `no-key`; else `unknown` / `key-unverified` (the key is never tested here) |
 | `openai-compat` | `ko` / `no-base-url` (none, or one that fails the address rule); `ko` / `key-rejected` (HTTP 401/403 on `GET /models`); `unknown` / `probe-failed` (another HTTP status); `unknown` / `base-url-unreachable`; else `ok` / `ready` |
 

@@ -395,6 +395,9 @@
   "panel_provider_no_model_installed": {
     "message": "Ollama 中未安装任何模型"
   },
+  "panel_provider_no_model_chosen": {
+    "message": "尚未选择模型"
+  },
   "panel_provider_key_rejected": {
     "message": "API 密钥被拒"
   },
@@ -1141,6 +1144,9 @@
   },
   "setup_local_no_model": {
     "message": "Ollama 中尚未安装任何模型：请下载一个（第 2 步）。"
+  },
+  "setup_local_choose_model": {
+    "message": "Ollama 正在运行且已有模型：请在本节顶部的“已安装的模型”中选择一个。"
   },
   "setup_lmstudio_text": {
     "message": "在 LM Studio 中，打开 Developer 标签页并打开 Start server（默认是关闭的）。"

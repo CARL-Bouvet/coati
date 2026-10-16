@@ -205,10 +205,10 @@ describe("ollama checkStatus", () => {
     });
   });
 
-  test("no model configured but the daemon has models installed -> ok / ready", async () => {
+  test("no model configured but the daemon has models installed -> ko / no-model-chosen", async () => {
     __setFetchImplForTests((async () =>
       new Response(JSON.stringify({ models: [{ name: "llama3.2:latest" }] }), { status: 200 })) as unknown as typeof fetch);
-    expect(await ollamaProvider.checkStatus({ ollamaUrl: "http://127.0.0.1:19999" })).toEqual({ state: "ok", reason: "ready" });
+    expect(await ollamaProvider.checkStatus({ ollamaUrl: "http://127.0.0.1:19999" })).toEqual({ state: "ko", reason: "no-model-chosen" });
   });
 });
 

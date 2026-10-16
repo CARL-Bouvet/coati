@@ -395,6 +395,9 @@
   "panel_provider_no_model_installed": {
     "message": "aucun modèle installé dans Ollama"
   },
+  "panel_provider_no_model_chosen": {
+    "message": "aucun modèle choisi"
+  },
   "panel_provider_key_rejected": {
     "message": "clé API refusée"
   },
@@ -1141,6 +1144,9 @@
   },
   "setup_local_no_model": {
     "message": "Aucun modèle n'est encore installé dans Ollama : téléchargez-en un (étape 2)."
+  },
+  "setup_local_choose_model": {
+    "message": "Ollama répond et a des modèles : choisissez-en un dans « Modèles installés », en haut de cette section."
   },
   "setup_lmstudio_text": {
     "message": "Dans LM Studio, ouvrez l'onglet Developer et activez Start server (il est désactivé par défaut)."

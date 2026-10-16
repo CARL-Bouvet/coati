@@ -458,8 +458,8 @@
     },
 
     // Waiting line before the first
-    // word, Ollama « loading » stage: sniffing coati head + « Chargement du
-    // modèle… » in the pending answer, no blinking cursor.
+    // word, Ollama « loading » stage: « Chargement du modèle… » in the
+    // pending answer, no blinking cursor.
     "progress-loading": {
       status: "connected",
       tab: ARTICLE_TAB,

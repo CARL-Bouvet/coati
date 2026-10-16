@@ -244,6 +244,7 @@ const PROVIDER_STATUS_REASON_TEXT = {
   "probe-failed": t("panel_provider_probe_failed"),
   "ollama-unreachable": t("panel_provider_ollama_unreachable"),
   "model-missing": t("panel_provider_model_missing"),
+  "no-model-chosen": t("panel_provider_no_model_chosen"),
   "no-model-installed": t("panel_provider_no_model_installed"),
   "key-rejected": t("panel_provider_key_rejected"),
 };

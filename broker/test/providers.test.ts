@@ -14,7 +14,7 @@ import {
   __setFetchImplForTests,
   __resetFetchImplForTests,
 } from "../src/providers/ollama.ts";
-import { buildPrompt, isModelUnavailableError, ModelUnavailableError } from "../src/model.ts";
+import { buildPrompt, isModelUnavailableError, ModelMissingError, ModelUnavailableError } from "../src/model.ts";
 
 afterEach(() => {
   __resetFetchImplForTests();
@@ -252,7 +252,7 @@ describe("ollama streamAnswer — end to end against a fake fetch", () => {
     expect(isModelUnavailableError(err)).toBe(true);
   });
 
-  test("no model configured fails as model-unavailable without any network call", async () => {
+  test("no model configured fails as model-missing (pick one in settings) without any network call", async () => {
     let fetchCalled = false;
     __setFetchImplForTests((async () => {
       fetchCalled = true;
@@ -265,7 +265,7 @@ describe("ollama streamAnswer — end to end against a fake fetch", () => {
         // draining
       }
     };
-    await expect(iterate()).rejects.toBeInstanceOf(ModelUnavailableError);
+    await expect(iterate()).rejects.toBeInstanceOf(ModelMissingError);
     expect(fetchCalled).toBe(false);
   });
 

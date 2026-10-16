@@ -6,7 +6,7 @@
 // same checks, same order, same fall-through for modelSwitchRequestId.
 import { t } from "../lib/i18n-page.js";
 import { formatTokensK, estimateTokensFromChars } from "../lib/labels.js";
-import { readProgressStage, COATI_VISIBLE_MS, slowTipFor } from "./model-advice.js";
+import { readProgressStage, slowTipFor } from "./model-advice.js";
 import { panelState } from "./panel-state.js";
 import { els } from "./dom-refs.js";
 import { renderMessage, addMessage } from "./message-render.js";
@@ -52,12 +52,6 @@ export function onProgress(message) {
   const msg = panelState.conversation.find((m) => m.id === message.id);
   if (stage && msg?.streaming && !msg.text) {
     msg.progress = stage;
-    if (!msg.progressStartedAt) {
-      msg.progressStartedAt = Date.now();
-      setTimeout(() => {
-        if (msg.progress) renderMessage(msg);
-      }, COATI_VISIBLE_MS);
-    }
     renderMessage(msg);
   }
   if (panelState.activeRequestId === message.id) armRequestDeadline(message.id, 310_000);

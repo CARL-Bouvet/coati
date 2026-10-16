@@ -333,11 +333,6 @@ export function renderMessage(msg, { append = false } = {}) {
           stage: msg.progress,
           readsPage: msg.readsPage === true,
           t,
-          iconSrc: "../illustrations/coati-sniff.webp",
-          iconStillSrc: "../illustrations/coati-sniff-still.png",
-          reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-          startedAt: msg.progressStartedAt,
-          now: Date.now(),
         }),
       );
     }

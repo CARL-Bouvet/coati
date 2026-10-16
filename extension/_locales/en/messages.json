@@ -395,6 +395,9 @@
   "panel_provider_no_model_installed": {
     "message": "no model installed in Ollama"
   },
+  "panel_provider_no_model_chosen": {
+    "message": "no model chosen"
+  },
   "panel_provider_key_rejected": {
     "message": "API key rejected"
   },
@@ -1141,6 +1144,9 @@
   },
   "setup_local_no_model": {
     "message": "No model is installed in Ollama yet: download one (step 2)."
+  },
+  "setup_local_choose_model": {
+    "message": "Ollama is running and has models: pick one under “Installed models” at the top of this section."
   },
   "setup_lmstudio_text": {
     "message": "In LM Studio, open the Developer tab and turn on Start server (it is off by default)."

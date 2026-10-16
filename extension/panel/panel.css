@@ -599,23 +599,6 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
   font-size: var(--text-s);
 }
 
-/* Fixed-size slot regardless of whether the coati icon is currently in it
- * (removed after COATI_VISIBLE_MS, model-advice.js) — keeps the row from
- * jumping when it disappears. */
-.message-progress-icon-slot {
-  display: block;
-  flex: none;
-  width: 32px;
-  height: 32px;
-}
-
-.message-progress-coati {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
 /* "qwen3:8b does not fully fit in the graphics card…": Coati's
  * own calm line, not an error (no --danger). */
 .message--notice {
@@ -1039,13 +1022,6 @@ html.mode-dev .element-point-button:hover {
 html.mode-dev .search-sources-item a,
 html.mode-dev .md-link {
   color: var(--accent);
-}
-
-/* Background illustration (.never-connected) is decor, not
- * information — faded out rather than display:none so the fade below
- * animates them like everything else. */
-html.mode-dev .never-connected::after {
-  opacity: 0;
 }
 
 /* The answer area reads as "raw" in dev mode: system monospace, same stack

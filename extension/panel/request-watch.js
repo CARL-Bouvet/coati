@@ -196,7 +196,6 @@ export async function retryRequest(msg) {
   msg.slowTip = undefined;
   msg.cutNotice = undefined;
   msg.progress = undefined;
-  msg.progressStartedAt = undefined; // same msg object restreams: the coati's 2s window starts over
   msg.text = "";
   msg.streaming = true;
   renderMessage(msg);

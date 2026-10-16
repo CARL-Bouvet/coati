@@ -388,6 +388,8 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
       model.setState("done", t("setup_local_model_ok"));
     } else if (reason === "model-missing") {
       model.setState("failed", settings?.model ? t("setup_local_model_missing", [settings.model]) : t("setup_local_no_model"));
+    } else if (reason === "no-model-chosen") {
+      model.setState("failed", t("setup_local_choose_model"));
     } else if (reason === "no-model-installed") {
       model.setState("failed", t("setup_local_no_model"));
     }
