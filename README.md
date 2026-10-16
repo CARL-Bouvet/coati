@@ -1,6 +1,4 @@
-<img src="docs/logo/coati/coati.svg" alt="" width="96">
-
-# Coati
+# <img src="docs/logo/coati/coati.svg" alt="" height="44" align="absmiddle"> Coati
 
 Coati is a virtual assistant that lives in a side panel of your browser. Plug in your own AI
 model, on your computer (Ollama, LM Studio) or online, and get in-depth web searches, summaries
