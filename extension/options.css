@@ -603,6 +603,14 @@ h4.setup-subtitle {
 }
 
 @media (max-width: 480px) {
+  /* Too narrow for the row: a list, one entry per line, scrolling away with the page. */
+  .section-nav {
+    position: static;
+    flex-direction: column;
+    gap: 2px;
+    overflow-x: visible;
+  }
+
   .current-line { grid-template-columns: minmax(0, 1fr); }
   .current-line[data-model="none"]::after { right: 8px; }
   .current-test { justify-self: start; }

@@ -41,6 +41,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--header-bg);
   background: var(--bg);
@@ -86,7 +87,6 @@ textarea {
 }
 
 .model-picker {
-  position: relative;
   display: inline-flex;
   min-width: 0;
 }
@@ -164,10 +164,11 @@ textarea {
   border-top: 5px solid var(--muted);
 }
 
+/* Hangs from the top bar's right edge, so it never runs off a narrow panel. */
 .model-menu {
   position: absolute;
   top: calc(100% + var(--space-1));
-  left: 0;
+  right: var(--space-3);
   z-index: 20;
   width: max-content;
   min-width: 15em;
@@ -250,7 +251,8 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 /* No visible button (e.g. "broker-untrusted"): no empty flex item either. */

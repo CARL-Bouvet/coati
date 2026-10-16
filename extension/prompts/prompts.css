@@ -188,12 +188,15 @@ p { margin: 0; }
 
 .prompt-handle .c-icon { stroke-width: 2.5; }
 
+/* A long label takes two lines; only a prompt longer than that ends with "…". */
 .prompt-row-label {
   flex: 1;
   min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .prompt-row-label--static {
