@@ -7,6 +7,7 @@
 import { providerLabel, CONNECTION_STATUS_LABELS } from "../lib/labels.js";
 import { t } from "../lib/i18n-page.js";
 import { mountSetupGuide } from "../options-setup.js";
+import { mountProgramStep } from "./program-step.js";
 import {
   fitNoteKey,
   groupModels,
@@ -61,6 +62,9 @@ const setupGuide = mountSetupGuide({
   onModels: (reply) => acceptModels(reply),
 });
 
+// "Install the local program" step (options/program-step.js).
+const programStep = mountProgramStep({ section: els.setupProgramSection, list: els.setupProgram });
+
 export function applyStatus(state) {
   status = state;
   const label = CONNECTION_STATUS_LABELS[state] ?? state;
@@ -69,6 +73,7 @@ export function applyStatus(state) {
   els.headerStatus.className = `status status--${state}`;
   els.headerStatusLabel.textContent = label;
   setupGuide.onStatus(state);
+  programStep.onStatus(state);
   for (const keyInput of keyInputs.values()) keyInput.setConnected(state === "connected");
 
   // "no-host" (native messaging unreachable) is the state where the
@@ -84,7 +89,7 @@ export function applyStatus(state) {
   renderModelSection();
 }
 
-// --- Deep links: #setup, #setup-ollama-speedup, #provider-<id> ------------------
+// --- Deep links: #setup, #setup-program, #setup-ollama-speedup, #provider-<id> ------------------
 
 // #setup arrived before the first `settings`: the side is not known yet;
 // opened on the local side now, re-aimed once `settings` arrives.
@@ -93,6 +98,7 @@ let setupHashPending = false;
 export function setupOpenOnHash() {
   const openIfAsked = () => {
     if (location.hash === "#setup") openSetup();
+    else if (location.hash === "#setup-program") programStep.open();
     // The panel's slow-answer tip.
     else if (location.hash === "#setup-ollama-speedup") {
       tabChosen = true;

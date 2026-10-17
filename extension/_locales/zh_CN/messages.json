@@ -1851,5 +1851,74 @@
   },
   "setup_search_model": {
     "message": "搜索和比较时，在线模型效果好得多。8B 及以下的本地模型通常只搜索一次，并可能编造价格等细节。"
+  },
+  "setup_program_title": {
+    "message": "安装本地程序"
+  },
+  "setup_program_step_title": {
+    "message": "下载适合你电脑的程序"
+  },
+  "setup_program_text": {
+    "message": "Coati 需要在这台电脑上安装一个小程序，才能与你的模型通信。请下载并打开它。程序就绪后，本页会自动发现。"
+  },
+  "setup_program_download_windows": {
+    "message": "下载 Windows 版"
+  },
+  "setup_program_download_mac_arm": {
+    "message": "下载 Mac 版（Apple 芯片）"
+  },
+  "setup_program_download_mac_x64": {
+    "message": "下载 Mac 版（Intel 芯片）"
+  },
+  "setup_program_download_deb": {
+    "message": "下载 Ubuntu / Debian / Mint 版"
+  },
+  "setup_program_download_rpm": {
+    "message": "下载 Fedora / openSUSE 版"
+  },
+  "setup_program_other": {
+    "message": "其他系统或其他发行版"
+  },
+  "setup_program_help_title": {
+    "message": "出现警告？请这样做"
+  },
+  "setup_program_win_1": {
+    "message": "浏览器可能提示该文件很少被下载。请选择“保留”。"
+  },
+  "setup_program_win_2": {
+    "message": "打开该文件。如果 Windows 提示已保护你的电脑，请点击“更多信息”，再点击“仍要运行”。"
+  },
+  "setup_program_win_3": {
+    "message": "随后会出现一个窗口，确认安装完成。"
+  },
+  "setup_program_mac_1": {
+    "message": "打开下载的 zip 文件，然后双击“Installer Coati”。"
+  },
+  "setup_program_mac_2": {
+    "message": "macOS 会提示无法验证该程序。请点击“完成”。"
+  },
+  "setup_program_mac_3": {
+    "message": "打开“系统设置”，进入“隐私与安全性”。点击“仍要打开”，然后输入你的密码。"
+  },
+  "setup_program_mac_4": {
+    "message": "随后会打开“终端”窗口，显示安装过程。"
+  },
+  "setup_program_linux_1": {
+    "message": "打开下载的文件。软件中心会随之打开：点击“安装”，然后输入你的密码。"
+  },
+  "setup_program_linux_snap": {
+    "message": "以 Snap 或 Flatpak 方式安装的 Firefox（Ubuntu 默认的 Firefox）无法自行连接该程序，需要手动配对："
+  },
+  "setup_program_waiting": {
+    "message": "正在等待程序……Coati 每隔几秒检查一次。"
+  },
+  "setup_program_checking": {
+    "message": "正在检查……"
+  },
+  "setup_program_retry": {
+    "message": "重试"
+  },
+  "setup_program_ok": {
+    "message": "程序已响应。接下来设置模型。"
   }
 }

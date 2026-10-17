@@ -3,12 +3,14 @@
 # all three OS (Linux, macOS, Windows via git-bash) against THIS runner's own
 # compiled binary. Mirrors docs/PROTOCOL.md's "Poignée de main Native
 # Messaging simulée" test plan, but against the REAL installer + REAL
-# installed binary rather than `bun run src/server.ts` — that's what actually exercises install-{linux,macos}.sh /
-# install-windows.ps1 end to end:
+# installed binary rather than `bun run src/server.ts` — that's what actually exercises
+# `coati-broker --install` / `--uninstall` end to end:
 #
-#   1. install the compiled binary with this OS's installer, --no-service /
-#      -NoService, into a throwaway prefix under a temp $HOME/$USERPROFILE;
-#   2. start the installed binary as the broker (COATI_PORT=18787,
+#   1. run the compiled binary with no argument from a download-like path
+#      (it must install itself), uninstall, then install it with
+#      `--install --no-service --all` into a throwaway prefix under a temp
+#      $HOME/$USERPROFILE;
+#   2. start the installed binary as the broker (`--serve`, COATI_PORT=18787,
 #      COATI_DATA_DIR under the same temp home), wait for broker-key.json;
 #   3. simulate the browser launching the Native Messaging host: run the
 #      installed binary with the pinned chrome-extension origin argument,
@@ -170,26 +172,27 @@ cat > "$HOME_DIR/.config/coati/config.json" <<EOF
 EOF
 pass "temp HOME/config.json prepared ($HOME_DIR)"
 
-# --- (a) install, --no-service / -NoService, throwaway prefix -----------
+# --- (a) install, --no-service, throwaway prefix -------------------------
 
 case "$OS" in
-  linux)
-    bash scripts/install/install-linux.sh "$BIN" --prefix "$PREFIX_DIR" --no-service --all
-    INSTALLED_BIN="$PREFIX_DIR/.local/bin/coati-broker"
-    ;;
-  macos)
-    bash scripts/install/install-macos.sh "$BIN" --prefix "$PREFIX_DIR" --no-service --all
-    INSTALLED_BIN="$PREFIX_DIR/Library/Application Support/Coati/coati-broker"
-    ;;
-  windows)
-    command -v pwsh >/dev/null 2>&1 || fail "pwsh not found on PATH (required on the windows-latest runner)"
-    pwsh -NoProfile -File "scripts/install/install-windows.ps1" \
-      -Binary "$BIN_WIN" -Prefix "$PREFIX_DIR_WIN" -NoService
-    INSTALLED_BIN="$PREFIX_DIR/Coati/coati-broker.exe"
-    ;;
+  linux) INSTALLED_BIN="$PREFIX_DIR/.local/bin/coati-broker" ;;
+  macos) INSTALLED_BIN="$PREFIX_DIR/Library/Application Support/Coati/coati-broker" ;;
+  windows) INSTALLED_BIN="$PREFIX_DIR/Coati/coati-broker.exe" ;;
 esac
+
+# No argument, not at the installed place: the binary installs itself.
+# COATI_INSTALL_PREFIX (tests only) redirects the install root and skips the
+# service.
+COATI_INSTALL_PREFIX="$PREFIX_DIR_WIN" "$BIN" > "$HOME_DIR/noarg-install.log" 2>&1 ||
+  { cat "$HOME_DIR/noarg-install.log" >&2; fail "binary run with no argument failed"; }
+[ -f "$INSTALLED_BIN" ] || fail "binary run with no argument did not install itself"
+pass "no argument from a download path: installs itself"
+"$BIN" --uninstall --prefix "$PREFIX_DIR_WIN" --no-service >/dev/null
+[ -f "$INSTALLED_BIN" ] && fail "--uninstall left the binary behind after the no-argument install"
+
+"$BIN" --install --prefix "$PREFIX_DIR_WIN" --no-service --all
 [ -f "$INSTALLED_BIN" ] || fail "installer did not produce $INSTALLED_BIN"
-pass "install ($OS installer, --no-service, prefix=$PREFIX_DIR)"
+pass "install (--install --no-service --all, prefix=$PREFIX_DIR)"
 # Used below as a CLI ARG to bun (nm-handshake.ts) — needs the same cygpath -w
 # conversion as every other native-process CLI arg (see this file's header).
 # Plain bash file tests above keep using the POSIX form.
@@ -197,7 +200,7 @@ INSTALLED_BIN_WIN="$(to_win "$INSTALLED_BIN")"
 
 # --- (b) start the installed binary as the broker, wait for the key -----
 
-COATI_PORT=18787 COATI_DATA_DIR="$DATA_DIR_WIN" "$INSTALLED_BIN" \
+COATI_PORT=18787 COATI_DATA_DIR="$DATA_DIR_WIN" "$INSTALLED_BIN" --serve \
   > "$HOME_DIR/broker.log" 2>&1 &
 BROKER_PID=$!
 
@@ -271,19 +274,9 @@ BROKER_PID=""
 sleep 1
 pass "broker stopped"
 
-case "$OS" in
-  linux)
-    bash scripts/install/uninstall-linux.sh --prefix "$PREFIX_DIR" --no-service
-    ;;
-  macos)
-    bash scripts/install/uninstall-macos.sh --prefix "$PREFIX_DIR" --no-service
-    ;;
-  windows)
-    pwsh -NoProfile -File "scripts/install/uninstall-windows.ps1" \
-      -Prefix "$PREFIX_DIR_WIN" -NoService
-    ;;
-esac
-pass "uninstall ($OS uninstaller)"
+# The uninstaller is the downloaded binary: on Windows the installed .exe cannot delete itself.
+"$BIN" --uninstall --prefix "$PREFIX_DIR_WIN" --no-service
+pass "uninstall"
 
 [ -f "$INSTALLED_BIN" ] && fail "uninstall left the binary behind: $INSTALLED_BIN"
 case "$OS" in

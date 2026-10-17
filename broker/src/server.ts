@@ -38,6 +38,10 @@ import {
 } from "./broker-key.ts";
 import { isNativeHostInvocation, runNativeHost } from "./native-host.ts";
 import { hardenDir } from "./fs-atomic.ts";
+import { currentEnv, removeLeftoverOldExe, runInstall, syncUserManifests } from "./install/apply.ts";
+import { releaseOwnConsole, waitForEnter } from "./install/console.ts";
+import { runUninstall } from "./install/uninstall.ts";
+import { type Cli, isCompiledExe, isInstalledExe, parseCli, selectMode, wantsPrompt } from "./install/plan.ts";
 import { ProviderStatusCache } from "./provider-status.ts";
 import { MAX_MESSAGE_BYTES, MAX_IMAGE_MESSAGE_BYTES, parseClientMessage } from "./protocol.ts";
 import { getProvider, getProviders, initRegistry } from "./providers/registry.ts";
@@ -507,6 +511,51 @@ if (import.meta.main) {
     process.exit(warnings.length > 0 ? 1 : 0);
   }
 
+  // `--install` / `--uninstall`, or no flag at all from a compiled binary that
+  // is not at its installed place (a double-click on the download). Everything
+  // else serves; services and autostart entries pass `--serve` explicitly.
+  const cliArgs = process.argv.slice(2);
+  const compiled = isCompiledExe(process.execPath);
+  let cli: Cli;
+  try {
+    cli = parseCli(cliArgs);
+  } catch (e) {
+    console.error(`coati-broker: ${(e as Error).message}`);
+    process.exit(2);
+  }
+  const mode = selectMode(cliArgs, {
+    compiled,
+    installed: isInstalledExe(currentEnv(cli.prefix), process.execPath),
+  });
+  if (mode !== "serve") {
+    if (mode === "install" && !compiled) {
+      console.error("coati-broker: --install needs the compiled binary, not `bun run`");
+      process.exit(1);
+    }
+    // Double-clicked: plain steps instead of the technical log, and the window stays until Enter.
+    const prompt = wantsPrompt(cliArgs, mode, !!process.stdin.isTTY && !!process.stdout.isTTY);
+    const log = prompt ? () => {} : console.log;
+    let code = 0;
+    try {
+      if (prompt) console.log("Installing Coati. This takes a few seconds.\n");
+      if (mode === "install") runInstall(cli, process.execPath, log, console.log);
+      else runUninstall(cli, log, console.log);
+      if (prompt) console.log("\nCoati is installed. You can close this window and go back to your browser.");
+    } catch (e) {
+      console.error(`coati-broker: ${mode} failed: ${(e as Error).message}`);
+      code = 1;
+    }
+    if (prompt) await waitForEnter();
+    process.exit(code);
+  }
+
+  // The autostart entry runs the exe with a console of its own: drop it. A leftover
+  // exe from an upgrade (renamed while it ran) is deleted now that it has exited.
+  if (compiled && process.platform === "win32") {
+    removeLeftoverOldExe(process.execPath);
+    releaseOwnConsole();
+  }
+
   // A1: warn (never block) if the unit we were launched from has drifted
   // from the repo's packaging/coati-broker.service — see
   // checkUnitDriftAtStartup's doc for the details.
@@ -558,4 +607,11 @@ if (import.meta.main) {
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
   console.log(`coati-broker listening on ws://127.0.0.1:${server.port}/ws`);
+  if (compiled) {
+    try {
+      syncUserManifests(process.execPath);
+    } catch (e) {
+      console.warn(`coati-broker: native-messaging manifest sync failed: ${(e as Error).message}`);
+    }
+  }
 }

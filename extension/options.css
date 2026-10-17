@@ -78,6 +78,10 @@ code { font-size: var(--text-s); }
   margin-top: var(--section-gap);
 }
 
+.section[hidden] + .section {
+  margin-top: 0;
+}
+
 .help { color: var(--muted); }
 
 .notice {

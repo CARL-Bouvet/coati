@@ -131,7 +131,35 @@
     ],
   };
 
+  // "Install the local program" step (options.html#setup-program): the local
+  // program does not answer; `labPlatformInfo` is what runtime.getPlatformInfo()
+  // returns. `help: true` unfolds the per-system help.
+  function programStep(opts) {
+    return guide(
+      Object.assign(
+        {
+          status: "no-host",
+          labHash: "setup-program",
+          labPlatform: opts.platform,
+          labPlatformInfo: opts.info,
+          autoAction: opts.help ? steps(click("#setup-program details > summary", 120)) : undefined,
+        },
+        opts.extra,
+      ),
+    );
+  }
+
   var GUIDE_STATES = {
+    // Local program not installed: one download button for the system, the
+    // system's help unfolded.
+    "setup-program-windows": programStep({ platform: "Windows", info: { os: "win", arch: "x86-64" }, help: true }),
+    "setup-program-macos": programStep({ platform: "macOS", info: { os: "mac", arch: "arm64" }, help: true }),
+    "setup-program-linux": programStep({ platform: "Linux", info: { os: "linux", arch: "x86-64" }, help: true }),
+
+    // The program starts after two reconnect attempts (about 6 s): the step
+    // turns green, then the page moves on to the model guide.
+    "setup-program-connected-after-wait": programStep({ platform: "Windows", info: { os: "win", arch: "x86-64" }, extra: { connectsAfterReconnects: 2 } }),
+
     // First screen: the Ollama path (default), two tools side by side.
     "setup-first": guide({}),
 

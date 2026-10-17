@@ -83,7 +83,7 @@ for (const dir of candidateDirs) {
   writeFileSync(path.join(dir, "com.getcoati.broker.json"), manifestJson);
 }
 
-const broker = spawn(BINARY, [], {
+const broker = spawn(BINARY, ["--serve"], {
   env: { ...process.env, HOME: home, COATI_DATA_DIR: dataDir },
   stdio: ["ignore", "pipe", "pipe"],
 });

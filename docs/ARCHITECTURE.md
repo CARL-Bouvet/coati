@@ -16,7 +16,7 @@
 | `broker/src/` | ~11,400 | local program: handshake, protocol, model prompts, settings |
 | — `broker/src/providers/` | ~2,400 | Ollama, OpenAI-compatible, Claude API |
 | `broker/test/` | ~17,400 | unit + integration tests |
-| `scripts/install/`, `packaging/` | ~1,850 | Linux/macOS/Windows installers, systemd/launchd/Native Messaging templates |
+| `broker/src/install/`, `packaging/` | ~450 | `--install` / `--uninstall` for Linux/macOS/Windows, systemd/launchd/Native Messaging templates |
 | `scripts/brand/` | ~990 | rebuilds the logo from source assets |
 
 ## What each top-level folder does
@@ -28,8 +28,8 @@
   wire format (`docs/PROTOCOL.md`); `src/handlers/` implements each message type;
   `src/providers/` talks to a model; `src/model.ts`/`model/` builds prompts and streams answers.
 - **`scripts/`** — build, install, branding, and lab/measurement tooling.
-- **`packaging/`** — systemd/launchd unit templates and Native Messaging manifest templates the
-  installers copy into place.
+- **`packaging/`** — systemd/launchd unit templates and Native Messaging manifest templates,
+  embedded in the binary and written by `broker/src/install/`.
 
 ## Request flow: panel → model → panel
 

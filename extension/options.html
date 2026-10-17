@@ -35,11 +35,18 @@
     </nav>
 
     <main class="page-content">
+      <!-- 0. Install the local program (options/program-step.js): shown when the
+           browser cannot reach it, or by the link options.html#setup-program. -->
+      <section id="setup-program" class="section" aria-labelledby="h-program" hidden>
+        <h2 id="h-program" class="c-title" data-i18n="setup_program_title">Install the local program</h2>
+        <ol id="setupProgram" class="setup-steps"></ol>
+      </section>
+
       <!-- 1. Model: current model, then two tabs "On this computer" /
            "Online" (same labels as the panel's model menu). The setup
            guide (options-setup.js) lives inside the tabs:
            Ollama steps under the local tab, API-key steps under "Add a service".
-           Deep links: #setup, #setup-ollama-speedup, #provider-<id>. -->
+           Deep links: #setup, #setup-program, #setup-ollama-speedup, #provider-<id>. -->
       <section id="modelSection" class="section" aria-labelledby="h-model">
         <h2 id="h-model" class="c-title" data-i18n="options_model_title">Model</h2>
 

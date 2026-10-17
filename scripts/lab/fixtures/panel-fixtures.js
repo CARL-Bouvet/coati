@@ -1062,8 +1062,7 @@
       prompts: [],
     },
 
-    // T51 — premier lancement, Ollama installé mais pas
-    // démarré : commande copiable « ollama serve » sous l'étape « modèle ».
+    // T51 — premier lancement, Ollama installé mais pas démarré.
     "first-run-ollama-not-running": {
       firstRun: true,
       faviconUrl: FAVICON,

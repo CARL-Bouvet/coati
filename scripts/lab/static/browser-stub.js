@@ -229,6 +229,17 @@
   function handleSendMessage(message) {
     if (!message || typeof message !== "object") return Promise.resolve(null);
 
+    // `fixture.connectsAfterReconnects: n` — the local program "starts" once the
+    // page has asked the worker to reconnect n times (the tutorial's polling).
+    if (message.type === "coati:panel-ready" && fixture.connectsAfterReconnects) {
+      if (--fixture.connectsAfterReconnects === 0) {
+        fixture.status = "connected";
+        setTimeout(function () {
+          dispatchToListeners({ type: "coati:status", state: "connected", features: fixture.features || [] });
+        }, 0);
+      }
+    }
+
     if (message.type === "coati:panel-ready" || message.type === "coati:get-status") {
       // `fixture.features` (hello-ok.features) rides the SAME response real
       // service-worker.js carries it on, so a lab fixture can show the
@@ -412,6 +423,9 @@
       id: "coati-lab",
       getManifest: function () {
         return { version: "0.1.0-lab" };
+      },
+      getPlatformInfo: function () {
+        return fixture.labPlatformInfo ? Promise.resolve(fixture.labPlatformInfo) : Promise.reject(new Error("no platform info"));
       },
       getURL: function (path) {
         if (String(path).indexOf("_favicon") !== -1) return fixture.faviconUrl || "";

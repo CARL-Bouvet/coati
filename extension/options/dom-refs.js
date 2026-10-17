@@ -20,6 +20,8 @@ export const els = {
   retention: document.getElementById("retention"),
   siteToggles: document.getElementById("siteToggles"),
   siteTogglesHelp: document.getElementById("siteTogglesHelp"),
+  setupProgramSection: document.getElementById("setup-program"),
+  setupProgram: document.getElementById("setupProgram"),
   // "Model"
   modelSection: document.getElementById("modelSection"),
   modelDisconnected: document.getElementById("modelDisconnected"),

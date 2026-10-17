@@ -62,7 +62,7 @@ Low-severity items, none blocking.
   permission is unused; saved prompts have no cap; extraction loops have no element or time cap;
   dev extraction keeps `contenteditable` drafts; a hostile page can close the connection at dev
   level; history is plaintext in `storage.local` (30 days).
-- Packaging: systemd/launchd hardening and macOS log permissions; installers trust the checkout;
+- Packaging: systemd/launchd hardening and macOS log permissions;
   signed releases and build provenance.
 
 ## Risks

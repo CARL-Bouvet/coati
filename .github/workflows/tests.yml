@@ -149,3 +149,34 @@ jobs:
 
       - name: scripts/ci/e2e.sh (linux-arm64)
         run: bash scripts/ci/e2e.sh linux-arm64
+
+  packages:
+    # Installers and Linux packages (scripts/package.sh): the macOS zip keeps
+    # the executable bit, and the .deb / .rpm install, set Coati up system-wide
+    # and remove cleanly in a stock Debian and Fedora container (no systemd).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.4.2"
+
+      - name: bun install (broker)
+        run: bun install --frozen-lockfile
+        working-directory: broker
+
+      - run: bash scripts/build-binaries.sh linux-x64 darwin-arm64
+
+      - run: bash scripts/ci/install-nfpm.sh
+
+      - run: bash scripts/package.sh linux-x64 darwin-arm64
+
+      - name: macOS zip keeps the executable bit
+        run: zipinfo dist/pkg/Coati-Setup-macos-arm64.zip | grep -E '^-rwxr-xr-x .* Installer Coati$'
+
+      - name: install and remove the .deb (debian:stable)
+        run: docker run --rm -v "$PWD/dist/pkg:/pkg:ro" -v "$PWD/scripts/ci:/ci:ro" debian:stable bash /ci/package-check.sh deb
+
+      - name: install and remove the .rpm (fedora:latest)
+        run: docker run --rm -v "$PWD/dist/pkg:/pkg:ro" -v "$PWD/scripts/ci:/ci:ro" fedora:latest bash /ci/package-check.sh rpm

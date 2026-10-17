@@ -1851,5 +1851,74 @@
   },
   "setup_search_model": {
     "message": "For searches and comparisons, an online model does far better. Local models up to 8B usually run a single search and may invent details such as prices."
+  },
+  "setup_program_title": {
+    "message": "Install the local program"
+  },
+  "setup_program_step_title": {
+    "message": "Download the program for your computer"
+  },
+  "setup_program_text": {
+    "message": "Coati needs a small program on this computer to talk to your model. Download it and open it. This page notices when it is ready."
+  },
+  "setup_program_download_windows": {
+    "message": "Download for Windows"
+  },
+  "setup_program_download_mac_arm": {
+    "message": "Download for Mac (Apple chip)"
+  },
+  "setup_program_download_mac_x64": {
+    "message": "Download for Mac (Intel chip)"
+  },
+  "setup_program_download_deb": {
+    "message": "Download for Ubuntu / Debian / Mint"
+  },
+  "setup_program_download_rpm": {
+    "message": "Download for Fedora / openSUSE"
+  },
+  "setup_program_other": {
+    "message": "Other system or other distribution"
+  },
+  "setup_program_help_title": {
+    "message": "A warning appears? Here is what to do"
+  },
+  "setup_program_win_1": {
+    "message": "Your browser may say the file is rarely downloaded. Choose “Keep”."
+  },
+  "setup_program_win_2": {
+    "message": "Open the file. If Windows says it protected your PC, click “More info”, then “Run anyway”."
+  },
+  "setup_program_win_3": {
+    "message": "A window confirms the installation."
+  },
+  "setup_program_mac_1": {
+    "message": "Open the downloaded zip file, then double-click “Installer Coati”."
+  },
+  "setup_program_mac_2": {
+    "message": "macOS says it cannot verify the program. Click “Done”."
+  },
+  "setup_program_mac_3": {
+    "message": "Open System Settings, then Privacy & Security. Click “Open Anyway”, then type your password."
+  },
+  "setup_program_mac_4": {
+    "message": "A Terminal window opens and shows the installation."
+  },
+  "setup_program_linux_1": {
+    "message": "Open the downloaded file. Your software center opens: click “Install”, then type your password."
+  },
+  "setup_program_linux_snap": {
+    "message": "Firefox installed as a Snap or Flatpak (the default Firefox on Ubuntu) cannot reach the program by itself. It needs a manual pairing:"
+  },
+  "setup_program_waiting": {
+    "message": "Waiting for the program… Coati checks every few seconds."
+  },
+  "setup_program_checking": {
+    "message": "Checking…"
+  },
+  "setup_program_retry": {
+    "message": "Retry"
+  },
+  "setup_program_ok": {
+    "message": "The program answers. Next, the model."
   }
 }

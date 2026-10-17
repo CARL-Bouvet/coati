@@ -69,14 +69,14 @@ function formatNumber(value) {
 
 // --- Tiny DOM helper (this file only) -----------------------------------------
 
-function el(tag, className, text) {
+export function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text != null) node.textContent = text;
   return node;
 }
 
-function externalLink(href, text, className = "c-text-link") {
+export function externalLink(href, text, className = "c-text-link") {
   const a = el("a", className, text);
   a.href = href;
   a.target = "_blank";
@@ -123,7 +123,7 @@ function commandLine(command, { block = false } = {}) {
 }
 
 /** One numbered step. `setState("todo"|"busy"|"done"|"failed", text?)`. */
-function makeStep(number, title) {
+export function makeStep(number, title) {
   const li = el("li", "c-card setup-step");
   li.dataset.state = "todo";
   const mark = el("span", "setup-step-mark", String(number));
@@ -156,7 +156,7 @@ function actionButton(text, className) {
 }
 
 /** A fold (<details>) with the page's shared chevron style (options.css .fold). */
-function fold(id, title, className = "fold") {
+export function fold(id, title, className = "fold") {
   const details = el("details", className);
   if (id) details.id = id;
   const summary = el("summary", null, title);

@@ -46,7 +46,6 @@ export const FIRST_RUN_TEXT = {
   },
 };
 
-export const RELEASES_URL = "https://github.com/CARL-Bouvet/coati/releases/latest";
 // storage.local key — a preference, never a secret (project rule 17).
 export const FIRST_RUN_DONE_KEY = "coati:firstRunDone";
 // storage.local key — set true the first time an assistant answer completes
@@ -60,6 +59,8 @@ export const MODEL_EVER_ANSWERED_KEY = "coati:modelEverAnswered";
 // URL via api.tabs.create(), never api.runtime.openOptionsPage() (that
 // reuses/opens an already-open settings tab, not necessarily at #setup).
 export const MODEL_TUTORIAL_PATH = "options.html#setup";
+// Download and install step of the local program, same page.
+export const PROGRAM_TUTORIAL_PATH = "options.html#setup-program";
 
 const PROGRAM_FOUND_STATES = new Set(["connected", "handshaking", "no-token", "broker-untrusted", "pairing-retry"]);
 

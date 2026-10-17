@@ -4,7 +4,7 @@
 // the installer link. Reads nothing, sends nothing to the broker.
 
 import { api, IS_GECKO } from "../lib/browser-compat.js";
-import { RELEASES_URL, MODEL_TUTORIAL_PATH } from "../panel/first-run.js";
+import { PROGRAM_TUTORIAL_PATH, MODEL_TUTORIAL_PATH } from "../panel/first-run.js";
 import { t, setDocumentLanguage, reloadOnLanguageChange } from "../lib/i18n-page.js";
 import { mountLanguageSelector } from "../lib/language-selector.js";
 
@@ -69,7 +69,7 @@ function render() {
   setText("stepProgramTitle", TEXT.programTitle);
   setText("stepProgramText", TEXT.programText);
   const programLink = document.getElementById("stepProgramLink");
-  programLink.href = RELEASES_URL;
+  programLink.href = api.runtime.getURL(PROGRAM_TUTORIAL_PATH);
   programLink.textContent = TEXT.programLink;
   setText("stepModelTitle", TEXT.modelTitle);
   setText("stepModelText", TEXT.modelText);

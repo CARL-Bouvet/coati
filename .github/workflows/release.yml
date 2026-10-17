@@ -1,8 +1,9 @@
 name: release
 
 # Goal G4 "binaries + Windows CI": tag a version (v0.1.0, v1.2.3, ...) to get
-# a GitHub release with the 5 standalone coati-broker binaries and the two extension zips
-# (coati-chrome.zip, coati-firefox.zip) attached.
+# a GitHub release with the 5 standalone coati-broker binaries, the installers and
+# Linux packages built from them by scripts/package.sh (Coati-Setup-*, coati_*.deb,
+# coati-*.rpm) and the two extension zips (coati-chrome.zip, coati-firefox.zip) attached.
 # Cross-compiled all at once on ubuntu-latest via scripts/build-binaries.sh —
 # `bun build --compile --target=bun-<os>-<arch>` downloads each target's bun
 # runtime, no need for 5 separate runners.
@@ -66,11 +67,22 @@ jobs:
       - name: build extension zips
         run: bash scripts/build.sh
 
+      # Installers and Linux packages (dist/pkg), named without a version so
+      # releases/latest/download/<file> stays a stable link. nfpm is pinned
+      # and checksum-verified by the script.
+      - name: install nfpm
+        run: bash scripts/ci/install-nfpm.sh
+
+      - name: package installers
+        env:
+          TAG: ${{ github.ref_name }}
+        run: VERSION="${TAG#v}" bash scripts/package.sh
+
       - name: SHA256SUMS
         run: |
-          cp dist/coati-chrome.zip dist/coati-firefox.zip dist/bin/
+          cp dist/coati-chrome.zip dist/coati-firefox.zip dist/pkg/* dist/bin/
           cd dist/bin
-          sha256sum coati-broker-* coati-chrome.zip coati-firefox.zip > SHA256SUMS
+          sha256sum -- * > SHA256SUMS
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -110,11 +122,4 @@ jobs:
           gh release create "$TAG" \
             --title "$TAG" \
             --generate-notes \
-            dist/bin/coati-broker-linux-x64 \
-            dist/bin/coati-broker-linux-arm64 \
-            dist/bin/coati-broker-darwin-arm64 \
-            dist/bin/coati-broker-darwin-x64 \
-            dist/bin/coati-broker-windows-x64.exe \
-            dist/bin/coati-chrome.zip \
-            dist/bin/coati-firefox.zip \
-            dist/bin/SHA256SUMS
+            dist/bin/*

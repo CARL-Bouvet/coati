@@ -26,9 +26,9 @@ import {
   FIRST_RUN_DONE_KEY,
   MODEL_EVER_ANSWERED_KEY,
   MODEL_TUTORIAL_PATH,
-  RELEASES_URL,
+  PROGRAM_TUTORIAL_PATH,
 } from "./first-run.js";
-import { currentConnState, providerState, lastProviderReason } from "./model-status.js";
+import { currentConnState, providerState } from "./model-status.js";
 import { AUTH_REQUIRED_TEXT } from "./recovery-blocks.js";
 import { currentTabId, langSelector } from "./panel.js";
 import { knownOrigin, currentPageUrl, currentFavIconUrl, redetectTab } from "./page-detect.js";
@@ -80,6 +80,11 @@ export async function loadAccessPrefs() {
 // connection itself (not the model) keep using openOptionsPage() instead.
 export function openModelTutorial() {
   api.tabs.create({ url: api.runtime.getURL(MODEL_TUTORIAL_PATH) });
+}
+
+/** The first-run card's "program" step: download and install the local program. */
+function openProgramTutorial() {
+  api.tabs.create({ url: api.runtime.getURL(PROGRAM_TUTORIAL_PATH) });
 }
 
 /** Standalone notice shown while Coati has never gotten a real answer from a
@@ -239,8 +244,8 @@ export function renderFirstRun() {
   // gone as soon as the model step is ticked (it would contradict it).
   els.firstRunNeverConnected.hidden = panelState.modelEverAnswered || checks.model === "ok";
   els.firstRunSteps.replaceChildren(
-    firstRunStep("program", checks.program, () => api.tabs.create({ url: RELEASES_URL })),
-    firstRunStep("model", checks.model, openModelTutorial, buildOllamaCommandRow()),
+    firstRunStep("program", checks.program, openProgramTutorial),
+    firstRunStep("model", checks.model, openModelTutorial),
     firstRunStep("page", checks.page, pointAtReadButton),
   );
   renderFirstRunLang();
@@ -264,28 +269,7 @@ async function renderFirstRunLang() {
   els.firstRunLang.appendChild(change);
 }
 
-/** @returns {HTMLElement|null} a copyable `ollama serve` row for the first-run
- * "model" step when Ollama is not running — null otherwise: choosing and
- * installing a model is the settings tutorial's job (Coati names no model). */
-export function buildOllamaCommandRow() {
-  if (lastProviderReason !== "ollama-unreachable") return null;
-  const command = "ollama serve";
-
-  const row = document.createElement("div");
-  row.className = "recovery-command";
-  const code = document.createElement("code");
-  code.textContent = command;
-  const copyBtn = document.createElement("button");
-  copyBtn.type = "button";
-  copyBtn.className = "recovery-copy";
-  copyBtn.textContent = AUTH_REQUIRED_TEXT.copy;
-  copyBtn.addEventListener("click", () => copyCommand(copyBtn, command));
-  row.append(code, copyBtn);
-  return row;
-}
-
-/** Shared by copyLoginCommand() below (kept for the exact string it already
- * copies) and buildOllamaCommandRow() above — same copy/feedback dance. */
+/** Copies `command` and flashes the copied/failed label on `button`. */
 export async function copyCommand(button, command) {
   const original = button.textContent;
   try {
@@ -299,7 +283,7 @@ export async function copyCommand(button, command) {
   }, 1500);
 }
 
-function firstRunStep(check, value, onAction, extraNode) {
+function firstRunStep(check, value, onAction) {
   const text = FIRST_RUN_TEXT[check];
   const status = markFor(value);
   const li = document.createElement("li");
@@ -329,7 +313,6 @@ function firstRunStep(check, value, onAction, extraNode) {
       hint.textContent = text.hint;
       body.appendChild(hint);
     }
-    if (extraNode) body.appendChild(extraNode);
     const action = document.createElement("button");
     action.type = "button";
     action.className = "c-button c-button--small first-run-action";

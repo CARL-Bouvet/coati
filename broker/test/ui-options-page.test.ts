@@ -6,6 +6,7 @@ import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { shortcutKeys, actionShortcut } from "../../extension/lib/shortcut.js";
 import { FINGERPRINT_FILES } from "../../extension/lib/build-fingerprint.js";
+import { platformFromInfo, programDownloads } from "../../extension/lib/program-download.js";
 
 const ROOT = join(import.meta.dir, "..", "..");
 
@@ -44,6 +45,30 @@ describe("actionShortcut", () => {
     expect(actionShortcut([{ name: "other", shortcut: "Ctrl+Y" }])).toBe("");
     expect(actionShortcut([{ name: "_execute_action" }])).toBe("");
     expect(actionShortcut(undefined)).toBe("");
+  });
+});
+
+describe("program download mapping", () => {
+  const BASE = "https://github.com/CARL-Bouvet/coati/releases/latest/download/";
+  const files = (os: string | null, arch: string) => programDownloads(os, arch).map((d) => d.url.replace(BASE, ""));
+
+  test("getPlatformInfo -> os and CPU family (Chrome 'arm64', Firefox 'arm')", () => {
+    expect(platformFromInfo({ os: "win", arch: "x86-64" })).toEqual({ os: "windows", arch: "x64" });
+    expect(platformFromInfo({ os: "mac", arch: "arm64" })).toEqual({ os: "mac", arch: "arm" });
+    expect(platformFromInfo({ os: "mac", arch: "arm" })).toEqual({ os: "mac", arch: "arm" });
+    expect(platformFromInfo({ os: "linux", arch: "aarch64" })).toEqual({ os: "linux", arch: "arm" });
+    expect(platformFromInfo({ os: "android", arch: "arm64" }).os).toBeNull();
+    expect(platformFromInfo(undefined)).toEqual({ os: null, arch: "x64" });
+  });
+
+  test("one button for Windows and macOS, two for Linux, none when unknown", () => {
+    expect(files("windows", "x64")).toEqual(["Coati-Setup-windows-x64.exe"]);
+    expect(files("windows", "arm")).toEqual(["Coati-Setup-windows-x64.exe"]);
+    expect(files("mac", "arm")).toEqual(["Coati-Setup-macos-arm64.zip"]);
+    expect(files("mac", "x64")).toEqual(["Coati-Setup-macos-x64.zip"]);
+    expect(files("linux", "x64")).toEqual(["coati_amd64.deb", "coati-x86_64.rpm"]);
+    expect(files("linux", "arm")).toEqual(["coati_arm64.deb", "coati-aarch64.rpm"]);
+    expect(files(null, "x64")).toEqual([]);
   });
 });
 

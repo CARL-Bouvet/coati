@@ -1851,5 +1851,74 @@
   },
   "setup_search_model": {
     "message": "Pour chercher et comparer, un modèle en ligne fait bien mieux. Les modèles locaux jusqu'à 8B ne font souvent qu'une recherche et peuvent inventer des détails comme les prix."
+  },
+  "setup_program_title": {
+    "message": "Installer le programme local"
+  },
+  "setup_program_step_title": {
+    "message": "Télécharger le programme pour votre ordinateur"
+  },
+  "setup_program_text": {
+    "message": "Coati a besoin d'un petit programme sur cet ordinateur pour parler à votre modèle. Téléchargez-le et ouvrez-le. Cette page le remarque dès qu'il est prêt."
+  },
+  "setup_program_download_windows": {
+    "message": "Télécharger pour Windows"
+  },
+  "setup_program_download_mac_arm": {
+    "message": "Télécharger pour Mac (puce Apple)"
+  },
+  "setup_program_download_mac_x64": {
+    "message": "Télécharger pour Mac (puce Intel)"
+  },
+  "setup_program_download_deb": {
+    "message": "Télécharger pour Ubuntu / Debian / Mint"
+  },
+  "setup_program_download_rpm": {
+    "message": "Télécharger pour Fedora / openSUSE"
+  },
+  "setup_program_other": {
+    "message": "Autre système ou autre distribution"
+  },
+  "setup_program_help_title": {
+    "message": "Un avertissement s'affiche ? Voici quoi faire"
+  },
+  "setup_program_win_1": {
+    "message": "Votre navigateur peut signaler que le fichier est rarement téléchargé. Choisissez « Conserver »."
+  },
+  "setup_program_win_2": {
+    "message": "Ouvrez le fichier. Si Windows indique qu'il a protégé votre ordinateur, cliquez sur « Informations complémentaires », puis sur « Exécuter quand même »."
+  },
+  "setup_program_win_3": {
+    "message": "Une fenêtre confirme l'installation."
+  },
+  "setup_program_mac_1": {
+    "message": "Ouvrez le fichier zip téléchargé, puis double-cliquez sur « Installer Coati »."
+  },
+  "setup_program_mac_2": {
+    "message": "macOS indique qu'il ne peut pas vérifier le programme. Cliquez sur « Terminé »."
+  },
+  "setup_program_mac_3": {
+    "message": "Ouvrez Réglages Système, puis Confidentialité et sécurité. Cliquez sur « Ouvrir quand même », puis saisissez votre mot de passe."
+  },
+  "setup_program_mac_4": {
+    "message": "Une fenêtre Terminal s'ouvre et affiche l'installation."
+  },
+  "setup_program_linux_1": {
+    "message": "Ouvrez le fichier téléchargé. Votre logithèque s'ouvre : cliquez sur « Installer », puis saisissez votre mot de passe."
+  },
+  "setup_program_linux_snap": {
+    "message": "Firefox installé en Snap ou en Flatpak (le Firefox par défaut d'Ubuntu) ne peut pas joindre le programme seul. Il faut un jumelage manuel :"
+  },
+  "setup_program_waiting": {
+    "message": "En attente du programme… Coati vérifie toutes les quelques secondes."
+  },
+  "setup_program_checking": {
+    "message": "Vérification…"
+  },
+  "setup_program_retry": {
+    "message": "Réessayer"
+  },
+  "setup_program_ok": {
+    "message": "Le programme répond. Place au modèle."
   }
 }

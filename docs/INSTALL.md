@@ -1,169 +1,187 @@
 # Installing Coati
 
-Coati has two pieces: the extension, in the browser, and the **local program** (`coati-broker`),
-which runs on your machine and talks to the model. This document installs the local program.
+Coati has two pieces: the extension, in your browser, and the local program (`coati-broker`),
+which runs on your computer and talks to the model. The extension's tutorial detects your
+system and links to the right download below. Supported browsers: Chrome, Chromium, Brave, Edge,
+Firefox.
 
-It ships as a single executable, `coati-broker`, which also acts as a **native host**: a
-program the browser launches at the extension's request to hand it the key that opens the
-connection to the broker. Pairing needs no action from you. Detail: `docs/PROTOCOL.md`, "Native
-host". Supported browsers: Chrome, Chromium, Brave, Edge, Firefox. No step needs administrator
-rights.
+## 1. Install
 
-## 1. Download and verify
+Download the file for your system from
+`https://github.com/CARL-Bouvet/coati/releases/latest/download/<file>`. The files are not signed
+with a paid developer certificate, so your system warns you once.
 
-From the [releases page](https://github.com/CARL-Bouvet/coati/releases), take from the same
-release: the executable for your system (`coati-broker-linux-x64`/`-arm64`,
-`coati-broker-darwin-arm64`/`-x64`, `coati-broker-windows-x64.exe`), `SHA256SUMS`, the
-extension for your browser (`coati-chrome.zip` or `coati-firefox.zip`), and the "Source code"
-archive (install scripts + templates). Decompress the source archive, then verify:
+**Windows**: download `Coati-Setup-windows-x64.exe` and double-click it. SmartScreen shows
+"Windows protected your PC": click **More info**, then **Run anyway**. A window shows the
+install, then closes. Coati starts at each login.
 
-```sh
-sha256sum --check --ignore-missing SHA256SUMS                    # Linux
-shasum -a 256 coati-broker-darwin-arm64                           # macOS, compare by hand
-```
-```powershell
-Get-FileHash .\coati-broker-windows-x64.exe -Algorithm SHA256     # Windows
-```
+**macOS**: download `Coati-Setup-macos-arm64.zip` (Apple chip) or `Coati-Setup-macos-x64.zip`
+(Intel). Open the zip and double-click **Installer Coati**. macOS refuses to open it. On macOS
+15, open System Settings → Privacy & Security, scroll down, click **Open Anyway** and confirm.
+On macOS 14, right-click the file and choose **Open**.
 
-Don't install the file if the checksum doesn't match.
-
-## 2. Install the local program
-
-Run from the decompressed source archive, passing the downloaded executable's path. Safe to
-rerun.
+**Linux**: download the package for your distribution (`coati_amd64.deb` for Debian, Ubuntu,
+Mint; `coati-x86_64.rpm` for Fedora, openSUSE; `arm64`/`aarch64` on ARM) and open it: the
+software center offers to install it and asks for your password. From a terminal instead:
 
 ```sh
-bash scripts/install/install-linux.sh ~/Downloads/coati-broker-linux-x64
-bash scripts/install/install-macos.sh ~/Downloads/coati-broker-darwin-arm64
-```
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\install\install-windows.ps1 -Binary "$env:USERPROFILE\Downloads\coati-broker-windows-x64.exe"
+sudo apt install ./coati_amd64.deb
+sudo dnf install ./coati-x86_64.rpm
 ```
 
-Each installs: the executable (`~/.local/bin/coati-broker` Linux,
-`~/Library/Application Support/Coati/` macOS, `%LOCALAPPDATA%\Coati\` Windows); an
-auto-starting service (systemd user unit `coati-broker`, launchd agent `com.getcoati.broker`, or
-a Windows scheduled task `CoatiBroker`); the native-host manifest (`com.getcoati.broker.json`
-on Linux/macOS, `com.getcoati.broker.chromium.json` and `.firefox.json` on Windows, registered
-under `HKCU`) for each already-installed browser. Options: `--no-service`/`-NoService`,
-`--dry-run`/`-DryRun`, and on Linux/macOS `--all` to declare every browser (otherwise only the
-ones already installed). On Windows, all five browsers are always declared. Windows also
-restricts the config and data folders' ACL to your account, `SYSTEM`, and Administrators.
+The package installs `/usr/bin/coati-broker` and a user service. If the program does not answer
+right away, log out and in once, or run `systemctl --user enable --now coati-broker`. Other
+distributions: see "Advanced".
 
-**Unsigned executables**: published binaries carry no Apple/Microsoft developer signature. The
-installer removes the "downloaded from the internet" mark itself. If still blocked: macOS
-(Gatekeeper) — Finder, right-click → **Open**, confirm, or
-`xattr -d com.apple.quarantine <path>`; Windows (SmartScreen) — **More info** → **Run anyway**.
+The extension's tutorial polls the program and turns green when it answers.
 
-## 3. Configuration and data
+## 2. Load the extension
 
-Created by the broker on first start (on Windows, `~` means `%USERPROFILE%`):
-`~/.config/coati/config.json` (configuration), `~/.local/share/coati/` (data, including
-`broker-key.json`, drawn fresh on every start). For provider modules (`docs/ARCHITECTURE.md`,
-"Modules"), `coati-broker --check-modules` checks they load without opening a port.
-
-## 4. Load the extension
-
-Take the extension from the release assets: unzip `coati-chrome.zip` (Chrome, Chromium, Brave,
-Edge) or `coati-firefox.zip` (Firefox) into a folder you keep — don't move or delete it. Their
-checksums are in `SHA256SUMS`. Alternative: the `extension/` folder of the decompressed source
-archive works the same way for Chrome-family browsers.
+Take the extension from the [release assets](https://github.com/CARL-Bouvet/coati/releases/latest):
+unzip `coati-chrome.zip` (Chrome, Chromium, Brave, Edge) or `coati-firefox.zip` (Firefox) into a
+folder you keep. Don't move or delete it.
 
 **Chrome, Chromium, Brave, Edge**: open the extensions page (`chrome://extensions`,
-`brave://extensions`, `edge://extensions`), enable **Developer mode**, **Load unpacked**, pick
-the unzipped folder (or `extension/`). The id is fixed by the manifest's `key`, so pairing works
-immediately, even after a reload. After an update: replace the folder's contents, click
-**Reload**.
+`brave://extensions`, `edge://extensions`), enable **Developer mode**, click **Load unpacked**,
+pick the unzipped folder. The id is fixed by the manifest's `key`, so pairing works immediately,
+even after a reload.
 
-**Firefox**: needs a real `manifest.json` on disk, not a zip.
+**Firefox** needs a real `manifest.json` on disk, not a zip.
 
-- *Temporary*: unzip `coati-firefox.zip` (or build it: `./scripts/build.sh` →
-  `dist/stage/firefox/`); declare the native host once with
-  `bash scripts/dev-native-host.sh --all` (from the source archive); in Firefox,
-  `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** → pick the unzipped
-  `manifest.json`. Disappears on restart; after a code change, rebuild and
-  click **Reload**.
-- *Permanent*: Firefox requires AMO signing even for personal use. Create a free account at
+- Temporary: unzip `coati-firefox.zip`, open `about:debugging#/runtime/this-firefox`, click
+  **Load Temporary Add-on…** and pick the unzipped `manifest.json`. It disappears on restart.
+- Permanent: Firefox requires AMO signing even for personal use. Create a free account at
   [addons.mozilla.org/developers](https://addons.mozilla.org/developers/), build
   `dist/coati-firefox.zip`, submit at
   [.../addon/submit/distribution](https://addons.mozilla.org/developers/addon/submit/distribution)
   choosing **On your own** (not the public store). Install the signed `.xpi` by dragging it
-  into Firefox, or
-  `about:addons` → gear → **Install Add-on From File…**. To republish: bump `"version"` in both
-  `extension/manifest.json` and `extension/manifest.firefox.json` (kept in sync) — AMO won't
-  re-sign the same version twice for the same id (`coati@getcoati.com`, never changes).
-- Pairing is automatic, same as Chrome, for extension id `coati@getcoati.com` only. A Snap/Flatpak
-  Firefox (Ubuntu's default) can't launch the native host — see "Flatpak or Snap" below.
+  into Firefox, or from `about:addons` → gear → **Install Add-on From File…**. To republish,
+  bump `"version"` in both `extension/manifest.json` and `extension/manifest.firefox.json`
+  (kept in sync): AMO won't re-sign the same version twice for the same id
+  (`coati@getcoati.com`, never changes).
+- Pairing is automatic, for extension id `coati@getcoati.com` only. A Snap or Flatpak Firefox
+  (Ubuntu's default) can't launch the native host: see "Flatpak or Snap" below.
 
-## 5. Pick a model
+## 3. Pick a model
 
 Default provider: **Ollama**, fully local (`http://127.0.0.1:11434`). Coati never picks a model
-on its own — with none configured, the broker refuses requests.
+on its own; with none configured, the program refuses requests.
 
 **Local model**: install [Ollama](https://ollama.com/download) or
 [LM Studio](https://lmstudio.ai/download), then download a model with it by following the
 tool's own guide ([Ollama](https://docs.ollama.com/quickstart),
 [LM Studio](https://lmstudio.ai/docs/app/basics/download-model)). In the extension's settings
 (Coati icon → **Open settings**, "On this computer" tab), the step-by-step guide connects Coati
-to the tool; pick your model from the installed-models list. Coati sets the context window itself (8192 to 32768
-tokens, depending on the model and your memory); a larger window uses more memory.
+to the tool; pick your model from the installed-models list. Coati sets the context window
+itself (8192 to 32768 tokens, depending on the model and your memory); a larger window uses
+more memory.
 
-**Other providers**: **Claude (Anthropic)** — your own Anthropic key; **OpenAI-compatible** — LM
-Studio, OpenAI, Mistral, OpenRouter, DeepSeek, or any compatible address (key stored by the local
-program, never in the extension). For Ollama itself, prefer the **Ollama (local)** provider over
-its `/v1` endpoint — through that endpoint Coati can't grow the reading window.
+**Other providers**: Claude (your own Anthropic key) and OpenAI-compatible services (LM Studio,
+OpenAI, Mistral, OpenRouter, DeepSeek, or any compatible address). Keys are stored by the local
+program, never in the extension. For Ollama itself, prefer the **Ollama (local)** provider over
+its `/v1` endpoint: through that endpoint Coati can't grow the reading window.
 
 Which model fits your machine: see "Choosing a model" in the [README](../README.md#choosing-a-model).
 
-**What you should see**: click the Coati toolbar icon (or press `Alt+Shift+C`). A "Getting
-started" card shows three checks (local program detected, model connected, page access granted).
-With the first two green, ask a question about the page and grant site access when asked.
+Then click the Coati toolbar icon (or press `Alt+Shift+C`). A "Getting started" card shows three
+checks (local program detected, model connected, page access granted). With the first two green,
+ask a question about the page and grant site access when asked.
 
-## 6. Uninstall
+## 4. Update
+
+Windows and macOS: download the installer again and run it; it replaces the old version. Linux:
+install the new package the same way. Extension: replace the folder's contents and click
+**Reload** on the extensions page.
+
+## 5. Uninstall
+
+- Windows: Settings → Apps → Coati → Uninstall.
+- macOS: in Terminal, run `"~/Library/Application Support/Coati/coati-broker" --uninstall`.
+- Linux: remove the package with your package manager (`coati`).
+
+This stops the program and removes it, its service and the browser manifests. Your configuration
+(`~/.config/coati`) and data, including keys (`~/.local/share/coati`), stay unless you add
+`--purge`. On Windows, `~` is `%USERPROFILE%`.
+
+## Advanced
+
+The raw program is one file that installs itself.
+
+1. Download `coati-broker-<os>-<arch>` (for example `coati-broker-linux-x64`) and `SHA256SUMS`
+   from the same release.
+2. Verify it. If the checksum doesn't match, don't run the file.
 
 ```sh
-bash scripts/install/uninstall-linux.sh     # or uninstall-macos.sh
+sha256sum --check --ignore-missing SHA256SUMS      # Linux
+shasum -a 256 coati-broker-macos-arm64             # macOS, compare by hand
 ```
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\install\uninstall-windows.ps1
+Get-FileHash .\coati-broker-windows-x64.exe -Algorithm SHA256   # Windows
 ```
 
-Stops the service, removes the executable, the service/task, and the native-host manifests.
-Leaves `~/.config/coati` and `~/.local/share/coati` — delete by hand to erase everything.
+3. Make it executable and install. No administrator rights needed, and it is safe to rerun.
 
-## Browser installed via Flatpak or Snap
+```sh
+chmod +x coati-broker-linux-x64
+./coati-broker-linux-x64 --install
+```
+
+Started with no argument from a downloaded copy, the program runs an interactive install.
+
+| Flag | Effect |
+|---|---|
+| `--install` | Copy the program to your user folder, start it at login, declare it to your browsers. |
+| `--system` | With `--install`: system-wide install (what the packages use). |
+| `--prefix <dir>` | With `--install`: install under `<dir>`. |
+| `--no-service` | With `--install`: don't start it at login. |
+| `--all` | With `--install`: declare every supported browser, not only installed ones (Linux, macOS). |
+| `--dry-run` | With `--install`: print what would change, change nothing. |
+| `--uninstall` | Remove the program, its service and the manifests. |
+| `--purge` | With `--uninstall`: also remove configuration and keys. |
+| `--serve` | Run the program in the foreground. |
+
+User install locations: `~/.local/bin/coati-broker` (Linux),
+`~/Library/Application Support/Coati/` (macOS), `%LOCALAPPDATA%\Coati\` (Windows). At each start
+the program rewrites its browser manifests, so a browser installed later is picked up after a
+restart. Arch and other distributions without a package: use the raw binary as above.
+
+The program creates `~/.config/coati/config.json` and `~/.local/share/coati/` on first start.
+`coati-broker --check-modules` checks that provider modules load, without opening a port.
+
+### Flatpak or Snap
 
 A sandboxed browser can't launch the native host. Manual pairing, off by default:
 
-1. `~/.config/coati/config.json`: set `"legacyPairing": true`, then
+1. In `~/.config/coati/config.json`, set `"legacyPairing": true`, then
    `systemctl --user restart coati-broker`.
-2. `~/.local/bin/coati-broker --show-pairing-secret` to print the secret.
+2. Run `coati-broker --show-pairing-secret` to print the secret.
 3. Extension settings → "Browser with no native program (Flatpak, Snap)" → paste → **Save**.
 
-The extension keeps the secret in memory only — paste it again after every browser restart. The
+The extension keeps the secret in memory only: paste it again after every browser restart. The
 secret is permanent and readable by any program under your account
-(`~/.local/share/coati/pairing-secret`); to rotate it, delete that file, restart the broker,
-re-run `--show-pairing-secret`, paste the new value. Back to default: `"legacyPairing": false`.
+(`~/.local/share/coati/pairing-secret`). To rotate it, delete that file, restart the program,
+run `--show-pairing-secret` again and paste the new value. To go back to the default, set
+`"legacyPairing": false`.
 
 ## Troubleshooting
 
 | Banner | Likely cause | Fix |
 |---|---|---|
-| "Coati can't find its local program." | Native host not installed, browser installed after the broker, blocked by Gatekeeper/SmartScreen, or a Flatpak/Snap browser. | Rerun the installer (`--all`), restart the browser. See "Unsigned executables" / "Flatpak or Snap". |
-| "The local program refused the connection." | Handshake rejected. Panel retries automatically; **Retry** button available. | Restart the broker. Hand-edited `config.json`: check `allowedExtensionIds`. Manual pairing: check `legacyPairing`, re-paste the secret. |
-| "Another program is answering instead of Coati's." | Something unauthenticated is listening on port 8787. | Find it: `ss -ltnp 'sport = :8787'` (Linux), `lsof -iTCP:8787 -sTCP:LISTEN` (macOS), `netstat -ano \| findstr 8787` (Windows). Stop it, restart the broker. |
-| "Coati's local program isn't responding." | Broker not running. | `systemctl --user status coati-broker` (Linux); check `~/Library/Logs/Coati/coati-broker.log` (macOS); `Start-ScheduledTask -TaskName CoatiBroker` (Windows). |
+| "Coati can't find its local program." | Not installed, browser installed after the program, blocked by the system warning, or a Flatpak/Snap browser. | Run the installer again and restart the browser. See "Install" and "Flatpak or Snap". |
+| "The local program refused the connection." | Handshake rejected. The panel retries; **Retry** is available. | Restart the program. Hand-edited `config.json`: check `allowedExtensionIds`. Manual pairing: check `legacyPairing`, paste the secret again. |
+| "Another program is answering instead of Coati's." | Something unauthenticated is listening on port 8787. | Find it: `ss -ltnp 'sport = :8787'` (Linux), `lsof -iTCP:8787 -sTCP:LISTEN` (macOS), `netstat -ano \| findstr 8787` (Windows). Stop it, restart the program. |
+| "Coati's local program isn't responding." | The program is not running. | Linux: `systemctl --user status coati-broker`. macOS: read `~/Library/Logs/Coati/coati-broker.log`. Windows: run the installer again. |
 
 ## Development: installing from source
 
-Linux, with [Bun](https://bun.sh) **>= 1.4.2**: `cd broker && bun install`, then
-`bun run start` to run without the systemd service. Service: `bash scripts/install-service.sh`
-(installs/enables/starts; rerun-safe). Useful: `systemctl --user status coati-broker`,
+Linux, with [Bun](https://bun.sh) >= 1.4.2: `cd broker && bun install`, then `bun run start`
+to run without the systemd service. Service: `bash scripts/install-service.sh`
+(installs, enables and starts; rerun-safe). Useful: `systemctl --user status coati-broker`,
 `journalctl --user -u coati-broker -n 100`, `systemctl --user stop coati-broker`.
 
-Native host from source: `bash scripts/dev-native-host.sh` (Brave only) or `--all`, `--uninstall`
-to remove — writes a launcher at `~/.local/share/coati/dev-native-host/` that runs the broker
-from source in host mode; pairing is then automatic.
+Native host from source: `bash scripts/dev-native-host.sh` (Brave only) or `--all`;
+`--uninstall` removes it. It writes a launcher at `~/.local/share/coati/dev-native-host/` that
+runs the broker from source in host mode; pairing is then automatic.
 
-Extension from source: same steps as "Load the extension" above, pointing at the repo's
-`extension/` folder.
+Extension from source: build with `./scripts/build.sh`, or point the browser at the repo's
+`extension/` folder as in "Load the extension".
