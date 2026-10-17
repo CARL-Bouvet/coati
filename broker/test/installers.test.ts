@@ -289,8 +289,12 @@ describe("mode selection", () => {
 });
 
 describe("apply against a throwaway prefix", () => {
-  let dir: string;
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  let dir = "";
+  // Tests skipped on this OS return before setup(): nothing to clean then.
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true });
+    dir = "";
+  });
   const setup = () => {
     dir = mkdtempSync(join(tmpdir(), "coati-install-"));
     const exe = join(dir, "dl-coati-broker");
