@@ -7,7 +7,7 @@ platform: linux
 version: ${VERSION}
 section: web
 priority: optional
-maintainer: Coati <noreply@getcoati.com>
+maintainer: Coati <38507998+CARL-Bouvet@users.noreply.github.com>
 description: |
   Coati, the local program behind the browser extension.
   Talks to the AI model you run yourself; nothing goes through a server.
