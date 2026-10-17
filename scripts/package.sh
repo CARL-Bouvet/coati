@@ -80,7 +80,9 @@ for t in "${targets[@]}"; do
         linux-x64) arch=amd64; rpmname=coati-x86_64.rpm ;;
         linux-arm64) arch=arm64; rpmname=coati-aarch64.rpm ;;
       esac
-      export VERSION NFPM_ARCH="$arch" COATI_BIN="$src"
+      export VERSION NFPM_ARCH="$arch"
+      mkdir -p dist/nfpm
+      cp "$src" dist/nfpm/coati-broker
       nfpm package -f packaging/nfpm.yaml -p deb -t "$OUT/coati_$arch.deb"
       nfpm package -f packaging/nfpm.yaml -p rpm -t "$OUT/$rpmname"
       ;;

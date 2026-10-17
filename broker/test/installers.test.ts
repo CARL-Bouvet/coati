@@ -301,7 +301,8 @@ describe("apply against a throwaway prefix", () => {
     planInstall({ ...currentEnv(prefix), os: "linux", exe, system: false, service: false, all: true, detected: new Set(), ...o });
 
   test("install writes binary + manifests, is idempotent, uninstall keeps config unless --purge", () => {
-    if (process.platform === "win32") return;
+    // runUninstall plans for the host OS; the install above is a Linux plan.
+    if (process.platform !== "linux") return;
     const { exe, prefix } = setup();
     const logs: string[] = [];
     applyActions(planFor(prefix, exe), { log: (l) => logs.push(l) });
@@ -353,7 +354,8 @@ describe("apply against a throwaway prefix", () => {
   });
 
   test("serve-time sync: detected browser gets a manifest, identical is untouched, a live foreign path is kept", () => {
-    if (process.platform === "win32" || process.getuid?.() === 0) return;
+    // Linux paths below; syncUserManifests uses the host OS.
+    if (process.platform !== "linux" || process.getuid?.() === 0) return;
     const { prefix } = setup();
     const before = process.env.COATI_INSTALL_PREFIX;
     process.env.COATI_INSTALL_PREFIX = prefix;
@@ -387,6 +389,7 @@ describe("apply against a throwaway prefix", () => {
   });
 
   test("detectBrowsers reads the config dirs under the root", () => {
+    if (process.platform === "win32") return; // POSIX root joined with a Windows temp path
     const { prefix } = setup();
     mkdirSync(join(prefix, ".mozilla"), { recursive: true });
     const found = detectBrowsers({ os: "linux", home: "/h", prefix }, existsSync);

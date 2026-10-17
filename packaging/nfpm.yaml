@@ -1,5 +1,6 @@
 # Linux packages (.deb and .rpm), built by scripts/package.sh with nfpm.
-# Environment: VERSION, NFPM_ARCH (amd64 | arm64), COATI_BIN (compiled binary).
+# Environment: VERSION, NFPM_ARCH (amd64 | arm64). nfpm does not expand
+# variables in `src`, so package.sh stages the binary at dist/nfpm/coati-broker.
 name: coati
 arch: ${NFPM_ARCH}
 platform: linux
@@ -14,10 +15,13 @@ homepage: https://github.com/CARL-Bouvet/coati
 license: AGPL-3.0
 
 contents:
-  - src: ${COATI_BIN}
+  - src: dist/nfpm/coati-broker
     dst: /usr/bin/coati-broker
     file_info:
       mode: 0755
+  # Owned by the package so rpm removes it too.
+  - dst: /usr/share/doc/coati
+    type: dir
   - src: LICENSE
     dst: /usr/share/doc/coati/LICENSE
 
