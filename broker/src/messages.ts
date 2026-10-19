@@ -72,6 +72,18 @@ const MESSAGES: Catalog = {
     zh_CN: "这看起来不是该服务的 API 密钥:请确认粘贴的是密钥本身。",
   },
 
+  // --- OAuth sign-in return page (docs/PROTOCOL.md "OAuth sign-in") ---------
+  "oauth.connected": {
+    en: "Coati is connected. You can close this tab.",
+    fr: "Coati est connecté. Vous pouvez fermer cet onglet.",
+    zh_CN: "Coati 已连接。您可以关闭此标签页。",
+  },
+  "oauth.failed": {
+    en: "The connection did not complete. Close this tab and try again from Coati.",
+    fr: "La connexion n'a pas abouti. Fermez cet onglet et réessayez depuis Coati.",
+    zh_CN: "连接未完成。请关闭此标签页，然后在 Coati 中重试。",
+  },
+
   // --- quota-exceeded / rate-limited (docs/PROTOCOL.md) — same contract as
   // auth.apiKeyRejected above: shown verbatim to a human, never
   // model-unavailable/internal's raw English technical detail. -------------

@@ -62,9 +62,10 @@ import {
   UNAUTH_CAP_LOG_WINDOW_MS,
 } from "./http-admission.ts";
 import { sanitizeLogValue } from "./logging.ts";
+import { createOAuthFlow, OAUTH_CALLBACK_PATH, OPENROUTER_API_BASE_URL } from "./oauth.ts";
 import { send } from "./ws-send.ts";
 import { handleMessage } from "./handlers/dispatch.ts";
-import type { SettingsCtx } from "./handlers/settings.ts";
+import { buildSettingsPayload, type SettingsCtx } from "./handlers/settings.ts";
 import type { ProviderRuntimeOptions } from "./providers/types.ts";
 
 // Re-exported so every existing import of "./server.ts" / "../server.ts"
@@ -163,6 +164,19 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
     }`,
   );
 
+  const oauth = createOAuthFlow();
+  const connections = new Set<{ data: ConnData; send(data: string): unknown }>();
+
+  /** Pushes the current settings to every authenticated connection (after a change not made by one of them). */
+  function broadcastSettings(): void {
+    for (const ws of connections) {
+      if (!ws.data.authed || ws.data.closed) continue;
+      void buildSettingsPayload(currentConfig, ws.data.lang).then((payload) => {
+        if (!ws.data.closed) send(ws, { type: "settings", id: "oauth", ...payload });
+      });
+    }
+  }
+
   function settingsCtx(lang: Lang): SettingsCtx {
     const cfg = currentConfig;
     const providerId = cfg.provider ?? DEFAULT_CONFIG.provider!;
@@ -183,6 +197,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       provider: getProvider(providerId),
       providerOpts,
       getConfig: () => currentConfig,
+      startOAuth: () => oauth.start(server.port, lang),
       applySettings(patch) {
         // Capture the OLD provider's current
         // model into lastModels BEFORE switching away from it. Without this,
@@ -295,7 +310,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
     }
   }
 
-  return Bun.serve<ConnData, {}>({
+  const server = Bun.serve<ConnData, {}>({
     hostname: "127.0.0.1", // NEVER 0.0.0.0 — see project rule 18.
     port: config.port,
     // docs/PROTOCOL.md: explicit even though it's Bun's own default — a second broker
@@ -310,19 +325,30 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       // Origin comes first and costs nothing: a missing or foreign Origin never
       // reaches the upgrade, so it can't hold an unauthenticated slot, and the
       // /proc/net/tcp reads below are skipped.
+      //
+      // The OAuth return is a top-level navigation: no Origin header, and the browser may
+      // say `localhost`. Only that exact path gets this exemption; Host and peer UID still apply.
+      const isOAuthCallback = req.method === "GET" && new URL(req.url).pathname === OAUTH_CALLBACK_PATH;
       const origin = req.headers.get("origin");
-      if (!isOriginAllowed(origin, config.allowedExtensionIds)) {
+      if (!isOAuthCallback && !isOriginAllowed(origin, config.allowedExtensionIds)) {
         console.error(`coati-broker: reject stage=origin origin=${sanitizeLogValue(origin)}`);
         return new Response("forbidden", { status: 403, headers: FORBIDDEN_RESPONSE_HEADERS });
       }
 
-      const admission = admitRequest(req, server, server.port);
+      const admission = admitRequest(req, server, server.port, { allowLocalhostHost: isOAuthCallback });
       if (!admission.ok) {
         logAdmissionRejection(admission);
         return new Response("forbidden", { status: 403, headers: FORBIDDEN_RESPONSE_HEADERS });
       }
 
       const url = new URL(req.url);
+
+      if (isOAuthCallback) {
+        return oauth.complete(url.searchParams, (key) => {
+          settingsCtx(DEFAULT_LANG).applySettings({ provider: "openai-compat", baseUrl: OPENROUTER_API_BASE_URL, apiKey: key });
+          broadcastSettings();
+        });
+      }
 
       // /pair no longer exists, in any mode —
       // docs/PROTOCOL.md. Falls
@@ -371,6 +397,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
         }
         unauthCount++;
         ws.data.countedUnauth = true;
+        connections.add(ws);
 
         // A single 3s deadline covers the whole handshake (hello -> challenge
         // -> auth) — docs/PROTOCOL.md: never reset
@@ -451,12 +478,14 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       close(ws) {
         if (ws.data.helloTimer) clearTimeout(ws.data.helloTimer);
         releaseUnauthSlot(ws);
+        connections.delete(ws);
         ws.data.closed = true; // L9 — see ConnData.closed's own doc
         for (const controller of ws.data.active.values()) controller.abort();
         ws.data.active.clear();
       },
     },
   });
+  return server;
 }
 
 if (import.meta.main) {

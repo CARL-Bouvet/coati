@@ -1,4 +1,4 @@
-// Coati options page — connection status, tabs, deep links (#setup,
+// Coati options page — connection status, the two model sides, deep links (#setup,
 // #provider-<id>), settings.get/models.list, and the "Model"
 // section's current-model + installed-list rendering (split of
 // options.js). Owns the shared connection/model state that
@@ -16,6 +16,7 @@ import {
   renderModelList,
   shortModelName,
 } from "../lib/model-list.js";
+import { ONLINE_PROVIDERS } from "../lib/setup-data.js";
 import { els } from "./dom-refs.js";
 import { newId, sendClientMessage } from "./dom-helpers.js";
 import { testTargets, registerTestTarget, testProvider, applyTestResult } from "./provider-tests.js";
@@ -46,14 +47,15 @@ export const keyInputs = new Map();
 // Service rows: settings fold open state, kept across re-renders.
 export const openServiceDetails = new Set();
 
-// Tabs: the page opens on the side of the active model, once; after that the
-// user's (or a deep link's) choice holds.
-let tabChosen = false;
+// Sides: the page opens on the side of a model already set up, once (none:
+// both sides idle, half and half); after that the user's (or a deep link's)
+// choice holds.
+let sideChosen = false;
 // "Add a service" follows the services list (open only while there is
 // none) until the user toggles it or a deep link opens it: then it holds.
 let addServiceHeld = false;
 
-// The setup guide, merged into the tabs (options-setup.js).
+// The setup guide, merged into the sides (options-setup.js).
 const setupGuide = mountSetupGuide({
   localRoot: els.setupLocal,
   onlineRoot: els.setupOnline,
@@ -101,8 +103,8 @@ export function setupOpenOnHash() {
     else if (location.hash === "#setup-program") programStep.open();
     // The panel's slow-answer tip.
     else if (location.hash === "#setup-ollama-speedup") {
-      tabChosen = true;
-      selectTab("local");
+      sideChosen = true;
+      selectSide("local");
       setupGuide.openSpeedup();
     } else applyProviderHash();
   };
@@ -110,13 +112,15 @@ export function setupOpenOnHash() {
   window.addEventListener("hashchange", openIfAsked);
 }
 
-/** options.html#setup: the guide on the side of the active model — the
- * Ollama steps (local) or "Add a service" (online). */
+/** options.html#setup: the guide on the side of the model set up — the
+ * Ollama steps (local) or "Add a service" (online); nothing set up: both
+ * sides stay idle, the choice is the user's. */
 function openSetup() {
-  tabChosen = true;
   setupHashPending = !lastSettings;
-  const side = lastSettings && !isLocalProvider(lastSettings.provider, lastSettings) ? "online" : "local";
-  selectTab(side);
+  const side = lastSettings ? configuredSide(lastSettings) : null;
+  if (!side) return;
+  sideChosen = true;
+  selectSide(side);
   if (side === "local") {
     setupGuide.openLocalGuide();
     return;
@@ -145,17 +149,17 @@ function applyProviderHash() {
   const providerId = match[1];
   if (!settings.available?.some((entry) => entry?.id === providerId)) return;
   lastAutoTestedHash = location.hash;
-  tabChosen = true;
+  sideChosen = true;
 
   if (isLocalProvider(providerId, settings)) {
-    selectTab("local");
+    selectSide("local");
     els.currentModel.scrollIntoView?.({ behavior: "smooth", block: "start" });
     els.currentTest.focus({ preventScroll: true });
     if (providerId === settings.provider) testProvider(providerId, "current");
     return;
   }
 
-  selectTab("online");
+  selectSide("online");
   const row = document.getElementById(`provider-${providerId}`);
   if (!row) {
     // Not configured and not active: the way in is "Add a service".
@@ -178,40 +182,39 @@ function applyProviderHash() {
   testProvider(providerId, "row");
 }
 
-// --- Tabs "On this computer" / "Online" (WAI-ARIA tabs) -----------------
+// --- Sides "On this computer" / "Online" (disclosure buttons) ------------
 
-export function setupTabs() {
-  const order = els.tabs.map((tab) => tab.dataset.tab);
-  for (const tab of els.tabs) {
-    tab.addEventListener("click", () => {
-      tabChosen = true;
-      selectTab(tab.dataset.tab);
-    });
-    tab.addEventListener("keydown", (event) => {
-      const index = order.indexOf(tab.dataset.tab);
-      let next = null;
-      if (event.key === "ArrowRight") next = order[(index + 1) % order.length];
-      else if (event.key === "ArrowLeft") next = order[(index - 1 + order.length) % order.length];
-      else if (event.key === "Home") next = order[0];
-      else if (event.key === "End") next = order[order.length - 1];
-      if (!next) return;
-      event.preventDefault();
-      tabChosen = true;
-      selectTab(next, { focus: true });
+/** Opens `name` ("local" | "online") and folds the other into a strip; null:
+ * both idle. `animate` only for a user's choice (options.css data-animate). */
+function selectSide(name, { animate = false } = {}) {
+  if (animate) els.modelSplit.dataset.animate = "";
+  for (const head of els.splitHeads) {
+    const side = head.dataset.side;
+    head.setAttribute("aria-expanded", String(side === name));
+    head.closest(".split-side").dataset.state = !name ? "idle" : side === name ? "open" : "folded";
+    document.getElementById(head.getAttribute("aria-controls")).hidden = side !== name;
+  }
+  setupGuide.setLocalVisible(name === "local");
+}
+
+/** A head opens its side; the open side's own head folds it back to idle.
+ * Focus stays on the clicked head, which is the open side's head after. */
+function setupSides() {
+  for (const head of els.splitHeads) {
+    head.addEventListener("click", () => {
+      sideChosen = true;
+      selectSide(head.getAttribute("aria-expanded") === "true" ? null : head.dataset.side, { animate: true });
     });
   }
 }
 
-export function selectTab(name, { focus = false } = {}) {
-  for (const tab of els.tabs) {
-    const selected = tab.dataset.tab === name;
-    tab.setAttribute("aria-selected", String(selected));
-    tab.tabIndex = selected ? 0 : -1;
-    if (selected && focus) tab.focus();
-  }
-  els.panelLocal.hidden = name !== "local";
-  els.panelOnline.hidden = name !== "online";
-  setupGuide.setLocalVisible(name === "local");
+/** The side the user already chose: an online model in use (only ever
+ * picked by hand), a local one that answers, else any online service set
+ * up; null when there is none. */
+function configuredSide(settings) {
+  if (!isLocalProvider(settings.provider, settings)) return "online";
+  if (providerEntry(settings, settings.provider)?.available) return "local";
+  return onlineServices(settings).length > 0 ? "online" : null;
 }
 
 // --- Model provider section (broker/src/providers/, docs/PROTOCOL.md
@@ -302,10 +305,10 @@ export function serviceState(entry) {
   return { text: t("options_state_ready"), tone: "ok" };
 }
 
-/** Online services shown as rows, active first: the active one when it is online, plus every
- * configured one. Each configured openai-compat service (OpenRouter, Mistral, another address…)
- * is its own row, `{ ...entry, key, active, baseUrl, hasKey }`. An unconfigured service is not
- * listed — "Add a service" is the way in (decision 4). */
+/** Online services shown as rows, active first: every one set up. Each openai-compat service
+ * (OpenRouter, Mistral, another address…) is its own row, `{ ...entry, key, active, baseUrl,
+ * hasKey }`. A service still waiting for its key (Claude, or a guide service such as OpenRouter)
+ * is not listed, even when active — the guide under "Add a service" finishes it (decision 4). */
 export function onlineServices(settings) {
   const rows = [];
   for (const entry of settings?.available ?? []) {
@@ -313,6 +316,7 @@ export function onlineServices(settings) {
     if (entry.id === "openai-compat") {
       for (const svc of settings.services ?? []) {
         if (isLoopbackUrl(svc.baseUrl)) continue;
+        if (!svc.hasKey && ONLINE_PROVIDERS.some((p) => p.baseUrl === svc.baseUrl)) continue;
         const active = settings.provider === entry.id && settings.baseUrl === svc.baseUrl;
         rows.push({ ...entry, key: `${entry.id}|${svc.baseUrl}`, active, baseUrl: svc.baseUrl, hasKey: svc.hasKey });
       }
@@ -320,7 +324,7 @@ export function onlineServices(settings) {
     }
     const active = entry.id === settings.provider;
     if (isLocalProvider(entry.id, settings)) continue;
-    if (!active && !(entry.id === "claude-api" ? entry.configured : entry.configured || entry.available)) continue;
+    if (entry.id === "claude-api" ? !entry.configured : !(active || entry.configured || entry.available)) continue;
     rows.push({ ...entry, key: entry.id, active });
   }
   return rows.sort((a, b) => Number(b.active) - Number(a.active));
@@ -343,11 +347,11 @@ function renderModelSection({ fromModels = false } = {}) {
   placeModelField(settings);
   renderAddService(settings);
   if (!settings) return;
-  if (!tabChosen) {
-    tabChosen = true;
-    selectTab(isLocalProvider(settings.provider, settings) ? "local" : "online");
+  if (!sideChosen) {
+    sideChosen = true;
+    selectSide(configuredSide(settings));
   }
-  // No online service yet: "Add a service" is the whole tab. With one
+  // No online service yet: "Add a service" is the whole side. With one
   // or more, it stays folded under the list.
   if (!addServiceHeld) els.addService.open = onlineServices(settings).length === 0;
   if (setupHashPending && location.hash === "#setup") openSetup();
@@ -413,7 +417,7 @@ new ResizeObserver(([entry]) => {
   fitCurrentName();
 }).observe(els.currentModel);
 
-// --- Tab "On this computer": installed models (zone Z2c) -----------------
+// --- "On this computer" side: installed models (zone Z2c) ---------------
 //
 // Same list as the panel's model menu (lib/model-list.js), as toggle buttons
 // (aria-pressed) with the "fits the graphics card" note; one click =
@@ -470,12 +474,15 @@ export function handleBrokerMessage(reply) {
   if (reply?.type === "settings.test-result") applyTestResult(reply);
 }
 
-/** "Model" tab/services wiring, moved here verbatim from
- * options.js's init(). */
+/** "Model" sides/services wiring, called once from options.js's init(). */
 export function wireModelSettings() {
-  setupTabs();
-  selectTab("local");
+  setupSides();
+  selectSide(null);
   els.addService.querySelector("summary").addEventListener("click", () => {
+    addServiceHeld = true;
+  });
+  // A service picked in the guide: it stays open through the key and its check.
+  els.setupOnline.addEventListener("change", () => {
     addServiceHeld = true;
   });
   els.currentTest.addEventListener("click", () => {

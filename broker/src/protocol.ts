@@ -104,6 +104,7 @@ export {
   type PrefsGetMessage,
   type PrefsSetMessage,
   type CancelMessage,
+  type OAuthStartMessage,
   type SettingsGetMessage,
   type SettingsSetMessage,
   type SettingsTestMessage,
@@ -120,6 +121,7 @@ export {
 } from "./protocol/client-messages.ts";
 
 export {
+  type OAuthStartedMessage,
   type ChunkMessage,
   type DoneMessage,
   type ErrorMessage,

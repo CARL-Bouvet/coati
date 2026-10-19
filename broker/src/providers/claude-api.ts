@@ -116,17 +116,15 @@ async function isAvailable(opts: ProviderRuntimeOptions): Promise<Availability> 
   return { available: true };
 }
 
-/**
- * `provider.status` for claude-api — presence-only (docs/PROTOCOL.md,
- * "Provider availability"). A `GET /v1/models` probe would confirm the key
- * is actually accepted, but stays OFF until docs/PROTOCOL.md
- * confirms that endpoint is never billed — a stored key is
- * reported `unknown`/`key-unverified`, never `ok`, until then.
- */
+/** `provider.status` for claude-api (docs/PROTOCOL.md "Provider availability"): the same free
+ * `GET /v1/models` probe as testConnection below. */
 async function checkStatus(opts: ProviderRuntimeOptions): Promise<StatusCheck> {
-  const key = opts.apiKey?.trim();
-  if (!key) return { state: "ko", reason: "no-key" };
-  return { state: "unknown", reason: "key-unverified" };
+  if (!opts.apiKey?.trim()) return { state: "ko", reason: "no-key" };
+  const result = await testConnection(opts);
+  if (result.ok) return { state: "ok", reason: "ready" };
+  if (result.code === "auth-required") return { state: "ko", reason: "key-rejected" };
+  if (result.code === "model-missing") return { state: "ko", reason: "model-missing" };
+  return { state: "unknown", reason: "probe-failed" };
 }
 
 /**

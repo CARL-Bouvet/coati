@@ -374,9 +374,6 @@
   "panel_provider_no_key": {
     "message": "aucune clé API enregistrée"
   },
-  "panel_provider_key_unverified": {
-    "message": "clé API enregistrée, non vérifiée"
-  },
   "panel_provider_cli_missing": {
     "message": "exécutable introuvable"
   },
@@ -946,9 +943,6 @@
   "keyInput_hide": {
     "message": "Masquer"
   },
-  "keyInput_save": {
-    "message": "Enregistrer la clé"
-  },
   "keyInput_saving": {
     "message": "Envoi au programme local…"
   },
@@ -964,14 +958,17 @@
   "keyInput_refused": {
     "message": "Clé refusée par le service : vérifiez qu'elle a été copiée en entier, ou créez-en une nouvelle sur son site."
   },
+  "keyInput_fail_credit": {
+    "message": "Ce compte n'a pas de crédit : ajoutez-en sur le site du service, puis cliquez sur « Vérifier à nouveau »."
+  },
+  "keyInput_fail_busy": {
+    "message": "Le service reçoit trop de requêtes : attendez une minute, puis cliquez sur « Vérifier à nouveau »."
+  },
   "keyInput_bad_format": {
     "message": "Ce texte ne ressemble pas à une clé API de ce service : vérifiez que vous avez collé la clé elle-même, sans texte en plus."
   },
-  "keyInput_remedy_credit": {
-    "message": "Ajoutez du crédit sur le site du service, puis cliquez sur « Vérifier à nouveau »."
-  },
-  "keyInput_remedy_wait": {
-    "message": "La clé est enregistrée : attendez une minute, puis cliquez sur « Vérifier à nouveau »."
+  "keyInput_subscription_token": {
+    "message": "Ceci est un jeton d'abonnement Claude Code (claude setup-token), pas une clé API : Anthropic ne l'autorise que dans Claude Code. Créez une clé API sur la console Claude ; avec Max, le crédit API mensuel de l'abonnement la paie."
   },
   "keyInput_test_failed": {
     "message": "La vérification de la clé a échoué."
@@ -1023,18 +1020,6 @@
   },
   "setup_choose": {
     "message": "Où le modèle doit-il tourner ?"
-  },
-  "setup_path_local_title": {
-    "message": "Sur mon ordinateur"
-  },
-  "setup_path_local_text": {
-    "message": "Gratuit et privé : vos textes ne quittent pas l'ordinateur. Il faut un ordinateur récent."
-  },
-  "setup_path_online_title": {
-    "message": "En ligne"
-  },
-  "setup_path_online_text": {
-    "message": "Plus simple : une clé à créer chez un service. Gratuit ou payant selon le service."
   },
   "setup_checking": {
     "message": "Vérification…"
@@ -1203,7 +1188,7 @@
     "message": "Choisir un service"
   },
   "setup_online_free_warning": {
-    "message": "À savoir avant de choisir : les modèles gratuits d'OpenRouter peuvent conserver les textes que vous leur envoyez, et s'en servir. N'y envoyez rien de confidentiel."
+    "message": "Les modèles gratuits d'OpenRouter peuvent conserver les textes que vous leur envoyez, et s'en servir. N'y envoyez rien de confidentiel."
   },
   "setup_online_free_detail": {
     "message": "Modèles gratuits : jusqu'à $PERDAY$ questions par jour, $WITHCREDIT$ si vous achetez au moins $CREDIT$ de crédit.",
@@ -1235,6 +1220,37 @@
       }
     }
   },
+  "setup_online_freetier_detail": {
+    "message": "Clé gratuite avec limites ; au-delà, environ $COST$ par question sur une page d'environ $WORDS$ mots.",
+    "placeholders": {
+      "cost": {
+        "content": "$1",
+        "example": "0,002 $US"
+      },
+      "words": {
+        "content": "$2",
+        "example": "2000"
+      }
+    }
+  },
+  "setup_online_purpose_openrouter": {
+    "message": "De nombreux modèles de plusieurs entreprises avec une seule clé, dont certains gratuits. Les modèles gratuits peuvent conserver vos textes."
+  },
+  "setup_online_purpose_claude": {
+    "message": "Les modèles d'Anthropic, Claude."
+  },
+  "setup_online_purpose_openai": {
+    "message": "Les modèles d'OpenAI, GPT."
+  },
+  "setup_online_purpose_mistral": {
+    "message": "Les modèles de Mistral AI, une entreprise française."
+  },
+  "setup_online_purpose_deepseek": {
+    "message": "Les modèles de DeepSeek, une entreprise chinoise."
+  },
+  "setup_online_purpose_google": {
+    "message": "Les modèles de Google, Gemini."
+  },
   "setup_online_others": {
     "message": "Autres services"
   },
@@ -1247,14 +1263,41 @@
       }
     }
   },
-  "setup_online_pick_first": {
-    "message": "Choisissez d'abord un service (étape 1)."
-  },
   "setup_online_account_title": {
     "message": "Créer un compte et une clé"
   },
   "setup_online_account_text": {
     "message": "Créez un compte (ou connectez-vous), ouvrez la page des clés API, créez une clé, puis copiez-la."
+  },
+  "setup_online_do_account_link": {
+    "message": "Créez un compte chez $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "setup_online_do_account_rest": {
+    "message": "(ou connectez-vous)."
+  },
+  "setup_online_do_credit_link": {
+    "message": "Ajoutez du crédit"
+  },
+  "setup_online_do_credit_rest": {
+    "message": "— une nouvelle clé ne répond qu'une fois le compte crédité."
+  },
+  "setup_online_do_key_link": {
+    "message": "Créez une clé"
+  },
+  "setup_online_do_key_rest": {
+    "message": "et nommez-la « Coati »."
+  },
+  "setup_online_do_key_rest_claude": {
+    "message": "et nommez-la « Coati », dans l'« Espace de travail par défaut » (une clé d'organisation ne fonctionne pas ici)."
+  },
+  "setup_online_do_copy": {
+    "message": "Copiez-la tout de suite : le service ne l'affiche qu'une fois."
   },
   "setup_online_signup": {
     "message": "Ouvrir $NAME$",
@@ -1268,11 +1311,56 @@
   "setup_online_keys_page": {
     "message": "Page des clés API"
   },
+  "setup_oauth_signin": {
+    "message": "Se connecter avec $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "setup_oauth_waiting": {
+    "message": "En attente de votre connexion dans le nouvel onglet…"
+  },
+  "setup_oauth_failed": {
+    "message": "La connexion n'a pas pu démarrer. Collez plutôt une clé ci-dessous."
+  },
+  "setup_oauth_or": {
+    "message": "Ou créez une clé vous-même et collez-la ci-dessous."
+  },
   "setup_online_openrouter_privacy": {
     "message": "Si un modèle gratuit refuse de répondre, autorisez les modèles gratuits dans les réglages de confidentialité d'OpenRouter."
   },
   "setup_online_privacy_link": {
     "message": "Réglages de confidentialité"
+  },
+  "setup_online_claude_subscriber": {
+    "message": "Vous payez déjà Claude Max ou Team :"
+  },
+  "setup_online_claude_subscriber_credit": {
+    "message": "sur claude.ai, cliquez « Link organization » : votre abonnement paie alors l'API chaque mois."
+  },
+  "setup_online_claude_others": {
+    "message": "Sans abonnement, ou avec Claude Pro (sans crédit API inclus) :"
+  },
+  "setup_online_ready": {
+    "message": "Coati est paramétré."
+  },
+  "setup_online_plan_claude_link": {
+    "message": "Récupérer le crédit API de l'abonnement"
+  },
+  "setup_online_plan_openai": {
+    "message": "Un abonnement ChatGPT (Plus, Pro) ne couvre pas l'API : elle est facturée à part, sans crédit inclus."
+  },
+  "setup_online_plan_mistral": {
+    "message": "Une offre Mistral (Free, Pro) inclut un usage mensuel partagé avec l'API : créez la clé avec le même compte, rien à réclamer. Au-delà, l'usage puise dans le crédit prépayé."
+  },
+  "setup_online_plan_google": {
+    "message": "Avec la clé gratuite, Google peut utiliser vos textes pour améliorer ses produits. Un abonnement Google AI (Pro, Ultra) ne couvre pas l'API ; il inclut un crédit Google Cloud mensuel, utilisable seulement avec un solde prépayé dans AI Studio."
+  },
+  "setup_online_plan_google_link": {
+    "message": "Google Developer Program"
   },
   "setup_online_openrouter_quota": {
     "message": "Limite des modèles gratuits : $PERMIN$ questions par minute.",
@@ -1481,6 +1569,12 @@
   "model_list_online": {
     "message": "En ligne"
   },
+  "model_split_local_summary": {
+    "message": "Gratuit et privé. Il faut un ordinateur récent."
+  },
+  "model_split_online_summary": {
+    "message": "Rapide, payé à l'usage. Il faut une clé."
+  },
   "model_list_size_gb": {
     "message": "$GB$ Go",
     "placeholders": {
@@ -1627,9 +1721,6 @@
   "options_services_title": {
     "message": "Services configurés"
   },
-  "options_services_empty": {
-    "message": "Aucun service en ligne pour l'instant."
-  },
   "options_add_service": {
     "message": "Ajouter un service"
   },
@@ -1669,8 +1760,8 @@
   "options_service_remove_confirm": {
     "message": "Confirmer le retrait"
   },
-  "options_service_settings": {
-    "message": "Clé et modèle"
+  "options_service_key": {
+    "message": "Clé"
   },
   "options_local_guide_title": {
     "message": "Configurer un modèle local, pas à pas"

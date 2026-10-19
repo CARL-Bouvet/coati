@@ -90,6 +90,10 @@ describe("key input format check", () => {
     expect(isValidKeyFormat("claude-api", undefined, "claude /login")).toBe(false);
     expect(isValidKeyFormat("claude-api", undefined, "sk-ant-abc")).toBe(true);
     expect(isValidKeyFormat("claude-api", undefined, "sk-abc")).toBe(false);
+    expect(isValidKeyFormat("claude-api", undefined, "sk-ant-oat01-abc")).toBe(false);
+    const broker = await import("../src/key-format.ts");
+    expect(broker.isValidKeyFormat("claude-api", undefined, "sk-ant-oat01-abc")).toBe(false);
+    expect(broker.isValidKeyFormat("claude-api", undefined, "sk-ant-api03-abc")).toBe(true);
     expect(isValidKeyFormat("openai-compat", "https://openrouter.ai/api/v1", "sk-abc")).toBe(false);
     expect(isValidKeyFormat("openai-compat", "https://openrouter.ai/api/v1", "sk-or-abc")).toBe(true);
     expect(isValidKeyFormat("openai-compat", "https://api.openai.com/v1", "sk-abc")).toBe(true);

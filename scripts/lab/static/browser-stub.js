@@ -75,11 +75,18 @@
     if (payload.provider !== undefined) settingsStore.provider = payload.provider;
     if (payload.model !== undefined) settingsStore.model = payload.model || null;
     if (payload.baseUrl !== undefined) settingsStore.baseUrl = payload.baseUrl || undefined;
+    // openai-compat keeps one `services[]` entry per address, its key flag included.
+    var services = (settingsStore.services = settingsStore.services || []);
+    var service = services.find(function (svc) {
+      return svc.baseUrl === settingsStore.baseUrl;
+    });
+    if (settingsStore.baseUrl && !service) services.push((service = { baseUrl: settingsStore.baseUrl, hasKey: false }));
     if (payload.apiKey !== undefined) {
       var target = payload.provider || settingsStore.provider;
       (settingsStore.available || []).forEach(function (entry) {
         if (entry.id === target) entry.configured = payload.apiKey !== "";
       });
+      if (target === "openai-compat" && service) service.hasKey = payload.apiKey !== "";
     }
     return Object.assign({ type: "settings", id: payload.id }, settingsStore);
   }
@@ -331,6 +338,7 @@
           });
         }, 0);
       } else if (payload.type === "settings.test") {
+        // `testDelayMs`: holds the reply, to show the "checking" state.
         setTimeout(function () {
           var result = (fixture.testResults && fixture.testResults[payload.provider]) || {
             ok: true,
@@ -340,7 +348,7 @@
             type: "coati:broker-message",
             message: Object.assign({ type: "settings.test-result", id: payload.id, provider: payload.provider }, result),
           });
-        }, 20);
+        }, fixture.testDelayMs || 20);
       }
       // Chat/summarize/cancel: the streaming state is reached by staying
       // in-flight (no "done"/"error" ever arrives) — the default. Fixtures

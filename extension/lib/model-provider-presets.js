@@ -16,6 +16,7 @@ export const MODEL_PROVIDER_PRESETS = [
   { label: "Mistral", baseUrl: "https://api.mistral.ai/v1" },
   { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1" },
   { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1" },
+  { label: "Google Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai" },
 ];
 
 // Same rule as broker/src/protocol.ts's isValidBaseUrl /

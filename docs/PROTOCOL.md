@@ -20,7 +20,8 @@ The broker builds the prompt, calls the configured model provider, and streams t
 - Then, before any routing, the `Host` header must exactly match `127.0.0.1:8787` (`localhost`
   and `[::1]` are refused), and on Linux the connecting process's UID must equal the broker's own
   (`/proc/net/tcp[6]` lookup; a lookup that finds nothing is refused) — not enforced on
-  macOS/Windows. A failure is a plain HTTP 403. Any path other than `/ws` is a 404.
+  macOS/Windows. A failure is a plain HTTP 403. Any path other than `/ws` and
+  `/oauth/callback` (see "OAuth sign-in") is a 404.
 - Up to `MAX_UNAUTH_CONNECTIONS` = 16 connections may be open and not yet authenticated at once;
   a further one is closed at once with code 4401 and no `error` frame, and logged (rate-limited
   log line, one per 10 s window).
@@ -103,6 +104,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `cancel` | `target` (the `id` of an in-flight request) | Cancel a running `chat`/`summarize`, including one waiting on a `page.request`/`search.request`/`open.request`; that request ends with `error` `cancelled`. An unknown `target` is ignored. |
 | `settings.get` | — | Read current provider/model configuration. |
 | `settings.set` | `provider?`, `model?`, `apiKey?`, `baseUrl?`, `clearKey?`, `removeBaseUrl?` | Change configuration. `apiKey` is write-only (never echoed back); `""` forgets the stored value, omitted leaves it unchanged. A non-empty `apiKey` is format-checked first (`sk-ant-` for `claude-api`; for `openai-compat`, `sk-or-` at openrouter.ai and `sk-` at api.openai.com; otherwise non-empty and without whitespace; at most 512 printable ASCII characters in all): a malformed key is refused with `bad-request` and nothing is applied. `baseUrl` (at most 512 characters) must be `https://`, or `http://` on a loopback host (`localhost`, `127.0.0.1`, `[::1]`); anything else is a `bad-request`. `provider` and `clearKey` only need to look like a provider id; an unknown id is not refused here (see "Model providers"). `openai-compat` can hold several services at once, one active: a valid `baseUrl` makes that address the active service (added to the configured services when new; the model last used on it comes back unless the same message names a `model`), and every other service keeps its address, model and key. A key is stored per URL origin and only ever sent to that origin. `clearKey: "openai-compat"` forgets the active service's key; `removeBaseUrl` removes that service and its key (unless another service shares the origin) and is the only way a service goes away. An empty `baseUrl` is refused. |
+| `oauth.start` | `service` (`"openrouter"`) | Begin a browser sign-in; replied with `oauth.started`. See "OAuth sign-in". |
 | `settings.test` | `provider` | Free connectivity probe for a provider, bounded by `SETTINGS_TEST_TIMEOUT_MS`. A provider with no free probe of its own (an external module) gets a minimal real model call instead. |
 | `provider.status` | — | Check whether the active model provider will likely work right now (never billed); see "Provider availability". |
 | `models.list` | — | List every usable model across configured sources, plus host capacity. A provider with `listModels()` offers exactly that list (`claude-api`: `/v1/models` with the stored key, nothing when there is no key or the key fails); a remembered model (`lastModels`) absent from the list is forgotten in favour of the provider's default, never offered. |
@@ -123,11 +125,31 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `hello-ok` | `v: 2`, `features` | Handshake succeeded. |
 | `challenge` | `v: 2`, `nonce`, `proof` | Handshake step 2 (see above). |
 | `settings` | `id`, `provider`, `model?`, `available`, `models?`, `baseUrl?`, `services?` | Reply to `settings.get`/`settings.set`. `available` lists every known provider as `{ id, label, available, reason?, configured }`, including unavailable ones; `reason` is a localized sentence, present when `available` is false, and `configured` says the provider has what it needs at all (a stored key, a reachable daemon), whatever the selected model. `models` lists the active provider's installed models when it can enumerate them. `baseUrl` is the active openai-compat address, sent only while `openai-compat` is the active provider. `services` lists every configured openai-compat service, active or not: `{ baseUrl, model?, hasKey }` (`hasKey` is a boolean; the key is never sent); absent when none. |
+| `oauth.started` | `id`, `url` | Reply to `oauth.start`: the address the client opens in a new tab. |
 | `settings.test-result` | `id`, `provider`, `ok`, `message`, `code?`, `creditUnchecked?` | Reply to `settings.test`. `message` is one localized sentence meant for a human. `code` is present only when `ok` is false: `auth-required`, `quota-exceeded`, `rate-limited`, `model-unavailable`, `model-missing` or `provider-overloaded`. `creditUnchecked: true` accompanies `ok: true` when the free probe cannot see the account's credit. |
 | `provider.status-result` | `id`, `provider`, `state` (`"ok"`\|`"ko"`\|`"unknown"`), `reason`, `checkedAt`, `baseUrl?` | Reply to `provider.status`. |
 | `models` | `id`, `current`, `entries`, `sources`, `host` | Reply to `models.list`. `current` is `{ provider, model }`. `sources` is `[{ provider, state }]` with `state` `"ok"`, `"unreachable"` or `"not-configured"`. Ollama is always queried; `openai-compat` lists its models when its address is loopback, otherwise offers its remembered model if a key is stored. `host` is `null` when the machine's capacity can't be read. Each entry carries `provider`, `model`, `local`, and when known `sizeBytes`, `thinks?`, `fit?` (`"gpu"`\|`"shared"`\|`"too-big"`), `gpuPercent?`, `contextTokens?`, `vision?`. `host` reports rounded `ramGb`/`vramGb`/`unifiedMemory?`, read locally, never sent anywhere external. |
 | `model.warmup-result` | `id`, `state` (`"loaded"`\|`"already"`\|`"skipped"`\|`"failed"`), `ms?` | Reply to `model.warmup`. |
 | `progress` | `id`, `stage` (`"loading"`\|`"reading"`\|`"thinking"`) | Sent before the first chunk, Ollama only. |
+
+## OAuth sign-in
+
+`oauth.start { service: "openrouter" }` makes the broker draw a `code_verifier` and a `state`
+(32 random bytes each, base64url), keep that single attempt in memory for 10 minutes, and reply
+`oauth.started { url }` with `https://openrouter.ai/auth?callback_url=http://localhost:<port>/oauth/callback&code_challenge=…&code_challenge_method=S256&state=…`.
+The client opens `url` in a new tab.
+
+`GET /oauth/callback?code&state` is the only HTTP route besides `/ws`. It is a top-level
+navigation, so it skips the `Origin` check (for this exact path only); `Host` may be
+`127.0.0.1:<port>` or `localhost:<port>`; the peer-UID check applies. An unknown, expired or
+already used `state` gets the generic failure page and no exchange. Otherwise the broker POSTs
+`{ code, code_verifier, code_challenge_method: "S256" }` to
+`https://openrouter.ai/api/v1/auth/keys` (no redirects, bounded time), stores the returned key as
+`settings.set { provider: "openai-compat", baseUrl: "https://openrouter.ai/api/v1", apiKey }`
+would, and pushes a `settings` message (`id: "oauth"`) to every authenticated connection. The
+reply is a static HTML page in the language of the requesting connection, with
+`Content-Security-Policy: default-src 'none'`, `Cache-Control: no-store` and
+`Referrer-Policy: no-referrer`; neither the code nor the key appears in it or in any log.
 
 ## Error codes
 
@@ -318,7 +340,7 @@ the cache. A probe that throws, or an unknown provider, gives `unknown` / `probe
 | Provider | `state` / `reason` |
 |---|---|
 | `ollama` | `ko` / `ollama-unreachable`; `ko` / `model-missing` (the configured model isn't installed); `ko` / `no-model-chosen` (models installed, none configured); `ko` / `no-model-installed` (no model configured and none installed); else `ok` / `ready` |
-| `claude-api` | `ko` / `no-key`; else `unknown` / `key-unverified` (the key is never tested here) |
+| `claude-api` | `ko` / `no-key`; else the free `GET /v1/models` probe of `settings.test`: `ok` / `ready`, `ko` / `key-rejected` (401), `ko` / `model-missing` (model not in the key's list, or 403), `unknown` / `probe-failed` (anything else) |
 | `openai-compat` | `ko` / `no-base-url` (none, or one that fails the address rule); `ko` / `key-rejected` (HTTP 401/403 on `GET /models`); `unknown` / `probe-failed` (another HTTP status); `unknown` / `base-url-unreachable`; else `ok` / `ready` |
 
 `baseUrl` is added to the result for `openai-compat` when one is configured.

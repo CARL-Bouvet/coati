@@ -35,6 +35,14 @@ describe("_locales — every key exists in every language", () => {
       expect(other.filter((k) => !/^[A-Za-z0-9_@]+$/.test(k))).toEqual([]);
     });
   }
+
+  test("every online service's built keys exist (purpose, plan note)", async () => {
+    const { ONLINE_PROVIDERS } = await import(join(EXT, "lib", "setup-data.js"));
+    const keys = ONLINE_PROVIDERS.flatMap((p: Record<string, string>) =>
+      [`setup_online_purpose_${p.id}`, p.keyRest, p.planNote, p.planLink].filter(Boolean),
+    );
+    expect(keys.filter((k: string) => !messagesByLang.en[k])).toEqual([]);
+  });
 });
 
 describe("_locales — placeholders match across languages", () => {

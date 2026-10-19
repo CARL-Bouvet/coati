@@ -47,6 +47,7 @@ export function buildQuotaRecoveryBlock(msg) {
   const links = currentProviderLinks();
   if (links?.billingUrl) {
     block.appendChild(buildExternalLink(t("panel_recharge_at", [links.name]), links.billingUrl));
+    if (links.planUrl) block.appendChild(buildExternalLink(t(links.planLink), links.planUrl));
   } else {
     const settingsBtn = document.createElement("button");
     settingsBtn.type = "button";

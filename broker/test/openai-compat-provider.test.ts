@@ -700,6 +700,24 @@ describe("openai-compat testConnection (goal U2)", () => {
     }
   });
 
+  test("Gemini: 400 API_KEY_INVALID → auth-required; listed ids lose their models/ prefix", async () => {
+    const bad = fakeServer({
+      "GET /v1/models": () =>
+        new Response(JSON.stringify({ error: { code: 400, message: "API key not valid. Please pass a valid API key.", status: "INVALID_ARGUMENT" } }), { status: 400 }),
+    });
+    const good = fakeServer({ "GET /v1/models": () => Response.json({ data: [{ id: "models/gemini-3.5-flash-lite" }] }) });
+    try {
+      expect(await openaiCompatProvider.testConnection!({ baseUrl: bad.baseUrl })).toEqual({ ok: false, code: "auth-required" });
+      expect(await openaiCompatProvider.testConnection!({ baseUrl: good.baseUrl, model: "gemini-3.5-flash-lite" })).toEqual({
+        ok: true,
+        creditUnchecked: true,
+      });
+    } finally {
+      bad.stop();
+      good.stop();
+    }
+  });
+
   test("default origin: /models 429 → rate-limited", async () => {
     const server = fakeServer({ "GET /v1/models": () => new Response("slow down", { status: 429 }) });
     try {

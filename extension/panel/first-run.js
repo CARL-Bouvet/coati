@@ -50,7 +50,7 @@ export const FIRST_RUN_TEXT = {
 export const FIRST_RUN_DONE_KEY = "coati:firstRunDone";
 // storage.local key — set true the first time an assistant answer completes
 // (panel.js, handleBrokerMessage's "done" case). Unlike FIRST_RUN_DONE_KEY
-// (all three first-run checks met, which providerState "ok" alone can
+// (program and model checks met, which providerState "ok" alone can
 // satisfy without a real answer), this one only flips on an actual reply —
 // it drives the standalone "never connected" notice (U2) and never resets.
 export const MODEL_EVER_ANSWERED_KEY = "coati:modelEverAnswered";
@@ -83,7 +83,8 @@ export function firstRunChecks(facts) {
   else model = "pending";
 
   const page = facts.pageAccess ? "ok" : "missing";
-  return { program, model, page, allMet: program === "ok" && model === "ok" && page === "ok" };
+  // Page access is asked for when the read button is first used: it never keeps the card up.
+  return { program, model, page, allMet: program === "ok" && model === "ok" };
 }
 
 /** Maps a check value to the mark shown (the "waiting" model state renders

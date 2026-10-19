@@ -6,9 +6,11 @@
 // manifest for a throwaway --user-data-dir, starts the broker on the REAL,
 // fixed port 8787 (docs/PROTOCOL.md — the extension's CSP
 // hard-codes it, COATI_PORT would make it refuse to connect) with a temp
-// HOME and the fake provider module fixture, opens the panel page, sends a
-// chat message, and asserts the fake provider's answer shows up and the
-// connection status reaches "connected".
+// HOME and the fake provider module fixture, opens the panel page. Outside
+// attach mode it then starts like a new user (a local OpenAI-compatible
+// stand-in without its key): saving the key in the settings page must close
+// the panel's first-run card. It sends a chat message, asserts the answer
+// shows up, and checks the one-click OpenRouter sign-in.
 //
 // CI-only: needs Playwright's own downloaded Chromium
 // (`npx playwright install --with-deps chromium`) and a free port 8787 — a
@@ -37,6 +39,7 @@ import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { createServer } from "node:http";
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), "../../..");
 const EXT_DIR = path.join(ROOT, "dist/stage/chrome");
@@ -70,6 +73,10 @@ const dataDir = ATTACH
 const childEnv = ATTACH ? process.env : { ...process.env, HOME: home, COATI_DATA_DIR: dataDir };
 
 let broker;
+let fakeOpenRouter;
+const FAKE_MODEL_KEY = "sk-e2e-good";
+const configPath = path.join(home, ".config", "coati", "config.json");
+let exchangeBody = "";
 let brokerLog = "";
 const brokerLogTail = () =>
   process.env.COATI_E2E_BROKER_LOG && existsSync(process.env.COATI_E2E_BROKER_LOG)
@@ -111,6 +118,38 @@ if (!ATTACH) {
     writeFileSync(path.join(dir, "com.getcoati.broker.json"), manifestJson);
   }
 
+  // Local stand-ins: OpenRouter's code-for-key exchange (one-click sign-in step below) and an
+  // OpenAI-compatible model that answers only once its key is saved (first-run step below).
+  fakeOpenRouter = createServer((req, res) => {
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", () => {
+      if (req.url === "/auth/keys") {
+        exchangeBody = body;
+        res.setHeader("content-type", "application/json");
+        return res.end(JSON.stringify({ key: `sk-or-v1-${"e2e0".repeat(16)}` }));
+      }
+      if (req.headers.authorization !== `Bearer ${FAKE_MODEL_KEY}`) {
+        res.statusCode = 401;
+        return res.end("{}");
+      }
+      if (req.url === "/v1/models") {
+        res.setHeader("content-type", "application/json");
+        return res.end(JSON.stringify({ data: [{ id: "e2e-model" }] }));
+      }
+      res.setHeader("content-type", "text/event-stream");
+      res.end(`data: ${JSON.stringify({ choices: [{ delta: { content: "echo: fake model" } }] })}\n\ndata: [DONE]\n\n`);
+    });
+  });
+  await new Promise((r) => fakeOpenRouter.listen(0, "127.0.0.1", r));
+  childEnv.COATI_OPENROUTER_API_BASE = `http://127.0.0.1:${fakeOpenRouter.address().port}`;
+  // Start like a new user: an online service chosen, its key not saved yet.
+  const config = JSON.parse(readFileSync(configPath, "utf8"));
+  writeFileSync(
+    configPath,
+    JSON.stringify({ ...config, provider: "openai-compat", baseUrl: `http://127.0.0.1:${fakeOpenRouter.address().port}/v1`, model: "e2e-model" }, null, 2),
+  );
+
   broker = spawn(BINARY, ["--serve"], { env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
   broker.stdout.on("data", (d) => (brokerLog += d));
   broker.stderr.on("data", (d) => (brokerLog += d));
@@ -120,6 +159,7 @@ let ctx;
 function cleanup() {
   if (ATTACH) return;
   broker.kill();
+  fakeOpenRouter.close();
   rmSync(home, { recursive: true, force: true });
   if (ownProfile) rmSync(userDataDir, { recursive: true, force: true });
 }
@@ -192,6 +232,34 @@ try {
   });
   pass("panel reached status--connected (Native Messaging handshake succeeded)");
 
+  let options;
+  const optionsErrors = [];
+  if (!ATTACH) {
+    // The first-run card says the model does not answer; saving the key in the settings page
+    // must close it in the open panel, with no reload.
+    const modelStep = page.locator('#firstRun:not([hidden]) .first-run-step[data-check="model"][data-status="missing"]');
+    await waitFor(async () => (await modelStep.count()) > 0, 15_000, "first-run card: model missing");
+    options = await ctx.newPage();
+    options.on("pageerror", (e) => optionsErrors.push(String(e)));
+    await options.goto(`chrome-extension://${extensionId}/options.html`);
+    // A loopback address counts as "on this computer", where the settings page shows no key
+    // field: send exactly what the key field sends (lib/key-input.js submit()).
+    await options.waitForFunction(() => document.getElementById("status")?.className.includes("status--connected"));
+    await options.evaluate(
+      (key) => chrome.runtime.sendMessage({ type: "coati:client-message", payload: { type: "settings.set", id: "e2e-key", provider: "openai-compat", apiKey: key } }),
+      FAKE_MODEL_KEY,
+    );
+    await waitFor(async () => await page.locator("#firstRun").isHidden(), 10_000, "first-run card closing after the key is saved").catch(
+      async (err) => {
+        const card = await page.locator("#firstRun").innerText().catch(() => "?");
+        throw new Error(`${err.message}\n--- card ---\n${card}\n--- broker log ---\n${brokerLogTail()}`);
+      },
+    );
+    pass("key saved in the settings page: the open panel's first-run card closed without a reload");
+    // The first-run card closing starts the guided tour once.
+    await page.locator(".tour .tour-skip").click({ timeout: 5000 });
+  }
+
   // The panel is opened as a plain tab, so there is no page Coati may read:
   // the question must still go out, without the page (no switch to turn page
   // reading off any more — an unreadable tab never blocks a question).
@@ -221,9 +289,10 @@ try {
   pass(`assistant answer received from the fake provider: ${answerText.slice(0, 80)}`);
 
   // The settings page loads as a module graph the lab bundle never exercises.
-  const options = await ctx.newPage();
-  const optionsErrors = [];
-  options.on("pageerror", (e) => optionsErrors.push(String(e)));
+  if (!options) {
+    options = await ctx.newPage();
+    options.on("pageerror", (e) => optionsErrors.push(String(e)));
+  }
   await options.goto(`chrome-extension://${extensionId}/options.html`);
   await waitFor(
     async () => (await options.locator("#setupLocal .setup-step").count()) > 0,
@@ -232,6 +301,47 @@ try {
   );
   if (optionsErrors.length) throw new Error(`settings page errors:\n${optionsErrors.join("\n")}`);
   pass("settings page rendered the local setup guide without errors");
+
+  if (!ATTACH) {
+    // One-click sign-in: the guide asks the program for the sign-in address and opens it; the
+    // provider then sends the browser back to the program, which exchanges the code for a key.
+    const openRouterRow = options.locator('.setup-service[data-service="openrouter"]:visible');
+    await waitFor(
+      async () => {
+        if ((await openRouterRow.count()) > 0) return true;
+        if ((await options.locator("#tabOnline").getAttribute("aria-expanded")) !== "true") await options.locator("#tabOnline").click();
+        await options.locator("#addService").evaluate((d) => (d.open = true));
+        return false;
+      },
+      10_000,
+      "the online side's service list",
+    );
+    await openRouterRow.click();
+    await options.locator(".setup-oauth button:visible").click();
+    // The real site may already have bounced the tab to its sign-up page, which carries the
+    // sign-in address as `redirect_url`.
+    const signInPage = () => ctx.pages().find((p) => p.url().startsWith("https://openrouter.ai/"));
+    await waitFor(async () => Boolean(signInPage()), 10_000, "the sign-in tab").catch(async (err) => {
+      const status = await options.locator(".setup-oauth").innerText().catch(() => "?");
+      throw new Error(`${err.message}\ntabs: ${ctx.pages().map((p) => p.url()).join(" | ")}\nguide: ${status}\n--- broker log ---\n${brokerLogTail()}`);
+    });
+    const signIn = signInPage();
+    const opened = new URL(signIn.url());
+    const authUrl = opened.pathname === "/auth" ? opened : new URL(opened.searchParams.get("redirect_url"));
+    await signIn.close();
+    const callback = new URL(authUrl.searchParams.get("callback_url"));
+    if (authUrl.host !== "openrouter.ai" || callback.hostname !== "localhost") throw new Error(`unexpected sign-in address ${authUrl}`);
+    callback.search = new URLSearchParams({ code: "e2e-code", state: authUrl.searchParams.get("state") }).toString();
+    const back = await ctx.newPage();
+    const response = await back.goto(callback.toString());
+    if (response.status() !== 200) throw new Error(`callback answered ${response.status()}: ${await back.locator("body").innerText()}`);
+    if (!exchangeBody.includes('"code":"e2e-code"')) throw new Error(`exchange not received: ${exchangeBody}`);
+    const saved = JSON.parse(readFileSync(path.join(home, ".config", "coati", "config.json"), "utf8"));
+    if (saved.provider !== "openai-compat" || saved.baseUrl !== "https://openrouter.ai/api/v1" || !saved.apiKeys?.["openai-compat"]?.["https://openrouter.ai"]) {
+      throw new Error(`OpenRouter not active after sign-in: provider=${saved.provider} baseUrl=${saved.baseUrl}`);
+    }
+    pass("one-click OpenRouter sign-in: callback on localhost, code exchanged, key saved and service active");
+  }
 
   console.log("== scripts/ci/extension-e2e.mjs: ALL PASS ==");
 } catch (err) {

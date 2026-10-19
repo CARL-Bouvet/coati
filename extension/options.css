@@ -5,7 +5,7 @@
  * Layout: the dark band, then a section menu (left, sticky) and one content
  * column (max 680 px). At 720 px and below, the menu becomes a horizontal
  * row above the content, sticky at the top. Inside a section, one rhythm:
- * 12 px between blocks, 16 px inside the model tabs, 48 px between sections. */
+ * 12 px between blocks, 16 px inside the model sides, 48 px between sections. */
 
 * { box-sizing: border-box; }
 
@@ -169,19 +169,150 @@ code { font-size: var(--text-s); }
 .current-test-result { grid-column: 1 / -1; }
 .current-test-result:empty { display: none; }
 
-.model-tabs {
+/* Two sides (options/model-core.js selectSide). Idle: half and half, each a
+ * clickable card. Chosen: that side takes the row, the other folds into a
+ * labelled strip. data-state on each side: idle | open | folded. Motion only
+ * after a user choice (data-animate), never on load. */
+.model-split {
+  --strip: 48px;
+  --split-motion: 220ms ease;
   display: flex;
-  gap: var(--space-1);
+  align-items: stretch;
+  gap: var(--space-3);
   margin-top: var(--space-2);
 }
 
-.tab-panel {
+.split-side {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-raised);
+}
+
+.split-side[data-state="open"] { border-top: 3px solid var(--accent); }
+.split-side[data-state="folded"] { flex: 0 0 var(--strip); }
+
+.model-split[data-animate] > .split-side { transition: flex-grow var(--split-motion), flex-basis var(--split-motion); }
+.model-split[data-animate] .split-body { animation: split-reveal var(--split-motion); }
+
+@keyframes split-reveal {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+.split-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-4);
+  border: none;
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.split-head:hover { background: var(--surface); }
+
+.split-head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Chevron: right while closed, down while open. */
+.split-head::after {
+  content: "";
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--space-1);
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+}
+
+.split-title {
+  font-size: var(--text-l);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.split-summary { color: var(--muted); }
+
+.split-side[data-state="open"] > .split-head {
+  padding-block: var(--space-3);
+  border-radius: 0;
+  background: var(--accent-tint);
+}
+
+.split-side[data-state="open"] > .split-head::after { transform: rotate(45deg); }
+
+/* Muted grey falls under 4.5:1 on the dark theme's caramel band. */
+.split-side[data-state="open"] .split-summary,
+.setup-service:has(> input:checked) .setup-service-detail { color: var(--fg); }
+
+/* Folded: the title alone, read top to bottom along the whole strip. Only the
+ * title turns: a turned button would take the window's height as its length. */
+.split-side[data-state="folded"] > .split-head {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+  background: var(--surface);
+}
+
+.split-side[data-state="folded"] > .split-head:hover { background: var(--accent-tint); }
+.split-side[data-state="folded"] .split-summary { display: none; }
+
+.split-side[data-state="folded"] .split-title {
+  writing-mode: vertical-rl;
+  inline-size: max-content;
+  font-size: var(--text-m);
+}
+/* Its chevron points the way the side opens: right from the left strip, left from the right one. */
+.split-side[data-state="folded"] > .split-head::after { transform: rotate(-45deg); }
+.split-side[data-state="folded"]:last-child > .split-head::after { transform: rotate(135deg); }
+
+.split-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  padding: var(--space-4);
 }
 
-.tab-panel[hidden] { display: none; }
+@media (max-width: 640px) {
+  .model-split { flex-direction: column; }
+  .split-side,
+  .split-side[data-state="folded"] { flex: none; }
+
+  .split-side[data-state="folded"] > .split-head {
+    display: grid;
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .split-side[data-state="folded"] .split-title { writing-mode: horizontal-tb; }
+
+  .split-side[data-state="folded"] > .split-head::after,
+  .split-side[data-state="folded"]:last-child > .split-head::after { grid-row: 1; transform: rotate(-45deg); }
+  .split-body { padding: var(--space-3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .model-split[data-animate] > .split-side { transition: none; }
+  .model-split[data-animate] .split-body { animation: none; }
+}
 
 .tab-block {
   display: flex;
@@ -214,7 +345,7 @@ code { font-size: var(--text-s); }
   gap: 2px;
 }
 
-/* The tab already says "On this computer": screen readers only. */
+/* The side already says "On this computer": screen readers only. */
 .model-list-heading {
   position: absolute;
   width: 1px;
@@ -322,7 +453,9 @@ code { font-size: var(--text-s); }
 }
 
 .service-result,
-.service-details { grid-column: 1 / -1; }
+.service-details,
+.service--active > * { grid-column: 1 / -1; }
+.service--active .service-actions { justify-content: flex-start; }
 
 .service-result:empty { display: none; }
 
@@ -574,6 +707,20 @@ h4.setup-subtitle {
 .setup-service input { margin: 3px 0 0; }
 
 .setup-service-text { display: flex; flex-direction: column; min-width: 0; }
+
+/* The checked row's band bolds its label: only the name stays bold. */
+.setup-service-purpose,
+.setup-service-detail { font-weight: 400; }
+
+.setup-service-purpose { font-size: var(--text-s); }
+
+.setup-services > .setup-warning { margin: 0 var(--space-2) var(--space-2); }
+
+.setup-todo > li + li { margin-top: var(--space-1); }
+.setup-todo-title { font-weight: 600; margin-top: var(--space-2); }
+.setup-todo-title:first-child { margin-top: 0; }
+.setup-oauth { display: grid; justify-items: start; gap: var(--space-1); margin-bottom: var(--space-2); }
+.setup-oauth > p { margin: 0; }
 
 /* --- Narrow: the menu becomes a row above the content -------------------- */
 

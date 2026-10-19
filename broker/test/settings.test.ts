@@ -6,7 +6,7 @@
 // fresh server instance reading the same configDir, proving it actually hit
 // disk and not just in-memory state.
 
-import { describe, expect, test, afterEach } from "bun:test";
+import { describe, expect, test, afterEach, setSystemTime } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { startServer } from "../src/server.ts";
@@ -661,5 +661,106 @@ describe("apiKeys — per-provider isolation", () => {
     const onDisk = JSON.parse(readFile(join(configDir, "config.json"), "utf8"));
     expect(onDisk.apiKey).toBeUndefined();
     expect(onDisk.apiKeys["claude-api"]).toBe("sk-ant-legacy-global");
+  });
+});
+
+// --- OAuth sign-in (docs/PROTOCOL.md "OAuth sign-in") -----------------------
+describe("oauth.start + /oauth/callback", () => {
+  const OR_KEY = "sk-or-v1-0123456789abcdef";
+  let exchanges: Record<string, unknown>[] = [];
+  let fakeOpenRouter: ReturnType<typeof Bun.serve>;
+  const savedBase = process.env.COATI_OPENROUTER_API_BASE;
+
+  function bootOAuth() {
+    exchanges = [];
+    __setOpenAiFetch((async () => new Response(JSON.stringify({ data: [] }), { status: 200 })) as unknown as typeof fetch);
+    fakeOpenRouter = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      async fetch(req) {
+        exchanges.push((await req.json()) as Record<string, unknown>);
+        return Response.json({ key: OR_KEY });
+      },
+    });
+    process.env.COATI_OPENROUTER_API_BASE = `http://127.0.0.1:${fakeOpenRouter.port}`;
+    const configDir = makeTmpDir("coati-oauth-cfg-");
+    return { server: boot(configDir), configDir };
+  }
+
+  async function start(ws: WebSocket): Promise<URL> {
+    const reply = nextMessage(ws);
+    ws.send(JSON.stringify({ type: "oauth.start", id: "o1", service: "openrouter" }));
+    const msg = (await reply) as unknown as { type: string; id: string; url: string };
+    expect(msg.type).toBe("oauth.started");
+    return new URL(msg.url);
+  }
+
+  function callback(server: { port: number }, query: string, host = `localhost:${server.port}`) {
+    return fetch(`http://127.0.0.1:${server.port}/oauth/callback?${query}`, { headers: { Host: host }, redirect: "manual" });
+  }
+
+  afterEach(() => {
+    fakeOpenRouter?.stop(true);
+    setSystemTime();
+    if (savedBase === undefined) delete process.env.COATI_OPENROUTER_API_BASE;
+    else process.env.COATI_OPENROUTER_API_BASE = savedBase;
+  });
+
+  test("builds the authorization URL, then a valid callback stores the key, activates the provider and pushes settings", async () => {
+    const { server, configDir } = bootOAuth();
+    const ws = await connectAndAuth(server);
+    const url = await start(ws);
+    expect(url.origin + url.pathname).toBe("https://openrouter.ai/auth");
+    expect(url.searchParams.get("callback_url")).toBe(`http://localhost:${server.port}/oauth/callback`);
+    expect(url.searchParams.get("code_challenge_method")).toBe("S256");
+
+    const pushed = nextMessage(ws);
+    const res = await callback(server, `code=THE-CODE&state=${url.searchParams.get("state")}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-security-policy")).toBe("default-src 'none'");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    const html = await res.text();
+    expect(html).not.toContain(OR_KEY);
+    expect(html).not.toContain("THE-CODE");
+
+    expect(exchanges).toHaveLength(1);
+    expect(exchanges[0]!.code).toBe("THE-CODE");
+    expect(exchanges[0]!.code_challenge_method).toBe("S256");
+    const challenge = new Bun.CryptoHasher("sha256").update(exchanges[0]!.code_verifier as string).digest("base64url");
+    expect(challenge).toBe(url.searchParams.get("code_challenge"));
+
+    const settings = (await pushed) as SettingsMessage;
+    expect(settings.type).toBe("settings");
+    expect(settings.provider).toBe("openai-compat");
+    expect(settings.baseUrl).toBe("https://openrouter.ai/api/v1");
+    expect(settings.services?.[0]?.hasKey).toBe(true);
+    expect(JSON.stringify(settings)).not.toContain(OR_KEY);
+    expect(readFileSync(join(configDir, "config.json"), "utf8")).toContain(OR_KEY);
+
+    // single use
+    const again = await callback(server, `code=THE-CODE&state=${url.searchParams.get("state")}`);
+    expect(again.status).toBe(400);
+    expect(exchanges).toHaveLength(1);
+    ws.close();
+  });
+
+  test("unknown or expired state gets the generic error page and no exchange", async () => {
+    const { server } = bootOAuth();
+    const ws = await connectAndAuth(server);
+    expect((await callback(server, "code=c&state=nope")).status).toBe(400);
+    const url = await start(ws);
+    setSystemTime(Date.now() + 11 * 60 * 1000);
+    expect((await callback(server, `code=c&state=${url.searchParams.get("state")}`)).status).toBe(400);
+    expect(exchanges).toHaveLength(0);
+    ws.close();
+  });
+
+  test("callback needs an allowed Host; the Origin exemption covers that path only", async () => {
+    const { server } = bootOAuth();
+    expect((await callback(server, "code=c&state=x", "evil.example:80")).status).toBe(403);
+    expect((await callback(server, "code=c&state=x", `127.0.0.1:${server.port}`)).status).toBe(400);
+    const other = await fetch(`http://127.0.0.1:${server.port}/other`);
+    expect(other.status).toBe(403);
   });
 });

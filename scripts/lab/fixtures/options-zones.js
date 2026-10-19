@@ -8,7 +8,7 @@
     { selector: ".page-head", zone: "Z1", rank: "tertiary" },
     { selector: "#modelSection", zone: "Z2", rank: "primary" },
     { selector: "#modelSection .current-model", zone: "Z2a", rank: "primary" },
-    { selector: "#modelTabs", zone: "Z2b", rank: "secondary" },
+    { selector: "#modelSplit", zone: "Z2b", rank: "secondary" },
     { selector: "#panelLocal", zone: "Z2c", rank: "secondary" },
     { selector: "#panelOnline", zone: "Z2d", rank: "secondary" },
     { selector: "section[aria-labelledby='h-attach']", zone: "Z3", rank: "secondary" },

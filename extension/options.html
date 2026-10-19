@@ -42,10 +42,10 @@
         <ol id="setupProgram" class="setup-steps"></ol>
       </section>
 
-      <!-- 1. Model: current model, then two tabs "On this computer" /
+      <!-- 1. Model: current model, then two sides "On this computer" /
            "Online" (same labels as the panel's model menu). The setup
-           guide (options-setup.js) lives inside the tabs:
-           Ollama steps under the local tab, API-key steps under "Add a service".
+           guide (options-setup.js) lives inside them:
+           Ollama steps on the local side, API-key steps under "Add a service".
            Deep links: #setup, #setup-program, #setup-ollama-speedup, #provider-<id>. -->
       <section id="modelSection" class="section" aria-labelledby="h-model">
         <h2 id="h-model" class="c-title" data-i18n="options_model_title">Model</h2>
@@ -70,54 +70,63 @@
           <span id="currentTestResult" class="test-result current-test-result" role="status"></span>
         </div>
 
-        <div id="modelTabs" class="model-tabs" role="tablist" aria-labelledby="h-model">
-          <button type="button" role="tab" id="tabLocal" class="c-row model-tab" data-tab="local" aria-controls="panelLocal" aria-selected="true" data-i18n="model_list_local">On this computer</button>
-          <button type="button" role="tab" id="tabOnline" class="c-row model-tab" data-tab="online" aria-controls="panelOnline" aria-selected="false" tabindex="-1" data-i18n="model_list_online">Online</button>
-        </div>
-
-        <!-- Tab "On this computer": installed models (one click = settings.set),
-             then options-setup.js appends two folds: the local-model guide and
-             "Speed up Ollama". -->
-        <div id="panelLocal" class="tab-panel" role="tabpanel" aria-labelledby="tabLocal">
-          <p class="help" data-i18n="setup_path_local_text">Free and private: your texts never leave the computer. Needs a recent computer.</p>
-          <div class="tab-block">
-            <div class="block-head">
-              <h3 id="h-installed" class="c-section-title" data-i18n="options_installed_title">Installed models</h3>
-              <button id="modelsRefresh" type="button" class="c-button c-button--small" data-i18n="options_refresh">Refresh</button>
+        <!-- Two sides (options/model-core.js selectSide): side by side until
+             one is chosen; the chosen one opens, the other folds into a strip
+             that still switches back. -->
+        <div id="modelSplit" class="model-split">
+          <section class="split-side" data-side="local" aria-labelledby="tabLocal">
+            <button type="button" id="tabLocal" class="split-head" data-side="local" aria-expanded="false" aria-controls="panelLocal">
+              <span class="split-title" data-i18n="model_list_local">On this computer</span>
+              <span class="split-summary" data-i18n="model_split_local_summary">Free and private. Needs a recent computer.</span>
+            </button>
+            <!-- "On this computer": installed models (one click = settings.set),
+                 then options-setup.js appends two folds: the local-model guide and
+                 "Speed up Ollama". -->
+            <div id="panelLocal" class="split-body" hidden>
+              <div class="tab-block">
+                <div class="block-head">
+                  <h3 id="h-installed" class="c-section-title" data-i18n="options_installed_title">Installed models</h3>
+                  <button id="modelsRefresh" type="button" class="c-button c-button--small" data-i18n="options_refresh">Refresh</button>
+                </div>
+                <div id="modelsAvailableList" class="c-card model-list" role="group" aria-labelledby="h-installed"></div>
+                <p id="modelsLoading" class="help" hidden data-i18n="model_list_loading">Looking for models…</p>
+                <div id="modelFieldSlotLocal" class="model-field-slot"></div>
+              </div>
+              <div id="setupLocal" class="tab-folds"></div>
             </div>
-            <div id="modelsAvailableList" class="c-card model-list" role="group" aria-labelledby="h-installed"></div>
-            <p id="modelsLoading" class="help" hidden data-i18n="model_list_loading">Looking for models…</p>
-            <div id="modelFieldSlotLocal" class="model-field-slot"></div>
-          </div>
-          <div id="setupLocal" class="tab-folds"></div>
-        </div>
+          </section>
 
-        <!-- Tab "Online": configured services, "Add a service"
-             (the online guide + another OpenAI-compatible address), spending cap. -->
-        <div id="panelOnline" class="tab-panel" role="tabpanel" aria-labelledby="tabOnline" hidden>
-          <p class="help" data-i18n="setup_path_online_text">Simpler: create a key with a service. Free or paid, depending on the service.</p>
-          <div class="tab-block">
-            <h3 id="h-services" class="c-section-title" data-i18n="options_services_title">Configured services</h3>
-            <p id="servicesEmpty" class="help" hidden data-i18n="options_services_empty">No online service yet.</p>
-            <ul id="serviceList" class="service-list" aria-labelledby="h-services"></ul>
-          </div>
-          <div class="tab-folds">
-            <details id="addService" class="fold">
-              <summary data-i18n="options_add_service">Add a service</summary>
-              <div class="fold-body">
-                <div id="setupOnline" class="setup-online"></div>
-                <details id="otherAddress" class="fold fold--inner">
-                  <summary data-i18n="options_other_address_title">Another OpenAI-compatible address</summary>
-                  <div id="otherAddressBody" class="fold-body"></div>
+          <section class="split-side" data-side="online" aria-labelledby="tabOnline">
+            <button type="button" id="tabOnline" class="split-head" data-side="online" aria-expanded="false" aria-controls="panelOnline">
+              <span class="split-title" data-i18n="model_list_online">Online</span>
+              <span class="split-summary" data-i18n="model_split_online_summary">Fast, pay per use. Needs a key.</span>
+            </button>
+            <!-- "Online": "Add a service" (the online guide + another OpenAI-compatible
+                 address), configured services (hidden while there is none), spending cap. -->
+            <div id="panelOnline" class="split-body" hidden>
+              <div class="tab-folds">
+                <details id="addService" class="fold">
+                  <summary data-i18n="options_add_service">Add a service</summary>
+                  <div class="fold-body">
+                    <div id="setupOnline" class="setup-online"></div>
+                    <details id="otherAddress" class="fold fold--inner">
+                      <summary data-i18n="options_other_address_title">Another OpenAI-compatible address</summary>
+                      <div id="otherAddressBody" class="fold-body"></div>
+                    </details>
+                  </div>
                 </details>
               </div>
-            </details>
-          </div>
-          <div class="tab-block">
-            <h3 class="c-section-title" data-i18n="options_cap_title">Spending cap</h3>
-            <p class="help" data-i18n="options_cap_text">Paid services bill by usage. Set a monthly cap on their site:</p>
-            <p id="capLinks" class="cap-links"></p>
-          </div>
+              <div class="tab-block" hidden>
+                <h3 id="h-services" class="c-section-title" data-i18n="options_services_title">Configured services</h3>
+                <ul id="serviceList" class="service-list" aria-labelledby="h-services"></ul>
+              </div>
+              <div class="tab-block">
+                <h3 class="c-section-title" data-i18n="options_cap_title">Spending cap</h3>
+                <p class="help" data-i18n="options_cap_text">Paid services bill by usage. Set a monthly cap on their site:</p>
+                <p id="capLinks" class="cap-links"></p>
+              </div>
+            </div>
+          </section>
         </div>
 
         <!-- Model name for the active provider: moved by options.js into the

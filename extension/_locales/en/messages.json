@@ -374,9 +374,6 @@
   "panel_provider_no_key": {
     "message": "no API key saved"
   },
-  "panel_provider_key_unverified": {
-    "message": "API key saved, not verified"
-  },
   "panel_provider_cli_missing": {
     "message": "executable not found"
   },
@@ -946,9 +943,6 @@
   "keyInput_hide": {
     "message": "Hide"
   },
-  "keyInput_save": {
-    "message": "Save the key"
-  },
   "keyInput_saving": {
     "message": "Sending to the local program…"
   },
@@ -964,14 +958,17 @@
   "keyInput_refused": {
     "message": "The service refused this key: check that it was copied in full, or create a new one on its website."
   },
+  "keyInput_fail_credit": {
+    "message": "This account has no credit: add some on the service's website, then click “Check again”."
+  },
+  "keyInput_fail_busy": {
+    "message": "The service is getting too many requests: wait a minute, then click “Check again”."
+  },
   "keyInput_bad_format": {
     "message": "This does not look like an API key for this service: check that you pasted the key itself, with no extra text."
   },
-  "keyInput_remedy_credit": {
-    "message": "Add credit on the service's website, then click “Check again”."
-  },
-  "keyInput_remedy_wait": {
-    "message": "The key is saved: wait a minute, then click “Check again”."
+  "keyInput_subscription_token": {
+    "message": "This is a Claude Code subscription token (claude setup-token), not an API key: Anthropic allows it only inside Claude Code. Create an API key in the Claude Console; with Max, your plan's monthly API credit pays for it."
   },
   "keyInput_test_failed": {
     "message": "The key check failed."
@@ -1023,18 +1020,6 @@
   },
   "setup_choose": {
     "message": "Where should the model run?"
-  },
-  "setup_path_local_title": {
-    "message": "On my computer"
-  },
-  "setup_path_local_text": {
-    "message": "Free and private: your texts never leave the computer. Needs a recent computer."
-  },
-  "setup_path_online_title": {
-    "message": "Online"
-  },
-  "setup_path_online_text": {
-    "message": "Simpler: create a key with a service. Free or paid, depending on the service."
   },
   "setup_checking": {
     "message": "Checking…"
@@ -1203,7 +1188,7 @@
     "message": "Choose a service"
   },
   "setup_online_free_warning": {
-    "message": "Before you choose: OpenRouter's free models may keep the texts you send them, and use them. Don't send anything confidential."
+    "message": "OpenRouter's free models may keep the texts you send them, and use them. Don't send anything confidential."
   },
   "setup_online_free_detail": {
     "message": "Free models: up to $PERDAY$ questions a day, $WITHCREDIT$ if you buy at least $CREDIT$ of credit.",
@@ -1235,6 +1220,37 @@
       }
     }
   },
+  "setup_online_freetier_detail": {
+    "message": "Free key with limits; beyond that, about $COST$ per question on a page of about $WORDS$ words.",
+    "placeholders": {
+      "cost": {
+        "content": "$1",
+        "example": "0,002 $US"
+      },
+      "words": {
+        "content": "$2",
+        "example": "2000"
+      }
+    }
+  },
+  "setup_online_purpose_openrouter": {
+    "message": "Many models from several companies behind one key, some free. Free models may keep your texts."
+  },
+  "setup_online_purpose_claude": {
+    "message": "Anthropic's own models, Claude."
+  },
+  "setup_online_purpose_openai": {
+    "message": "OpenAI's own models, GPT."
+  },
+  "setup_online_purpose_mistral": {
+    "message": "The models of Mistral AI, a French company."
+  },
+  "setup_online_purpose_deepseek": {
+    "message": "The models of DeepSeek, a Chinese company."
+  },
+  "setup_online_purpose_google": {
+    "message": "The models of Google, Gemini."
+  },
   "setup_online_others": {
     "message": "Other services"
   },
@@ -1247,14 +1263,41 @@
       }
     }
   },
-  "setup_online_pick_first": {
-    "message": "First choose a service (step 1)."
-  },
   "setup_online_account_title": {
     "message": "Create an account and a key"
   },
   "setup_online_account_text": {
     "message": "Create an account (or sign in), open the API keys page, create a key, then copy it."
+  },
+  "setup_online_do_account_link": {
+    "message": "Create an account on $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "setup_online_do_account_rest": {
+    "message": "(or sign in)."
+  },
+  "setup_online_do_credit_link": {
+    "message": "Add credit"
+  },
+  "setup_online_do_credit_rest": {
+    "message": "— a new key answers only once the account has credit."
+  },
+  "setup_online_do_key_link": {
+    "message": "Create a key"
+  },
+  "setup_online_do_key_rest": {
+    "message": "and name it “Coati”."
+  },
+  "setup_online_do_key_rest_claude": {
+    "message": "and name it “Coati”, in the “Default workspace” (an organization-wide key does not work here)."
+  },
+  "setup_online_do_copy": {
+    "message": "Copy it right away: the service shows it only once."
   },
   "setup_online_signup": {
     "message": "Open $NAME$",
@@ -1268,11 +1311,56 @@
   "setup_online_keys_page": {
     "message": "API keys page"
   },
+  "setup_oauth_signin": {
+    "message": "Sign in with $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "setup_oauth_waiting": {
+    "message": "Waiting for you in the new tab…"
+  },
+  "setup_oauth_failed": {
+    "message": "The sign-in could not start. Paste a key below instead."
+  },
+  "setup_oauth_or": {
+    "message": "Or create a key yourself and paste it below."
+  },
   "setup_online_openrouter_privacy": {
     "message": "If a free model refuses to answer, allow free models in OpenRouter's privacy settings."
   },
   "setup_online_privacy_link": {
     "message": "Privacy settings"
+  },
+  "setup_online_claude_subscriber": {
+    "message": "You already pay for Claude Max or Team:"
+  },
+  "setup_online_claude_subscriber_credit": {
+    "message": "on claude.ai, click “Link organization”: your plan then pays for the API every month."
+  },
+  "setup_online_claude_others": {
+    "message": "Without a plan, or with Claude Pro (no API credit included):"
+  },
+  "setup_online_ready": {
+    "message": "Coati is set up."
+  },
+  "setup_online_plan_claude_link": {
+    "message": "Claim your plan's API credit"
+  },
+  "setup_online_plan_openai": {
+    "message": "A ChatGPT subscription (Plus, Pro) does not cover the API: it is billed separately and includes no API credit."
+  },
+  "setup_online_plan_mistral": {
+    "message": "A Mistral plan (Free, Pro) includes monthly usage shared with the API: create the key with the same account, nothing to claim. Beyond it, usage draws on prepaid credit."
+  },
+  "setup_online_plan_google": {
+    "message": "On the free key, Google may use your texts to improve its products. A Google AI subscription (Pro, Ultra) does not cover the API; it includes a monthly Google Cloud credit, usable only with a prepaid balance in AI Studio."
+  },
+  "setup_online_plan_google_link": {
+    "message": "Google Developer Program"
   },
   "setup_online_openrouter_quota": {
     "message": "Free-model limit: $PERMIN$ questions per minute.",
@@ -1481,6 +1569,12 @@
   "model_list_online": {
     "message": "Online"
   },
+  "model_split_local_summary": {
+    "message": "Free and private. Needs a recent computer."
+  },
+  "model_split_online_summary": {
+    "message": "Fast, pay per use. Needs a key."
+  },
   "model_list_size_gb": {
     "message": "$GB$ GB",
     "placeholders": {
@@ -1627,9 +1721,6 @@
   "options_services_title": {
     "message": "Configured services"
   },
-  "options_services_empty": {
-    "message": "No online service yet."
-  },
   "options_add_service": {
     "message": "Add a service"
   },
@@ -1669,8 +1760,8 @@
   "options_service_remove_confirm": {
     "message": "Confirm removal"
   },
-  "options_service_settings": {
-    "message": "Key and model"
+  "options_service_key": {
+    "message": "Key"
   },
   "options_local_guide_title": {
     "message": "Set up a local model, step by step"

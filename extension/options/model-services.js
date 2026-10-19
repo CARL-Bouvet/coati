@@ -22,7 +22,7 @@ import {
   openServiceDetails,
 } from "./model-core.js";
 
-// --- Tab "Online": configured services (zone Z2d) ------------------------
+// --- "Online" side: configured services (zone Z2d) ----------------------
 
 export function renderServices(settings) {
   // The model field and the key components are re-parented below: park the
@@ -32,16 +32,14 @@ export function renderServices(settings) {
   els.serviceList.replaceChildren();
   for (const key of [...testTargets.keys()]) if (key.startsWith("row:")) testTargets.delete(key);
 
-  els.servicesBlock.hidden = !settings;
-  if (!settings) return;
-  const services = onlineServices(settings);
-  els.servicesEmpty.hidden = services.length > 0;
+  const services = settings ? onlineServices(settings) : [];
+  els.servicesBlock.hidden = services.length === 0;
   for (const entry of services) els.serviceList.appendChild(buildServiceRow(entry, settings));
   if (focused?.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
 }
 
-/** One row: name, "In use" tag, state; Utiliser / Tester / Retirer;
- * the active row folds its settings (key, model) underneath. */
+/** One row: name, "In use" tag, state; the active row then shows its model and its folded key;
+ * Use / Test / Remove last. */
 function buildServiceRow(entry, settings) {
   const active = entry.active;
   const row = el("li", active ? "c-card service service--active" : "c-card service");
@@ -77,27 +75,27 @@ function buildServiceRow(entry, settings) {
 
   const result = el("span", "test-result service-result");
   result.setAttribute("role", "status");
-  row.append(head, actions, result);
-  if (testable) registerTestTarget("row", entry.id, test, result);
-
+  row.append(head);
+  // The active row reads in order: the model to use, its key (folded), then Test / Remove.
   if (active) {
-    const details = el("details", "fold fold--inner service-details");
-    details.open = openServiceDetails.has(entry.key) || !entry.configured;
-    details.addEventListener("toggle", () => {
-      if (details.open) openServiceDetails.add(entry.key);
-      else openServiceDetails.delete(entry.key);
-    });
-    const body = el("div", "fold-body");
-    const hasKey = entry.id === "claude-api" || entry.id === "openai-compat";
-    if (hasKey) {
+    row.append(els.modelField);
+    if (entry.id === "claude-api" || entry.id === "openai-compat") {
+      const details = el("details", "fold fold--inner service-details");
+      details.open = openServiceDetails.has(entry.key) || !entry.configured;
+      details.addEventListener("toggle", () => {
+        if (details.open) openServiceDetails.add(entry.key);
+        else openServiceDetails.delete(entry.key);
+      });
       const keyInput = keyInputFor(entry.id);
       keyInput.update(entry.id === "openai-compat" ? { ...entry, configured: entry.hasKey } : entry);
+      const body = el("div", "fold-body");
       body.append(keyInput.element);
+      details.append(el("summary", null, t("options_service_key")), body);
+      row.append(details);
     }
-    body.append(els.modelField);
-    details.append(el("summary", null, t(hasKey ? "options_service_settings" : "options_model_name_label")), body);
-    row.append(details);
   }
+  row.append(actions, result);
+  if (testable) registerTestTarget("row", entry.id, test, result);
   return row;
 }
 
@@ -144,7 +142,7 @@ function removeService(entry) {
 }
 
 /** The shared key component (lib/key-input.js) for `providerId`. The
- * monthly spending cap is the tab's own block ("Spending cap"), not
+ * monthly spending cap is the side's own block ("Spending cap"), not
  * repeated under the field. */
 function keyInputFor(providerId) {
   let keyInput = keyInputs.get(providerId);

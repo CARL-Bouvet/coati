@@ -374,9 +374,6 @@
   "panel_provider_no_key": {
     "message": "未保存 API 密钥"
   },
-  "panel_provider_key_unverified": {
-    "message": "API 密钥已保存，未验证"
-  },
   "panel_provider_cli_missing": {
     "message": "未找到可执行文件"
   },
@@ -946,9 +943,6 @@
   "keyInput_hide": {
     "message": "隐藏"
   },
-  "keyInput_save": {
-    "message": "保存密钥"
-  },
   "keyInput_saving": {
     "message": "正在发送到本地程序…"
   },
@@ -964,14 +958,17 @@
   "keyInput_refused": {
     "message": "服务拒绝了此密钥：请确认已完整复制，或在其网站上新建一个。"
   },
+  "keyInput_fail_credit": {
+    "message": "该账户没有余额：请在服务网站上充值，然后点击“重新验证”。"
+  },
+  "keyInput_fail_busy": {
+    "message": "该服务当前请求过多：请等待一分钟，然后点击“重新验证”。"
+  },
   "keyInput_bad_format": {
     "message": "这看起来不是该服务的 API 密钥：请确认粘贴的是密钥本身，没有多余文字。"
   },
-  "keyInput_remedy_credit": {
-    "message": "请在该服务网站上充值，然后点击“重新验证”。"
-  },
-  "keyInput_remedy_wait": {
-    "message": "密钥已保存：请等待一分钟，然后点击“重新验证”。"
+  "keyInput_subscription_token": {
+    "message": "这是 Claude Code 订阅令牌（claude setup-token），不是 API 密钥：Anthropic 只允许在 Claude Code 中使用。请在 Claude Console 创建 API 密钥；Max 套餐每月的 API 额度可用于支付。"
   },
   "keyInput_test_failed": {
     "message": "密钥验证失败。"
@@ -1023,18 +1020,6 @@
   },
   "setup_choose": {
     "message": "模型在哪里运行？"
-  },
-  "setup_path_local_title": {
-    "message": "在我的电脑上"
-  },
-  "setup_path_local_text": {
-    "message": "免费且私密：您的文本不会离开电脑。需要一台较新的电脑。"
-  },
-  "setup_path_online_title": {
-    "message": "在线"
-  },
-  "setup_path_online_text": {
-    "message": "更简单：在某个服务上创建一个密钥。免费或付费取决于服务。"
   },
   "setup_checking": {
     "message": "正在检查…"
@@ -1203,7 +1188,7 @@
     "message": "选择服务"
   },
   "setup_online_free_warning": {
-    "message": "选择之前请注意：OpenRouter 的免费模型可能会保留并使用您发送的文本。请勿发送任何机密内容。"
+    "message": "OpenRouter 的免费模型可能会保留并使用您发送的文本。请勿发送任何机密内容。"
   },
   "setup_online_free_detail": {
     "message": "免费模型：每天最多 $PERDAY$ 次提问（每天 $WITHCREDIT$ 次，需购买至少 $CREDIT$ 额度）。",
@@ -1235,6 +1220,37 @@
       }
     }
   },
+  "setup_online_freetier_detail": {
+    "message": "免费密钥有限额；超出后，每次提问约 $COST$（按约 $WORDS$ 字的网页计算）。",
+    "placeholders": {
+      "cost": {
+        "content": "$1",
+        "example": "0,002 $US"
+      },
+      "words": {
+        "content": "$2",
+        "example": "2000"
+      }
+    }
+  },
+  "setup_online_purpose_openrouter": {
+    "message": "一个密钥即可使用多家公司的众多模型，部分免费。免费模型可能会保留您的文本。"
+  },
+  "setup_online_purpose_claude": {
+    "message": "Anthropic 自家的模型 Claude。"
+  },
+  "setup_online_purpose_openai": {
+    "message": "OpenAI 自家的模型 GPT。"
+  },
+  "setup_online_purpose_mistral": {
+    "message": "法国公司 Mistral AI 的模型。"
+  },
+  "setup_online_purpose_deepseek": {
+    "message": "中国公司 DeepSeek 的模型。"
+  },
+  "setup_online_purpose_google": {
+    "message": "Google 的模型，Gemini。"
+  },
   "setup_online_others": {
     "message": "其他服务"
   },
@@ -1247,14 +1263,41 @@
       }
     }
   },
-  "setup_online_pick_first": {
-    "message": "请先选择服务（第 1 步）。"
-  },
   "setup_online_account_title": {
     "message": "创建账户和密钥"
   },
   "setup_online_account_text": {
     "message": "创建账户（或登录），打开 API 密钥页面，创建一个密钥，然后复制它。"
+  },
+  "setup_online_do_account_link": {
+    "message": "在 $NAME$ 上创建账户",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "setup_online_do_account_rest": {
+    "message": "（或登录）。"
+  },
+  "setup_online_do_credit_link": {
+    "message": "充值"
+  },
+  "setup_online_do_credit_rest": {
+    "message": "——账户有余额后，新密钥才能使用。"
+  },
+  "setup_online_do_key_link": {
+    "message": "创建一个密钥"
+  },
+  "setup_online_do_key_rest": {
+    "message": "，并将其命名为“Coati”。"
+  },
+  "setup_online_do_key_rest_claude": {
+    "message": "，将其命名为“Coati”，并选择“默认工作区”（组织级密钥在此无法使用）。"
+  },
+  "setup_online_do_copy": {
+    "message": "请立即复制：服务只会显示一次。"
   },
   "setup_online_signup": {
     "message": "打开 $NAME$",
@@ -1268,11 +1311,56 @@
   "setup_online_keys_page": {
     "message": "API 密钥页面"
   },
+  "setup_oauth_signin": {
+    "message": "使用 $NAME$ 登录",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "setup_oauth_waiting": {
+    "message": "正在等待您在新标签页中完成登录…"
+  },
+  "setup_oauth_failed": {
+    "message": "无法启动登录。请改为在下方粘贴密钥。"
+  },
+  "setup_oauth_or": {
+    "message": "或者自行创建密钥并粘贴到下方。"
+  },
   "setup_online_openrouter_privacy": {
     "message": "如果免费模型拒绝回答，请在 OpenRouter 的隐私设置中允许使用免费模型。"
   },
   "setup_online_privacy_link": {
     "message": "隐私设置"
+  },
+  "setup_online_claude_subscriber": {
+    "message": "已订阅 Claude Max 或 Team："
+  },
+  "setup_online_claude_subscriber_credit": {
+    "message": "在 claude.ai 点击“Link organization”：此后订阅每月为 API 付费。"
+  },
+  "setup_online_claude_others": {
+    "message": "没有订阅，或使用 Claude Pro（不含 API 额度）："
+  },
+  "setup_online_ready": {
+    "message": "Coati 已设置完成。"
+  },
+  "setup_online_plan_claude_link": {
+    "message": "领取订阅的 API 额度"
+  },
+  "setup_online_plan_openai": {
+    "message": "ChatGPT 订阅（Plus、Pro）不包含 API：API 单独计费，不含任何额度。"
+  },
+  "setup_online_plan_mistral": {
+    "message": "Mistral 套餐（Free、Pro）每月含与 API 共享的用量：用同一账号创建密钥即可，无需领取。超出部分从预付额度中扣除。"
+  },
+  "setup_online_plan_google": {
+    "message": "使用免费密钥时，Google 可能使用你的文本改进其产品。Google AI 订阅（Pro、Ultra）不包含 API；它每月含 Google Cloud 额度，仅在 AI Studio 有预付余额时可用。"
+  },
+  "setup_online_plan_google_link": {
+    "message": "Google Developer Program"
   },
   "setup_online_openrouter_quota": {
     "message": "免费模型限制：每分钟 $PERMIN$ 次提问。",
@@ -1481,6 +1569,12 @@
   "model_list_online": {
     "message": "在线"
   },
+  "model_split_local_summary": {
+    "message": "免费且私密。需要一台较新的电脑。"
+  },
+  "model_split_online_summary": {
+    "message": "速度快，按使用付费。需要一个密钥。"
+  },
   "model_list_size_gb": {
     "message": "$GB$ GB",
     "placeholders": {
@@ -1627,9 +1721,6 @@
   "options_services_title": {
     "message": "已配置的服务"
   },
-  "options_services_empty": {
-    "message": "还没有在线服务。"
-  },
   "options_add_service": {
     "message": "添加服务"
   },
@@ -1669,8 +1760,8 @@
   "options_service_remove_confirm": {
     "message": "确认移除"
   },
-  "options_service_settings": {
-    "message": "密钥和模型"
+  "options_service_key": {
+    "message": "密钥"
   },
   "options_local_guide_title": {
     "message": "分步设置本地模型"

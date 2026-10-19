@@ -326,7 +326,15 @@ export interface ChallengeMessage {
   proof: string;
 }
 
+// Reply to `oauth.start`: the address the client opens in a new tab.
+export interface OAuthStartedMessage {
+  type: "oauth.started";
+  id: string;
+  url: string;
+}
+
 export type ServerMessage =
+  | OAuthStartedMessage
   | ChunkMessage
   | DoneMessage
   | ErrorMessage
