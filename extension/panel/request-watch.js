@@ -156,6 +156,7 @@ export function buildAuthRecoveryBlock(msg) {
     // Spec: "Create a key at [Provider]" external link, when known.
     const links = currentProviderLinks();
     if (links?.keysUrl) block.appendChild(buildExternalLink(t("panel_create_key_at", [links.name]), links.keysUrl));
+    if (links?.planUrl) block.appendChild(buildExternalLink(t(links.planLink), links.planUrl));
   }
 
   // Only offered when we still hold the payload to replay — lost across a

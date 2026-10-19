@@ -170,12 +170,22 @@ async function fetchModelIds(baseUrl: string, apiKey: string | undefined): Promi
   });
   if (!response.ok) {
     const err = new Error(`${baseUrl}/models returned HTTP ${response.status}`);
-    (err as Error & { status?: number }).status = response.status;
+    const rejectedKey = response.status === 400 && isInvalidKeyBody(await response.text().catch(() => ""));
+    (err as Error & { status?: number }).status = rejectedKey ? 401 : response.status;
     throw err;
   }
   const body = (await response.json()) as { data?: Array<{ id?: unknown }> };
   if (!Array.isArray(body.data)) return [];
-  return body.data.map((m) => m.id).filter((id): id is string => typeof id === "string" && id.length > 0);
+  // Gemini lists "models/<id>" but takes the bare id in chat requests.
+  return body.data
+    .map((m) => m.id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0)
+    .map((id) => id.replace(/^models\//, ""));
+}
+
+/** Gemini answers a bad key with 400 (`API_KEY_INVALID`), not 401. */
+function isInvalidKeyBody(text: string): boolean {
+  return /API_KEY_INVALID|valid API key/i.test(text);
 }
 
 export function isLoopbackHost(baseUrl: string): boolean {
@@ -637,6 +647,9 @@ export async function* streamAnswer(
         const bodyText = await response.text().catch(() => "");
         if (isUnknownModelBody(bodyText)) {
           throw new ModelMissingError(t("provider.modelMissing", lang));
+        }
+        if (response.status === 400 && isInvalidKeyBody(bodyText)) {
+          throw new AuthRequiredError(t("auth.apiKeyRejected", lang));
         }
         // docs/PROTOCOL.md: the key/model
         // are fine, the server's 400 is specifically about the image we

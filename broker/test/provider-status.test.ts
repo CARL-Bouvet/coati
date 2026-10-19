@@ -9,7 +9,11 @@
 import { describe, expect, test, afterEach } from "bun:test";
 import { ProviderStatusCache } from "../src/provider-status.ts";
 import { startServer } from "../src/server.ts";
-import { claudeApiProvider } from "../src/providers/claude-api.ts";
+import {
+  claudeApiProvider,
+  __setFetchImplForTests as setClaudeFetch,
+  __resetFetchImplForTests as resetClaudeFetch,
+} from "../src/providers/claude-api.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
 import { ollamaProvider, __setFetchImplForTests, __resetFetchImplForTests } from "../src/providers/ollama.ts";
 import { connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
@@ -152,11 +156,16 @@ describe("claude-api checkStatus", () => {
     expect(await claudeApiProvider.checkStatus({})).toEqual({ state: "ko", reason: "no-key" });
   });
 
-  test("a key present, never validated: unknown / key-unverified (presence only, per lot3 open detail 1)", async () => {
-    expect(await claudeApiProvider.checkStatus({ apiKey: "sk-ant-fake" })).toEqual({
-      state: "unknown",
-      reason: "key-unverified",
-    });
+  test("a stored key is checked with the free models probe: accepted → ok, refused → ko", async () => {
+    const reply = (status: number) => (async () => Response.json({ data: [{ id: "claude-haiku-4-5" }] }, { status })) as unknown as typeof fetch;
+    try {
+      setClaudeFetch(reply(200));
+      expect(await claudeApiProvider.checkStatus({ apiKey: "sk-ant-fake", model: "claude-haiku-4-5" })).toEqual({ state: "ok", reason: "ready" });
+      setClaudeFetch(reply(401));
+      expect(await claudeApiProvider.checkStatus({ apiKey: "sk-ant-fake" })).toEqual({ state: "ko", reason: "key-rejected" });
+    } finally {
+      resetClaudeFetch();
+    }
   });
 
   test("a whitespace-only key counts as no key", async () => {

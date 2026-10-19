@@ -169,6 +169,10 @@ export function handleMessage(
       });
       return;
     }
+    case "oauth.start": {
+      send(ws, { type: "oauth.started", id: message.id, url: settingsCtx.startOAuth() });
+      return;
+    }
     case "settings.set": {
       if (message.apiKey) {
         const cfg = settingsCtx.getConfig();

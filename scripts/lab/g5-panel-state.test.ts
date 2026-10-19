@@ -112,9 +112,9 @@ describe("firstRunChecks (T51)", () => {
     expect(firstRunChecks(facts).model).toBe("pending");
   });
 
-  test("all three met only with program, model and page access", () => {
-    expect(firstRunChecks({ ...facts, providerState: "ok" }).allMet).toBe(false);
-    expect(firstRunChecks({ ...facts, providerState: "ok", pageAccess: true }).allMet).toBe(true);
+  test("the card closes as soon as the program and the model work, page access or not", () => {
+    expect(firstRunChecks({ ...facts, providerState: "ko" }).allMet).toBe(false);
+    expect(firstRunChecks({ ...facts, providerState: "ok" }).allMet).toBe(true);
   });
 });
 

@@ -19,9 +19,15 @@ export interface RequestIpSource {
   requestIP(req: Request): { address: string; port: number } | null;
 }
 
-export function admitRequest(req: Request, server: RequestIpSource, port: number): AdmissionOutcome {
+export function admitRequest(
+  req: Request,
+  server: RequestIpSource,
+  port: number,
+  opts: { allowLocalhostHost?: boolean } = {},
+): AdmissionOutcome {
   const host = req.headers.get("host");
-  if (!isHostAllowed(host, port)) {
+  const localhostOk = opts.allowLocalhostHost === true && host?.trim().toLowerCase() === `localhost:${port}`;
+  if (!isHostAllowed(host, port) && !localhostOk) {
     return { ok: false, stage: "host", host };
   }
   // Peer-UID check: Linux only (docs/PROTOCOL.md "Threat boundary" — not

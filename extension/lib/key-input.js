@@ -8,12 +8,13 @@
 // - never reads the clipboard (a user paste into the field is the browser's
 //   own default behaviour, no paste listener here);
 // - the key goes to the local program in ONE `settings.set` message
-//   (docs/PROTOCOL.md, `apiKey` is write-only end to end) and is never kept
-//   in the extension: no storage, no module/closure copy, the field is
+//   (docs/PROTOCOL.md, `apiKey` is write-only end to end) as soon as it is
+//   pasted, on Enter, or when the field loses focus — no button; it is never
+//   kept in the extension: no storage, no module/closure copy, the field is
 //   cleared right after sending and never refilled — only "Key saved";
 // - right after a successful save, a free `settings.test` checks the key and
-//   the result is shown in plain words (accepted / refused / no credit /
-//   rate-limited), mapped from the result's optional `code`;
+//   the result is shown in one plain sentence (accepted / refused / no
+//   credit / rate-limited), mapped from the result's optional `code`;
 // - "Delete the key" (two-step confirm, no native dialog) sends `apiKey: ""`.
 //
 // `provider` is always sent with the key: the broker binds a key to
@@ -25,10 +26,16 @@ import { t } from "./i18n-page.js";
 
 const DELETE_CONFIRM_MS = 5000;
 
+/** A Claude Code subscription token (`claude setup-token`): Anthropic allows it
+ * only inside Claude Code, never as an API key. */
+export function isSubscriptionToken(provider, key) {
+  return provider === "claude-api" && key.startsWith("sk-ant-oat");
+}
+
 /** True when `key` can be a key for the service: no whitespace, and the
  * service's own prefix where it has one (the local program re-checks). */
 export function isValidKeyFormat(provider, baseUrl, key) {
-  if (!key || /\s/.test(key)) return false;
+  if (!key || /\s/.test(key) || isSubscriptionToken(provider, key)) return false;
   let prefix = "";
   if (provider === "claude-api") {
     prefix = "sk-ant-";
@@ -44,17 +51,16 @@ export function isValidKeyFormat(provider, baseUrl, key) {
   return key.startsWith(prefix);
 }
 
-/** `settings.test-result.code` -> sentence(s). Reuses the U1 `common_error_*`
- * texts as the first sentence where they exist, plus a remedy that fits the
+/** `settings.test-result.code` -> one sentence saying what to do on the
  * settings page (the panel's own texts say "go to the settings"). */
 function describeTestFailure(code, brokerMessage) {
   switch (code) {
     case "auth-required":
       return t("keyInput_refused");
     case "quota-exceeded":
-      return `${t("common_error_quota_exceeded")} ${t("keyInput_remedy_credit")}`;
+      return t("keyInput_fail_credit");
     case "rate-limited":
-      return `${t("common_error_rate_limited")} ${t("keyInput_remedy_wait")}`;
+      return t("keyInput_fail_busy");
     case "model-unavailable":
       return brokerMessage ? `${t("common_error_model_unavailable")} ${brokerMessage}` : t("common_error_model_unavailable");
     default:
@@ -110,19 +116,25 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
   reveal.textContent = t("keyInput_show");
   reveal.addEventListener("click", () => setRevealed(input.type === "password"));
 
-  const save = document.createElement("button");
-  save.type = "button";
-  save.className = "c-button c-button--primary key-input-save";
-  save.textContent = t("keyInput_save");
-  save.addEventListener("click", submit);
+  // Sent when pasted (the browser's own paste: the clipboard is never read
+  // here), on Enter, or on leaving the field for another control of the page
+  // with a well-formed key — not for "Show", another window (the user went
+  // to copy the key) or a re-render.
+  input.addEventListener("input", (event) => {
+    if (event.inputType === "insertFromPaste" || event.inputType === "insertFromDrop") submit();
+  });
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
       submit();
     }
   });
+  input.addEventListener("blur", (event) => {
+    if (event.relatedTarget === reveal || !document.hasFocus() || !input.isConnected) return;
+    if (isValidKeyFormat(provider, getBaseUrl?.(), input.value.trim())) submit();
+  });
 
-  row.append(input, reveal, save);
+  row.append(input, reveal);
 
   const statusRow = document.createElement("div");
   statusRow.className = "key-input-status-row";
@@ -192,7 +204,7 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     if (!value || !connected) return;
     if (!isValidKeyFormat(provider, getBaseUrl?.(), value)) {
       state = "save-failed";
-      failureText = t("keyInput_bad_format");
+      failureText = t(isSubscriptionToken(provider, value) ? "keyInput_subscription_token" : "keyInput_bad_format");
       render();
       return;
     }
@@ -298,7 +310,6 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     const busy = state === "saving" || state === "verifying" || state === "deleting";
     input.placeholder = configured ? t("keyInput_placeholder_replace") : (placeholder ?? t("keyInput_placeholder"));
     input.disabled = !connected;
-    save.disabled = !connected || busy;
     reveal.disabled = !connected;
 
     let mark = "";

@@ -53,6 +53,18 @@
   function fill(selector, value, delayMs) {
     return { type: "fill", selector: selector, value: value, delayMs: delayMs };
   }
+  // A real paste: the key field sends the key on it, no button.
+  function paste(selector, value, delayMs) {
+    return { type: "fill", selector: selector, value: value, delayMs: delayMs, paste: true };
+  }
+  // Nothing set up opens both sides idle: the local guide states choose
+  // "On this computer" first.
+  function onLocal(extra) {
+    var fixture = guide(extra);
+    var rest = fixture.autoAction ? fixture.autoAction.steps : [];
+    fixture.autoAction = { steps: [click("#tabLocal", 40)].concat(rest) };
+    return fixture;
+  }
 
   var OLLAMA_STATUS = function (state, reason) {
     return { provider: "ollama", state: state, reason: reason };
@@ -160,34 +172,37 @@
     // turns green, then the page moves on to the model guide.
     "setup-program-connected-after-wait": programStep({ platform: "Windows", info: { os: "win", arch: "x86-64" }, extra: { connectsAfterReconnects: 2 } }),
 
-    // First screen: the Ollama path (default), two tools side by side.
+    // First screen, nothing set up: both sides idle, half and half.
     "setup-first": guide({}),
+
+    // "On this computer" chosen: the Ollama path, two tools side by side.
+    "setup-local": onLocal({}),
 
     // Same, local program not answering: notice + checks disabled.
     "setup-disconnected": guide({ status: "disconnected" }),
 
     // Step 3 failed: Ollama does not answer.
-    "setup-local-unreachable": guide({
+    "setup-local-unreachable": onLocal({
       providerStatus: OLLAMA_STATUS("ko", "ollama-unreachable"),
       autoAction: steps(click(".setup-check-ollama", 90)),
     }),
 
     // Ollama answers, no model installed yet (step 2 flagged).
-    "setup-local-no-model": guide({
+    "setup-local-no-model": onLocal({
       providerStatus: OLLAMA_STATUS("ko", "no-model-installed"),
       autoAction: steps(click(".setup-check-ollama", 90)),
     }),
 
     // Ollama answers, the chosen model (gemma3:4b) is not downloaded yet;
     // the installed list shows what IS.
-    "setup-local-model-missing": guide({
+    "setup-local-model-missing": onLocal({
       providerStatus: OLLAMA_STATUS("ko", "model-missing"),
       models: MODELS_ONE_INSTALLED,
       autoAction: steps(click(".setup-check-ollama", 90)),
     }),
 
     // Steps 1-3 ticked: Ollama answers, model present and in use.
-    "setup-local-ready": guide({
+    "setup-local-ready": onLocal({
       providerStatus: OLLAMA_STATUS("ok", "ready"),
       settings: Object.assign({}, FRESH_SETTINGS, { model: "gemma3:4b" }),
       models: MODELS_SUGGESTED_IN_USE,
@@ -196,29 +211,29 @@
 
     // Machine lines in step 2 (`host`, read as soon as the guide opens).
     // Graphics memory measured: memory line + graphics-card sentence.
-    "setup-local-host-gpu": guide({
+    "setup-local-host-gpu": onLocal({
       models: hostModels({ ramGb: 16, vramGb: 6.4 }, [
         { provider: "ollama", model: "qwen3:8b", local: true, sizeBytes: 5225387923, fit: "shared" },
       ]),
     }),
 
     // Mac, 16 GB unified memory: shared-memory sentence.
-    "setup-local-host-mac": guide({
+    "setup-local-host-mac": onLocal({
       labPlatform: "macOS",
       models: hostModels({ ramGb: 16, vramGb: null, unifiedMemory: true }, []),
     }),
 
     // Graphics memory unknown (every Windows machine today): only
     // « Cet ordinateur : 16 Go de mémoire. », nothing about speed.
-    "setup-local-host-unknown-vram": guide({
+    "setup-local-host-unknown-vram": onLocal({
       models: hostModels({ ramGb: 16, vramGb: null }, []),
     }),
 
     // Older local program, no `host`: no machine lines.
-    "setup-local-no-host": guide({ models: MODELS_ONE_INSTALLED }),
+    "setup-local-no-host": onLocal({ models: MODELS_ONE_INSTALLED }),
 
     // LM Studio path: « Utiliser LM Studio et vérifier » answers OK.
-    "setup-local-lmstudio": guide({
+    "setup-local-lmstudio": onLocal({
       testResults: { "openai-compat": { ok: true, message: "Connexion au serveur réussie." } },
       autoAction: steps(click(".setup-check-lmstudio", 100)),
     }),
@@ -231,12 +246,22 @@
       labHash: "setup-ollama-speedup",
     }),
 
-    // Online path chosen: the free-models warning comes before the choice.
+    // Online side chosen, no service yet: step 1 alone.
     "setup-online": guide({ autoAction: steps(click("#tabOnline", 60)) }),
 
-    // OpenRouter picked: step 1 ticked, account + key steps filled in.
+    // Claude picked: its own to-do (account, credit, key "Coati", copy), key field.
+    "setup-online-claude": guide({
+      autoAction: steps(click("#tabOnline", 60), click('.setup-service[data-service="claude"] input', 90)),
+    }),
+
+    // OpenRouter picked: retention warning under it, its to-do, key field.
     "setup-online-openrouter": guide({
       autoAction: steps(click("#tabOnline", 60), click('.setup-service[data-service="openrouter"] input', 90)),
+    }),
+
+    // « Autres » open, Google Gemini picked: free tier and subscription note.
+    "setup-online-google": guide({
+      autoAction: steps(click("#tabOnline", 60), click('.setup-service[data-service="google"] input', 90)),
     }),
 
     // « Autres » open, DeepSeek picked (prepaid wording).
@@ -244,14 +269,24 @@
       autoAction: steps(click("#tabOnline", 60), click('.setup-service[data-service="deepseek"] input', 90)),
     }),
 
-    // Claude: key pasted, saved, accepted (steps 1-3 ticked).
+    // Claude: key pasted, the check still running (reply held).
+    "setup-online-key-checking": guide({
+      testDelayMs: 600000,
+      testResults: { "claude-api": { ok: true, message: "Connexion à l'API Anthropic réussie." } },
+      autoAction: steps(
+        click("#tabOnline", 60),
+        click('.setup-service[data-service="claude"] input', 90),
+        paste("#setupOnline .key-input-field", "sk-ant-lab-not-a-real-key", 130),
+      ),
+    }),
+
+    // Claude: key pasted, then saved and accepted (steps 1-3 ticked).
     "setup-online-key-accepted": guide({
       testResults: { "claude-api": { ok: true, message: "Connexion à l'API Anthropic réussie." } },
       autoAction: steps(
         click("#tabOnline", 60),
         click('.setup-service[data-service="claude"] input', 90),
-        fill("#setupOnline .key-input-field", "sk-ant-lab-not-a-real-key", 130),
-        click("#setupOnline .key-input-save", 150),
+        paste("#setupOnline .key-input-field", "sk-ant-lab-not-a-real-key", 130),
       ),
     }),
 
@@ -263,8 +298,7 @@
       autoAction: steps(
         click("#tabOnline", 60),
         click('.setup-service[data-service="openrouter"] input', 90),
-        fill("#setupOnline .key-input-field", "sk-or-lab-not-a-real-key", 130),
-        click("#setupOnline .key-input-save", 150),
+        paste("#setupOnline .key-input-field", "sk-or-lab-not-a-real-key", 130),
       ),
     }),
 
@@ -276,8 +310,7 @@
       autoAction: steps(
         click("#tabOnline", 60),
         click('.setup-service[data-service="openai"] input', 90),
-        fill("#setupOnline .key-input-field", "sk-lab-not-a-real-key", 130),
-        click("#setupOnline .key-input-save", 150),
+        paste("#setupOnline .key-input-field", "sk-lab-not-a-real-key", 130),
       ),
     }),
 
@@ -289,13 +322,12 @@
       autoAction: steps(
         click("#tabOnline", 60),
         click('.setup-service[data-service="openrouter"] input', 90),
-        fill("#setupOnline .key-input-field", "sk-or-lab-not-a-real-key", 130),
-        click("#setupOnline .key-input-save", 150),
+        paste("#setupOnline .key-input-field", "sk-or-lab-not-a-real-key", 130),
       ),
     }),
   };
 
-  // Settings card (not the guide): the same key component.
+  // Claude in use, no key yet: the guide under "Add a service" holds the key field.
   var CLAUDE_NO_KEY = {
     provider: "claude-api",
     model: null,
@@ -316,8 +348,7 @@
       storageLocal: { "coati:retentionDays": 30 },
       permissions: ["https://www.youtube.com/*"],
       autoAction: steps(
-        fill(".service--active .key-input-field", "sk-ant-lab-not-a-real-key", 60),
-        click(".service--active .key-input-save", 80),
+        paste("#setupOnline .key-input-field", "sk-ant-lab-not-a-real-key", 60),
       ),
     },
 
@@ -330,8 +361,7 @@
       storageLocal: { "coati:retentionDays": 30 },
       permissions: ["https://www.youtube.com/*"],
       autoAction: steps(
-        fill(".service--active .key-input-field", "sk-ant-lab-not-a-real-key", 60),
-        click(".service--active .key-input-save", 80),
+        paste("#setupOnline .key-input-field", "sk-ant-lab-not-a-real-key", 60),
       ),
     },
 
@@ -342,8 +372,8 @@
       storageLocal: { "coati:retentionDays": 30 },
       permissions: ["https://www.youtube.com/*"],
       autoAction: steps(
-        fill(".service--active .key-input-field", "sk-ant-lab-not-a-real-key", 60),
-        click(".service--active .key-input-reveal", 80),
+        fill("#setupOnline .key-input-field", "sk-ant-lab-not-a-real-key", 60),
+        click("#setupOnline .key-input-reveal", 80),
       ),
     },
 

@@ -19,5 +19,7 @@ function keyPrefix(provider: string, baseUrl: string | undefined): string {
 /** True when `key` (non-empty; "" means "forget") can be a key for `provider`. */
 export function isValidKeyFormat(provider: string, baseUrl: string | undefined, key: string): boolean {
   const trimmed = key.trim();
+  // A Claude Code subscription token (`sk-ant-oat…`) is not an API key and may not be used outside Claude Code.
+  if (provider === "claude-api" && trimmed.startsWith("sk-ant-oat")) return false;
   return trimmed.length > 0 && !/\s/.test(trimmed) && trimmed.startsWith(keyPrefix(provider, baseUrl));
 }

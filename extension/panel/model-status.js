@@ -238,7 +238,6 @@ const PROVIDER_STATUS_REASON_TEXT = {
   "ready": t("panel_provider_ready"),
   "logged-in": t("panel_provider_logged_in"),
   "no-key": t("panel_provider_no_key"),
-  "key-unverified": t("panel_provider_key_unverified"),
   "cli-missing": t("panel_provider_cli_missing"),
   "not-logged-in": t("panel_provider_not_logged_in"),
   "probe-failed": t("panel_provider_probe_failed"),
@@ -381,12 +380,16 @@ function afterModelChange() {
 }
 
 /** A `settings` broadcast this panel didn't ask for (settings page,
- * tutorial): follow it only when it names another provider/model. */
+ * tutorial): follow it when it names another provider/model; otherwise (a key
+ * saved for the same model) re-check the model while it is not known to answer. */
 function onSettingsOverheard(message) {
-  if (!modelsReply || typeof message.provider !== "string") return;
+  if (typeof message.provider !== "string") return;
   const model = typeof message.model === "string" && message.model ? message.model : null;
-  const known = modelsReply.current ?? {};
-  if (known.provider === message.provider && (known.model === model || sameModel(known.model, model))) return;
+  const known = modelsReply?.current ?? {};
+  if (!modelsReply || (known.provider === message.provider && (known.model === model || sameModel(known.model, model)))) {
+    if (providerState !== "ok" && !providerStatusRequestId && currentConnState === "connected") sendProviderStatus();
+    return;
+  }
   modelsReply = { ...modelsReply, current: { provider: message.provider, model } };
   renderModelPicker();
   afterModelChange();

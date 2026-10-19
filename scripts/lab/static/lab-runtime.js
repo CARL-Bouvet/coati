@@ -37,7 +37,10 @@
       var input = document.querySelector(step.selector);
       if (input) {
         input.value = step.value || "";
-        input.dispatchEvent(new Event("input", { bubbles: true }));
+        // `paste: true`: the input event a real paste fires (the key field sends on it).
+        input.dispatchEvent(
+          step.paste ? new InputEvent("input", { bubbles: true, inputType: "insertFromPaste" }) : new Event("input", { bubbles: true }),
+        );
       }
     } else if (step.type === "focus") {
       var toFocus = document.querySelector(step.selector);

@@ -215,7 +215,7 @@ async function finishReadPageClick(request, asked) {
 }
 
 /** First-launch card: shown while a check is missing, hidden for good (a
- * storage.local preference) once all three are met. Rebuilt from scratch on
+ * storage.local preference) once the program and the model work. Rebuilt from scratch on
  * each call — it only changes on connection/provider/permission events. */
 export function renderFirstRun() {
   if (!accessPrefsLoaded || firstRunDone) {

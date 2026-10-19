@@ -249,8 +249,17 @@ export interface ModelWarmupMessage {
   id: string;
 }
 
+// Starts a browser sign-in with an online service (docs/PROTOCOL.md "OAuth sign-in");
+// replied with `oauth.started`.
+export interface OAuthStartMessage {
+  type: "oauth.start";
+  id: string;
+  service: "openrouter";
+}
+
 export type ClientMessage =
   | HelloMessage
+  | OAuthStartMessage
   | AuthMessage
   | ChatMessage
   | SummarizeMessage

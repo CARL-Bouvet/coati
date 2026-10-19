@@ -49,7 +49,14 @@ export const LM_STUDIO = {
 // lib/model-provider-presets.js. `costUsdPerRequest`: rough price of ONE
 // question about an average page (~3,000 tokens in, ~500 out) at the listed
 // model's public price — `0` means free. `group`: "free" (shown first),
-// "paid" (Claude, OpenAI), "other" (under "Others").
+// "paid" (Claude, OpenAI), "other" (under "Others"). `needsCredit`: a new
+// key answers only once credit was added (billingUrl), the guide says so.
+// `freeTier`: a free key works (with limits), the price applies beyond them.
+// `keyRest`: the service's own wording for the "create a key" line.
+// `subscriberTodo`: a first to-do for subscribers whose plan includes API
+// credit, claimed at `planUrl`, before the usual one.
+// `planNote`: what the service's chat subscription does for the API (message
+// key), with an optional `planUrl` / `planLink` where its API credit is claimed.
 
 export const ONLINE_PROVIDERS = [
   {
@@ -72,6 +79,7 @@ export const ONLINE_PROVIDERS = [
     freeQuotaCreditUsd: 10,
     freeRequestsPerMinute: 20,
     keyPrefix: "sk-or-",
+    oauth: "openrouter",
   },
   {
     id: "claude",
@@ -80,13 +88,15 @@ export const ONLINE_PROVIDERS = [
     provider: "claude-api",
     model: "claude-haiku-4-5",
     costUsdPerRequest: 0.006,
-    signupUrl: "https://console.anthropic.com/",
-    // console.anthropic.com's
-    // settings pages redirect to platform.claude.com now — linking the
-    // destination directly rather than through a redirect hop.
+    signupUrl: "https://platform.claude.com/",
     keysUrl: "https://platform.claude.com/settings/keys",
     limitsUrl: "https://platform.claude.com/settings/limits",
     billingUrl: "https://platform.claude.com/settings/billing",
+    needsCredit: true,
+    keyRest: "setup_online_do_key_rest_claude",
+    subscriberTodo: true,
+    planUrl: "https://claude.ai/settings/billing",
+    planLink: "setup_online_plan_claude_link",
     keyPrefix: "sk-ant-",
   },
   {
@@ -101,6 +111,8 @@ export const ONLINE_PROVIDERS = [
     keysUrl: "https://platform.openai.com/api-keys",
     limitsUrl: "https://platform.openai.com/settings/organization/limits",
     billingUrl: "https://platform.openai.com/settings/organization/billing",
+    needsCredit: true,
+    planNote: "setup_online_plan_openai",
     keyPrefix: "sk-",
   },
   {
@@ -117,7 +129,26 @@ export const ONLINE_PROVIDERS = [
     // No distinct billing page — the limits page is where Mistral's spend
     // cap/usage lives.
     billingUrl: "https://admin.mistral.ai/plateforme/limits",
+    planNote: "setup_online_plan_mistral",
     keyPrefix: "",
+  },
+  {
+    id: "google",
+    group: "other",
+    name: "Google Gemini",
+    provider: "openai-compat",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    model: "gemini-3.5-flash-lite",
+    costUsdPerRequest: 0.002,
+    signupUrl: "https://aistudio.google.com/",
+    keysUrl: "https://aistudio.google.com/apikey",
+    limitsUrl: "https://aistudio.google.com/spend",
+    billingUrl: "https://aistudio.google.com/billing",
+    freeTier: true,
+    planNote: "setup_online_plan_google",
+    planUrl: "https://developers.google.com/program",
+    planLink: "setup_online_plan_google_link",
+    keyPrefix: "AIza",
   },
   {
     id: "deepseek",
@@ -154,12 +185,13 @@ export const COST_BASIS_WORDS = 2000;
  *
  * @param {string} providerId
  * @param {string | undefined} baseUrl
- * @returns {{ keysUrl: string, billingUrl?: string, name: string } | undefined}
+ * @returns {{ keysUrl: string, billingUrl?: string, planUrl?: string, planLink?: string, name: string } | undefined}
  */
 export function getProviderLinks(providerId, baseUrl) {
   const service = ONLINE_PROVIDERS.find((p) =>
     providerId === "claude-api" ? p.provider === "claude-api" : p.baseUrl && p.baseUrl === baseUrl,
   );
   if (!service) return undefined;
-  return { keysUrl: service.keysUrl, billingUrl: service.billingUrl, name: service.name };
+  const { keysUrl, billingUrl, planUrl, planLink, name } = service;
+  return { keysUrl, billingUrl, planUrl, planLink, name };
 }

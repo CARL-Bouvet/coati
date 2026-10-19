@@ -302,6 +302,12 @@ export function parseClientMessage(raw: string): ParseResult {
     case "settings.get": {
       return { ok: true, message: { type: "settings.get", id } };
     }
+    case "oauth.start": {
+      if (parsed.service !== "openrouter") {
+        return { ok: false, error: { code: "bad-request", message: "oauth.start: invalid service", id } };
+      }
+      return { ok: true, message: { type: "oauth.start", id, service: "openrouter" } };
+    }
     case "settings.set": {
       const provider = parsed.provider;
       if (provider !== undefined && !isProviderId(provider)) {

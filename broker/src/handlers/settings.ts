@@ -51,6 +51,8 @@ export interface SettingsCtx {
       "provider" | "model" | "apiKey" | "baseUrl" | "clearKey" | "removeBaseUrl"
     >,
   ): CoatiConfig;
+  /** Begins an OpenRouter sign-in and returns the address to open (oauth.ts). */
+  startOAuth(): string;
   /** `provider.status` for the currently active provider, through the
    * broker-wide ProviderStatusCache (see docs/PROTOCOL.md "Provider
    * availability"). */
