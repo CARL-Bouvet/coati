@@ -9,6 +9,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EXTRACT_FILES } from "../../extension/content/extract-files.js";
+import { contextBudgetError } from "../src/logging.ts";
 
 // The content script is split across several files, injected
 // together and in order, all sharing one global scope — see
@@ -385,5 +386,22 @@ describe("extract.js — collectInteractiveElements (Lot A2, plan 08/10 §3A)", 
     const result = runExtract({ body });
     expect(result.kind).toBe("page");
     expect(result.elements).toEqual([]);
+  });
+
+  test("a long page with many elements still fits the broker's shared budget: the text gives way", () => {
+    const text = "Bouguereau et les impressionnistes. ".repeat(12_000);
+    const children = Array.from({ length: 150 }, (_, i) => button(`Section ${i} de l'article`));
+    const result = runExtract({ body: new FakeElement("body", { text, children }) });
+    expect(result.elements.length).toBe(120);
+    expect(result.text.length).toBeGreaterThan(390_000);
+    expect(contextBudgetError(result)).toBeUndefined();
+  });
+
+  test("a 100k-character page comes out uncut, elements included", () => {
+    const text = "Bouguereau et les impressionnistes. ".repeat(2800);
+    const children = Array.from({ length: 150 }, (_, i) => button(`Section ${i} de l'article`));
+    const result = runExtract({ body: new FakeElement("body", { text, children }) });
+    expect(result.elements.length).toBe(120);
+    expect(result.text.length).toBeGreaterThan(99_000);
   });
 });

@@ -10,12 +10,11 @@ import { isPdfUrl, isInternalPageUrl, isInternalPageFailure, readabilityMessage,
 import { addMessage } from "./message-render.js";
 import { persistConversation } from "./conversation-store.js";
 import { setStreamingUi, sendClientMessage } from "./request-watch.js";
-import { hasFeature } from "./model-status.js";
 import { prepareContextForWire } from "./element-refs.js";
 import { pendingRetries } from "./chat-stream.js";
 import { applyDetectedContext } from "./page-detect.js";
 import { mainButtonLabel } from "./attach-toggle.js";
-import { openTranscriptIfNeeded, reportMissingTranscript, buildElementsSnapshot } from "./composer-send.js";
+import { openTranscriptIfNeeded, reportMissingTranscript } from "./composer-send.js";
 import { EXTRACT_FILES } from "../content/extract-files.js";
 
 // chrome.scripting.executeScript has
@@ -111,14 +110,14 @@ export async function summarize() {
     streaming: true,
     videoId,
     readsPage: true,
-    elementsSnapshot: buildElementsSnapshot(context),
   });
 
   panelState.activeRequestId = id;
   setStreamingUi(true);
   persistConversation();
 
-  const wireContext = prepareContextForWire(context, hasFeature("elements"));
+  // A summary points at nothing, so it carries no numbered elements.
+  const wireContext = prepareContextForWire(context, false);
 
   pendingRetries.set(id, { type: "summarize", context: wireContext });
   await sendClientMessage({ type: "summarize", id, context: wireContext });

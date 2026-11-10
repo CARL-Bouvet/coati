@@ -4,12 +4,12 @@
 
 export const MAX_MESSAGE_BYTES = 256 * 1024;
 
-// "View screen" — docs/PROTOCOL.md §5.
-// Only a `chat` message carrying a well-formed-looking `image` field may
-// exceed MAX_MESSAGE_BYTES, up to this cap. A decoded 1 MiB JPEG/PNG inflates
-// to ~1.37 MiB as base64 text; 1.5 MiB leaves room for the rest of the
-// envelope (text, context, JSON framing).
-export const MAX_IMAGE_MESSAGE_BYTES = 1.5 * 1024 * 1024;
+// Only a message carrying an image or page content (`chat`/`summarize` with
+// `context`, `page.content`) may exceed MAX_MESSAGE_BYTES, up to this cap. A
+// decoded 1 MiB JPEG/PNG inflates to ~1.37 MiB as base64 text, and 400 000
+// characters of CJK text weigh ~1.2 MB in UTF-8; 1.5 MiB leaves room for the
+// rest of the envelope (docs/PROTOCOL.md "Limits").
+export const MAX_LARGE_MESSAGE_BYTES = 1.5 * 1024 * 1024;
 
 export type ErrorCode =
   | "bad-request"

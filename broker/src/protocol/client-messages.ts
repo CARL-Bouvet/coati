@@ -4,7 +4,7 @@
 import type { ProviderId } from "../config.ts";
 import type { Context } from "./context.ts";
 import type { SitePrefs } from "./prompts-prefs.ts";
-import type { ChatAbility, ChatImage, HistoryEntry, OpenDeclineReason, PageMeta, SearchBody, SearchDeclineReason, SearchPageEntry } from "./chat.ts";
+import type { ChatAbility, ChatImage, HistoryEntry, OpenDeclineReason, PageMeta, ReadPart, SearchBody, SearchDeclineReason, SearchPageEntry } from "./chat.ts";
 
 // v: 2 handshake — docs/PROTOCOL.md "Handshake `v: 2`". `v: 1` (secret-based) no longer exists
 // anywhere in the code, not even behind `legacyPairing` — see "Legacy mode".
@@ -64,6 +64,8 @@ export interface ChatMessage {
   searchQuery?: string;
   /** The current page cannot be read (docs/PROTOCOL.md "chat"). */
   pageUnreadable?: boolean;
+  /** Continues a reading `done.page` left unfinished; only with `context`. */
+  readPart?: ReadPart;
 }
 
 // "page on demand" — docs/PROTOCOL.md "Page
@@ -120,6 +122,8 @@ export interface SummarizeMessage {
   type: "summarize";
   id: string;
   context: Context;
+  /** Continues a summary `done.page` left unfinished (`level` is "text"). */
+  readPart?: ReadPart;
 }
 
 export interface PromptsListMessage {

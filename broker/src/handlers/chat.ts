@@ -8,14 +8,16 @@ import {
   contextTooLarge,
   contextBudgetError,
   MAX_CONTEXT_CHARS,
-  MAX_DEV_CONTEXT_CHARS,
+  MAX_PAGE_CHARS,
 } from "../logging.ts";
 import { DEFAULT_OLLAMA_URL } from "../config.ts";
-import { fetchPsEntries, matchesModel, listModelEntries as listOllamaModelEntries } from "../providers/ollama.ts";
+import { fetchPsEntries, matchesModel, ollamaContentChars, listModelEntries as listOllamaModelEntries } from "../providers/ollama.ts";
 import { isLoopbackHost } from "../providers/openai-compat.ts";
 import type { ModelProvider, ProviderRuntimeOptions } from "../providers/types.ts";
 import {
   buildPrompt,
+  buildSystemPrompt,
+  HISTORY_CHAR_BUDGET,
   isAuthRequiredError,
   isQuotaExceededError,
   isRateLimitedError,
@@ -44,6 +46,7 @@ import {
   searchContentError,
   openContentError,
   type Context,
+  type ReadPart,
   type ChatImage,
   type ChatAbility,
   type HistoryEntry,
@@ -56,6 +59,7 @@ import {
 } from "../protocol.ts";
 import type { Lang } from "../messages.ts";
 import type { SettingsCtx } from "./settings.ts";
+import type { PagePart } from "../model/build.ts";
 
 // Per-connection cap on simultaneously in-flight model streams. Without it, an
 // authenticated client sending N chat/summarize messages back to back
@@ -179,6 +183,7 @@ async function runStream(
   provider: ModelProvider,
   providerOpts: ProviderRuntimeOptions,
   startedAt: number,
+  pageReport?: PageReport,
 ): Promise<void> {
   const controller = new AbortController();
   active.set(id, controller);
@@ -210,7 +215,13 @@ async function runStream(
       send(ws, { type: "error", id, code: "cancelled", message: "request cancelled" });
       logRequestCompleted(id, "cancelled", Date.now() - startedAt);
     } else {
-      send(ws, { type: "done", id, usage, ...(historyKept !== undefined ? { historyKept } : {}) });
+      send(ws, {
+        type: "done",
+        id,
+        usage,
+        ...(historyKept !== undefined ? { historyKept } : {}),
+        ...(pageReport ? { page: pageReport } : {}),
+      });
       logRequestCompleted(id, "ok", Date.now() - startedAt);
     }
   } catch (err) {
@@ -291,7 +302,7 @@ function gateStreamingRequest(
     opts.hasImage,
   );
   if (opts.tooLargeText !== undefined && contextTooLarge(opts.tooLargeText)) {
-    send(ws, { type: "error", id: message.id, code: "context-too-large", message: "text exceeds 40000 characters" });
+    send(ws, { type: "error", id: message.id, code: "context-too-large", message: `text exceeds ${MAX_CONTEXT_CHARS} characters` });
     logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
     return undefined;
   }
@@ -341,9 +352,10 @@ async function gateVisionSupport(
   return true;
 }
 
-/** Shared preamble for the two SYNCHRONOUS-build streaming request types
- * (summarize, and a `chat` with no `page`): gate, then optionally
- * gate vision, then buildPrompt/runStream. */
+/** Shared preamble for the two streaming request types that carry their
+ * content up front (summarize, and a `chat` with no `page`): gate, then
+ * optionally gate vision, fit `context` to the model's window, then
+ * buildPrompt/runStream. `done.page` reports the part that was read. */
 export function handleStreamingRequest(
   ws: { send(data: string): unknown },
   message: { id: string },
@@ -359,22 +371,36 @@ export function handleStreamingRequest(
     tooLargeText?: string;
     budgetContext?: Context;
     image?: ChatImage;
-    build: () => BuiltPrompt;
+    /** Present with `context`: the part of the page being continued. */
+    readPart?: ReadPart;
+    hasHistory?: boolean;
+    /** `part` is set for a continuation; `context` is the fitted one. */
+    build: (context?: Context, part?: PagePart) => BuiltPrompt;
   },
 ): void {
   const gated = gateStreamingRequest(ws, message, active, settingsCtx, { ...opts, hasImage: opts.image !== undefined });
   if (!gated) return;
   const { provider, providerOpts, startedAt } = gated;
-  if (opts.image) {
-    void gateVisionSupport(ws, message, provider, providerOpts, startedAt).then((proceed) => {
-      if (!proceed) return;
-      const built = opts.build();
-      void runStream(ws, active, message.id, built, provider, providerOpts, startedAt);
-    });
-    return;
-  }
-  const built = opts.build();
-  void runStream(ws, active, message.id, built, provider, providerOpts, startedAt);
+  void (async () => {
+    if (opts.image && !(await gateVisionSupport(ws, message, provider, providerOpts, startedAt))) return;
+    const context = opts.budgetContext;
+    if (!context) {
+      void runStream(ws, active, message.id, opts.build(), provider, providerOpts, startedAt);
+      return;
+    }
+    const from = opts.readPart?.from ?? 0;
+    const partOf = (chars: number) => (from > 0 ? { from, chars } : undefined);
+    const fit = await fitPageContent(
+      opts.readPart?.level ?? "text",
+      context,
+      from,
+      (c) => opts.build(c, partOf(context.text?.length ?? 0)),
+      provider,
+      providerOpts,
+      opts.hasHistory === true,
+    );
+    void runStream(ws, active, message.id, opts.build(fit.context, partOf(fit.report.chars)), provider, providerOpts, startedAt, fit.report);
+  })();
 }
 
 // ---------------------------------------------------------------------------
@@ -395,48 +421,49 @@ export const PAGE_REQUEST_TIMEOUT_MS = 120_000;
  * panel's Allow / Refuse card (docs/PROTOCOL.md "Search"). */
 export const SEARCH_REQUEST_TIMEOUT_MS = 300_000;
 
-// Fits dev-level content (already bounded to
-// MAX_DEV_CONTEXT_CHARS by the protocol) to the ACTIVE model's own context
-// window — "whatever models.ts/ollama.ts already know", i.e. Ollama's own
-// contextTokens tier when the active provider is ollama, else a per-provider
-// fixed fallback (no other provider reports a context size to this broker
-// today). ~3.5 chars/token is the same rough English-prose ratio used
-// nowhere else numerically in this codebase but is the standard rule of
-// thumb for Latin-script text; kept local to this one estimate, never
-// presented to a human as exact.
-const DEV_CHARS_PER_TOKEN = 3.5;
-const DEV_ANSWER_RESERVE_TOKENS = 2000;
-// Ollama-lookup-failure fallback only (daemon unreachable, model not found) —
-// distinct from the non-Ollama fallbacks below, which are per-provider.
-const DEV_DEFAULT_CONTEXT_TOKENS = 8192;
-const DEV_MIN_USABLE_TOKENS = 1000;
-// claude-api/claude-cli both front large-context
-// Anthropic models — 200k tokens is Claude's own documented window, not a
-// guess. Every other non-Ollama provider (openai-compat, an external
-// module) reports no context size to this broker at all, so 32768 is a
-// conservative placeholder, well short of most modern remote models but far
-// above the old 8192 default dev mode is meant to exceed.
-const DEV_CLAUDE_CONTEXT_TOKENS = 200_000;
-const DEV_OTHER_PROVIDER_CONTEXT_TOKENS = 32_768;
+// Fitting page content to the ACTIVE model's own context window
+// (docs/PROTOCOL.md "Fitting the page"): Ollama's own contextTokens tier when
+// the active provider is ollama (the num_ctx the request will use), else a
+// per-provider fixed figure. ~3.5 chars/token is the rule of thumb for Latin
+// script; never presented to a human as exact.
+const PAGE_CHARS_PER_TOKEN = 3.5;
+const PAGE_ANSWER_RESERVE_TOKENS = 2000;
+// Ollama lookup failure only (daemon unreachable, model not found).
+const OLLAMA_FALLBACK_CONTEXT_TOKENS = 8192;
+// A part always makes progress, even when the rest of the prompt fills the window.
+const MIN_PAGE_ROOM_CHARS = 2000;
+// claude-api/claude-cli front Anthropic models: 200k tokens is Claude's own
+// documented window. Every other provider (openai-compat, an external module)
+// reports no context size to this broker, so 32768 is a conservative guess.
+const CLAUDE_CONTEXT_TOKENS = 200_000;
+const OTHER_PROVIDER_CONTEXT_TOKENS = 32_768;
+// A cut lands on a line break when one falls within this share of the room.
+const LINE_BREAK_WINDOW = 0.02;
 
-/** Exported for tests. Pure: the character budget dev-level content is fit
- * to, given the active model's own context size in tokens (undefined when
- * unknown — see resolveActiveContextTokens below). Always ≤
- * MAX_DEV_CONTEXT_CHARS. */
-export function devContentCharBudget(contextTokens: number | undefined): number {
-  const tokens = contextTokens ?? DEV_DEFAULT_CONTEXT_TOKENS;
-  const usable = Math.max(tokens - DEV_ANSWER_RESERVE_TOKENS, DEV_MIN_USABLE_TOKENS);
-  return Math.min(Math.floor(usable * DEV_CHARS_PER_TOKEN), MAX_DEV_CONTEXT_CHARS);
+/** Exported for tests. Pure: characters of page text that fit the model's
+ * window next to `overheadChars` of other prompt (instructions, question,
+ * facts/items/elements, system prompt). Ollama trims history within its own
+ * tier; other providers reserve HISTORY_CHAR_BUDGET when history is sent. */
+export function pageContentRoom(
+  contextTokens: number | undefined,
+  overheadChars: number,
+  opts: { ollama: boolean; hasHistory: boolean },
+): number {
+  const room = opts.ollama
+    ? ollamaContentChars(contextTokens ?? OLLAMA_FALLBACK_CONTEXT_TOKENS, overheadChars)
+    : Math.floor(((contextTokens ?? OTHER_PROVIDER_CONTEXT_TOKENS) - PAGE_ANSWER_RESERVE_TOKENS) * PAGE_CHARS_PER_TOKEN) -
+      overheadChars -
+      (opts.hasHistory ? HISTORY_CHAR_BUDGET : 0);
+  return Math.min(Math.max(room, MIN_PAGE_ROOM_CHARS), MAX_PAGE_CHARS);
 }
 
 /** The active model's own context window, in tokens, when this broker can
  * tell — Ollama reports a real per-model figure (models.list/model.warmup
  * use the same lookup), `undefined` on any lookup failure (daemon
- * unreachable, model not found), in which case devContentCharBudget's own
- * DEV_DEFAULT_CONTEXT_TOKENS fallback applies. Every other provider gets a
- * fixed per-provider estimate (DEV_CLAUDE_CONTEXT_TOKENS/
- * DEV_OTHER_PROVIDER_CONTEXT_TOKENS above) — never `undefined`, since none
- * of them can fail this lookup (nothing is actually probed). Never throws.
+ * unreachable, model not found), in which case pageContentRoom's own
+ * Ollama fallback applies. Every other provider gets a fixed per-provider
+ * estimate (CLAUDE_CONTEXT_TOKENS/OTHER_PROVIDER_CONTEXT_TOKENS above) —
+ * never `undefined`, since nothing is actually probed. Never throws.
  * Exported for tests. */
 export async function resolveActiveContextTokens(
   provider: ModelProvider,
@@ -444,8 +471,8 @@ export async function resolveActiveContextTokens(
 ): Promise<number | undefined> {
   if (provider.id !== "ollama") {
     return provider.id === "claude-api" || provider.id === "claude-cli"
-      ? DEV_CLAUDE_CONTEXT_TOKENS
-      : DEV_OTHER_PROVIDER_CONTEXT_TOKENS;
+      ? CLAUDE_CONTEXT_TOKENS
+      : OTHER_PROVIDER_CONTEXT_TOKENS;
   }
   try {
     const ollamaUrl = providerOpts.ollamaUrl ?? DEFAULT_OLLAMA_URL;
@@ -504,45 +531,38 @@ function awaitClientAnswer(
   });
 }
 
-/** Validates and, for level "dev", fits the client-supplied page content
- * before it is spliced into a re-run prompt. Returns an error message
- * (never thrown) when the content breaches a size bound — "the broker
- * refuses, it never truncates" for a protocol-level breach (level "text"'s
- * existing MAX_CONTEXT_CHARS/contextBudgetError, or level "dev" past
- * MAX_DEV_CONTEXT_CHARS) — distinct from the dev-only fit-to-model-context
- * truncation below, which is expected/routine and always reported via
- * `report.truncated`, never refused. */
-async function fitPageContent(
+export type PageReport = { level: "text" | "dev"; chars: number; from: number; sentChars: number; truncated: boolean };
+
+/** Fits page content to the active model's window: reads `context.text` from
+ * `from`, keeps what fits next to the rest of the prompt (measured by
+ * building it with an empty text) and cuts at a line break when one is near.
+ * Never refuses: what does not fit is reported (`truncated`) and read in a
+ * later part. A continuation (`from > 0`) drops facts, items and elements,
+ * already read in the first part. `build` must be the prompt the content
+ * will be spliced into. */
+export async function fitPageContent(
   level: "text" | "dev",
   context: Context,
+  from: number,
+  build: (context: Context) => BuiltPrompt,
   provider: ModelProvider,
   providerOpts: ProviderRuntimeOptions,
-): Promise<
-  | { error: string }
-  | { error?: undefined; context: Context; report: { level: "text" | "dev"; chars: number; sentChars: number; truncated: boolean } }
-> {
-  const chars = context.text?.length ?? 0;
-  if (level === "text") {
-    if (contextTooLarge(context.text)) return { error: `text exceeds ${MAX_CONTEXT_CHARS} characters` };
-    const budgetError = contextBudgetError(context);
-    if (budgetError) return { error: budgetError };
-    return { context, report: { level, chars, sentChars: chars, truncated: false } };
-  }
-  // level === "dev": the protocol's own hard cap first (a breach refuses,
-  // same stance as every other numeric wire bound in this codebase).
-  if (chars > MAX_DEV_CONTEXT_CHARS) {
-    return { error: `page content exceeds ${MAX_DEV_CONTEXT_CHARS} characters` };
-  }
+  hasHistory: boolean,
+): Promise<{ context: Context; report: PageReport }> {
+  const text = context.text ?? "";
+  const base: Context = from > 0 ? { ...context, facts: undefined, items: undefined, elements: undefined } : context;
+  const empty = build({ ...base, text: "" });
+  const overhead = empty.prompt.length + buildSystemPrompt(empty.nonce, empty.lang).length;
   const contextTokens = await resolveActiveContextTokens(provider, providerOpts);
-  const budget = devContentCharBudget(contextTokens);
-  if (chars <= budget) {
-    return { context, report: { level, chars, sentChars: chars, truncated: false } };
+  const room = pageContentRoom(contextTokens, overhead, { ollama: provider.id === "ollama", hasHistory });
+  let end = Math.min(text.length, from + room);
+  if (end < text.length) {
+    const lineBreak = text.lastIndexOf("\n", end - 1);
+    if (lineBreak > end - room * LINE_BREAK_WINDOW && lineBreak >= from) end = lineBreak + 1;
   }
-  // Truncates from the end, reports it — never a refusal: fitting dev
-  // content to the model's own window is routine, not a client breach.
   return {
-    context: { ...context, text: (context.text ?? "").slice(0, budget) },
-    report: { level, chars, sentChars: budget, truncated: true },
+    context: { ...base, text: text.slice(from, end) },
+    report: { level, chars: text.length, from, sentChars: end - from, truncated: end < text.length },
   };
 }
 
@@ -682,7 +702,6 @@ export function handleChatPageOnDemand(
   void runChatPageOnDemandLoop(ws, message, active, provider, providerOpts, lang, connState, startedAt);
 }
 
-type PageReport = { level: "text" | "dev"; chars: number; sentChars: number; truncated: boolean };
 type SearchReport = { queries: string[]; results: number; pages: number; chars: number; capped?: true };
 
 /** The per-question budget of snippet and page characters: the smaller one for
@@ -957,12 +976,21 @@ async function runChatPageOnDemandLoop(
       const missing = openRefs.filter((n) => !answer.pages.some((p) => p.n === n));
       if (missing.length > 0) searchNotes.push(openFailedNote(missing, "not read"));
     } else {
-      const fit = await fitPageContent(answer.level, answer.context, provider, providerOpts);
-      if (fit.error) {
-        send(ws, { type: "error", id: message.id, code: "context-too-large", message: fit.error });
+      const error = contextBudgetError(answer.context);
+      if (error) {
+        send(ws, { type: "error", id: message.id, code: "context-too-large", message: error });
         logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
         return;
       }
+      const fit = await fitPageContent(
+        answer.level,
+        answer.context,
+        0,
+        (c) => buildPrompt({ kind: "chat", text: message.text, context: c, devMode, history: message.history }, lang),
+        provider,
+        providerOpts,
+        (message.history?.length ?? 0) > 0,
+      );
       pageReport = fit.report;
       pageContext = fit.context;
       pageRead = true;

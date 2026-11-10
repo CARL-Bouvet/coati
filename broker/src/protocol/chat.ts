@@ -173,29 +173,46 @@ export function parsePageMeta(v: unknown): PageMeta | undefined {
   return meta;
 }
 
-/**
- * Cheap shape test for "does this JSON object look like a `page.content`
- * carrying real context?" — used by the oversized-message gate
- * (parseClientMessage) the same way as looksLikeChatWithImage below: a
- * `page.content` can legitimately carry up to MAX_IMAGE_MESSAGE_BYTES (dev
- * level's cleaned HTML, docs/PROTOCOL.md "Page on demand"), same allowance
- * as chat+image.
- */
-export function looksLikePageContent(parsed: unknown): boolean {
-  return isRecord(parsed) && parsed.type === "page.content" && isRecord(parsed.context);
+/** `chat.readPart` / `summarize.readPart` (docs/PROTOCOL.md "chat"): continues
+ * a reading the previous `done.page` left unfinished. */
+export interface ReadPart {
+  /** Character offset into `context.text`. */
+  from: number;
+  level: "text" | "dev";
+}
+
+/** Validates `readPart` against the `context` it rides on. Returns the part,
+ * undefined when absent, or an error message (bad-request): a malformed part
+ * is never silently read from the start. A summary reads at the text level only. */
+export function parseReadPart(
+  v: unknown,
+  context: { text?: string } | undefined,
+  textLevelOnly: boolean,
+): ReadPart | undefined | { error: string } {
+  if (v === undefined) return undefined;
+  if (!isRecord(v) || (v.level !== "text" && v.level !== "dev")) return { error: "readPart: invalid level" };
+  if (textLevelOnly && v.level !== "text") return { error: "readPart: level must be text" };
+  if (!context) return { error: "readPart: requires context" };
+  const { from } = v;
+  if (typeof from !== "number" || !Number.isInteger(from) || from <= 0 || from >= (context.text?.length ?? 0)) {
+    return { error: "readPart: from out of range" };
+  }
+  return { from, level: v.level };
 }
 
 /**
- * Cheap shape test for "does this JSON object look like a chat carrying an
- * image?" — used by the oversized-message gate (parseClientMessage) BEFORE
- * full validation (parseChatImage), so a frame between MAX_MESSAGE_BYTES and
- * MAX_IMAGE_MESSAGE_BYTES that is obviously not a legitimate chat+image can
- * still be refused with the exact message/id, without paying
- * for base64 decode + magic-byte checks on a payload we're about to reject
- * anyway.
+ * Cheap shape test for "may this JSON object carry a large payload?" — used
+ * by the oversized-message gate (parseClientMessage) BEFORE full validation,
+ * so a frame between MAX_MESSAGE_BYTES and MAX_LARGE_MESSAGE_BYTES that is
+ * obviously not a legitimate image or page-content message can still be
+ * refused with the exact message/id, without paying for base64 decode or
+ * context parsing on a payload we're about to reject anyway: a `chat` with an
+ * `image` or a `context`, a `summarize`, or a `page.content`.
  */
-export function looksLikeChatWithImage(parsed: unknown): boolean {
-  return isRecord(parsed) && parsed.type === "chat" && isRecord(parsed.image);
+export function looksLikeLargeMessage(parsed: unknown): boolean {
+  if (!isRecord(parsed)) return false;
+  if (parsed.type === "chat") return isRecord(parsed.image) || isRecord(parsed.context);
+  return (parsed.type === "summarize" || parsed.type === "page.content") && isRecord(parsed.context);
 }
 
 // docs/PROTOCOL.md "Search": the abilities a panel can announce, the limits on

@@ -98,7 +98,7 @@ for (const e of entries) {
     const text = ex.text || "";
     Object.assign(row, { extractError: ex.error ?? null, kind: ex.kind ?? null, pageKind: ex.pageKind ?? null, extractedLen: text.length,
       kept: row.bodyLen ? +((text.length / row.bodyLen) * 100).toFixed(1) : null,
-      facts: Array.isArray(ex.facts) ? ex.facts.length : 0, items: Array.isArray(ex.items) ? ex.items.length : 0, truncated: text.length >= 40000 });
+      facts: Array.isArray(ex.facts) ? ex.facts.length : 0, items: Array.isArray(ex.items) ? ex.items.length : 0, truncated: text.length >= 400000 });
     const facts = (ex.facts || []).map(f => `  fait   · ${f.label} : ${f.value}`);
     const items = (ex.items || []).map(it => `  item  · ${[it.title, it.price, it.location, it.detail].filter(Boolean).join(" | ")}`);
     writeFileSync(`${OUT}/${e.key}.${LEVEL}.txt`, [`# ${e.key}`, `final url   : ${row.url}`, `title       : ${row.title}`,

@@ -87,14 +87,14 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 
 | Type | Key fields | Purpose |
 |---|---|---|
-| `chat` | `text`, `context?`, `image?`, `history?`, `page?`, `devMode?`, `abilities?`, `searchQuery?`, `pageUnreadable?` | Ask the model a question. `context` carries page/selection content up front; `page` (title/url/kind?/chars), sent only when `context` is absent, offers the page's metadata only (`title` and `url` at most 300 characters each; a malformed `page` is dropped, not refused) — see "Page on demand" below. `image` (`{ mediaType: "image/jpeg"|"image/png", data` base64`, width, height }`, both sides at most 2000 px, at most 1 MiB decoded, bytes matching the declared type) is a screenshot of the tab; an invalid one is dropped, and the question goes through as text. `history` is the earlier turns, `[{ role: "user"|"assistant", text }]`, oldest first. `devMode` only matters with `page`. `abilities` (`"search"`) lists what the panel can do beyond reading; `searchQuery` (1–200 chars) asks the broker to search right away — see "Search"; `pageUnreadable` (`true`) says the current page is one the browser does not let Coati read (an internal browser page, a PDF viewer): the question carries no page and the model is told so |
+| `chat` | `text`, `context?`, `image?`, `history?`, `page?`, `devMode?`, `abilities?`, `searchQuery?`, `pageUnreadable?`, `readPart?` | Ask the model a question. `context` carries page/selection content up front; `page` (title/url/kind?/chars), sent only when `context` is absent, offers the page's metadata only (`title` and `url` at most 300 characters each; a malformed `page` is dropped, not refused) — see "Page on demand" below. `image` (`{ mediaType: "image/jpeg"|"image/png", data` base64`, width, height }`, both sides at most 2000 px, at most 1 MiB decoded, bytes matching the declared type) is a screenshot of the tab; an invalid one is dropped, and the question goes through as text. `history` is the earlier turns, `[{ role: "user"|"assistant", text }]`, oldest first. `devMode` only matters with `page`. `abilities` (`"search"`) lists what the panel can do beyond reading; `searchQuery` (1–200 chars) asks the broker to search right away — see "Search"; `pageUnreadable` (`true`) says the current page is one the browser does not let Coati read (an internal browser page, a PDF viewer): the question carries no page and the model is told so; `readPart` (`{ from, level }`, only with `context`) continues a reading the previous `done.page` left unfinished: the broker reads `context.text` from character `from` (`0 < from < context.text.length`, else `bad-request`), and `facts`, `items` and `elements` are ignored (already read in the first part); for `level: "dev"`, `context.text` is cleaned HTML |
 | `page.content` | `target` (the `chat`'s own id), `level` (`"text"`\|`"dev"`), `context` | Answers a `page.request`: the page's content, same `Context` shape a `chat` would have carried up front (for `level: "dev"`, `context.text` holds cleaned HTML). |
 | `page.decline` | `target` | Answers a `page.request`: the user declined to share the page. |
 | `search.content` | `target`, `query`, `results: [{ n, title, url, snippet }]` | Answers a `search.request`: the results, no page. |
 | `search.decline` | `target`, `reason` (`"no-access"`\|`"no-result"`\|`"blocked"`\|`"failed"`) | Answers a `search.request`: nothing could be searched or read (`"blocked"`: the user refused the search). |
 | `open.content` | `target`, `pages: [{ n, url, title, text }]` | Answers an `open.request`: the pages read. |
 | `open.decline` | `target`, `reason` (`"no-access"`\|`"blocked"`\|`"failed"`) | Answers an `open.request`: no page could be opened. |
-| `summarize` | `context` (required) | Summarize a page/selection. |
+| `summarize` | `context` (required), `readPart?` | Summarize a page/selection. `readPart` is as in `chat`, with `level: "text"` only. |
 | `prompts.list` | — | List saved prompts. |
 | `prompts.save` | `prompt: { id?, site, title?, body }` | Create (no `id`) or update (with `id`: `title` and `body` change, `site` is ignored) a saved prompt. `body` is 1–`PROMPT_BODY_MAX` characters, `title` at most `PROMPT_TITLE_MAX` (trimmed; empty means none). `id` has the form `p_` + 12 hex chars; an unknown `id` is a `bad-request`. |
 | `prompts.delete` | `promptId` | Delete a saved prompt. |
@@ -115,7 +115,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | Type | Key fields | Purpose |
 |---|---|---|
 | `chunk` | `id`, `delta` | One streamed fragment of a model answer. |
-| `done` | `id`, `usage: { inputTokens, outputTokens }`, `historyKept?`, `page?`, `search?`, `suggest?` | End of stream; token usage (summed over every provider call this request made, see "Page on demand"); how many `history` entries were actually used; `page: { level, chars, sentChars, truncated }` present only when the page was actually read; `search: { queries, results, pages, chars, capped? }` only when a search returned results; `suggest: { search }` when the model asked for a further search that was not run |
+| `done` | `id`, `usage: { inputTokens, outputTokens }`, `historyKept?`, `page?`, `search?`, `suggest?` | End of stream; token usage (summed over every provider call this request made, see "Page on demand"); how many `history` entries were actually used; `page: { level, chars, from, sentChars, truncated }` present when page content reached the model (`summarize`, `chat` with `context`, `page.content`): `chars` is the content's length, `from` where the part read starts, `sentChars` its length, `truncated` is `from + sentChars < chars`, and the next part starts at `from + sentChars`; `search: { queries, results, pages, chars, capped? }` only when a search returned results; `suggest: { search }` when the model asked for a further search that was not run |
 | `page.request` | `id` (the `chat`'s own id), `level` (`"text"`\|`"dev"`), `discard?` | The model asked to read the page — see "Page on demand" below. |
 | `search.request` | `id` (the `chat`'s own id), `query`, `discard?` | The model asked to search the web — see "Search" below. |
 | `open.request` | `id` (the `chat`'s own id), `refs: [{ n, url }]`, `discard?` | The model asked to open search results — see "Search" below. |
@@ -174,14 +174,14 @@ provider the broker doesn't know fails `chat`/`summarize` with `model-unavailabl
 
 | Constant | Value | Meaning |
 |---|---|---|
-| `MAX_MESSAGE_BYTES` | 256 KiB | Largest client message, except a `chat` carrying a valid `image` and a `page.content` with `level: "dev"`. |
-| `MAX_IMAGE_MESSAGE_BYTES` | 1.5 MiB | Largest message in those two cases. |
+| `MAX_MESSAGE_BYTES` | 256 KiB | Largest client message, except one carrying a valid `image` or page content (`chat`/`summarize` with `context`, `page.content`). |
+| `MAX_LARGE_MESSAGE_BYTES` | 1.5 MiB | Largest message in those cases. |
 | `IMAGE_MAX_DECODED_BYTES` | 1 MiB | Largest decoded image. |
 | `IMAGE_MAX_SIDE` | 2000 px | Largest image dimension. |
-| `MAX_CONTEXT_CHARS` | 40,000 | Largest `chat.text`; also the total of a `context`'s `text`, `facts`, `items` and `elements` characters, and the cap for a `page.content` at `level: "text"`. A breach is `context-too-large`; the broker never truncates. |
+| `MAX_CONTEXT_CHARS` | 40,000 | Largest `chat.text`. A breach is `context-too-large`. |
 | `FACTS_MAX` / `ITEMS_MAX` / `ELEMENTS_MAX` | 40 / 40 / 120 | Entries in `context.facts` / `items` / `elements`; a breach is `context-too-large`. Per-field caps: fact label 60 and value 160 characters; item title 160, price 40, location 80, detail 200; element label 80. |
 | `PAGE_META_TITLE_MAX` / `PAGE_META_URL_MAX` | 300 / 300 | `chat.page.title` / `url`; a `page` over either is dropped whole. |
-| `MAX_DEV_CONTEXT_CHARS` | 400,000 | Largest `page.content` at `level: "dev"` (cleaned HTML) accepted — further fit to the active model's own context window, see "Page on demand". |
+| `MAX_PAGE_CHARS` | 400,000 | Largest `context` (`text`, `facts`, `items` and `elements` characters together), at any level, in a `chat`, a `summarize` or a `page.content`; a breach is `context-too-large`. Below it the broker fits the content to the active model's window (see "Fitting the page"), never refuses. |
 | `PAGE_REQUEST_TIMEOUT_MS` | 120,000 | Time the broker waits for the answer to a `page.request` or an `open.request`. |
 | `SEARCH_REQUEST_TIMEOUT_MS` | 300,000 | Wait for the answer to a `search.request` (the user may be deciding). |
 | `SEARCH_MAX_PER_QUESTION` | 4 | Automatic searches per question. |
@@ -234,19 +234,32 @@ for a marker, never forwarded at all):
   `page.content.level` other than the one `page.request` actually asked for, or an answer of
   another kind (a `search.content` to a `page.request`), is a protocol breach — `bad-request`, the
   request stops, nothing is re-run. A `page.content` over the size limits is `context-too-large`
-  (see Limits); a `dev` one over `MAX_DEV_CONTEXT_CHARS` is refused, one that merely exceeds the
-  model's window is cut (see `done.page`).
+  (see Limits); one over `MAX_PAGE_CHARS` is refused, one that merely exceeds the model's window is
+  cut (see "Fitting the page").
 - At most one read per level and two reads per question. A marker beyond that cap is stripped
   from the forwarded text and otherwise ignored — no further `page.request`, no abort.
 - Thinking/reasoning content is never scanned for a marker.
 
 `done.usage` on a page-on-demand request is the sum of every provider call the question made
-(the initial metadata-only call, plus one per `page.request` round trip). `done.page` is present
-only when the page was actually read, reporting the level, the content's own length, how much of
-it actually reached the model (`sentChars`), and whether it was truncated (dev level only, fit to
-the active model's context window — Ollama's own `contextTokens` tier when known, else a fixed
-8192-token fallback on lookup failure; 200,000 tokens for `claude-api`/`claude-cli`, 32,768 for
-any other provider; ~3.5 chars/token, 2000 tokens reserved for the answer).
+(the initial metadata-only call, plus one per `page.request` round trip). `done.page` reports what
+was read (see "Fitting the page").
+
+## Fitting the page
+
+Page content (`context` in a `chat` or `summarize`, `page.content` at either level) is fit to the
+active model's context window. The window is Ollama's own `contextTokens` of the model (the
+`num_ctx` the request will use), 8192 tokens when that lookup fails; 200,000 tokens for
+`claude-api`/`claude-cli`; 32,768 for any other provider. The room for content is the window
+minus the answer reserve minus the rest of the prompt (instructions, question, facts, items,
+elements, history: Ollama trims history within its tier, other providers reserve
+`HISTORY_CHAR_BUDGET`). Ollama counts 3 characters per token with 1024 tokens reserved (the same
+rule as its `num_ctx` choice); the others 3.5 characters per token with 2000 reserved. Only
+`text` gives way: the part read is `context.text` from `readPart.from` (0 without it), cut at the
+last line break in the final 2% of the room. What does not fit is reported in `done.page`
+(`truncated: true`), never sent silently; the client asks for the next part with a `chat` or
+`summarize` carrying the same content and `readPart.from = done.page.from + done.page.sentChars`.
+The broker keeps no state between parts. A continuation also tells the model which characters it
+holds, so it answers the same question from that part alone.
 
 ## Search
 

@@ -402,3 +402,20 @@ describe("renderHistoryBlock (pure)", () => {
     );
   });
 });
+
+describe("buildPrompt — page continuation", () => {
+  const context: Context = { kind: "page", text: "tail of the page" };
+  const part = { from: 1000, chars: 1016 };
+
+  test("a chat continuation names the characters read; absent without a part", () => {
+    const withPart = buildPrompt({ kind: "chat", text: "q", context, part }).prompt;
+    expect(withPart).toContain("continuation of the page: characters 1000–1016 of 1016");
+    expect(withPart).toContain("without repeating");
+    expect(buildPrompt({ kind: "chat", text: "q", context }).prompt).not.toContain("continuation");
+  });
+
+  test("a summary continuation says to summarize this part only; absent without a part", () => {
+    expect(buildPrompt({ kind: "summarize", context, part }).prompt).toContain("Summarize this part only");
+    expect(buildPrompt({ kind: "summarize", context }).prompt).not.toContain("continuation");
+  });
+});

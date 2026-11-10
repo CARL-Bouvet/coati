@@ -185,14 +185,50 @@
       }
     }
   },
-  "panel_page_mention_truncated_suffix": {
-    "message": "（已读 $PERCENT$%）",
+  "panel_page_mention_part_start": {
+    "message": "已读：开头（$PERCENT$%）。此页面约需 $NEED$k 个 token，你的模型可读 $FIT$k。",
     "placeholders": {
       "percent": {
         "content": "$1",
         "example": "40"
+      },
+      "need": {
+        "content": "$2",
+        "example": "90"
+      },
+      "fit": {
+        "content": "$3",
+        "example": "32"
       }
     }
+  },
+  "panel_page_mention_part_middle": {
+    "message": "已读：页面的 $FROM$–$TO$%。",
+    "placeholders": {
+      "from": {
+        "content": "$1",
+        "example": "40"
+      },
+      "to": {
+        "content": "$2",
+        "example": "80"
+      }
+    }
+  },
+  "panel_page_mention_part_end": {
+    "message": "已读：页面结尾（从 $FROM$% 起）。",
+    "placeholders": {
+      "from": {
+        "content": "$1",
+        "example": "80"
+      }
+    }
+  },
+  "panel_read_rest_button": {
+    "message": "继续阅读"
+  },
+  "panel_read_rest_user": {
+    "message": "继续阅读页面其余部分"
   },
   "dev_mode_confirm_title": {
     "message": "开启开发者模式？"

@@ -43,7 +43,7 @@ import { releaseOwnConsole, waitForEnter } from "./install/console.ts";
 import { runUninstall } from "./install/uninstall.ts";
 import { type Cli, USAGE, isCompiledExe, isInstalledExe, parseCli, selectMode, wantsPrompt } from "./install/plan.ts";
 import { ProviderStatusCache } from "./provider-status.ts";
-import { MAX_MESSAGE_BYTES, MAX_IMAGE_MESSAGE_BYTES, parseClientMessage } from "./protocol.ts";
+import { MAX_MESSAGE_BYTES, MAX_LARGE_MESSAGE_BYTES, parseClientMessage } from "./protocol.ts";
 import { getProvider, getProviders, initRegistry } from "./providers/registry.ts";
 import { DEFAULT_LANG, type Lang } from "./messages.ts";
 import type { PromptsDirs } from "./prompts.ts";
@@ -72,7 +72,7 @@ import type { ProviderRuntimeOptions } from "./providers/types.ts";
 // keeps working unchanged (see this file's own header).
 export {
   MAX_CONTEXT_CHARS,
-  MAX_DEV_CONTEXT_CHARS,
+  MAX_PAGE_CHARS,
   BROKER_FEATURES,
   contextTooLarge,
   contextBudgetError,
@@ -383,12 +383,12 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       // a multi-hundred-MB frame sent before auth (when there is no other
       // gate yet) would be fully received into memory regardless of what
       // the `message` handler below goes on to check. Raised from MAX_MESSAGE_BYTES to
-      // MAX_IMAGE_MESSAGE_BYTES (1.5 MiB) + 4 KiB slack, so a legitimate chat+image frame (up to
-      // ~1.37 MiB of base64 for a 1 MiB decoded image, plus the rest of the
-      // envelope) can still reach the `message` handler below, which is
+      // MAX_LARGE_MESSAGE_BYTES (1.5 MiB) + 4 KiB slack, so a legitimate frame carrying an image or
+      // page content (~1.37 MiB of base64 for a 1 MiB decoded image, or
+      // 400 000 characters of text, plus the rest of the envelope) can still reach the `message` handler below, which is
       // where the finer-grained 256 KiB-vs-1.5 MiB distinction actually
       // lives (docs/PROTOCOL.md) — this is only the hard backstop.
-      maxPayloadLength: MAX_IMAGE_MESSAGE_BYTES + 4096,
+      maxPayloadLength: MAX_LARGE_MESSAGE_BYTES + 4096,
       open(ws) {
         // docs/PROTOCOL.md: a 17th unauthenticated connection is refused
         // immediately, before any message (not even the generic error frame).
@@ -417,7 +417,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
         const rawByteLength = typeof raw === "string" ? Buffer.byteLength(raw, "utf8") : raw.byteLength;
 
         // Pre-auth: hello/auth never carry an image (docs/PROTOCOL.md) — the raised cap below only
-        // ever applies post-auth, to a chat+image. Unauthenticated connections keep the
+        // ever applies post-auth, to a message carrying an image or page content. Unauthenticated connections keep the
         // original, unconditional 256 KiB gate, no JSON parsed on a breach.
         if (!ws.data.authed) {
           if (rawByteLength > MAX_MESSAGE_BYTES) {
@@ -432,19 +432,19 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           return;
         }
 
-        // Authenticated: a frame past MAX_IMAGE_MESSAGE_BYTES is refused
+        // Authenticated: a frame past MAX_LARGE_MESSAGE_BYTES is refused
         // outright regardless of content — same oversized+close(1009)
         // treatment as every message beyond MAX_MESSAGE_BYTES that isn't a
-        // legitimate chat+image (docs/PROTOCOL.md). Defense in depth:
+        // legitimate image or page-content message (docs/PROTOCOL.md). Defense in depth:
         // websocket.maxPayloadLength above normally stops a frame this
         // large from ever reaching this handler.
-        if (rawByteLength > MAX_IMAGE_MESSAGE_BYTES) {
+        if (rawByteLength > MAX_LARGE_MESSAGE_BYTES) {
           console.error(`coati-broker: reject stage=oversized origin=${sanitizeLogValue(ws.data.origin)}`);
           send(ws, {
             type: "error",
             id: "oversized",
             code: "bad-request",
-            message: `message exceeds ${MAX_IMAGE_MESSAGE_BYTES} byte cap`,
+            message: `message exceeds ${MAX_LARGE_MESSAGE_BYTES} byte cap`,
           });
           ws.close(1009, "oversized");
           return;
@@ -453,7 +453,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
         const result = parseClientMessage(text);
         if (!result.ok) {
           // The two-tier oversized rejection
-          // (> MAX_MESSAGE_BYTES and not a legitimate chat+image) also
+          // (> MAX_MESSAGE_BYTES and not a legitimate image or page-content message) also
           // closes the connection — same policy as the raw-byte-length gate
           // this generalises (docs/PROTOCOL.md).
           if (result.error.oversized) {

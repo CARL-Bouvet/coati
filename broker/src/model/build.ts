@@ -32,6 +32,13 @@ import {
   type PageMeta,
 } from "./render.ts";
 
+/** A continuation: `context.text` holds characters `from`… of a page that has
+ * `chars` characters in all; the earlier parts were read in previous turns. */
+export interface PagePart {
+  from: number;
+  chars: number;
+}
+
 export type PromptInput =
   // `image` and `search` are chat-only (docs/PROTOCOL.md §3 — neither
   // summarize ever carries one).
@@ -95,8 +102,10 @@ export type PromptInput =
        * PDF viewer): a trusted note says so. Ignored when `context` or
        * `page` is present. */
       pageUnreadable?: boolean;
+      /** Set when `context` is a continuation of the page (not the first part). */
+      part?: PagePart;
     }
-  | { kind: "summarize"; context: Context };
+  | { kind: "summarize"; context: Context; part?: PagePart };
 
 // The summary's OWN section labels — "À retenir :", "Les faits"…
 // — are text the model is instructed to reproduce verbatim in its reply
@@ -281,6 +290,14 @@ function summarizeInstruction(context: Context, lang: Lang): string {
   return defaultSummaryInstruction(context.kind, lang);
 }
 
+/** Trusted line telling the model which slice of the page it holds. */
+function continuationNote(kind: "chat" | "summarize", part: PagePart, context: Context): string {
+  const range = `characters ${part.from}–${part.from + (context.text?.length ?? 0)} of ${part.chars}`;
+  return kind === "chat"
+    ? `This is the continuation of the page: ${range}. Earlier parts were read in previous turns; answer the same question from this part without repeating what was already said.`
+    : `This is the continuation of the page: ${range}. Summarize this part only; the beginning was summarized earlier.`;
+}
+
 export interface BuiltPrompt {
   /** The final prompt text sent to the model. */
   prompt: string;
@@ -348,6 +365,7 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
       const sources = input.search && input.search.pages.length > 0 ? input.search.pages : undefined;
       if (input.search) parts.push(renderSearch(input.search, nonce));
       parts.push(`User request:\n${input.text}`);
+      if (input.part && input.context) parts.push(continuationNote("chat", input.part, input.context));
       if (input.search) parts.push(SEARCH_ANSWER_INSTRUCTION);
       for (const note of input.searchNotes ?? []) parts.push(note);
       if (input.offerSearch) parts.push(SEARCH_OFFER_INSTRUCTION);
@@ -397,6 +415,7 @@ export function buildPrompt(input: PromptInput, lang: Lang = DEFAULT_LANG): Buil
         renderContext(input.context, nonce),
         summarizeInstruction(input.context, lang),
       ];
+      if (input.part) parts.push(continuationNote("summarize", input.part, input.context));
       if (input.context.elements && input.context.elements.length > 0) {
         parts.push(elementsInstruction(false));
       }

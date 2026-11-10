@@ -3,7 +3,7 @@
 import { t } from "../lib/i18n-page.js";
 import { api } from "../lib/browser-compat.js";
 import { els } from "./dom-refs.js";
-import { panelState, newId, STORAGE_KEY } from "./panel-state.js";
+import { panelState, newId, STORAGE_KEY, ownRequests } from "./panel-state.js";
 import { renderMessage, addMessage, renderAll, updateHistoryNotice } from "./message-render.js";
 import { persistConversation } from "./conversation-store.js";
 import { pendingRetries } from "./chat-stream.js";
@@ -214,7 +214,7 @@ export function setStreamingUi(streaming) {
   // Encart buttons and every "Relancer" already in the conversation: a
   // gesture-driven read must not overlap another in-flight request.
   for (const button of els.siteCardSuggestions.querySelectorAll("button")) button.disabled = streaming;
-  for (const button of els.messages.querySelectorAll(".message-relaunch")) button.disabled = streaming;
+  for (const button of els.messages.querySelectorAll(".message-relaunch, .read-rest-button")) button.disabled = streaming;
   if (!streaming) {
     panelState.activeRequestId = null;
     clearRequestWatch();
@@ -244,6 +244,7 @@ let requestWorkerInstanceId = null; // service worker instance that accepted the
  * the ack (or null if the send itself failed) — the shared tail of every
  * place that kicks off a chat/summarize request or replays one. */
 export async function sendClientMessage(payload) {
+  ownRequests.add(payload.id);
   // When it left and which model answers it: the slow-answer tip
   // (model-advice.js) needs both once the first word or an error arrives.
   requestStarts.set(payload.id, { at: Date.now(), entry: currentModelEntry() });

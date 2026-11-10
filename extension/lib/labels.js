@@ -157,3 +157,40 @@ export function formatTokensK(tokens) {
     ? k.toLocaleString(lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
     : Math.round(k).toLocaleString(lang);
 }
+
+const percentOf = (part, whole) => Math.round((part / whole) * 100);
+
+/** The "which part was read" line for a `done.page` that did not cover the
+ * whole page, or `undefined` when it did. */
+function pageReadPart(page) {
+  if (!(page.chars > 0)) return undefined;
+  const to = page.from + page.sentChars;
+  if (page.from > 0) {
+    return page.truncated
+      ? t("panel_page_mention_part_middle", [String(percentOf(page.from, page.chars)), String(percentOf(to, page.chars))])
+      : t("panel_page_mention_part_end", [String(percentOf(page.from, page.chars))]);
+  }
+  if (!page.truncated) return undefined;
+  const need = formatTokensK(estimateTokensFromChars(page.chars));
+  const fit = formatTokensK(estimateTokensFromChars(page.sentChars));
+  return t("panel_page_mention_part_start", [String(percentOf(page.sentChars, page.chars)), need, fit]);
+}
+
+/** The discreet line under a finished answer (docs/PROTOCOL.md `done.page`).
+ * Without `done.page`, only an answer that could have asked for the page
+ * on demand (`pageOnDemand`) says it did not read it.
+ * @returns {string|undefined} */
+export function buildPageMention(pageOnDemand, message) {
+  const usage = message.usage || {};
+  const kTokens = formatTokensK((usage.inputTokens || 0) + (usage.outputTokens || 0));
+  const page = message.page;
+  if (!page) return pageOnDemand ? t("panel_page_mention_not_read", [kTokens]) : undefined;
+  const base = t(page.level === "dev" ? "panel_page_mention_read_dev" : "panel_page_mention_read_text", [kTokens]);
+  const part = pageReadPart(page);
+  return part ? `${base} · ${part}` : base;
+}
+
+/** Where "Read the rest" resumes after a `done.page`, or `undefined` when the page was read to its end. */
+export function nextReadPart(page) {
+  return page && page.truncated ? { from: page.from + page.sentChars, level: page.level } : undefined;
+}

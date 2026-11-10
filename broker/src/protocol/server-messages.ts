@@ -31,16 +31,16 @@ export interface DoneMessage {
   historyKept?: number;
   /**
    * ("page on demand" — docs/PROTOCOL.md "Page
-   * on demand"). Present only when the page was actually read during this
-   * request (one successful `page.content` round trip) — absent when the
-   * model never asked (or a `chat.page` wasn't even offered), same
+   * on demand"). Present when page content reached the model during this
+   * request: a `page.content` round trip, or a `chat`/`summarize` carrying
+   * `context`. Absent when the model never asked (or a `chat.page` wasn't even offered), same
    * "absent means it never happened" convention as `historyKept`. `chars` is
    * the content's own length as received; `sentChars` is how much of it
-   * actually reached the model after any dev-level fit-to-context
-   * truncation (model/build.ts's devContentCharBudget); `truncated` is true
-   * iff `sentChars < chars`.
+   * actually reached the model after fitting to its context window,
+   * starting at character `from`; `truncated` is true iff
+   * `from + sentChars < chars`. The next part starts at `from + sentChars`.
    */
-  page?: { level: "text" | "dev"; chars: number; sentChars: number; truncated: boolean };
+  page?: { level: "text" | "dev"; chars: number; from: number; sentChars: number; truncated: boolean };
   /** Present only when a search returned results (docs/PROTOCOL.md "Search"): what reached the
    * model; `capped` when a search or open marker was stripped by a limit. */
   search?: { queries: string[]; results: number; pages: number; chars: number; capped?: true };

@@ -17,18 +17,14 @@ import {
   type Context,
 } from "./protocol.ts";
 
-// Content is truncated to 40 000 chars by the content script (see PROTOCOL.md).
-// The broker enforces the same cap server-side as a safety net.
+// Largest `chat.text`.
 export const MAX_CONTEXT_CHARS = 40_000;
 
-// "page on demand" — docs/PROTOCOL.md "Page
-// on demand": the dev level's own, much larger cap — a client answering
-// `page.request { level: "dev" }` with cleaned HTML may send up to this many
-// characters of `page.content.context.text` (further fit to the active
-// model's own context window, see handlers/chat.ts's devContentCharBudget —
-// that fit is usually the SMALLER of the two, truncating from the end and
-// reporting it in `done.page`, never a refusal).
-export const MAX_DEV_CONTEXT_CHARS = 400_000;
+// Largest `context` (text + facts + items + elements), at any level, in a
+// `chat`, a `summarize` or a `page.content` (docs/PROTOCOL.md "Limits"). A
+// breach is refused; below it, handlers/chat.ts's fitPageContent fits the
+// content to the active model's own context window, never refusing.
+export const MAX_PAGE_CHARS = 400_000;
 
 // Open-ended wire capabilities this build understands (docs/PROTOCOL.md,
 // "Handshake"); all unconditional, whatever the active model or provider.
@@ -39,7 +35,7 @@ export function contextTooLarge(text: string | undefined): boolean {
 }
 
 // "Size budget" / "Broker-side
-// limits". `text` + `facts` + `items` now share the same 40 000-character
+// limits". `text` + `facts` + `items` + `elements` share the MAX_PAGE_CHARS
 // budget, and each of `facts`/`items` has its own count and per-field length
 // caps. Checked AFTER protocol.ts's parseContext has already dropped
 // malformed-shaped elements ("after dropping malformed-shape elements") —
@@ -89,7 +85,7 @@ export function contextBudgetError(context: Context | undefined): string | undef
       0,
     ) +
     elements.reduce((sum, el) => sum + el.ref.length + el.role.length + el.label.length, 0);
-  if (total > MAX_CONTEXT_CHARS) return `context exceeds ${MAX_CONTEXT_CHARS} characters`;
+  if (total > MAX_PAGE_CHARS) return `context exceeds ${MAX_PAGE_CHARS} characters`;
 
   return undefined;
 }

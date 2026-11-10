@@ -444,11 +444,7 @@ function buildPageKindContext() {
       } catch {
         text = "";
       }
-      const budgetUsed = items.reduce(
-        (sum, it) => sum + (it.title || "").length + (it.price || "").length + (it.location || "").length + (it.detail || "").length,
-        0,
-      );
-      const cappedText = truncate(text, Math.max(0, MAX_CHARS - budgetUsed));
+      const cappedText = truncate(text);
       return {
         kind: "page",
         url: safePageUrl(),
@@ -466,11 +462,7 @@ function buildPageKindContext() {
 
   const cappedFacts = capFacts(facts);
   if (cappedFacts.length >= 4 && hasChiefNumericFact(cappedFacts, mainRegionEl, h1El, excludedEls)) {
-    const budgetUsed = cappedFacts.reduce((sum, f) => sum + f.label.length + f.value.length, 0);
-    const listingText = truncate(
-      applyStructurePrefixes(mainRegionText, mainRegionEl, excludedEls),
-      Math.max(0, MAX_CHARS - budgetUsed),
-    );
+    const listingText = truncate(applyStructurePrefixes(mainRegionText, mainRegionEl, excludedEls));
     return {
       kind: "page",
       url: safePageUrl(),

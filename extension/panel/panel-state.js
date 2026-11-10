@@ -27,6 +27,28 @@ export const panelState = {
   modelEverAnswered: false,
 };
 
+/** Ids of the requests this panel sent. The service worker broadcasts every
+ * reply to every open panel; chunk/progress/done/error are acted on only for
+ * an id in this set. A cancel clears `activeRequestId` before the final
+ * `done`/`error`, so that field alone cannot tell. */
+export const ownRequests = new Set();
+
+/** Folds the stored conversation (written by any panel) into the local one:
+ * the stored copy wins, except for ids in `inFlight` (this panel is streaming
+ * them) and the in-memory-only `elementsSnapshot`; local messages the store
+ * lacks are kept at the end. */
+export function mergeStoredConversation(local, stored, inFlight) {
+  const localById = new Map(local.map((m) => [m.id, m]));
+  const merged = stored.map((m) => {
+    const mine = localById.get(m.id);
+    if (!mine) return m;
+    if (inFlight.has(m.id)) return mine;
+    return mine.elementsSnapshot ? { ...m, elementsSnapshot: mine.elementsSnapshot } : m;
+  });
+  const storedIds = new Set(stored.map((m) => m.id));
+  return merged.concat(local.filter((m) => !storedIds.has(m.id)));
+}
+
 export function newId() {
   return crypto.randomUUID();
 }

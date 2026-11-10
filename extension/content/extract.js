@@ -74,5 +74,14 @@
   } catch {
     result.elements = [];
   }
+  // docs/PROTOCOL.md MAX_PAGE_CHARS (mirrored by MAX_CHARS): text, facts, items
+  // and elements share one budget, and the broker refuses a context over it.
+  // Only the text gives way.
+  const len = (s) => (s || "").length;
+  const others =
+    (result.facts || []).reduce((sum, f) => sum + len(f.label) + len(f.value), 0) +
+    (result.items || []).reduce((sum, it) => sum + len(it.title) + len(it.price) + len(it.location) + len(it.detail), 0) +
+    (result.elements || []).reduce((sum, el) => sum + len(el.ref) + len(el.role) + len(el.label), 0);
+  if (len(result.text) + others > MAX_CHARS) result.text = result.text.slice(0, Math.max(0, MAX_CHARS - others));
   return result;
 })();

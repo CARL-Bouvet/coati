@@ -5,9 +5,9 @@
 // extracted into model-status.js's interceptOwnError(), called first here —
 // same checks, same order, same fall-through for modelSwitchRequestId.
 import { t } from "../lib/i18n-page.js";
-import { formatTokensK, estimateTokensFromChars } from "../lib/labels.js";
+import { formatTokensK, estimateTokensFromChars, buildPageMention, nextReadPart } from "../lib/labels.js";
 import { readProgressStage, slowTipFor } from "./model-advice.js";
-import { panelState } from "./panel-state.js";
+import { panelState, ownRequests } from "./panel-state.js";
 import { els } from "./dom-refs.js";
 import { renderMessage, addMessage } from "./message-render.js";
 import { armRequestDeadline, setStreamingUi } from "./request-watch.js";
@@ -26,6 +26,18 @@ import { clearPendingPageExtraction } from "./composer-send.js";
 // that ended in "auth-required" or "rate-limited": any other terminal
 // outcome drops its entry, so this never grows unbounded over a long session.
 export const pendingRetries = new Map();
+
+// What "Read the rest" resends, keyed by the id of the answer that left a part
+// unread: `{ type, text, context }`. In-memory only (rule 17: the context is
+// the page's own text), newest 3 kept — after a reload the button is absent.
+export const readParts = new Map();
+const MAX_READ_PARTS = 3;
+
+export function rememberReadPart(id, { type, text, context }) {
+  readParts.delete(id);
+  readParts.set(id, { type, text, context });
+  while (readParts.size > MAX_READ_PARTS) readParts.delete(readParts.keys().next().value);
+}
 
 // Last `done.historyKept` seen, across requests — in-memory only.
 export let lastHistoryKept;
@@ -57,28 +69,6 @@ export function onProgress(message) {
   if (panelState.activeRequestId === message.id) armRequestDeadline(message.id, 310_000);
 }
 
-/** docs/PROTOCOL.md "Page on demand", point 5 of the task brief — the
- * discreet mention line under a finished answer. Only ever set on a message
- * that took the metadata-only path (`msg.pageOnDemand`, composer-send.js) —
- * never for summarize (no such path exists for them) nor for the
- * no-"pageOnDemand"-feature fallback (full `context` sent directly: `done
- * .page` is then structurally absent broker-side, and "Did not read the
- * page" would be a misleading thing to say about an answer that in fact had
- * the whole page from the start). */
-function buildPageMention(msg, message) {
-  if (!msg.pageOnDemand) return undefined;
-  const usage = message.usage || {};
-  const kTokens = formatTokensK((usage.inputTokens || 0) + (usage.outputTokens || 0));
-  if (!message.page) return t("panel_page_mention_not_read", [kTokens]);
-  const base =
-    message.page.level === "dev"
-      ? t("panel_page_mention_read_dev", [kTokens])
-      : t("panel_page_mention_read_text", [kTokens]);
-  if (!message.page.truncated || !message.page.chars) return base;
-  const percent = Math.round((message.page.sentChars / message.page.chars) * 100);
-  return base + t("panel_page_mention_truncated_suffix", [percent]);
-}
-
 /** Count and details under an answer that used a web search (docs/PROTOCOL.md "Search"). */
 function buildSearchMention(message) {
   const s = message.search;
@@ -89,7 +79,9 @@ function buildSearchMention(message) {
 }
 
 export function onDone(message) {
+  const sent = pendingRetries.get(message.id);
   pendingRetries.delete(message.id);
+  ownRequests.delete(message.id);
   requestStarts.delete(message.id);
   clearPendingPageExtraction(message.id);
   if (typeof message.historyKept === "number") lastHistoryKept = message.historyKept;
@@ -98,7 +90,9 @@ export function onDone(message) {
     msg.streaming = false;
     msg.progress = undefined;
     msg.pageReading = undefined;
-    msg.pageMention = buildPageMention(msg, message) || undefined;
+    msg.pageMention = buildPageMention(msg.pageOnDemand === true, message);
+    msg.readMore = nextReadPart(message.page);
+    if (msg.readMore && sent?.context) rememberReadPart(message.id, sent);
     msg.searchMention = buildSearchMention(message);
     msg.suggestSearch = typeof message.suggest?.search === "string" ? message.suggest.search : undefined;
     renderMessage(msg);
@@ -120,6 +114,8 @@ export function onDone(message) {
 
 export function onError(message) {
   if (interceptOwnError(message)) return;
+  if (!ownRequests.has(message.id)) return;
+  ownRequests.delete(message.id);
 
   const text = describeBrokerError(message);
   const authRequired = message.code === "auth-required";

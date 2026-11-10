@@ -471,8 +471,23 @@ async function testConnection(
  */
 const CTX_BUCKETS = [4096, 8192, 16384, 32768] as const;
 
+export const OLLAMA_CHARS_PER_TOKEN = 3;
+/** Tokens kept free for the answer in every num_ctx choice. */
+export const OLLAMA_ANSWER_RESERVE_TOKENS = 1024;
+
+/** Estimated tokens a request of `totalChars` needs, answer headroom included. */
+function promptTokenEstimate(totalChars: number): number {
+  return Math.ceil(totalChars / OLLAMA_CHARS_PER_TOKEN) + OLLAMA_ANSWER_RESERVE_TOKENS;
+}
+
+/** Characters of page content that keep a request whose other parts total
+ * `overheadChars` within `contextTokens`, i.e. at `num_ctx === contextTokens`. */
+export function ollamaContentChars(contextTokens: number, overheadChars: number): number {
+  return Math.max(0, (contextTokens - OLLAMA_ANSWER_RESERVE_TOKENS) * OLLAMA_CHARS_PER_TOKEN - overheadChars);
+}
+
 export function ollamaContextSize(totalChars: number): number {
-  const estimatedTokens = Math.ceil(totalChars / 3) + 1024;
+  const estimatedTokens = promptTokenEstimate(totalChars);
   for (const bucket of CTX_BUCKETS) {
     if (bucket >= estimatedTokens) return bucket;
   }
@@ -620,7 +635,7 @@ export async function* streamAnswer(
 
   const systemPrompt = buildSystemPrompt(built.nonce, built.lang);
   const totalChars = systemPrompt.length + built.prompt.length;
-  const promptEstimate = Math.ceil(totalChars / 3) + 1024;
+  const promptEstimate = promptTokenEstimate(totalChars);
   // Use the fixed context size; if the prompt is too large, fall back to the
   // smallest per-request bucket that fits, capped by the model's context_length.
   const ctxCap = showInfo.contextLength ?? 32768;
@@ -652,10 +667,10 @@ export async function* streamAnswer(
   // model has little room" (docs/PROTOCOL.md). `promptEstimate` already
   // reserves the answer's own headroom (+1024 tokens); whatever is left of
   // `num_ctx` is the history budget, converted back to a char count with the
-  // same /3 ratio ollamaContextSize uses the other way. A model whose own
+  // same ratio ollamaContextSize uses the other way. A model whose own
   // prompt already fills its tier gets 0 chars of room — every history
   // entry is dropped, not the request.
-  const remainingChars = Math.max(0, (num_ctx - promptEstimate) * 3);
+  const remainingChars = Math.max(0, (num_ctx - promptEstimate) * OLLAMA_CHARS_PER_TOKEN);
   const trimmedHistory = trimHistoryToCharBudget(built.history, remainingChars);
   const historyMessages = trimmedHistory.map((h) => ({ role: h.role, content: h.text }));
   const historyKept = built.history && built.history.length > 0 ? trimmedHistory.length : undefined;

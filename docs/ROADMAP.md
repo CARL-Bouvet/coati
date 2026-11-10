@@ -57,7 +57,8 @@ Low-severity items, none blocking.
   rejections differ in timing.
 - Broker: credentials in a URL reach the logs; provider
   responses are not size-capped; the openai-compat reachability error echoes `baseUrl`; `act.params`
-  is not validated broker-side.
+  is not validated broker-side; page content is fit to an assumed 32,768-token window for
+  OpenAI-compatible servers (they report none), so a local server with a smaller one can overflow.
 - Extension: the open guard misses single-label hosts and private TLDs; the optional `<all_urls>`
   permission is unused; saved prompts have no cap; extraction loops have no element or time cap;
   dev extraction keeps `contenteditable` drafts; a hostile page can close the connection at dev

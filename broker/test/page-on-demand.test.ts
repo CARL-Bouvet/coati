@@ -9,14 +9,14 @@ import { describe, expect, test, afterEach } from "bun:test";
 import {
   parseClientMessage,
   MAX_MESSAGE_BYTES,
-  MAX_IMAGE_MESSAGE_BYTES,
+  MAX_LARGE_MESSAGE_BYTES,
   type ChatMessage,
   type ServerMessage,
 } from "../src/protocol.ts";
 import { buildPrompt } from "../src/model.ts";
 import { PageMarkerDetector, MARKER_TEXT, MARKER_DEV } from "../src/model/page-marker.ts";
-import { devContentCharBudget, resolveActiveContextTokens, searchCharBudget, PAGE_REQUEST_TIMEOUT_MS, SEARCH_REQUEST_TIMEOUT_MS } from "../src/handlers/chat.ts";
-import { startServer, MAX_DEV_CONTEXT_CHARS } from "../src/server.ts";
+import { pageContentRoom, resolveActiveContextTokens, searchCharBudget, PAGE_REQUEST_TIMEOUT_MS, SEARCH_REQUEST_TIMEOUT_MS } from "../src/handlers/chat.ts";
+import { startServer, MAX_PAGE_CHARS } from "../src/server.ts";
 import { __setProvidersForTests, __resetProvidersForTests } from "../src/providers/registry.ts";
 import { __setFetchImplForTests, __resetFetchImplForTests } from "../src/providers/ollama.ts";
 import type { ModelProvider } from "../src/providers/types.ts";
@@ -109,31 +109,17 @@ describe("protocol parsing — page.content / page.decline", () => {
     if (result.ok) expect(result.message).toEqual({ type: "page.decline", id: "pd1", target: "c1" });
   });
 
-  test("a dev-level page.content may exceed MAX_MESSAGE_BYTES, up to MAX_IMAGE_MESSAGE_BYTES", () => {
+  test.each(["text", "dev"] as const)("a %s-level page.content may exceed MAX_MESSAGE_BYTES, up to MAX_LARGE_MESSAGE_BYTES", (level) => {
     const raw = JSON.stringify({
       type: "page.content",
       id: "pc1",
       target: "c1",
-      level: "dev",
+      level,
       context: { kind: "page", text: "x".repeat(MAX_MESSAGE_BYTES + 1000) },
     });
     expect(Buffer.byteLength(raw, "utf8")).toBeGreaterThan(MAX_MESSAGE_BYTES);
-    expect(Buffer.byteLength(raw, "utf8")).toBeLessThan(MAX_IMAGE_MESSAGE_BYTES);
-    const result = parseClientMessage(raw);
-    expect(result.ok).toBe(true);
-  });
-
-  test("a text-level page.content over MAX_MESSAGE_BYTES is refused as oversized", () => {
-    const raw = JSON.stringify({
-      type: "page.content",
-      id: "pc1",
-      target: "c1",
-      level: "text",
-      context: { kind: "page", text: "x".repeat(MAX_MESSAGE_BYTES + 1000) },
-    });
-    const result = parseClientMessage(raw);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.oversized).toBe(true);
+    expect(Buffer.byteLength(raw, "utf8")).toBeLessThan(MAX_LARGE_MESSAGE_BYTES);
+    expect(parseClientMessage(raw).ok).toBe(true);
   });
 });
 
@@ -227,20 +213,35 @@ describe("PageMarkerDetector", () => {
 });
 
 // ---------------------------------------------------------------------------
-// devContentCharBudget — pure unit tests
+// pageContentRoom — pure unit tests
 // ---------------------------------------------------------------------------
 
-describe("devContentCharBudget", () => {
-  test("never exceeds MAX_DEV_CONTEXT_CHARS even for a huge context window", () => {
-    expect(devContentCharBudget(10_000_000)).toBeLessThanOrEqual(MAX_DEV_CONTEXT_CHARS);
+describe("pageContentRoom", () => {
+  const other = { ollama: false, hasHistory: false };
+  const ollama = { ollama: true, hasHistory: false };
+
+  test("never exceeds MAX_PAGE_CHARS even for a huge context window", () => {
+    expect(pageContentRoom(10_000_000, 0, other)).toBeLessThanOrEqual(MAX_PAGE_CHARS);
   });
 
   test("falls back to a fixed default when contextTokens is unknown", () => {
-    expect(devContentCharBudget(undefined)).toBeGreaterThan(0);
+    expect(pageContentRoom(undefined, 0, ollama)).toBeGreaterThan(0);
+    expect(pageContentRoom(undefined, 0, other)).toBeGreaterThan(0);
   });
 
-  test("a smaller context window yields a smaller budget", () => {
-    expect(devContentCharBudget(4096)).toBeLessThan(devContentCharBudget(32_000));
+  test("grows with the window, shrinks with the overhead and the history reserve", () => {
+    expect(pageContentRoom(4096, 0, other)).toBeLessThan(pageContentRoom(32_000, 0, other));
+    expect(pageContentRoom(32_000, 5_000, other)).toBeLessThan(pageContentRoom(32_000, 0, other));
+    expect(pageContentRoom(32_000, 0, { ollama: false, hasHistory: true })).toBeLessThan(pageContentRoom(32_000, 0, other));
+    expect(pageContentRoom(8192, 3_000, ollama)).toBeLessThan(pageContentRoom(8192, 0, ollama));
+  });
+
+  test("Ollama room matches the num_ctx rule: (tokens - 1024) * 3 - overhead", () => {
+    expect(pageContentRoom(8192, 1_000, ollama)).toBe((8192 - 1024) * 3 - 1_000);
+  });
+
+  test("a part always makes progress, even when the overhead fills the window", () => {
+    expect(pageContentRoom(4096, 1_000_000, other)).toBeGreaterThan(0);
   });
 });
 
@@ -357,7 +358,7 @@ describe("page on demand — re-run flow with a fake provider", () => {
       type: "done",
       id: "c1",
       usage: { inputTokens: 20, outputTokens: 5 },
-      page: { level: "text", chars: 22, sentChars: 22, truncated: false },
+      page: { level: "text", chars: 22, from: 0, sentChars: 22, truncated: false },
     });
 
     const chunks = messages.filter((m) => m.type === "chunk").map((m: any) => m.delta).join("");
@@ -365,6 +366,43 @@ describe("page on demand — re-run flow with a fake provider", () => {
     // The marker itself must never have been forwarded as a chunk.
     expect(chunks).not.toContain("READ_PAGE");
 
+    ws.close();
+  });
+
+  test("text-level content larger than the window is cut on a line break and reported", async () => {
+    const server = boot(fakeOnDemandProvider("fixture-pod-fit"));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "fit1", text: "q", page: { title: "T", url: "https://example.com", chars: 300_000 } }));
+    await waitFor(messages, (m) => m.type === "page.request");
+    const text = `${"l".repeat(99)}\n`.repeat(3_000);
+    ws.send(JSON.stringify({ type: "page.content", id: "pc1", target: "fit1", level: "text", context: { kind: "page", text } }));
+    const done: any = await waitFor(messages, (m) => m.type === "done");
+    expect(done.page).toMatchObject({ level: "text", chars: 300_000, from: 0, truncated: true });
+    expect(done.page.sentChars).toBeLessThan(300_000);
+    expect(done.page.sentChars % 100).toBe(0);
+    ws.close();
+  });
+
+  test("a chat with context and readPart reads from the offset; the part is reported", async () => {
+    const server = boot(fakeOnDemandProvider("fixture-pod-part"));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    const text = `${"l".repeat(99)}\n`.repeat(3_000);
+    ws.send(
+      JSON.stringify({
+        type: "chat",
+        id: "part1",
+        text: "q",
+        context: { kind: "page", text, facts: [{ label: "a", value: "b" }] },
+        readPart: { from: 100_000, level: "text" },
+      }),
+    );
+    const done: any = await waitFor(messages, (m) => m.type === "done");
+    expect(done.page).toMatchObject({ level: "text", chars: 300_000, from: 100_000, truncated: true });
+    ws.send(JSON.stringify({ type: "summarize", id: "part2", context: { kind: "page", text }, readPart: { from: 299_000, level: "text" } }));
+    const last: any = await waitFor(messages, (m: any) => m.type === "done" && m.id === "part2");
+    expect(last.page).toEqual({ level: "text", chars: 300_000, from: 299_000, sentChars: 1_000, truncated: false });
     ws.close();
   });
 
@@ -511,11 +549,10 @@ describe("resolveActiveContextTokens — fix 1 (non-Ollama dev budget)", () => {
     expect(tokensModule).toBe(32_768);
   });
 
-  test("the resulting dev budget is far above the old 8192-token default, still capped", () => {
-    const claudeBudget = devContentCharBudget(200_000);
-    const oldDefaultBudget = devContentCharBudget(8192);
-    expect(claudeBudget).toBeGreaterThan(oldDefaultBudget);
-    expect(claudeBudget).toBeLessThanOrEqual(MAX_DEV_CONTEXT_CHARS);
+  test("the resulting room is far above the 8192-token fallback, still capped", () => {
+    const claudeRoom = pageContentRoom(200_000, 0, { ollama: false, hasHistory: false });
+    expect(claudeRoom).toBeGreaterThan(pageContentRoom(8192, 0, { ollama: false, hasHistory: false }));
+    expect(claudeRoom).toBeLessThanOrEqual(MAX_PAGE_CHARS);
   });
 });
 

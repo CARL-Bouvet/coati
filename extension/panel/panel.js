@@ -64,8 +64,8 @@ import { computeCodeFingerprint } from "../lib/build-fingerprint.js";
 import { t, applyI18n, reloadOnLanguageChange } from "../lib/i18n-page.js";
 import { mountLanguageSelector } from "../lib/language-selector.js";
 import { els } from "./dom-refs.js";
-import { panelState } from "./panel-state.js";
-import { loadConversation, persistConversation } from "./conversation-store.js";
+import { panelState, STORAGE_KEY, ownRequests, mergeStoredConversation } from "./panel-state.js";
+import { loadConversation, persistConversation, storable } from "./conversation-store.js";
 import { renderAll } from "./message-render.js";
 import {
   retryConnection,
@@ -270,6 +270,15 @@ async function init() {
       panelState.devModePreference = parseStoredDevMode(changes[DEV_MODE_KEY].newValue);
       updateDevModeUi();
     }
+    // Another panel (another window) wrote the conversation: show its
+    // messages here too, without disturbing the answers streaming in this one.
+    if (STORAGE_KEY in changes && Array.isArray(changes[STORAGE_KEY].newValue)) {
+      const merged = mergeStoredConversation(panelState.conversation, changes[STORAGE_KEY].newValue, ownRequests);
+      if (JSON.stringify(merged.map(storable)) !== JSON.stringify(panelState.conversation.map(storable))) {
+        panelState.conversation = merged;
+        renderAll();
+      }
+    }
   });
 
   await loadAccessPrefs();
@@ -359,8 +368,10 @@ function onRuntimeMessage(message, sender) {
 function handleBrokerMessage(message) {
   if (!message || typeof message !== "object") return;
   // The service worker broadcasts to every open panel; a request is acted on
-  // only by the panel whose own question (same id) it answers.
+  // only by the panel whose own question (same id) it answers, and so is its
+  // stream (chunk/progress/done/error, filtered by ownRequests).
   if (typeof message.type === "string" && message.type.endsWith(".request") && message.id !== panelState.activeRequestId) return;
+  if (["chunk", "progress", "done"].includes(message.type) && !ownRequests.has(message.id)) return;
   switch (message.type) {
     case "chunk":
       onChunk(message);

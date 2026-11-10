@@ -11,7 +11,7 @@
 import { describe, expect, test, mock } from "bun:test";
 import { parseClientMessage } from "../src/protocol.ts";
 import type { Context, Fact, Item } from "../src/protocol.ts";
-import { contextBudgetError } from "../src/server.ts";
+import { contextBudgetError, MAX_PAGE_CHARS } from "../src/server.ts";
 import { buildPrompt } from "../src/model.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
 
@@ -205,8 +205,12 @@ describe("contextBudgetError (item 2)", () => {
   });
 
   test("a plain text-only context over the cap is refused (pre-amendment behaviour preserved)", () => {
-    const context: Context = { kind: "page", text: "x".repeat(40_001) };
-    expect(contextBudgetError(context)).toContain("40000");
+    const context: Context = { kind: "page", text: "x".repeat(MAX_PAGE_CHARS + 1) };
+    expect(contextBudgetError(context)).toContain(String(MAX_PAGE_CHARS));
+  });
+
+  test("a 41k-character context is within the budget (the broker fits it to the model)", () => {
+    expect(contextBudgetError({ kind: "page", text: "x".repeat(41_000) })).toBeUndefined();
   });
 
   test("41 facts is refused for count, even if every field is tiny", () => {
@@ -249,17 +253,17 @@ describe("contextBudgetError (item 2)", () => {
     expect(contextBudgetError(context)).toBe("item detail exceeds 200 characters");
   });
 
-  test("facts/items each within their own per-field caps but summing past 40000 total is refused", () => {
+  test("facts/items each within their own per-field caps but summing past the shared budget is refused", () => {
     const facts: Fact[] = Array.from({ length: 40 }, () => ({ label: "l".repeat(60), value: "v".repeat(160) }));
-    // 40 * (60 + 160) = 8800, well under 40000 alone — pile on `text` to cross the shared budget.
-    const context: Context = { kind: "page", pageKind: "listing", facts, text: "x".repeat(35_000) };
-    expect(contextBudgetError(context)).toBe("context exceeds 40000 characters");
+    // 40 * (60 + 160) = 8800 — pile on `text` to cross the shared budget.
+    const context: Context = { kind: "page", pageKind: "listing", facts, text: "x".repeat(MAX_PAGE_CHARS - 5_000) };
+    expect(contextBudgetError(context)).toBe(`context exceeds ${MAX_PAGE_CHARS} characters`);
   });
 
-  test("a context at exactly the caps (40 facts, 40000 total) is accepted", () => {
+  test("a context at exactly the caps (40 facts, MAX_PAGE_CHARS total) is accepted", () => {
     const facts = makeFacts(40);
     const used = facts.reduce((sum, f) => sum + f.label.length + f.value.length, 0);
-    const context: Context = { kind: "page", pageKind: "listing", facts, text: "x".repeat(40_000 - used) };
+    const context: Context = { kind: "page", pageKind: "listing", facts, text: "x".repeat(MAX_PAGE_CHARS - used) };
     expect(contextBudgetError(context)).toBeUndefined();
   });
 

@@ -18,9 +18,9 @@ import { isNearBottom } from "./scroll.js";
 import { parseTimestamps } from "./timestamps.js";
 import { parseElementRefs, resolveElementClick } from "./element-refs.js";
 import { buildHistoryForWire, historyAlertState, readUntrustedIn } from "./history.js";
-import { extractForChat, sendChatMessage } from "./composer-send.js";
+import { extractForChat, sendChatMessage, readRest } from "./composer-send.js";
 import { summarize, reportExtractionError } from "./page-extract.js";
-import { pendingRetries, lastHistoryKept } from "./chat-stream.js";
+import { pendingRetries, lastHistoryKept, readParts } from "./chat-stream.js";
 import { currentConnState, modelsReply, switchFromTip, openOllamaSpeedup, hasFeature } from "./model-status.js";
 import { buildAuthRecoveryBlock } from "./request-watch.js";
 import { api } from "../lib/browser-compat.js";
@@ -88,6 +88,19 @@ function buildRelaunchButton(msg) {
   button.title = t("panel_relaunch_title");
   button.disabled = !!panelState.activeRequestId;
   button.addEventListener("click", () => relaunchMessage(msg));
+  return button;
+}
+
+/** Under the page mention when the answer left part of the page unread. The
+ * content to resend lives in memory only (readParts), so the button is
+ * absent after a reload. */
+function buildReadRestButton(msg) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "c-button read-rest-button";
+  button.textContent = t("panel_read_rest_button");
+  button.disabled = !!panelState.activeRequestId;
+  button.addEventListener("click", () => readRest(msg));
   return button;
 }
 
@@ -364,9 +377,7 @@ export function renderMessage(msg, { append = false } = {}) {
       node.appendChild(notice);
     }
     if (msg.modelStalled && pendingRetries.has(msg.id)) node.appendChild(buildRateLimitRecoveryBlock(msg));
-    // docs/PROTOCOL.md "Page on demand", task brief point 5 — discreet, one
-    // line, only on a finished metadata-path chat answer (buildPageMention(),
-    // chat-stream.js's onDone, gates this to msg.pageOnDemand already).
+    // docs/PROTOCOL.md `done.page` — discreet, one line (buildPageMention(), labels.js).
     const confirming = msg.streaming ? pendingSearchQuery(msg.id) : undefined;
     if (confirming !== undefined) node.appendChild(buildSearchConfirmBlock(msg, confirming));
     if (msg.pageMention && !msg.streaming) {
@@ -375,6 +386,7 @@ export function renderMessage(msg, { append = false } = {}) {
       mention.textContent = msg.pageMention;
       node.appendChild(mention);
     }
+    if (msg.readMore && readParts.has(msg.id) && !msg.streaming) node.appendChild(buildReadRestButton(msg));
     if (!msg.streaming) {
       if (msg.searchMention) node.appendChild(buildSearchMentionBlock(msg));
       if (msg.sources?.length) node.appendChild(buildSourcesBlock(msg.sources));

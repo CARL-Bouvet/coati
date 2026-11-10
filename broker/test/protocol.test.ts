@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { isValidBaseUrl } from "../src/protocol/shared.ts";
-import { parseClientMessage, searchContentError, openContentError, MAX_MESSAGE_BYTES } from "../src/protocol.ts";
+import { parseClientMessage, searchContentError, openContentError, MAX_MESSAGE_BYTES, MAX_LARGE_MESSAGE_BYTES } from "../src/protocol.ts";
 
 describe("parseClientMessage", () => {
   const NONCE = "a".repeat(64);
@@ -472,6 +472,46 @@ describe("parseClientMessage — search", () => {
     expect(openContentError([page(2, "x".repeat(6001))], [2])?.code).toBe("context-too-large");
     expect(openContentError([page(4)], [2])?.code).toBe("bad-request");
     expect(openContentError([page(2), page(2)], [2])?.code).toBe("bad-request");
+  });
+});
+
+describe("readPart and large context messages", () => {
+  const ctx = { kind: "page", text: "x".repeat(1000) };
+  const chat = (extra: object) => parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "q", context: ctx, ...extra }));
+  const summarize = (extra: object) => parseClientMessage(JSON.stringify({ type: "summarize", id: "s1", context: ctx, ...extra }));
+
+  test("a valid readPart is parsed on chat and summarize", () => {
+    const c = chat({ readPart: { from: 500, level: "dev" } });
+    expect(c.ok && c.message.type === "chat" && c.message.readPart).toEqual({ from: 500, level: "dev" });
+    const s = summarize({ readPart: { from: 1, level: "text" } });
+    expect(s.ok && s.message.type === "summarize" && s.message.readPart).toEqual({ from: 1, level: "text" });
+  });
+
+  test.each([0, -3, 1000, 1001, 1.5, "10"])("readPart.from %p is a bad-request", (from) => {
+    const r = chat({ readPart: { from, level: "text" } });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe("bad-request");
+  });
+
+  test("readPart needs a context and a known level; a summary reads text only", () => {
+    expect(parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "q", readPart: { from: 5, level: "text" } })).ok).toBe(false);
+    expect(chat({ readPart: { from: 5, level: "html" } }).ok).toBe(false);
+    expect(summarize({ readPart: { from: 5, level: "dev" } }).ok).toBe(false);
+  });
+
+  test("chat/summarize with context may exceed MAX_MESSAGE_BYTES up to MAX_LARGE_MESSAGE_BYTES", () => {
+    const big = { kind: "page", text: "x".repeat(MAX_MESSAGE_BYTES + 1000) };
+    expect(parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "q", context: big })).ok).toBe(true);
+    expect(parseClientMessage(JSON.stringify({ type: "summarize", id: "s1", context: big })).ok).toBe(true);
+    const huge = { kind: "page", text: "x".repeat(MAX_LARGE_MESSAGE_BYTES) };
+    const r = parseClientMessage(JSON.stringify({ type: "summarize", id: "s1", context: huge }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.oversized).toBe(true);
+  });
+
+  test("a large chat with no image and no context stays refused", () => {
+    const r = parseClientMessage(JSON.stringify({ type: "chat", id: "c1", text: "x".repeat(MAX_MESSAGE_BYTES + 1000) }));
+    expect(r.ok).toBe(false);
   });
 });
 

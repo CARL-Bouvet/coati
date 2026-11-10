@@ -892,4 +892,11 @@ describe("extract.js — YouTube text", () => {
   test("open transcript follows the header", () => {
     expect(formatYouTubeText({ ...meta, chapters: [] }, "0:01 hello")).toMatch(/\nTranscript:\n0:01 hello$/);
   });
+
+  test("a long transcript is cut at the broker's page cap, not before", () => {
+    const truncate = new Function(`${EXTRACT_JS_DECLARATIONS}\nreturn truncate;`)() as (text: string) => string;
+    const line = "0:01 hello there everyone\n";
+    expect(truncate(formatYouTubeText(meta, line.repeat(5_000))).length).toBeGreaterThan(125_000);
+    expect(truncate(formatYouTubeText(meta, line.repeat(20_000))).length).toBeLessThanOrEqual(400_000);
+  });
 });

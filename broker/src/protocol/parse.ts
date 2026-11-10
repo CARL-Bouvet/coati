@@ -5,7 +5,7 @@
 import { isProviderId } from "../config.ts";
 import {
   MAX_MESSAGE_BYTES,
-  MAX_IMAGE_MESSAGE_BYTES,
+  MAX_LARGE_MESSAGE_BYTES,
   isRecord,
   isNonEmptyString,
   isValidApiKeyFormat,
@@ -23,8 +23,8 @@ import {
   parseOpenPages,
   OPEN_DECLINE_REASONS,
   SEARCH_DECLINE_REASONS,
-  looksLikeChatWithImage,
-  looksLikePageContent,
+  parseReadPart,
+  looksLikeLargeMessage,
 } from "./chat.ts";
 import {
   isValidSiteKey,
@@ -46,8 +46,8 @@ export interface ParseError {
    * (docs/PROTOCOL.md §5): true only for the
    * two-tier oversized-message rejection — server.ts uses this to also
    * close(1009), same policy as the raw-byte-length gate this generalises
-   * (a message over MAX_MESSAGE_BYTES that isn't a legitimate chat+image,
-   * or anything over MAX_IMAGE_MESSAGE_BYTES regardless of content).
+   * (a message over MAX_MESSAGE_BYTES that carries no image or page content,
+   * or anything over MAX_LARGE_MESSAGE_BYTES regardless of content).
    */
   oversized?: boolean;
 }
@@ -59,15 +59,15 @@ export type ParseResult =
 /**
  * Parses a raw WebSocket text frame into a well-typed ClientMessage, or a
  * structured ParseError. Enforces the 256 KB message cap — 1.5 MiB for a
- * `chat` carrying `image` (docs/PROTOCOL.md §5).
+ * message carrying an image or page content (docs/PROTOCOL.md §5).
  */
 export function parseClientMessage(raw: string): ParseResult {
   const byteLength = Buffer.byteLength(raw, "utf8");
   let parsed: unknown;
 
   if (byteLength > MAX_MESSAGE_BYTES) {
-    // The ONLY message shape allowed past
-    // the standard cap is a chat carrying image — docs/PROTOCOL.md §5.
+    // The ONLY message shapes allowed past
+    // the standard cap carry an image or page content — docs/PROTOCOL.md §5.
     // Everything else, including unparsable JSON, is refused with the EXACT
     // fixed id/message this cap always used — an old client/test sees
     // byte-for-byte the same refusal.
@@ -79,23 +79,19 @@ export function parseClientMessage(raw: string): ParseResult {
         error: { code: "bad-request", message: `message exceeds ${MAX_MESSAGE_BYTES} byte cap`, id: "oversized", oversized: true },
       };
     }
-    // docs/PROTOCOL.md "Page on demand": a
-    // `page.content` carrying dev-level content gets the same raised
-    // allowance as a chat+image — see looksLikePageContent's own doc.
-    if (!looksLikeChatWithImage(parsed) && !looksLikePageContent(parsed)) {
+    if (!looksLikeLargeMessage(parsed)) {
       return {
         ok: false,
         error: { code: "bad-request", message: `message exceeds ${MAX_MESSAGE_BYTES} byte cap`, id: "oversized", oversized: true },
       };
     }
-    if (byteLength > MAX_IMAGE_MESSAGE_BYTES) {
+    if (byteLength > MAX_LARGE_MESSAGE_BYTES) {
       return {
         ok: false,
-        error: { code: "bad-request", message: `message exceeds ${MAX_IMAGE_MESSAGE_BYTES} byte cap`, id: "oversized", oversized: true },
+        error: { code: "bad-request", message: `message exceeds ${MAX_LARGE_MESSAGE_BYTES} byte cap`, id: "oversized", oversized: true },
       };
     }
-    // Falls through below with `parsed` already decoded — a legitimate
-    // chat+image shape, within the raised cap.
+    // Falls through below with `parsed` already decoded, within the raised cap.
   } else {
     try {
       parsed = JSON.parse(raw);
@@ -169,16 +165,13 @@ export function parseClientMessage(raw: string): ParseResult {
       // dropped, not a bad-request — the chat still goes through as text
       // only (docs/PROTOCOL.md §3).
       const image = parseChatImage(parsed.image);
-      // L6: the raised 1.5 MiB allowance exists ONLY to
-      // carry a VALID image — looksLikeChatWithImage (above) is a cheap
-      // shape test only (any object under `image`), so a frame like
-      // `{ type: "chat", image: {}, text: "<~1.4 MiB>" }` would otherwise
-      // sail through the whole 256 KiB cap on text alone, image dropped as
-      // garbage. If the frame was only let through the gate because it
-      // LOOKED like chat+image, but the image turned out invalid, it must
-      // still be held to the ORIGINAL 256 KiB cap — same oversized
-      // error/id/code as the standard gate, not silently accepted.
-      if (image === undefined && byteLength > MAX_MESSAGE_BYTES) {
+      // L6: the raised 1.5 MiB allowance exists ONLY to carry a VALID image
+      // or context — looksLikeLargeMessage (above) is a cheap shape test
+      // only, so a frame like `{ type: "chat", image: {}, text: "<~1.4 MiB>" }`
+      // would otherwise sail through the 256 KiB cap on text alone, image
+      // dropped as garbage. Such a frame is held to the ORIGINAL 256 KiB cap,
+      // same oversized error/id/code as the standard gate.
+      if (image === undefined && context === undefined && byteLength > MAX_MESSAGE_BYTES) {
         return {
           ok: false,
           error: {
@@ -199,7 +192,9 @@ export function parseClientMessage(raw: string): ParseResult {
       const abilities = parseAbilities(parsed.abilities);
       const searchQuery = parseSearchQuery(parsed.searchQuery);
       const pageUnreadable = parsed.pageUnreadable === true ? true : undefined;
-      return { ok: true, message: { type: "chat", id, text: parsed.text, context, image, history, page, devMode, abilities, searchQuery, pageUnreadable } };
+      const readPart = parseReadPart(parsed.readPart, context, false);
+      if (readPart && "error" in readPart) return { ok: false, error: { code: "bad-request", message: `chat: ${readPart.error}`, id } };
+      return { ok: true, message: { type: "chat", id, text: parsed.text, context, image, history, page, devMode, abilities, searchQuery, pageUnreadable, readPart } };
     }
     case "summarize": {
       const context = parseContext(parsed.context);
@@ -209,7 +204,9 @@ export function parseClientMessage(raw: string): ParseResult {
       // `length` removed (item H): the extension only
       // ever sent "medium". A client that still sends it is not an error —
       // the field is simply ignored, same as any other unknown extra field.
-      return { ok: true, message: { type: "summarize", id, context } };
+      const readPart = parseReadPart(parsed.readPart, context, true);
+      if (readPart && "error" in readPart) return { ok: false, error: { code: "bad-request", message: `summarize: ${readPart.error}`, id } };
+      return { ok: true, message: { type: "summarize", id, context, readPart } };
     }
     case "prompts.list": {
       return { ok: true, message: { type: "prompts.list", id } };
@@ -403,22 +400,6 @@ export function parseClientMessage(raw: string): ParseResult {
       const context = parseContext(parsed.context);
       if (!context) {
         return { ok: false, error: { code: "bad-request", message: "page.content: missing context", id } };
-      }
-      // L6 pattern, same as chat+image: the raised 1.5 MiB
-      // allowance only exists to carry a VALID context — a frame that only
-      // got past the 256 KiB gate because it LOOKED like page.content, but
-      // whose context turned out unparsable, must still be held to the
-      // original cap.
-      if (byteLength > MAX_MESSAGE_BYTES && level !== "dev") {
-        return {
-          ok: false,
-          error: {
-            code: "bad-request",
-            message: `message exceeds ${MAX_MESSAGE_BYTES} byte cap`,
-            id: "oversized",
-            oversized: true,
-          },
-        };
       }
       return { ok: true, message: { type: "page.content", id, target: parsed.target, level, context } };
     }

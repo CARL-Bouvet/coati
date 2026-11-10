@@ -10,6 +10,7 @@ import { describe, expect, test, afterEach } from "bun:test";
 import {
   streamAnswer as ollamaStreamAnswer,
   computeContextTokens,
+  ollamaContentChars,
   warmupModel,
   __setFetchImplForTests,
   __resetFetchImplForTests,
@@ -20,6 +21,7 @@ import {
   ModelStalledError,
   isModelStalledError,
   buildPrompt,
+  buildSystemPrompt,
 } from "../src/model.ts";
 import type { HostCapacity } from "../src/protocol.ts";
 import { startServer } from "../src/server.ts";
@@ -367,6 +369,46 @@ describe("streamAnswer — keep_alive in request body", () => {
     // Filter out progress events from result (progress is emitted by server, not streamAnswer)
     const deltas = events.filter(e => e.kind === "delta");
     expect(deltas).toHaveLength(1);
+  });
+});
+
+describe("streamAnswer — page content sized with ollamaContentChars keeps the fixed num_ctx", () => {
+  const info = { "general.architecture": "qwen3", "qwen3.block_count": 36, "qwen3.attention.head_count_kv": 8, "qwen3.attention.key_length": 128, "qwen3.attention.value_length": 128, "qwen3.context_length": 40960 };
+  const host: HostCapacity = { ramGb: 32, vramGb: 8 };
+
+  async function numCtxFor(extraChars: number): Promise<{ numCtx: number; contextTokens: number }> {
+    __overrideCapacityForTests(host);
+    let numCtx = 0;
+    __setFetchImplForTests(
+      fakeOllamaFetch(
+        async (init) => {
+          numCtx = (JSON.parse(String(init.body)) as { options: { num_ctx: number } }).options.num_ctx;
+          return ndjsonResponse([{ message: { content: "ok" } }, { done: true, prompt_eval_count: 1, eval_count: 1 }]);
+        },
+        { showInfo: { model_info: info } },
+      ),
+    );
+    const contextTokens = computeContextTokens(
+      { capabilities: null, canDisableThinking: false, blockCount: 36, headCountKv: 8, keyLength: 128, valueLength: 128, contextLength: 40960 },
+      5_200_000_000,
+      host,
+    )!;
+    const empty = buildPrompt({ kind: "chat", text: "q", context: { kind: "page", text: "" } });
+    const overhead = empty.prompt.length + buildSystemPrompt(empty.nonce, empty.lang).length;
+    const text = "x".repeat(ollamaContentChars(contextTokens, overhead) + extraChars);
+    const built = buildPrompt({ kind: "chat", text: "q", context: { kind: "page", text } });
+    for await (const _ of ollamaStreamAnswer(built, { ...OLLAMA_OPTS, timeoutMs: 5000 })) void _;
+    return { numCtx, contextTokens };
+  }
+
+  test("a prompt filled exactly to the content room keeps num_ctx === contextTokens", async () => {
+    const { numCtx, contextTokens } = await numCtxFor(0);
+    expect(numCtx).toBe(contextTokens);
+  });
+
+  test("a few characters more fall back to a larger per-request window", async () => {
+    const { numCtx, contextTokens } = await numCtxFor(10);
+    expect(numCtx).toBeGreaterThan(contextTokens);
   });
 });
 

@@ -12,7 +12,7 @@
 
 export {
   MAX_MESSAGE_BYTES,
-  MAX_IMAGE_MESSAGE_BYTES,
+  MAX_LARGE_MESSAGE_BYTES,
   type ErrorCode,
   isValidApiKeyFormat,
   isValidBaseUrl,
@@ -67,6 +67,7 @@ export {
   type ChatImage,
   type HistoryRole,
   type HistoryEntry,
+  type ReadPart,
   HISTORY_MAX_ENTRIES,
   HISTORY_ENTRY_TEXT_MAX,
   type PageMeta,

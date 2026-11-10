@@ -185,14 +185,50 @@
       }
     }
   },
-  "panel_page_mention_truncated_suffix": {
-    "message": " ($PERCENT$ % lu)",
+  "panel_page_mention_part_start": {
+    "message": "Lu : le début ($PERCENT$ %). Cette page demande environ $NEED$ k tokens, votre modèle en lit $FIT$ k.",
     "placeholders": {
       "percent": {
         "content": "$1",
         "example": "40"
+      },
+      "need": {
+        "content": "$2",
+        "example": "90"
+      },
+      "fit": {
+        "content": "$3",
+        "example": "32"
       }
     }
+  },
+  "panel_page_mention_part_middle": {
+    "message": "Lu : de $FROM$ à $TO$ % de la page.",
+    "placeholders": {
+      "from": {
+        "content": "$1",
+        "example": "40"
+      },
+      "to": {
+        "content": "$2",
+        "example": "80"
+      }
+    }
+  },
+  "panel_page_mention_part_end": {
+    "message": "Lu : la fin de la page (à partir de $FROM$ %).",
+    "placeholders": {
+      "from": {
+        "content": "$1",
+        "example": "80"
+      }
+    }
+  },
+  "panel_read_rest_button": {
+    "message": "Lire la suite"
+  },
+  "panel_read_rest_user": {
+    "message": "Lis la suite de la page"
   },
   "dev_mode_confirm_title": {
     "message": "Activer le mode dev ?"

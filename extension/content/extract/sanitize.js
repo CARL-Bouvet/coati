@@ -33,7 +33,8 @@
 // plain-text-reviewed, and a literal invisible character sitting in the
 // regex source itself would be both unreadable in review and fragile
 // across editors/encodings.
-var MAX_CHARS = 40000;
+// Mirrors the broker's MAX_PAGE_CHARS (docs/PROTOCOL.md): the largest context it accepts.
+var MAX_CHARS = 400000;
 var ZERO_WIDTH_CODEPOINTS = [0x200b, 0x200c, 0x200d, 0x2060, 0xfeff];
 var ZERO_WIDTH_CHARS = ZERO_WIDTH_CODEPOINTS.map((code) => String.fromCharCode(code));
 

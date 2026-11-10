@@ -10,6 +10,7 @@ import { panelState, newId } from "./panel-state.js";
 import { renderMessage } from "./message-render.js";
 import { sendClientMessage } from "./request-watch.js";
 import { pendingPageExtractions, questionTabIds, buildElementsSnapshot, openTranscriptIfNeeded } from "./composer-send.js";
+import { pendingRetries, rememberReadPart } from "./chat-stream.js";
 import { prepareContextForWire } from "./element-refs.js";
 import { hasFeature, currentGroupedModels } from "./model-status.js";
 import { isCurrentLocal } from "../lib/model-list.js";
@@ -36,11 +37,17 @@ async function declinePage(target) {
  * bubble shows until the re-run's first chunk arrives (chat-stream.js's
  * onChunk clears it) — a client-synthesized line, not a broker `progress`
  * stage: the broker has no token count to give us yet at this point. */
-function showReadingStatus(msg, chars) {
+export function showReadingStatus(msg, chars) {
   if (!msg) return;
   msg.pageRead = true;
   msg.pageReading = { kTokens: formatTokensK(estimateTokensFromChars(chars)) };
   renderMessage(msg);
+}
+
+/** Keeps what was sent as `page.content` so "Read the rest" can resend it. */
+function rememberPageRead(id, wireContext) {
+  const question = pendingRetries.get(id)?.text;
+  if (question) rememberReadPart(id, { type: "chat", text: question, context: wireContext });
 }
 
 export async function onPageRequest(message) {
@@ -70,6 +77,7 @@ export async function onPageRequest(message) {
     const wireContext = prepareContextForWire(extraction, hasFeature("elements"));
     // The element list the model will see: what "Show" links and actions resolve against.
     if (msg) msg.elementsSnapshot = buildElementsSnapshot(extraction);
+    rememberPageRead(id, wireContext);
     showReadingStatus(msg, (extraction.text || "").length);
     await sendClientMessage({ type: "page.content", id: newId(), target: id, level: "text", context: wireContext });
     return;
@@ -106,6 +114,7 @@ export async function onPageRequest(message) {
     }
   }
   const wireContext = prepareContextForWire(devContext, hasFeature("elements"));
+  rememberPageRead(id, wireContext);
   showReadingStatus(msg, devContext.text.length);
   await sendClientMessage({ type: "page.content", id: newId(), target: id, level: "dev", context: wireContext });
 }

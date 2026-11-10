@@ -10,16 +10,17 @@ import { currentTabId, resizeComposer } from "./panel.js";
 import { extractReadableFromTab, extractFromTab, reportExtractionError, openYouTubeTranscript } from "./page-extract.js";
 import { stripReadability, isInternalPageFailure } from "./unreadable.js";
 import { setInternalPageNotice } from "./site-card.js";
-import { addMessage } from "./message-render.js";
+import { addMessage, renderMessage } from "./message-render.js";
 import { persistConversation } from "./conversation-store.js";
 import { setStreamingUi, sendClientMessage } from "./request-watch.js";
 import { hasFeature } from "./model-status.js";
 import { buildHistoryForWire } from "./history.js";
 import { prepareContextForWire } from "./element-refs.js";
-import { pendingRetries } from "./chat-stream.js";
+import { pendingRetries, readParts } from "./chat-stream.js";
 import { updateSavePromptEnabled } from "./prompts-wiring.js";
 import { PAGE_CONTENT_MARKER_SUFFIX } from "./message-render.js";
 import { canSearch } from "./web-search.js";
+import { showReadingStatus } from "./page-request.js";
 
 // Shown at most once per panel session (plan: "main frame only:
 // iframes are not numbered — announced limitation").
@@ -147,11 +148,8 @@ export async function sendChatMessage(text, context, extraction, searchQuery, pa
   addMessage({ id: `${id}-u`, role: "user", text: shown, relaunch: { type: "chat", text } });
   // elementsSnapshot: see its own comment above `frameLimitNoticeShown` —
   // THIS message's own {extractionId, elements}, computed now, never read
-  // back from a shared variable later. `pageOnDemand` gates the done.page
-  // mention line (chat-stream.js's onDone) — never shown for a message that
-  // got the page directly (today's always-attach fallback, summarize, a
-  // suggestion): done.page is structurally absent for those broker-side, so
-  // showing "Did not read the page" there would be misleading, not useful.
+  // back from a shared variable later. `pageOnDemand` makes the mention say
+  // "did not read the page" when the model never asked for it (chat-stream.js's onDone).
   addMessage({
     id,
     role: "assistant",
@@ -187,6 +185,44 @@ export async function sendChatMessage(text, context, extraction, searchQuery, pa
     abilities,
     searchQuery,
     pageUnreadable: pageUnreadable || undefined,
+  };
+  pendingRetries.set(id, wire);
+  await sendClientMessage({ ...wire, id });
+}
+
+/** "Read the rest": sends the next part of the page `msg` left unread, with
+ * the same question. The full wire context comes back from `readParts` (the
+ * broker keeps nothing between requests); the offset is `msg.readMore.from`. */
+export async function readRest(msg) {
+  const part = readParts.get(msg.id);
+  if (!part || !msg.readMore || panelState.activeRequestId) return;
+  const { from, level } = msg.readMore;
+  const id = newId();
+  const isChat = part.type === "chat";
+  // Computed before this turn's own bubbles are added, as in sendChatMessage().
+  const history = isChat && hasFeature("history") ? buildHistoryForWire(panelState.conversation) : null;
+
+  msg.readMore = undefined;
+  renderMessage(msg);
+  addMessage({
+    id: `${id}-u`,
+    role: "user",
+    text: t("panel_read_rest_user"),
+    relaunch: isChat ? { type: "chat", text: part.text } : { type: "summarize" },
+  });
+  addMessage({ id, role: "assistant", text: "", question: part.text, streaming: true, readsPage: true, videoId: msg.videoId });
+  showReadingStatus(panelState.conversation.find((m) => m.id === id), part.context.text.length - from);
+
+  panelState.activeRequestId = id;
+  setStreamingUi(true);
+  persistConversation();
+
+  const wire = {
+    type: part.type,
+    text: isChat ? part.text : undefined,
+    context: part.context,
+    readPart: { from, level },
+    history: history && history.entries.length > 0 ? history.entries : undefined,
   };
   pendingRetries.set(id, wire);
   await sendClientMessage({ ...wire, id });

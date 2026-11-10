@@ -55,15 +55,18 @@ export function handleMessage(
         // presence (docs/PROTOCOL.md §3) — see logRequestReceived's own call
         // site below, which only ever gets booleans/counts, never content.
         image: message.image,
-        build: () =>
+        readPart: message.readPart,
+        hasHistory: (message.history?.length ?? 0) > 0,
+        build: (context, part) =>
           buildPrompt(
             {
               kind: "chat",
               text: message.text,
-              context: message.context,
+              context: context ?? message.context,
               image: message.image,
               history: message.history,
               pageUnreadable: message.pageUnreadable,
+              part,
             },
             lang,
           ),
@@ -108,7 +111,8 @@ export function handleMessage(
         logFactsCount: message.context.facts?.length ?? 0,
         logItemsCount: message.context.items?.length ?? 0,
         budgetContext: message.context,
-        build: () => buildPrompt({ kind: "summarize", context: message.context }, lang),
+        readPart: message.readPart,
+        build: (context, part) => buildPrompt({ kind: "summarize", context: context ?? message.context, part }, lang),
       });
       return;
     }

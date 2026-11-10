@@ -1,6 +1,7 @@
 // Unit tests for the site card's pure state logic (T27-T29). Lives under
 // extension/panel/ (DOM-free pure JS), same pattern as ui-scroll.test.ts.
 import { describe, expect, test } from "bun:test";
+import { mergeStoredConversation } from "../../extension/panel/panel-state.js";
 import { cardState, faviconSrc, hostFromUrl, spinnerVisible, SPINNER_DELAY_MS } from "../../extension/panel/card-state.js";
 
 describe("cardState", () => {
@@ -67,5 +68,29 @@ describe("faviconSrc (T28: never a request to an address the page chose)", () =>
   test("no readable page url: no icon", () => {
     expect(faviconSrc({ pageUrl: null, favIconUrl: "data:image/png;base64,AAAA", isGecko: true, getURL })).toBeNull();
     expect(faviconSrc({ pageUrl: undefined, favIconUrl: undefined, isGecko: false, getURL })).toBeNull();
+  });
+});
+
+describe("mergeStoredConversation (panels in several windows)", () => {
+  const snapshot = { extractionId: "e", elements: [] };
+
+  test("the stored copy wins and keeps the local in-memory snapshot", () => {
+    const local = [{ id: "a", text: "old", streaming: true, elementsSnapshot: snapshot }];
+    const stored = [{ id: "a", text: "full answer", streaming: false }];
+    expect(mergeStoredConversation(local, stored, new Set())).toEqual([
+      { id: "a", text: "full answer", streaming: false, elementsSnapshot: snapshot },
+    ]);
+  });
+
+  test("a message streaming in this panel is left alone", () => {
+    const local = [{ id: "a", text: "partial", streaming: true }];
+    const stored = [{ id: "a", text: "", streaming: true }];
+    expect(mergeStoredConversation(local, stored, new Set(["a"]))).toEqual(local);
+  });
+
+  test("messages from another panel are added, unsaved local ones kept last", () => {
+    const local = [{ id: "a", text: "1" }, { id: "mine", text: "2" }];
+    const stored = [{ id: "a", text: "1" }, { id: "b", text: "other window" }];
+    expect(mergeStoredConversation(local, stored, new Set()).map((m) => m.id)).toEqual(["a", "b", "mine"]);
   });
 });

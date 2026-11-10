@@ -22,18 +22,19 @@ export async function loadConversation() {
   return filtered;
 }
 
+/** The copy of a message written to chrome.storage.local.
+ * `elementsSnapshot` is page-derived (element labels are text read off the
+ * page) and tab/extraction-specific — kept in memory only, same reasoning as
+ * `context`/`pendingRetries` (project rule 17). `pageReading` (page-request.js's
+ * transient "Reading the page…" status) is mid-request-only, meaningless after
+ * a reload. The in-memory objects (and their rendered buttons) keep both. */
+export function storable({ elementsSnapshot, pageReading, ...rest }) {
+  return rest;
+}
+
 export function persistConversation() {
-  // `elementsSnapshot` is page-derived (element labels are text
-  // read off the page) and tab/extraction-specific — kept in memory only,
-  // same reasoning as `context`/`pendingRetries` (project rule 17). Strip
-  // it from the COPY written to chrome.storage.local; the in-memory
-  // `conversation` objects (and their buttons, already rendered) keep it.
-  // `pageReading` (page-request.js's transient "Reading the page…" status)
-  // is mid-request-only, meaningless after a reload (activeRequestId itself
-  // isn't persisted either) — stripped same as elementsSnapshot.
-  const toStore = panelState.conversation.map(({ elementsSnapshot, pageReading, ...rest }) => rest);
   api.storage.local.set({
-    [STORAGE_KEY]: toStore,
+    [STORAGE_KEY]: panelState.conversation.map(storable),
     [DEV_MODE_KEY]: panelState.devModePreference,
   });
 }

@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import {
   parseClientMessage,
   MAX_MESSAGE_BYTES,
-  MAX_IMAGE_MESSAGE_BYTES,
+  MAX_LARGE_MESSAGE_BYTES,
   ELEMENTS_MAX,
   ELEMENT_LABEL_MAX,
   type ChatMessage,
@@ -236,7 +236,7 @@ describe("message size cap — 256 KiB vs 1.5 MiB (lot B1, docs/PROTOCOL.md §5)
     }
   });
 
-  test("a chat with a well-formed image is allowed up to MAX_IMAGE_MESSAGE_BYTES", () => {
+  test("a chat with a well-formed image is allowed up to MAX_LARGE_MESSAGE_BYTES", () => {
     // Padding, not a real decodable image beyond the magic bytes — well
     // under the 1 MiB decoded cap, but the padded TEXT field pushes the
     // whole JSON message past MAX_MESSAGE_BYTES while staying under 1.5 MiB.
@@ -247,16 +247,16 @@ describe("message size cap — 256 KiB vs 1.5 MiB (lot B1, docs/PROTOCOL.md §5)
       image: { mediaType: "image/jpeg", data: TINY_JPEG_B64, width: 800, height: 600 },
     });
     expect(Buffer.byteLength(raw, "utf8")).toBeGreaterThan(MAX_MESSAGE_BYTES);
-    expect(Buffer.byteLength(raw, "utf8")).toBeLessThan(MAX_IMAGE_MESSAGE_BYTES);
+    expect(Buffer.byteLength(raw, "utf8")).toBeLessThan(MAX_LARGE_MESSAGE_BYTES);
     const result = parseClientMessage(raw);
     expect(result.ok).toBe(true);
   });
 
-  test("a chat claiming an image but over MAX_IMAGE_MESSAGE_BYTES is refused", () => {
+  test("a chat claiming an image but over MAX_LARGE_MESSAGE_BYTES is refused", () => {
     const raw = JSON.stringify({
       type: "chat",
       id: "c1",
-      text: "x".repeat(MAX_IMAGE_MESSAGE_BYTES + 1000),
+      text: "x".repeat(MAX_LARGE_MESSAGE_BYTES + 1000),
       image: { mediaType: "image/jpeg", data: TINY_JPEG_B64, width: 800, height: 600 },
     });
     const result = parseClientMessage(raw);
@@ -305,7 +305,7 @@ describe("L5/L6 fixes", () => {
       image: { not: "a real image" },
     });
     expect(Buffer.byteLength(raw, "utf8")).toBeGreaterThan(MAX_MESSAGE_BYTES);
-    expect(Buffer.byteLength(raw, "utf8")).toBeLessThan(MAX_IMAGE_MESSAGE_BYTES);
+    expect(Buffer.byteLength(raw, "utf8")).toBeLessThan(MAX_LARGE_MESSAGE_BYTES);
     const result = parseClientMessage(raw);
     expect(result.ok).toBe(false);
     if (!result.ok) {
