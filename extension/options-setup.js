@@ -33,6 +33,7 @@ import {
   COST_BASIS_WORDS,
 } from "./lib/setup-data.js";
 
+const OAUTH_URL_PREFIX = "https://openrouter.ai/auth?";
 const OS_NAMES = { windows: "Windows", mac: "macOS", linux: "Linux" };
 
 /** "windows" | "mac" | "linux" | null — from User-Agent Client Hints when
@@ -555,7 +556,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
       button.disabled = true;
       request({ type: "oauth.start", service: entry.oauth }, (reply) => {
         button.disabled = !connected;
-        if (reply?.type === "oauth.started" && reply.url) {
+        if (reply?.type === "oauth.started" && typeof reply.url === "string" && reply.url.startsWith(OAUTH_URL_PREFIX)) {
           oauthPending = true;
           status.textContent = t("setup_oauth_waiting");
           api.tabs.create({ url: reply.url });

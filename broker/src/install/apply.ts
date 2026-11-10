@@ -4,6 +4,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
+import { dirname } from "node:path";
 import pkg from "../../package.json";
 import { readBrokerKeyFile } from "../broker-key.ts";
 import { atomicWriteFileSync } from "../fs-atomic.ts";
@@ -16,6 +17,7 @@ import {
   isBrokerImage,
   planInstall,
   planUserManifests,
+  SYSTEM_EXE,
 } from "./plan.ts";
 
 export interface ApplyOpts {
@@ -182,9 +184,22 @@ export function currentEnv(prefix?: string): Env & { prefixFromEnv: boolean } {
   };
 }
 
+/** A system-wide install registers `exe` for every account: it must be the packaged path, or owned by root and not writable by others. */
+function assertTrustedSystemExe(exe: string): void {
+  if (exe === SYSTEM_EXE) return;
+  const trusted = (path: string, dir: boolean) => {
+    const st = statSync(path);
+    return st.uid === 0 && (st.mode & 0o022) === 0 && (dir ? st.isDirectory() : st.isFile());
+  };
+  if (!trusted(exe, false) || !trusted(dirname(exe), true)) {
+    throw new Error("--system needs the binary installed by the .deb or .rpm package, or a root-owned one in a directory only root can write");
+  }
+}
+
 export function runInstall(cli: Cli, exe: string, log: (line: string) => void = console.log, say: (line: string) => void = log): void {
   const env = currentEnv(cli.prefix);
-  if (env.uid === 0 && !cli.system) throw new Error("run as your own user, not root (use --system for a system-wide install)");
+  if (env.uid === 0 && !cli.system) throw new Error("run as your own user, not root (for a system-wide install, use the .deb or .rpm package)");
+  if (cli.system && process.platform !== "win32") assertTrustedSystemExe(exe);
   const detected = detectBrowsers(env, existsSync);
   const actions = planInstall({
     ...env,

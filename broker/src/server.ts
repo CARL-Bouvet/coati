@@ -41,7 +41,7 @@ import { hardenDir } from "./fs-atomic.ts";
 import { currentEnv, removeLeftoverOldExe, runInstall, syncUserManifests } from "./install/apply.ts";
 import { releaseOwnConsole, waitForEnter } from "./install/console.ts";
 import { runUninstall } from "./install/uninstall.ts";
-import { type Cli, isCompiledExe, isInstalledExe, parseCli, selectMode, wantsPrompt } from "./install/plan.ts";
+import { type Cli, USAGE, isCompiledExe, isInstalledExe, parseCli, selectMode, wantsPrompt } from "./install/plan.ts";
 import { ProviderStatusCache } from "./provider-status.ts";
 import { MAX_MESSAGE_BYTES, MAX_IMAGE_MESSAGE_BYTES, parseClientMessage } from "./protocol.ts";
 import { getProvider, getProviders, initRegistry } from "./providers/registry.ts";
@@ -335,7 +335,9 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
         return new Response("forbidden", { status: 403, headers: FORBIDDEN_RESPONSE_HEADERS });
       }
 
-      const admission = admitRequest(req, server, server.port, { allowLocalhostHost: isOAuthCallback });
+      // With no sign-in pending the answer is the generic failure page: skip the /proc peer lookup.
+      const idle = isOAuthCallback && !oauth.hasPending();
+      const admission = admitRequest(req, server, server.port, { allowLocalhostHost: isOAuthCallback, skipPeerCheck: idle });
       if (!admission.ok) {
         logAdmissionRejection(admission);
         return new Response("forbidden", { status: 403, headers: FORBIDDEN_RESPONSE_HEADERS });
@@ -545,11 +547,15 @@ if (import.meta.main) {
   // else serves; services and autostart entries pass `--serve` explicitly.
   const cliArgs = process.argv.slice(2);
   const compiled = isCompiledExe(process.execPath);
+  if (cliArgs.includes("--help") || cliArgs.includes("-h")) {
+    console.log(USAGE);
+    process.exit(0);
+  }
   let cli: Cli;
   try {
     cli = parseCli(cliArgs);
   } catch (e) {
-    console.error(`coati-broker: ${(e as Error).message}`);
+    console.error(`coati-broker: ${(e as Error).message}\n${USAGE}`);
     process.exit(2);
   }
   const mode = selectMode(cliArgs, {

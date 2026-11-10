@@ -16,10 +16,15 @@ import {
 } from "../src/providers/claude-api.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
 import { ollamaProvider, __setFetchImplForTests, __resetFetchImplForTests } from "../src/providers/ollama.ts";
+import {
+  __setFetchImplForTests as setCompatFetch,
+  __resetFetchImplForTests as resetCompatFetch,
+} from "../src/providers/openai-compat.ts";
 import { connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
 
 afterEach(() => {
   __resetFetchImplForTests();
+  resetCompatFetch();
 });
 
 // --- 1. ProviderStatusCache — generic caching mechanics --------------------
@@ -318,7 +323,7 @@ describe("server.ts — provider.status wiring", () => {
   });
 
   test("openai-compat: provider.status-result carries the configured baseUrl (not a secret); ollama never does", async () => {
-    __setFetchImplForTests((async () =>
+    setCompatFetch((async () =>
       new Response(JSON.stringify({ data: [] }), { status: 200 })) as unknown as typeof fetch);
     const compat = boot({ provider: "openai-compat", baseUrl: "https://api.mistral.ai/v1" });
     const ws1 = await connectAndAuth(compat);

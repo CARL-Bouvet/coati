@@ -1,45 +1,64 @@
 #!/usr/bin/env bash
-# pre-push hook for the Coati public repository: refuses to push if the pushed
-# tree contains:
-# - an internal file (interne/, notes/, MEMORY.md, JOURNAL.md, .pem key, .env);
-# - a real secret pattern (private key, long API key, GitHub token, AWS key);
-#   short fake test keys ("sk-ant-fake") do not trigger it;
+# pre-push hook for the Coati public repository: checks every commit about to be
+# pushed (not only the tip) and refuses the push if one of them adds:
+# - an internal file (any interne/ or notes/ folder, MEMORY.md, JOURNAL.md,
+#   PIEGES.md, key and certificate files, .env, .npmrc);
+# - a real secret pattern (private key, long API key, GitHub, AWS, Google, Slack,
+#   npm tokens); short fake test keys ("sk-ant-fake") do not trigger it;
 # - a dependency reserved for personal modules, or a reference to the private
 #   repository. These two patterns are assembled in pieces
 #   below so this file does not refuse itself.
+# A git or grep failure refuses the push too: an error is never "nothing found".
 #
-# Install in a clone: cp scripts/hooks/pre-push .git/hooks/pre-push
-#                     chmod +x .git/hooks/pre-push
+# Install in a clone: git config core.hooksPath scripts/hooks
+#                     chmod +x scripts/hooks/pre-push
 # CI also replays it (.github/workflows/tests.yml) as a last safety net.
 set -euo pipefail
 
-FORBIDDEN='^(interne|notes)(/|$)|^(MEMORY|JOURNAL)\.md$|\.pem$|(^|/)\.env(\.|$)'
-SECRET='BEGIN [A-Z ]*PRIVATE KEY|sk-ant-[A-Za-z0-9_-]{40,}|sk-(proj-)?[A-Za-z0-9_-]{40,}|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}'
+FORBIDDEN='(^|/)(interne|notes)(/|$)|(^|/)(MEMORY|JOURNAL|PIEGES)\.md$|\.(pem|key|p12|pfx)$|(^|/)id_(ed25519|rsa)|(^|/)\.(env|npmrc|envrc)(\.|$)'
+SECRET='BEGIN [A-Z ]*PRIVATE KEY|sk-ant-[A-Za-z0-9_-]{40,}|sk-(proj-)?[A-Za-z0-9_-]{40,}|sk-or-v1-[A-Za-z0-9]{16,}|sk-[a-f0-9]{32}([^A-Za-z0-9]|$)|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|xox[baprs]-|npm_[A-Za-z0-9]{36}|gsk_[A-Za-z0-9]{20,}|xai-[A-Za-z0-9]{20,}'
 PERSONAL_DEP="claude-agent""-sdk"
-PRIVATE_REF="coati-""interne/"
+PRIVATE_REF="coati-""interne"
+
+ZEROS='^0+$'
+scratch=$(mktemp "${TMPDIR:-/tmp}/coati-prepush.XXXXXX")
+trap 'rm -f "$scratch"' EXIT
+
+# grep that prints what it finds: 0 = found, 1 = nothing, anything else aborts the hook.
+found() {
+  local rc=0
+  grep "$@" >&2 || rc=$?
+  if [ "$rc" -gt 1 ]; then
+    echo "pre-push: grep failed (exit $rc), push refused." >&2
+    exit 2
+  fi
+  [ "$rc" -eq 0 ]
+}
 
 status=0
-while read -r _local_ref local_sha _remote_ref _remote_sha; do
+refuse() {
+  echo "pre-push: $1 in commit ${commit:0:12}, push refused." >&2
+  status=1
+}
+
+while read -r _local_ref local_sha _remote_ref remote_sha; do
   # Deleting a remote branch: nothing to check.
-  if [[ "$local_sha" =~ ^0+$ ]]; then
+  if [[ "$local_sha" =~ $ZEROS ]]; then
     continue
   fi
-  if git ls-tree -r --name-only "$local_sha" | grep -nE "$FORBIDDEN" >&2; then
-    echo "pre-push: internal file in the public repository, push refused." >&2
-    status=1
+  if [[ "$remote_sha" =~ $ZEROS ]] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    commits=$(git rev-list "$local_sha" --not --remotes)
+  else
+    commits=$(git rev-list "$remote_sha..$local_sha")
   fi
-  if git grep -nIE "$SECRET" "$local_sha" -- . >&2; then
-    echo "pre-push: secret pattern found, push refused." >&2
-    status=1
-  fi
-  if git grep -nIF "$PERSONAL_DEP" "$local_sha" -- . >&2; then
-    echo "pre-push: dependency reserved for personal modules, push refused." >&2
-    status=1
-  fi
-  if git grep -nIF "$PRIVATE_REF" "$local_sha" -- . >&2; then
-    echo "pre-push: reference to the private repository, push refused." >&2
-    status=1
-  fi
+  for commit in $commits; do
+    git diff-tree --root -m -r --no-commit-id --name-only "$commit" >"$scratch"
+    if found -iE "$FORBIDDEN" "$scratch"; then refuse "internal file"; fi
+    git show --format= -U0 -m --text --no-ext-diff "$commit" >"$scratch"
+    if found -aE "^\\+.*($SECRET)" "$scratch"; then refuse "secret pattern"; fi
+    if found -aF -e "$PERSONAL_DEP" "$scratch"; then refuse "dependency reserved for personal modules"; fi
+    if found -aiF -e "$PRIVATE_REF" "$scratch"; then refuse "reference to the private repository"; fi
+  done
 done
 
 exit "$status"

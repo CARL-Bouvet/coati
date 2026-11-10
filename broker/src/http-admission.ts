@@ -23,7 +23,7 @@ export function admitRequest(
   req: Request,
   server: RequestIpSource,
   port: number,
-  opts: { allowLocalhostHost?: boolean } = {},
+  opts: { allowLocalhostHost?: boolean; skipPeerCheck?: boolean } = {},
 ): AdmissionOutcome {
   const host = req.headers.get("host");
   const localhostOk = opts.allowLocalhostHost === true && host?.trim().toLowerCase() === `localhost:${port}`;
@@ -32,7 +32,7 @@ export function admitRequest(
   }
   // Peer-UID check: Linux only (docs/PROTOCOL.md "Threat boundary" — not
   // enforced elsewhere, logged once at startup instead, see startServer).
-  if (process.platform === "linux") {
+  if (process.platform === "linux" && !opts.skipPeerCheck) {
     const ip = server.requestIP(req);
     let uid: number | null = null;
     if (ip) {

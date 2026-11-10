@@ -4,6 +4,7 @@
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { isValidKeyFormat } from "./key-format.ts";
+import { isValidApiKeyFormat } from "./protocol/shared.ts";
 import { t, type Lang, type MessageCode } from "./messages.ts";
 
 export const OPENROUTER_API_BASE_URL = "https://openrouter.ai/api/v1";
@@ -50,6 +51,8 @@ export function createOAuthFlow() {
   let pending: Pending | null = null;
 
   return {
+    hasPending: (): boolean => pending !== null,
+
     /** Starts an attempt (replacing any previous one) and returns the URL to open. */
     start(port: number, lang: Lang): string {
       const verifier = b64url(randomBytes(32));
@@ -96,7 +99,7 @@ export function createOAuthFlow() {
         if (!res.ok) throw new Error(`exchange status ${res.status}`);
         const body = JSON.parse((await res.text()).slice(0, MAX_EXCHANGE_BODY_CHARS)) as { key?: unknown };
         const key = typeof body.key === "string" ? body.key.trim() : "";
-        if (!isValidKeyFormat("openai-compat", OPENROUTER_API_BASE_URL, key)) throw new Error("exchange returned no usable key");
+        if (!isValidApiKeyFormat(key) || !isValidKeyFormat("openai-compat", OPENROUTER_API_BASE_URL, key)) throw new Error("exchange returned no usable key");
         await onKey(key);
       } catch (err) {
         console.error(`coati-broker: oauth exchange failed: ${err instanceof Error ? err.name : "error"}`);

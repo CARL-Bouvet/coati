@@ -8,8 +8,16 @@ import { join } from "path";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const PRIVATE = new RegExp(
-  ["coati-" + "interne/", "\\binterne" + "/(design|etudes|archives|modules|bench|notes)/", "(^|[^.\\w])" + "(JOURNAL|REGLES)" + "\\.md\\b"].join("|"),
+  [
+    "coati-" + "interne",
+    "\\binterne" + "/(design|etudes|archives|modules|bench|notes|securite|mesures)/",
+    "(^|[^.\\w])" + "(JOURNAL|REGLES|MEMORY|PIEGES)" + "\\.md\\b",
+    "\\b(securite|mesures|propositions)" + "/",
+    "MENACE" + "_",
+  ].join("|"),
 );
+// A personal home directory is not a path a stranger can follow (placeholders like /home/u are fine).
+const HOME_PATH = new RegExp("/ho" + "me/(?!u\\b|user\\b|you\\b|name\\b|runner\\b|coati-ci\\b|\\$|<|\\{|\\*)[a-z]");
 // Comments describe the code as it is: no plan files, goal ids or dates (history lives in git).
 const HISTORY = /plan-[\w-]+\.md|goal-[A-Za-z0-9_-]{6,}|20\d\d-\d\d-\d\d/;
 const COMMENT = /^\s*(\/\/|\/\*|\*|#(?!!)|<!--)|\s\/\/\s/;
@@ -35,6 +43,19 @@ describe("public repository hygiene", () => {
       lines.forEach((line, i) => {
         if (PRIVATE.test(line)) offenders.push(`${rel}:${i + 1}: ${line.trim().slice(0, 100)}`);
       });
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  test("no file carries a personal home directory", () => {
+    const offenders: string[] = [];
+    for (const rel of trackedTextFiles()) {
+      if (rel === "scripts/hooks/pre-push") continue;
+      readFileSync(join(ROOT, rel), "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+          if (HOME_PATH.test(line)) offenders.push(`${rel}:${i + 1}: ${line.trim().slice(0, 100)}`);
+        });
     }
     expect(offenders).toEqual([]);
   });

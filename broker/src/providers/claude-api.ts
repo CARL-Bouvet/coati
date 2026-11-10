@@ -1,7 +1,5 @@
 // The "claude-api" provider: talks directly to the Anthropic Messages API
-// over HTTPS, using the user's own API key (BYOK — the only shippable path;
-// a personal subscription used through some other means can never be
-// resold, see MEMORY.md "Fixed economic constraints"). Streaming via Bun's `fetch` +
+// over HTTPS, using the user's own API key (BYOK). Streaming via Bun's `fetch` +
 // `ReadableStream`, no SDK dependency. Prompt assembly (fencing, system
 // prompt) lives in ../model.ts and is shared by every provider — see
 // ../model.ts's header.
@@ -397,6 +395,7 @@ export async function* streamAnswer(
             },
           ],
         }),
+        redirect: "error",
         signal: abortController.signal,
       });
     } catch (err) {

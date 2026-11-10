@@ -16,12 +16,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
 
       - name: safety check (no internal file or secret in the public repository)
         if: matrix.os == 'ubuntu-latest'
-        # Replays the local pre-push hook on the pushed tree: last safety net
-        # when a clone does not have the hook installed.
-        run: echo "refs/heads/ci $(git rev-parse HEAD) refs/heads/ci 0000000000000000000000000000000000000000" | bash scripts/hooks/pre-push
+        # Replays the local pre-push hook on every commit of the pushed range: last
+        # safety net when a clone does not have the hook installed. Without a usable
+        # "before" (new branch, pull request), the parent of the pushed commit.
+        env:
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          zeros=0000000000000000000000000000000000000000
+          base="$BEFORE"
+          if [ -z "$base" ] || [ "$base" = "$zeros" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base=$(git rev-parse -q --verify "$SHA^" || echo "$zeros")
+          fi
+          echo "refs/heads/ci $SHA refs/heads/ci $base" | bash scripts/hooks/pre-push
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:

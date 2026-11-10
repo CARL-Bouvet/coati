@@ -21,6 +21,7 @@ import { ALL_SITES_ORIGINS } from "./read-button.js";
 const SEARCH_MAX_RESULTS = 8;
 const SEARCH_MAX_PER_QUESTION = 4;
 const OPEN_PAGE_MAX_CHARS = 6000;
+const OPEN_MAX_REFS = 6;
 const TAB_LOAD_TIMEOUT_MS = 15_000;
 // How long the card waits for the user; the broker waits longer (docs/PROTOCOL.md "Search").
 const SEARCH_CONFIRM_TIMEOUT_MS = 180_000;
@@ -117,15 +118,17 @@ async function decline(type, id, reason) {
 
 /** Honours the broker's `discard` (the marker came mid-answer) and reports
  * whether the "all sites" permission is held; without it the message offers
- * the grant button, carrying the query to re-run once granted. */
+ * the grant button, carrying the query to re-run once granted. Returns null
+ * when the request answers no message of this panel. */
 async function begin(message, retryQuery) {
   const msg = panelState.conversation.find((m) => m.id === message.id);
-  if (message.discard && msg) {
+  if (!msg) return null;
+  if (message.discard) {
     msg.text = "";
     renderMessage(msg);
   }
   const allSites = await api.permissions.contains({ origins: ALL_SITES_ORIGINS }).catch(() => false);
-  if (!allSites && msg) {
+  if (!allSites) {
     msg.searchAccess = retryQuery(msg);
     renderMessage(msg);
   }
@@ -168,21 +171,22 @@ async function confirmSearch(msg, query) {
 }
 
 function setStatus(msg, status) {
-  if (!msg) return;
   msg.pageReading = status;
   renderMessage(msg);
 }
 
 export async function onSearchRequest(message) {
   const { id, query } = message;
-  const { msg, allSites } = await begin(message, () => query);
+  const started = await begin(message, () => query);
+  if (!started) return;
+  const { msg, allSites } = started;
   if (!allSites) {
     await decline("search.decline", id, "no-access");
     return;
   }
 
-  if (msg?.approvedSearch !== query && pageReadIn(panelState.conversation)) {
-    const allowed = msg ? await confirmSearch(msg, query) : false;
+  if (msg.approvedSearch !== query && pageReadIn(panelState.conversation)) {
+    const allowed = await confirmSearch(msg, query);
     if (panelState.activeRequestId !== id) return;
     if (!allowed) {
       await decline("search.decline", id, "blocked");
@@ -190,22 +194,18 @@ export async function onSearchRequest(message) {
     }
   }
 
-  if (msg) {
-    msg.searchRuns = (msg.searchRuns ?? 0) + 1;
-    msg.lastQuery = query;
-    setStatus(msg, { searchQuery: query, searchIndex: msg.searchRuns, searchMax: SEARCH_MAX_PER_QUESTION });
-  }
+  msg.searchRuns = (msg.searchRuns ?? 0) + 1;
+  msg.lastQuery = query;
+  setStatus(msg, { searchQuery: query, searchIndex: msg.searchRuns, searchMax: SEARCH_MAX_PER_QUESTION });
   try {
     const results = await readResults(query, tabsFor(id));
     if (results.length === 0) {
       await decline("search.decline", id, "no-result");
       return;
     }
-    if (msg) {
-      const level = panelState.devModePreference ? "dev" : "text";
-      msg.sources = sourcesFromSearch(msg.sources ?? [], results, [], (url) => checkOpen(currentPageUrl, url, level), msg.resultTotal ?? 0);
-      msg.resultTotal = (msg.resultTotal ?? 0) + results.length;
-    }
+    const level = panelState.devModePreference ? "dev" : "text";
+    msg.sources = sourcesFromSearch(msg.sources ?? [], results, [], (url) => checkOpen(currentPageUrl, url, level), msg.resultTotal ?? 0);
+    msg.resultTotal = (msg.resultTotal ?? 0) + results.length;
     await sendClientMessage({ type: "search.content", id: newId(), target: id, query, results });
   } catch {
     await decline("search.decline", id, "failed");
@@ -216,7 +216,9 @@ export async function onSearchRequest(message) {
 
 export async function onOpenRequest(message) {
   const { id, refs } = message;
-  const { msg, allSites } = await begin(message, (m) => m.lastQuery || m.question || refs[0]?.url || "…");
+  const started = await begin(message, (m) => m.lastQuery || m.question || refs[0]?.url || "…");
+  if (!started) return;
+  const { msg, allSites } = started;
   if (!allSites) {
     await decline("open.decline", id, "no-access");
     return;
@@ -224,7 +226,7 @@ export async function onOpenRequest(message) {
 
   const level = panelState.devModePreference ? "dev" : "text";
   const check = (url) => checkOpen(currentPageUrl, url, level);
-  const allowed = refs.filter((r) => check(r.url).verdict !== "blocked");
+  const allowed = refs.slice(0, OPEN_MAX_REFS).filter((r) => check(r.url).verdict !== "blocked");
   if (allowed.length === 0) {
     await decline("open.decline", id, "blocked");
     return;
@@ -241,11 +243,9 @@ export async function onOpenRequest(message) {
         // an unreadable page is simply not read
       }
     }
-    if (msg) {
-      if (pages.length > 0) msg.pageRead = true;
-      msg.sources = sourcesFromSearch(msg.sources ?? [], [], pages, check);
-      msg.openedPages = [...(msg.openedPages ?? []), ...pages.map((p) => ({ n: p.n, title: p.title, url: p.url }))];
-    }
+    if (pages.length > 0) msg.pageRead = true;
+    msg.sources = sourcesFromSearch(msg.sources ?? [], [], pages, check);
+    msg.openedPages = [...(msg.openedPages ?? []), ...pages.map((p) => ({ n: p.n, title: p.title, url: p.url }))];
     await sendClientMessage({ type: "open.content", id: newId(), target: id, pages });
   } catch {
     await decline("open.decline", id, "failed");

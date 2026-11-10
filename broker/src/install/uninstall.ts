@@ -1,17 +1,20 @@
 // `--uninstall [--purge]`: removes what `--install` wrote. Config and keys
 // stay unless --purge.
 
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { defaultDirs } from "../config.ts";
 import { applyActions, currentEnv } from "./apply.ts";
 import { type Cli, planUninstall } from "./plan.ts";
 
 export function runUninstall(cli: Cli, log: (line: string) => void = console.log, say: (line: string) => void = log): void {
   const env = currentEnv(cli.prefix);
+  if (env.uid === 0 && !cli.system) throw new Error("run as your own user, not root (for a system-wide removal, use the .deb or .rpm package)");
   // A test prefix must never reach the real config and keys.
   const dirs = env.prefix
     ? { configDir: join(env.prefix, ".config", "coati"), dataDir: join(env.prefix, ".local", "share", "coati") }
     : defaultDirs();
+  // COATI_DATA_DIR is honoured only when it is a directory named like ours: --purge deletes it.
+  if (cli.purge && basename(dirs.dataDir) !== "coati") throw new Error("--purge refuses a data directory not named coati");
   const actions = planUninstall({
     ...env,
     selfExe: process.execPath,

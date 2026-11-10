@@ -68,14 +68,15 @@ export function registrableDomain(host) {
 /**
  * True when a page opened from the search result `resultUrl` may be read after
  * the tab ended on `finalUrl`: an http(s) address the open guard lets through
- * (`guard(url)` returns its verdict), on the result's own site. `www.` and
- * http→https redirects stay on that site; a redirect to another site does not.
+ * (`guard(url)` returns its verdict), on the result's own host. `www.` and
+ * http→https redirects stay on that host; a redirect to another host, even a
+ * sibling subdomain, does not.
  */
 export function openedPageReadable(guard, resultUrl, finalUrl) {
   const from = parse(resultUrl);
   const to = typeof finalUrl === "string" ? parse(finalUrl) : null;
   if (!from || !to || (to.protocol !== "https:" && to.protocol !== "http:")) return false;
-  return guard(finalUrl).verdict !== "blocked" && registrableDomain(to.hostname) === registrableDomain(from.hostname);
+  return guard(finalUrl).verdict !== "blocked" && withoutWww(to.hostname) === withoutWww(from.hostname);
 }
 
 function splitDomain(domain) {
@@ -129,7 +130,7 @@ function labelHost(label) {
 const withoutWww = (host) => host.replace(/^www\./, "");
 
 /** Context for linkVerdict from the answer's source addresses and the current page. */
-export function linkContext(sourceUrls, pageUrl, readUntrusted, offeredTitles = "") {
+export function linkContext(sourceUrls, pageUrl, readUntrusted) {
   const urls = new Set();
   const hosts = [];
   for (const href of [...sourceUrls, pageUrl]) {
@@ -139,12 +140,12 @@ export function linkContext(sourceUrls, pageUrl, readUntrusted, offeredTitles = 
     hosts.push(new URL(normalized).hostname);
   }
   const page = typeof pageUrl === "string" ? parse(pageUrl) : null;
-  return { sourceUrls: urls, sourceHosts: hosts, pageHost: page?.hostname, readUntrusted: !!readUntrusted, offeredTitles: offeredTitles.toLowerCase() };
+  return { sourceUrls: urls, sourceHosts: hosts, pageHost: page?.hostname, readUntrusted: !!readUntrusted };
 }
 
 /**
  * ctx: { sourceUrls: Set<string> (normalized), sourceHosts: string[], pageHost?: string,
- * readUntrusted: boolean, offeredTitles: string }. Returns { verdict: "clickable" | "memory" | "refused", reason?, host, like? }.
+ * readUntrusted: boolean }. Returns { verdict: "clickable" | "memory" | "refused", reason?, host, like? }.
  * Reasons: "form", "misleading-label", "lookalike" (with `like`, the imitated host), "not-in-sources".
  */
 export function linkVerdict(href, label, ctx) {
@@ -161,7 +162,5 @@ export function linkVerdict(href, label, ctx) {
   const like = lookalikeOf(host, [...ctx.sourceHosts, ctx.pageHost]);
   if (like) return { verdict: "refused", reason: "lookalike", host, like };
 
-  // A page title sent with the question is page data: a link it names is not "from memory".
-  const named = ctx.offeredTitles && ctx.offeredTitles.includes(registrableDomain(host));
-  return ctx.readUntrusted || named ? { verdict: "refused", reason: "not-in-sources", host } : { verdict: "memory", host };
+  return ctx.readUntrusted ? { verdict: "refused", reason: "not-in-sources", host } : { verdict: "memory", host };
 }

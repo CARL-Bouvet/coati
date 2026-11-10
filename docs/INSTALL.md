@@ -33,6 +33,17 @@ The package installs `/usr/bin/coati-broker` and a user service. If the program 
 right away, log out and in once, or run `systemctl --user enable --now coati-broker`. Other
 distributions: see "Advanced".
 
+**Verify the download** (recommended). Also download `SHA256SUMS` from the same release, put it
+next to the file, and check that the file's checksum matches. If it does not, don't run the file.
+
+```sh
+sha256sum -c SHA256SUMS --ignore-missing           # Linux
+shasum -a 256 -c SHA256SUMS --ignore-missing       # macOS
+```
+```powershell
+(Get-FileHash .\Coati-Setup-windows-x64.exe -Algorithm SHA256).Hash   # Windows: compare with its line in SHA256SUMS
+```
+
 The extension's tutorial polls the program and turns green when it answers.
 
 ## 2. Load the extension
@@ -113,7 +124,7 @@ The raw program is one file that installs itself.
 
 ```sh
 sha256sum --check --ignore-missing SHA256SUMS      # Linux
-shasum -a 256 coati-broker-macos-arm64             # macOS, compare by hand
+shasum -a 256 coati-broker-darwin-arm64            # macOS, compare by hand
 ```
 ```powershell
 Get-FileHash .\coati-broker-windows-x64.exe -Algorithm SHA256   # Windows

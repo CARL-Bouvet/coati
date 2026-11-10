@@ -108,7 +108,7 @@ const SYSTEM_NMH: readonly (readonly [Family, string])[] = [
   ["firefox", "/usr/lib/mozilla/native-messaging-hosts"],
   ["firefox", "/usr/lib64/mozilla/native-messaging-hosts"],
 ];
-const SYSTEM_EXE = "/usr/bin/coati-broker";
+export const SYSTEM_EXE = "/usr/bin/coati-broker";
 const SYSTEM_UNIT = "/usr/lib/systemd/user/coati-broker.service";
 
 const pathOf = (os: Os) => (os === "win32" ? win32 : posix);
@@ -186,7 +186,17 @@ export interface Cli {
   purge: boolean;
 }
 
+export const USAGE = `usage: coati-broker [--install | --uninstall | --serve] [--system] [--prefix DIR] [--no-service] [--all] [--dry-run] [--purge]
+  no argument: install (from a downloaded binary) or serve (from the installed place)`;
+
+const KNOWN_FLAGS = new Set(["--install", "--uninstall", "--serve", "--system", "--no-service", "--all", "--dry-run", "--purge"]);
+
 export function parseCli(args: readonly string[]): Cli {
+  for (let k = 0; k < args.length; k++) {
+    const a = args[k]!;
+    if (a === "--prefix") k++;
+    else if (!KNOWN_FLAGS.has(a) && !a.startsWith("--prefix=")) throw new Error(`unknown option ${JSON.stringify(a)}`);
+  }
   const i = args.findIndex((a) => a === "--prefix" || a.startsWith("--prefix="));
   let prefix: string | undefined;
   if (i >= 0) {
@@ -203,12 +213,12 @@ export function parseCli(args: readonly string[]): Cli {
   };
 }
 
-/** Explicit flags win. Without any, a compiled binary installs itself unless it already runs from its installed place. */
+/** Explicit flags win. Without any argument, a compiled binary installs itself unless it already runs from its installed place. */
 export function selectMode(args: readonly string[], ctx: { compiled: boolean; installed: boolean }): Mode {
   if (args.includes("--uninstall")) return "uninstall";
   if (args.includes("--install")) return "install";
   if (args.includes("--serve")) return "serve";
-  return ctx.compiled && !ctx.installed ? "install" : "serve";
+  return ctx.compiled && !ctx.installed && args.length === 0 ? "install" : "serve";
 }
 
 /** Only a bare double-click gets the "press Enter" console flow; scripts and CI pass flags or have no terminal. */
@@ -233,6 +243,9 @@ export function planUserManifests(e: Env, exe: string, detected: ReadonlySet<str
 }
 
 export function planInstall(o: InstallOpts): Action[] {
+  for (const v of [o.exe, o.prefix ?? ""]) {
+    if (/[\x00-\x1f\x7f]/.test(v)) throw new Error("refusing a path with control characters");
+  }
   const p = pathOf(o.os);
   const r = root(o);
   const dest = o.system ? o.exe : installedExe(o);
@@ -296,7 +309,7 @@ export function planInstall(o: InstallOpts): Action[] {
       const logDir = p.join(r, "Library", "Logs", "Coati");
       say("Setting Coati to start when you sign in");
       acts.push({ kind: "mkdir", path: p.dirname(plist), mode: 0o755 });
-      acts.push({ kind: "mkdir", path: logDir, mode: 0o755 });
+      acts.push({ kind: "mkdir", path: logDir, mode: 0o700 });
       acts.push({ kind: "write", path: plist, content: renderPlist(dest, logDir), mode: 0o644 });
       run(["launchctl", "bootstrap", domain, plist]);
     }

@@ -9,11 +9,10 @@ import { estimateTokensFromChars, formatTokensK } from "../lib/labels.js";
 import { panelState, newId } from "./panel-state.js";
 import { renderMessage } from "./message-render.js";
 import { sendClientMessage } from "./request-watch.js";
-import { pendingPageExtractions, buildElementsSnapshot, openTranscriptIfNeeded } from "./composer-send.js";
+import { pendingPageExtractions, questionTabIds, buildElementsSnapshot, openTranscriptIfNeeded } from "./composer-send.js";
 import { prepareContextForWire } from "./element-refs.js";
 import { hasFeature, currentGroupedModels } from "./model-status.js";
 import { isCurrentLocal } from "../lib/model-list.js";
-import { currentTabId } from "./panel.js";
 import { scanForSensitiveData } from "../lib/sensitive-scan.js";
 import { confirmSendSensitivePage } from "./sensitive-dialog.js";
 
@@ -76,14 +75,15 @@ export async function onPageRequest(message) {
     return;
   }
 
-  // level === "dev"
-  if (currentTabId == null) {
+  // level === "dev": only with the switch on, and only on the tab the question was sent from.
+  const tabId = questionTabIds.get(id);
+  if (!panelState.devModePreference || tabId == null) {
     await declinePage(id);
     return;
   }
   let devContext = null;
   try {
-    devContext = await runDevExtraction(currentTabId);
+    devContext = await runDevExtraction(tabId);
   } catch {
     devContext = null;
   }

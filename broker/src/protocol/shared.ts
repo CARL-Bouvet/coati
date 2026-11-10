@@ -76,6 +76,7 @@ export function isValidBaseUrl(value: string): boolean {
   } catch {
     return false;
   }
+  if (url.username !== "" || url.password !== "") return false;
   if (url.protocol === "https:") return true;
   if (url.protocol === "http:") return LOOPBACK_HOSTNAMES.has(url.hostname);
   return false;

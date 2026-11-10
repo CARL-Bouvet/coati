@@ -91,7 +91,7 @@ function openProgramTutorial() {
  * model — hidden for good once MODEL_EVER_ANSWERED_KEY is set. While the
  * first-run card is still visible, its own "model" step already carries the
  * same action, so this notice stays hidden rather than stacking a second one
- * (U2, Romain's decision: "a shown first-run card absorbs the action"). */
+ * ("a shown first-run card absorbs the action"). */
 export function renderNeverConnected() {
   if (!accessPrefsLoaded || panelState.modelEverAnswered || !firstRunDone) {
     els.neverConnected.hidden = true;

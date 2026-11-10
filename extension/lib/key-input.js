@@ -1,6 +1,6 @@
 // The ONE API-key entry component, shared by the settings page's
 // provider cards (options.js) and the "Connect an AI model" guide
-// (options-setup.js). Rules, decided by Romain (U2):
+// (options-setup.js). Rules:
 //
 // - masked field with a show/hide toggle; autocomplete/spellcheck/
 //   autocapitalize/autocorrect all off (Chrome's enhanced spellcheck sends
@@ -195,7 +195,14 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     reveal.textContent = revealed ? t("keyInput_hide") : t("keyInput_show");
   }
 
+  /** The `settings.set` body for this key. An openai-compat key always travels with the address
+   * it belongs to, so the program never binds it to whichever service is active. */
+  function keyMessage(apiKey) {
+    return { type: "settings.set", id: saveId, provider, apiKey, ...(provider === "openai-compat" ? { baseUrl: getBaseUrl?.() } : {}) };
+  }
+
   function submit() {
+    if (provider === "openai-compat" && !getBaseUrl?.()) return;
     const value = input.value.trim();
     // Field cleared and re-masked whatever happens next: the key must not
     // stay visible or selectable once it has left for the broker.
@@ -211,7 +218,7 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     saveId = newId();
     state = "saving";
     render();
-    send({ type: "settings.set", id: saveId, provider, apiKey: value });
+    send(keyMessage(value));
   }
 
   function verify() {
@@ -234,7 +241,7 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
     saveId = newId();
     state = "deleting";
     render();
-    send({ type: "settings.set", id: saveId, provider, apiKey: "" });
+    send(keyMessage(""));
   }
 
   function resetDeleteConfirm() {

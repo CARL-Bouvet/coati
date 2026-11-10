@@ -159,15 +159,16 @@ describe("openedPageReadable: final address of an opened result", () => {
   const guard = (url: string) => checkOpen("https://example.com/page", url, "text");
   const readable = (final: unknown, result = "https://shop.example.org/a") => openedPageReadable(guard, result, final);
 
-  test("same site stays readable: www, http to https, other path", () => {
+  test("same host stays readable: www, http to https, other path", () => {
     expect(readable("https://shop.example.org/b?x=1#y")).toBe(true);
-    expect(readable("https://www.example.org/a")).toBe(true);
+    expect(readable("https://www.shop.example.org/a")).toBe(true);
     expect(readable("https://shop.example.org/a", "http://shop.example.org/a")).toBe(true);
     expect(readable("https://www.bbc.co.uk/n", "https://bbc.co.uk/n")).toBe(true);
   });
 
-  test("a redirect to another site, a private address or a non-web page is not read", () => {
+  test("a redirect to another host, a private address or a non-web page is not read", () => {
     expect(readable("https://attacker.example/x")).toBe(false);
+    expect(readable("https://www.example.org/a")).toBe(false);
     expect(readable("http://127.0.0.1:11434/api/tags")).toBe(false);
     expect(readable("http://192.168.1.1/")).toBe(false);
     expect(readable("chrome-error://chromewebdata/")).toBe(false);
@@ -189,10 +190,10 @@ describe("conversation flags", () => {
     expect(pageReadIn([{ pageRead: true }])).toBe(true);
   });
 
-  test("metadata-only turn: links stay 'from memory' unless the offered title names their domain", () => {
-    expect(readUntrustedIn([{ role: "assistant", pageOnDemand: true }])).toBe(false);
-    const ctx = linkContext([], "https://example.org/", false, "Support officiel — ouvrez https://Evil.example/fix");
-    expect(linkVerdict("https://evil.example/fix", "fix", ctx)).toMatchObject({ verdict: "refused", reason: "not-in-sources" });
-    expect(linkVerdict("https://github.com/oven-sh/bun", "bun", ctx)).toMatchObject({ verdict: "memory" });
+  test("a turn that sent the page's title or address makes links untrusted", () => {
+    expect(readUntrustedIn([{ role: "assistant", pageOnDemand: true }])).toBe(true);
+    expect(readUntrustedIn([{ role: "assistant" }, { role: "user" }])).toBe(false);
+    const ctx = linkContext([], "https://example.org/", true);
+    expect(linkVerdict("https://github.com/oven-sh/bun", "bun", ctx)).toMatchObject({ verdict: "refused", reason: "not-in-sources" });
   });
 });

@@ -8,7 +8,9 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-LOG=/tmp/coati-broker.log
+LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/coati"
+mkdir -p "$LOG_DIR" && chmod 700 "$LOG_DIR"
+LOG="$LOG_DIR/broker.log"
 CONFIG="$HOME/.config/coati/config.json"
 KEY_FILE="$HOME/.local/share/coati/broker-key.json"
 

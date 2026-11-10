@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Installs the pinned nfpm (used by scripts/package.sh) into $1 (default:
-# $RUNNER_TEMP/nfpm-bin) and puts it on the PATH of the following CI steps.
+# ${RUNNER_TEMP:-a fresh temp dir}/nfpm-bin) and puts it on the PATH of the following CI steps.
 # Linux x86_64 runners only. The sha256 is the digest GitHub shows for that
 # release asset (releases API, `digest` field); bump both lines together.
 set -euo pipefail
@@ -8,7 +8,7 @@ set -euo pipefail
 VERSION="2.48.0"
 SHA256="6d7f9a28b2f397934403950fcbba83f598b08d02edbe79a0815b3b4897341750"
 
-dest="${1:-${RUNNER_TEMP:-/tmp}/nfpm-bin}"
+dest="${1:-${RUNNER_TEMP:-$(mktemp -d)}/nfpm-bin}"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 

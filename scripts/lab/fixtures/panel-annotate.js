@@ -1,11 +1,9 @@
-// Coati state lab — visual zone annotation for the "propositions" page
-// (scripts/lab/propositions/, section 1: "Plan du panneau").
+// Coati state lab — visual zone annotation of the panel layout.
 //
 // Draws an outline + numbered badge over each zone tagged by
-// panel-zones.js (data-zone), using the vocabulary agreed with Romain
-// (1, 2, 3, 3a, 3b, 4, 5, 5a, 5b, 5c — see scripts/lab/propositions/README
-// or the propositions page itself for the legend). No-op unless the page
-// URL carries `&annotate=1`: never runs during normal state-lab browsing.
+// panel-zones.js (data-zone), numbered 1, 2, 3, 3a, 3b, 4, 5, 5a, 5b, 5c.
+// No-op unless the page URL carries `&annotate=1`: never runs during
+// normal state-lab browsing.
 //
 // Lab-only, never shipped: appended to panel.html only by build-lab.ts
 // (extraScriptRelPaths), same mechanism as panel-zones.js.

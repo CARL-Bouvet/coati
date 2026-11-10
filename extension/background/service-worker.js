@@ -161,7 +161,7 @@ function openPanel(tab) {
 if (api.action && api.action.onClicked) {
   api.action.onClicked.addListener((tab) => {
     openPanel(tab);
-    api.runtime.sendMessage({ type: "coati:action-clicked", tabId: tab.id }).catch(() => {});
+    api.runtime.sendMessage({ type: "coati:action-clicked", tabId: tab.id, windowId: tab.windowId }).catch(() => {});
   });
 }
 

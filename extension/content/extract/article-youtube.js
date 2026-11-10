@@ -37,10 +37,12 @@ function articleText() {
   return best ? textExcludingEditable(best) : textExcludingEditable(document.body);
 }
 
+const YOUTUBE_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com"]);
+
 function getYouTubeVideoId() {
   try {
     const url = new URL(location.href);
-    if (url.hostname.includes("youtube.com") && url.pathname === "/watch") {
+    if (YOUTUBE_HOSTS.has(url.hostname) && url.pathname === "/watch") {
       return url.searchParams.get("v") || undefined;
     }
     if (url.hostname === "youtu.be") {

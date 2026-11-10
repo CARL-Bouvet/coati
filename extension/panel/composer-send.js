@@ -36,11 +36,16 @@ let frameLimitNoticeShown = false;
  * reasoning as `pendingRetries` (chat-stream.js). */
 export const pendingPageExtractions = new Map();
 
+/** The tab each page-on-demand question was sent from: a `dev` read targets
+ * that tab, not whichever one is current when the broker asks. */
+export const questionTabIds = new Map();
+
 /** Drops a stashed extraction once it can no longer be needed: the question
  * reached a terminal state that isn't being retried (done, or an error that
  * doesn't keep a retry payload — see chat-stream.js's onDone/onError). */
 export function clearPendingPageExtraction(id) {
   pendingPageExtractions.delete(id);
+  questionTabIds.delete(id);
 }
 
 /** Reads the page when a tab is open, else resolves to `undefined` — the
@@ -124,7 +129,10 @@ export async function sendChatMessage(text, context, extraction, searchQuery, pa
   const pageOnDemand = !!extraction && hasFeature("pageOnDemand");
   const wirePage = pageOnDemand ? pageMetaFor(extraction) : undefined;
   const wireContext = pageOnDemand ? undefined : prepareContextForWire(context, hasFeature("elements"));
-  if (pageOnDemand) pendingPageExtractions.set(id, extraction);
+  if (pageOnDemand) {
+    pendingPageExtractions.set(id, extraction);
+    questionTabIds.set(id, currentTabId);
+  }
 
   // No marker for the page-on-demand branch: the page's content wasn't
   // actually attached, only offered — the done.page mention line under the
@@ -153,7 +161,6 @@ export async function sendChatMessage(text, context, extraction, searchQuery, pa
     readsPage: !pageOnDemand && !!context,
     approvedSearch: searchQuery,
     pageOnDemand,
-    offeredTitle: wirePage?.title,
     elementsSnapshot: buildElementsSnapshot(context),
   });
 

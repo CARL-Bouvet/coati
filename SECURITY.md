@@ -26,7 +26,9 @@ and allows 16 unproven connections at once. The extension keeps the key in sessi
 
 **Local program.**
 - Listens on `127.0.0.1` only. A request with the wrong `Host`, or with a missing or foreign
-  `Origin`, is refused with 403 before the WebSocket upgrade.
+  `Origin`, is refused with 403 before the WebSocket upgrade. `GET /oauth/callback`
+  (the browser's return from the OpenRouter sign-in) is the one exception to the `Origin` rule;
+  `Host` and the connecting user are still checked.
 - On Linux, the connecting process must belong to your user.
 - Accepts a closed set of typed JSON messages; anything else is rejected, never executed.
 - Model credentials stay in the broker's config on your machine. The extension never holds them.

@@ -252,7 +252,7 @@
       { provider: "openai-compat", state: "not-configured" },
     ],
   };
-  // Machine capacity — Romain's machine (16 GB, 6.4 GB VRAM). The
+  // Machine capacity (16 GB, 6.4 GB VRAM). The
   // loaded model carries a measured gpuPercent, which wins over its fit.
   var MODELS_WITH_FIT = {
     current: { provider: "ollama", model: "qwen3:8b" },

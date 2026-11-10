@@ -123,6 +123,8 @@ export let resizeComposer = () => {};
 // Page detection state (deliverable 1) — see the comment block above. Only
 // ever reassigned here (bootstrap); every other module imports it read-only.
 export let currentTabId = null;
+// The browser window this panel lives in; tab events from other windows are not ours.
+let ownWindowId = null;
 
 applyI18n(document);
 // U1 — live language switch: FIRST_RUN_TEXT, READ_BUTTON_TEXT, suggestions
@@ -222,8 +224,10 @@ async function init() {
     els.siteCardFavicon.hidden = true;
   });
 
+  ownWindowId = (await api.windows.getCurrent().catch(() => null))?.id ?? null;
   api.runtime.onMessage.addListener(onRuntimeMessage);
-  api.tabs.onActivated.addListener(({ tabId }) => {
+  api.tabs.onActivated.addListener(({ tabId, windowId }) => {
+    if (windowId !== ownWindowId) return;
     currentTabId = tabId;
     redetectTabFromMetadata(tabId);
   });
@@ -316,8 +320,9 @@ async function showBuildInfo() {
     : t("panel_build_fingerprint_unavailable", [version]);
 }
 
-function onRuntimeMessage(message) {
+function onRuntimeMessage(message, sender) {
   if (!message || typeof message !== "object") return;
+  if (sender?.id !== api.runtime.id) return;
 
   if (message.type === "coati:status") {
     applyStatus(message.state);
@@ -337,7 +342,7 @@ function onRuntimeMessage(message) {
   // openedFromGesture() because this same click opened the panel.
   if (message.type === "coati:action-clicked") {
     const tabId = parseActionClickedTabId(message);
-    if (tabId != null && !isRedetectDuplicate(lastRedetectTabId, lastRedetectAt, tabId, Date.now())) {
+    if (tabId != null && message.windowId === ownWindowId && !isRedetectDuplicate(lastRedetectTabId, lastRedetectAt, tabId, Date.now())) {
       currentTabId = tabId;
       redetectTab(currentTabId);
     }
@@ -353,6 +358,9 @@ function onRuntimeMessage(message) {
 // writes (chat-stream.js, model-status.js, site-card.js).
 function handleBrokerMessage(message) {
   if (!message || typeof message !== "object") return;
+  // The service worker broadcasts to every open panel; a request is acted on
+  // only by the panel whose own question (same id) it answers.
+  if (typeof message.type === "string" && message.type.endsWith(".request") && message.id !== panelState.activeRequestId) return;
   switch (message.type) {
     case "chunk":
       onChunk(message);

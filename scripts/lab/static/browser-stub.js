@@ -222,7 +222,7 @@
   function dispatchToListeners(message) {
     messageListeners.slice().forEach(function (fn) {
       try {
-        fn(message);
+        fn(message, { id: "coati-lab" });
       } catch (err) {
         console.error("[lab] onMessage listener threw", err);
       }
@@ -458,6 +458,11 @@
             return l !== fn;
           });
         },
+      },
+    },
+    windows: {
+      getCurrent: function () {
+        return Promise.resolve({ id: 1 });
       },
     },
     tabs: {

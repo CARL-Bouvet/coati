@@ -86,6 +86,11 @@ describe("plan: Linux", () => {
     expect(a.some((x) => x.kind === "copy")).toBe(false);
   });
 
+  test("a path with a control character is refused", () => {
+    expect(() => planInstall(base({ system: true, exe: "/usr/bin/x\ny" }))).toThrow(/control/);
+    expect(() => planInstall(base({ prefix: "/p\nq" }))).toThrow(/control/);
+  });
+
   test("system uninstall: removes the package's files but never the binary", () => {
     const a = planUninstall({ os: "linux", home: "/root", system: true, service: true, purge: false, configDir: "c", dataDir: "d" });
     const removed = a.filter((x) => x.kind === "remove").map((x) => (x as { path: string }).path);
@@ -261,6 +266,13 @@ describe("mode selection", () => {
     expect(selectMode([], ctx(true, true))).toBe("serve");
     expect(selectMode([], ctx(false, false))).toBe("serve");
   });
+  test("an unknown flag never installs: it is refused by parseCli and would only serve", () => {
+    expect(selectMode(["--version"], ctx(true, false))).toBe("serve");
+    expect(selectMode(["--no-service"], ctx(true, false))).toBe("serve");
+    expect(() => parseCli(["--version"])).toThrow(/unknown option/);
+    expect(() => parseCli(["--install", "--bogus"])).toThrow();
+    expect(() => parseCli(["--prefix", "/p", "stray"])).toThrow();
+  });
   test("installed location per OS, case-insensitive on Windows", () => {
     const lin = { os: "linux", home: "/home/u" } as const;
     expect(isInstalledExe(lin, "/home/u/.local/bin/coati-broker")).toBe(true);
@@ -327,6 +339,15 @@ describe("apply against a throwaway prefix", () => {
     expect(existsSync(join(prefix, ".config/coati/config.json"))).toBe(true);
     runUninstall({ ...cli, purge: true }, () => {});
     expect(existsSync(join(prefix, ".config/coati"))).toBe(false);
+
+    const saved = process.env.COATI_DATA_DIR;
+    process.env.COATI_DATA_DIR = join(dir, "precious");
+    try {
+      expect(() => runUninstall({ ...parseCli(["--no-service", "--purge"]) }, () => {})).toThrow(/purge/);
+    } finally {
+      if (saved === undefined) delete process.env.COATI_DATA_DIR;
+      else process.env.COATI_DATA_DIR = saved;
+    }
   });
 
   test("rename skips a missing source and replaces an existing target", () => {

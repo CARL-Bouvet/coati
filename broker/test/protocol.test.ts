@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { isValidBaseUrl } from "../src/protocol/shared.ts";
 import { parseClientMessage, searchContentError, openContentError, MAX_MESSAGE_BYTES } from "../src/protocol.ts";
 
 describe("parseClientMessage", () => {
@@ -471,5 +472,13 @@ describe("parseClientMessage — search", () => {
     expect(openContentError([page(2, "x".repeat(6001))], [2])?.code).toBe("context-too-large");
     expect(openContentError([page(4)], [2])?.code).toBe("bad-request");
     expect(openContentError([page(2), page(2)], [2])?.code).toBe("bad-request");
+  });
+});
+
+describe("isValidBaseUrl", () => {
+  test("refuses credentials in the address", () => {
+    expect(isValidBaseUrl("https://api.example.com/v1")).toBe(true);
+    expect(isValidBaseUrl("https://user:pw@api.example.com/v1")).toBe(false);
+    expect(isValidBaseUrl("http://user@localhost:11434")).toBe(false);
   });
 });
