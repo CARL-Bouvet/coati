@@ -256,9 +256,10 @@ try {
       },
     );
     pass("key saved in the settings page: the open panel's first-run card closed without a reload");
-    // The first-run card closing starts the guided tour once.
-    await page.locator(".tour .tour-skip").click({ timeout: 5000 });
   }
+  // Attach mode starts with a working model, so the card closes by itself. Either way, the card
+  // closing starts the guided tour once, and the tour covers the composer.
+  await page.locator(".tour .tour-skip").click({ timeout: 15_000 });
 
   // The panel is opened as a plain tab, so there is no page Coati may read:
   // the question must still go out, without the page (no switch to turn page
