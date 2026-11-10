@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy policy — Coati</title>
+  <meta name="description" content="What data the Coati extension and its local program handle, where it goes and where it is stored.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="/img/coati.svg" type="image/svg+xml">
+  <link rel="icon" href="/img/coati-512.png" type="image/png" sizes="512x512">
+  <link rel="apple-touch-icon" href="/img/coati-512.png">
+  <link rel="preload" href="/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-head">
+    <div class="wrap">
+      <a class="brand" href="/"><img src="/img/coati.svg" alt="" width="36" height="31">Coati</a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#download">Download</a>
+        <a href="/privacy" aria-current="page">Privacy</a>
+        <a href="https://github.com/CARL-Bouvet/coati">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="policy">
+    <section aria-labelledby="title">
+      <div class="wrap">
+        <h1 id="title">Privacy policy</h1>
+        <p class="note">Last updated 10 November 2026.</p>
+        <p>This policy covers the Coati browser extension and its local program, <code>coati-broker</code>, which runs on your computer. Coati has no server of its own. We do not receive any of the data described below, so we cannot sell or share it.</p>
+
+        <h2>What the extension handles</h2>
+        <p>Coati acts only when you ask a question. Nothing runs in the background. For each question, the following goes to the model you configured:</p>
+        <ul>
+          <li>your question;</li>
+          <li>the page text or HTML, only when the model asks for it to answer you. Every answer says whether the page was read;</li>
+          <li>the last 10 exchanges of the conversation;</li>
+          <li>any image you attach.</li>
+        </ul>
+        <p>Coati never reads the value of a password field, at any reading level. Before the page's HTML (dev mode) goes to an online model, Coati warns you if it finds API keys, card numbers or IBANs. It never masks anything.</p>
+
+        <h2>Where it goes</h2>
+        <ul>
+          <li>With a local model (Ollama, LM Studio), the data stays on your computer.</li>
+          <li>With an online provider (for example Anthropic, OpenAI, Mistral, OpenRouter or DeepSeek), the local program sends it from your computer to that provider, using your own key. Each key is sent only to its own provider.</li>
+          <li>When the model searches the web, the queries go to your browser's default search engine, and the result pages the model opens are fetched by your browser and read like the current page.</li>
+        </ul>
+
+        <h2>What is stored, and where</h2>
+        <ul>
+          <li>API keys: in the local program's configuration, on your computer. The extension never holds them. The configuration and key files are restricted to your user account (and the computer's administrators).</li>
+          <li>Pairing key, which lets the extension prove itself to the local program: in the browser's session storage (<code>chrome.storage.session</code>) only.</li>
+          <li>Conversation: in the browser's local storage, unencrypted, for 30 days by default. You can change this in the settings, or clear the conversation. No key or other secret is stored there.</li>
+        </ul>
+        <p>Uninstalling the local program removes the program. Its configuration and keys stay on your computer unless you uninstall with <code>--purge</code> (see the <a href="https://github.com/CARL-Bouvet/coati/blob/main/docs/INSTALL.md#5-uninstall">install guide</a>).</p>
+
+        <h2>What Coati does not do</h2>
+        <ul>
+          <li>No telemetry, no analytics, no server of ours.</li>
+          <li>The extension's pages may only connect to the local program on your computer.</li>
+          <li>On a page, Coati only reads and highlights. It never clicks, types, pays, sends, deletes, publishes or signs in.</li>
+        </ul>
+
+        <h2>Third parties</h2>
+        <p>The model provider you choose and your search engine receive what is described above, under their own privacy policies. Free online models may keep what you send them: check the provider's privacy settings before sending anything confidential.</p>
+
+        <h2>Source code</h2>
+        <p>Coati is open source under AGPL-3.0. Everything on this page can be checked in the <a href="https://github.com/CARL-Bouvet/coati">source code</a> and in its <a href="https://github.com/CARL-Bouvet/coati/blob/main/SECURITY.md">security notes</a>.</p>
+
+        <h2>Contact</h2>
+        <p>Questions about this policy: <a href="mailto:contact@getcoati.com">contact@getcoati.com</a>. To report a vulnerability, use <a href="https://github.com/CARL-Bouvet/coati/security/advisories/new">GitHub's private reporting</a>, not a public issue.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-foot">
+    <div class="wrap">
+      <p>Coati, open source under <a href="https://github.com/CARL-Bouvet/coati/blob/main/LICENSE">AGPL-3.0</a></p>
+      <p><a href="mailto:contact@getcoati.com">contact@getcoati.com</a></p>
+      <p><a href="https://github.com/CARL-Bouvet/coati">Source</a></p>
+      <p><a href="/">Home</a></p>
+      <p class="legal">The Coati name and logo are not covered by the AGPL.</p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coati — ask your own AI model about the page you are on</title>
+  <meta name="description" content="Coati is a browser extension and a small local program. Connect your own model, local or online, and ask it about the page you are on. Open source, AGPL-3.0.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="/img/coati.svg" type="image/svg+xml">
+  <link rel="icon" href="/img/coati-512.png" type="image/png" sizes="512x512">
+  <link rel="apple-touch-icon" href="/img/coati-512.png">
+  <link rel="preload" href="/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-head">
+    <div class="wrap">
+      <a class="brand" href="/"><img src="/img/coati.svg" alt="" width="36" height="31">Coati</a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="#download">Download</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://github.com/CARL-Bouvet/coati">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="title">
+      <div class="wrap">
+        <h1 id="title">Ask your own AI model about the page you are on.</h1>
+        <p class="lede">Coati opens a side panel in your browser. You connect a model you choose, on your computer with Ollama or LM Studio, or online with your own API key. Then ask it to summarise an article or a YouTube video, explain the page, or search the web for you.</p>
+        <div class="actions">
+          <a class="button" href="https://github.com/CARL-Bouvet/coati/releases/latest">Download Coati</a>
+          <a href="https://github.com/CARL-Bouvet/coati">Source code on GitHub</a>
+        </div>
+        <figure class="shot">
+          <picture>
+            <source media="(max-width: 40rem)" srcset="/img/coati-panel.png" width="400" height="900">
+            <img src="/img/coati-wikipedia.png" width="1401" height="900" decoding="async"
+                 alt="Coati's side panel next to the Wikipedia article &quot;Coati&quot;, summing it up in five points.">
+          </picture>
+          <figcaption>The Wikipedia article on coatis, summed up in five points by qwen3:4b running locally in Ollama.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section aria-labelledby="how">
+      <div class="wrap">
+        <h2 id="how">How it works</h2>
+        <p>The extension and the local program run on your computer. The model runs where you choose.</p>
+        <ol class="chain">
+          <li>
+            <span class="where">In your browser</span>
+            <h3>The extension</h3>
+            <p>A side panel for Chrome, Chromium, Brave, Edge and Firefox. The model reads the page only when your question needs it, and every answer says whether the page was read.</p>
+          </li>
+          <li>
+            <span class="where">On your computer</span>
+            <h3>The local program</h3>
+            <p>A small program that keeps your API keys and talks to the model. It listens on <code>127.0.0.1</code> only and accepts only the paired extension.</p>
+          </li>
+          <li>
+            <span class="where">Local or online</span>
+            <h3>Your model</h3>
+            <p>Ollama or LM Studio on your machine, or your own key for Claude, OpenAI, Mistral, OpenRouter, DeepSeek or any OpenAI-compatible address. Coati ships no AI.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section aria-labelledby="download">
+      <div class="wrap split">
+        <div>
+          <h2 id="download">Download</h2>
+          <p>The latest release has the extension for Chrome and Firefox, and the local program for Windows, macOS and Linux. The extension's first-run tutorial shows which file your system needs.</p>
+          <p>Load the extension in developer mode (Chrome, Chromium, Brave, Edge) or as a temporary add-on (Firefox). The files are not signed with a paid developer certificate, so your system warns you once.</p>
+          <p><a class="button" href="https://github.com/CARL-Bouvet/coati/releases/latest">Download the latest release</a></p>
+          <p class="note">Tested on Linux so far. Reports from macOS and Windows are welcome. Step by step: the <a href="https://github.com/CARL-Bouvet/coati/blob/main/docs/INSTALL.md">install guide</a>.</p>
+        </div>
+        <div>
+          <h2 id="privacy">Privacy</h2>
+          <p>Coati has no server of its own and sends no telemetry. Page content leaves your computer only when you use an online model, and then goes to that provider.</p>
+          <p>Coati never reads password fields. On a page it only reads and highlights: it never clicks, types, pays, sends, deletes, publishes or signs in.</p>
+          <p><a href="/privacy">Read the privacy policy</a></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-foot">
+    <div class="wrap">
+      <p>Coati, open source under <a href="https://github.com/CARL-Bouvet/coati/blob/main/LICENSE">AGPL-3.0</a></p>
+      <p><a href="mailto:contact@getcoati.com">contact@getcoati.com</a></p>
+      <p><a href="https://github.com/CARL-Bouvet/coati">Source</a></p>
+      <p><a href="/privacy">Privacy</a></p>
+      <p class="legal">The Coati name and logo are not covered by the AGPL.</p>
+    </div>
+  </footer>
+</body>
+</html>

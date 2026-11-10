@@ -1,0 +1,254 @@
+/* getcoati.com — static, no JavaScript. Palette: Coati light/dark tokens. */
+
+@font-face {
+  font-family: "Figtree";
+  src: url("/fonts/figtree.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light dark;
+  --font: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --fg: #1F2328;
+  --bg: #F7F8FA;
+  --muted: #5B6470;
+  --surface: #E3E7EE;
+  --border: #A9B1BB;
+  --link: #4A6A88;
+  --primary: #D78323;
+  --on-primary: #1F2328;
+  --head-bg: #1F2328;
+  --head-fg: #E6E9EE;
+  --head-muted: #B4BCC6;
+
+  --text-s: 0.875rem;
+  --text-m: 1.0625rem;
+  --text-l: 1.5rem;
+  --text-xl: clamp(2.125rem, 1.5rem + 2.6vw, 3.25rem);
+
+  --gap: 1.25rem;
+  --section: clamp(3rem, 2rem + 4vw, 5rem);
+  --wide: 68rem;
+  --measure: 38rem;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #E6E9EE;
+    --bg: #16191D;
+    --muted: #9AA3AE;
+    --surface: #262C33;
+    --border: #5B6470;
+    --link: #8FB0CF;
+    --primary: #DC8828;
+    --on-primary: #16191D;
+    --head-bg: #0F1114;
+    --head-fg: #E6E9EE;
+    --head-muted: #9AA3AE;
+  }
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--text-m);
+  line-height: 1.6;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+img { max-width: 100%; height: auto; display: block; }
+
+a { color: var(--link); text-underline-offset: 0.18em; }
+a:hover { text-decoration-thickness: 2px; }
+
+:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; border-radius: 4px; }
+
+code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--surface);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.skip {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  background: var(--primary);
+  color: var(--on-primary);
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius);
+}
+.skip:focus { top: 0.75rem; }
+
+.wrap {
+  width: 100%;
+  max-width: var(--wide);
+  margin-inline: auto;
+  padding-inline: var(--gap);
+}
+
+/* Header — dark band, as in the extension */
+
+.site-head { background: var(--head-bg); color: var(--head-fg); }
+.site-head .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 4rem;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--head-fg);
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+}
+.brand img { width: 2.25rem; height: auto; }
+.site-nav { display: flex; gap: 0.25rem; }
+@media (max-width: 22rem) {
+  .brand { font-size: 1.0625rem; }
+  .site-nav a { padding-inline: 0.4rem; }
+}
+.site-nav a {
+  color: var(--head-muted);
+  text-decoration: none;
+  font-size: var(--text-s);
+  font-weight: 600;
+  padding: 0.75rem 0.6rem;
+}
+.site-nav a:hover,
+.site-nav a[aria-current="page"] { color: var(--head-fg); }
+
+/* Sections */
+
+main > section { padding-block: var(--section) 0; }
+main > section:last-child { padding-bottom: var(--section); }
+
+h1, h2, h3 { line-height: 1.15; letter-spacing: -0.015em; margin: 0; }
+h1 { font-size: var(--text-xl); font-weight: 800; max-width: 20ch; text-wrap: balance; }
+h2 { font-size: var(--text-l); font-weight: 750; margin-bottom: 1rem; }
+h3 { font-size: var(--text-m); font-weight: 700; margin-bottom: 0.35rem; }
+
+p { margin: 0 0 1rem; max-width: var(--measure); }
+p:last-child { margin-bottom: 0; }
+
+.lede { font-size: 1.1875rem; margin-top: 1.25rem; }
+.note { color: var(--muted); font-size: var(--text-s); }
+
+/* Hero */
+
+.hero .actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  margin-top: 1.75rem;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 3rem;
+  padding: 0.7rem 1.4rem;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: var(--radius);
+}
+.button:hover { filter: brightness(1.06); text-decoration: none; }
+
+.shot {
+  margin: 2.5rem 0 0;
+}
+.shot img {
+  margin-inline: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.shot figcaption { margin-top: 0.6rem; color: var(--muted); font-size: var(--text-s); max-width: var(--measure); }
+
+/* How it works — the data path, page to model */
+
+.chain {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+.chain li {
+  position: relative;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.chain li p { font-size: 1rem; }
+.chain code { background: var(--bg); }
+.chain .where {
+  display: block;
+  color: var(--muted);
+  font-size: var(--text-s);
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+@media (min-width: 52rem) {
+  .chain { grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+  /* connector between boxes: the extension talks to the program, the program to the model */
+  .chain li + li::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(-2rem - 1px);
+    width: 2rem;
+    border-top: 2px solid var(--border);
+  }
+}
+
+/* Download / privacy blocks */
+
+.split { display: grid; gap: var(--section); }
+@media (min-width: 52rem) {
+  .split { grid-template-columns: 1fr 1fr; gap: 3rem; }
+}
+
+/* Policy page */
+
+.policy h1 { max-width: none; }
+.policy .wrap > * { max-width: var(--measure); }
+.policy h2 { margin-top: 2.5rem; font-size: 1.25rem; }
+.policy ul { padding-left: 1.2rem; margin: 0 0 1rem; }
+.policy li { margin-bottom: 0.5rem; }
+
+/* Footer */
+
+.site-foot {
+  border-top: 1px solid var(--border);
+  padding-block: 2rem;
+  color: var(--muted);
+  font-size: var(--text-s);
+}
+.site-foot .wrap { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; align-items: center; }
+.site-foot p { margin: 0; max-width: none; }
+.site-foot a { color: var(--link); }
+.site-foot .legal { flex-basis: 100%; }
