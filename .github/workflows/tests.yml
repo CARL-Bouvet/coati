@@ -211,6 +211,8 @@ jobs:
     # from the fake provider, uninstall, check nothing is left. Real HOME and
     # registry of the runner; Linux runs in an ubuntu:24.04 container.
     needs: packages
+    # A run takes 1-15 minutes (Linux downloads its tools); a stalled one must fail, not hold the runner for hours.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

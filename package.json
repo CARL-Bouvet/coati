@@ -1,6 +1,6 @@
 {
   "name": "coati-dev-tools",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Coati development tools (measurement bench, design lab) — not the broker or the extension, which have no build dependencies.",
   "devDependencies": {
