@@ -16,6 +16,7 @@
 #
 # Produces:
 #   dist/coati-chrome.zip
+#   dist/coati-chrome-store.zip  same, without the manifest "key"
 #   dist/coati-firefox.zip
 #   dist/stage/firefox/        unpacked copy, for "Load Temporary Add-on"
 #                               in Firefox — that loader requires a real
@@ -43,7 +44,7 @@ fi
 # Only wipe this script's own outputs — dist/ is shared with
 # scripts/build-binaries.sh's dist/bin/, which must survive a build.sh run
 # regardless of run order.
-rm -rf "$DIST/stage" "$DIST/coati-chrome.zip" "$DIST/coati-firefox.zip"
+rm -rf "$DIST/stage" "$DIST/coati-chrome.zip" "$DIST/coati-chrome-store.zip" "$DIST/coati-firefox.zip"
 mkdir -p "$DIST"
 
 build_target() {
@@ -64,5 +65,14 @@ build_target() {
 
 build_target chrome "$SRC/manifest.json"
 build_target firefox "$SRC/manifest.firefox.json"
+
+# Chrome Web Store upload: the store refuses a manifest "key" (the store item
+# already carries the pinned ID), so this copy drops it. Never loaded unpacked:
+# without the key the ID would not be the one the local program accepts.
+STORE="$STAGE/chrome-store"
+cp -r "$STAGE/chrome" "$STORE"
+bun -e 'const f=process.argv[1];const m=JSON.parse(await Bun.file(f).text());delete m.key;await Bun.write(f,JSON.stringify(m,null,2)+"\n")' "$STORE/manifest.json"
+(cd "$STORE" && zip -qr -X "$DIST/coati-chrome-store.zip" .)
+echo "dist/coati-chrome-store.zip  (Chrome Web Store upload)"
 
 echo "dist/stage/firefox/  (Firefox temporary load — see docs/INSTALL.md)"
