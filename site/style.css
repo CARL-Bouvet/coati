@@ -155,7 +155,7 @@ p:last-child { margin-bottom: 0; }
 
 /* Hero */
 
-.hero .actions {
+.actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

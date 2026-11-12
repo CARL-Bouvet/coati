@@ -46,16 +46,18 @@ shasum -a 256 -c SHA256SUMS --ignore-missing       # macOS
 
 The extension's tutorial polls the program and turns green when it answers.
 
-## 2. Load the extension
+## 2. Add the extension
 
-Take the extension from the [release assets](https://github.com/CARL-Bouvet/coati/releases/latest):
-unzip `coati-chrome.zip` (Chrome, Chromium, Brave, Edge) or `coati-firefox.zip` (Firefox) into a
-folder you keep. Don't move or delete it.
+**Chrome, Chromium, Brave, Edge**: add Coati from the
+[Chrome Web Store](https://chromewebstore.google.com/detail/coati/hehlgipomfminodhahcjbencblepjhah).
+Edge asks once to allow extensions from other stores.
 
-**Chrome, Chromium, Brave, Edge**: open the extensions page (`chrome://extensions`,
-`brave://extensions`, `edge://extensions`), enable **Developer mode**, click **Load unpacked**,
-pick the unzipped folder. The id is fixed by the manifest's `key`, so pairing works immediately,
-even after a reload.
+Without the store, take `coati-chrome.zip` from the
+[release assets](https://github.com/CARL-Bouvet/coati/releases/latest) and unzip it into a folder
+you keep. Open the extensions page (`chrome://extensions`, `brave://extensions`,
+`edge://extensions`), enable **Developer mode**, click **Load unpacked**, pick the folder. The id
+is fixed by the manifest's `key` and is the same as the store's, so pairing works either way.
+Keep only one of the two installed.
 
 **Firefox** needs a real `manifest.json` on disk, not a zip.
 

@@ -10,8 +10,9 @@ Coati has only been tested on Linux so far. Reports from macOS and Windows are w
 
 ## Install
 
-1. Load the extension in Chrome, Brave, Edge or Chromium (developer mode), or in Firefox as a
-   temporary add-on.
+1. Add the extension from the
+   [Chrome Web Store](https://chromewebstore.google.com/detail/coati/hehlgipomfminodhahcjbencblepjhah)
+   (Chrome, Brave, Edge, Chromium), or load it in Firefox as a temporary add-on.
 2. Its first-run tutorial shows the right download of the local program for your system.
    Details: [docs/INSTALL.md](docs/INSTALL.md).
 3. Click the Coati icon or press `Alt+Shift+C`. A guided tour opens the first time, and the
