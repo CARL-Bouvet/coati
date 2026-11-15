@@ -11,17 +11,16 @@
 import { t } from "../lib/i18n-page.js";
 import { els } from "./dom-refs.js";
 import { panelState, MAX_PERSISTED_MESSAGES } from "./panel-state.js";
-import { ACCESS_DENIED_HINT } from "../lib/labels.js";
 import { renderMarkdown } from "./markdown.js";
 import { buildProgress, buildSlowTip } from "./model-advice.js";
 import { isNearBottom } from "./scroll.js";
 import { parseTimestamps } from "./timestamps.js";
 import { parseElementRefs, resolveElementClick } from "./element-refs.js";
 import { buildHistoryForWire, historyAlertState, readUntrustedIn } from "./history.js";
-import { extractForChat, sendChatMessage, readRest } from "./composer-send.js";
-import { summarize, reportExtractionError } from "./page-extract.js";
+import { sendChatWithPage, sendChatMessage, readRest } from "./composer-send.js";
+import { summarize } from "./page-extract.js";
 import { pendingRetries, lastHistoryKept, readParts } from "./chat-stream.js";
-import { currentConnState, modelsReply, switchFromTip, openOllamaSpeedup, hasFeature } from "./model-status.js";
+import { currentConnState, modelsReply, switchFromTip, openOllamaSpeedup } from "./model-status.js";
 import { buildAuthRecoveryBlock } from "./request-watch.js";
 import { api } from "../lib/browser-compat.js";
 import { isClickableSource } from "../lib/search-results.js";
@@ -57,24 +56,7 @@ async function relaunchMessage(msg) {
     return;
   }
 
-  let context;
-  try {
-    context = await extractForChat();
-  } catch (err) {
-    reportExtractionError(err, {
-      accessDenied: t("panel_access_denied_relaunch", [ACCESS_DENIED_HINT]),
-      other: (e) => t("panel_read_error_relaunch", [e.message]),
-    });
-    return;
-  }
-  // Same page-on-demand branch as sendChat() (composer-send.js) — a relaunch
-  // reads the CURRENT page fresh and re-decides, never replays whatever the
-  // original send happened to use.
-  if (context && hasFeature("pageOnDemand")) {
-    await sendChatMessage(relaunch.text, undefined, context);
-  } else {
-    await sendChatMessage(relaunch.text, context);
-  }
+  await sendChatWithPage(relaunch.text);
 }
 
 /** Real DOM node, no innerHTML (project rule 16). Sits below the bubble

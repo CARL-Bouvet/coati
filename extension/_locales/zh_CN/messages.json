@@ -472,22 +472,6 @@
       }
     }
   },
-  "panel_access_denied_relaunch": {
-    "message": "⚠ Coati 无法访问此页面，重试未发送。$HINT$",
-    "placeholders": {
-      "hint": {
-        "content": "$1"
-      }
-    }
-  },
-  "panel_read_error_relaunch": {
-    "message": "⚠ 无法读取页面，重试未发送：$DETAIL$",
-    "placeholders": {
-      "detail": {
-        "content": "$1"
-      }
-    }
-  },
   "panel_transcript_missing": {
     "message": "无法读取字幕。在视频下方：点击「…」→「显示字幕」，然后重试。若该按钮不存在，则视频没有字幕。"
   },

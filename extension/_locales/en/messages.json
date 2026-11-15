@@ -472,22 +472,6 @@
       }
     }
   },
-  "panel_access_denied_relaunch": {
-    "message": "⚠ Coati doesn't have access to this page, the retry wasn't sent. $HINT$",
-    "placeholders": {
-      "hint": {
-        "content": "$1"
-      }
-    }
-  },
-  "panel_read_error_relaunch": {
-    "message": "⚠ Couldn't read the page, the retry wasn't sent: $DETAIL$",
-    "placeholders": {
-      "detail": {
-        "content": "$1"
-      }
-    }
-  },
   "panel_transcript_missing": {
     "message": "The transcript couldn't be read. Under the video: \"…\" → \"Show transcript\", then try again. If the button is absent, the video has no captions."
   },

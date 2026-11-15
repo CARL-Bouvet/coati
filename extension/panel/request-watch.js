@@ -196,7 +196,7 @@ export async function retryRequest(msg) {
   msg.retryAfterSec = undefined;
   msg.slowTip = undefined;
   msg.cutNotice = undefined;
-  msg.progress = undefined;
+  msg.progress = "reading";
   msg.text = "";
   msg.streaming = true;
   renderMessage(msg);

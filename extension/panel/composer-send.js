@@ -63,43 +63,42 @@ export async function extractForChat() {
 export async function sendChat() {
   const text = els.input.value.trim();
   if (!text || panelState.activeRequestId) return;
+  els.input.value = "";
+  resizeComposer();
+  updateSavePromptEnabled();
+  await sendChatWithPage(text);
+}
 
-  // Extract at send time only — never on every keystroke.
+/** Send and relaunch: the bubbles and the waiting line appear first, then the
+ * page is read (at send time only, never per keystroke), then the question
+ * goes out. A cancel during the read leaves `activeRequestId` changed: nothing
+ * is sent. An unreadable tab never blocks a question: say why, then send it
+ * without the page (a browser-internal page gets the line above the composer
+ * and the model is told the page cannot be read). */
+export async function sendChatWithPage(text) {
+  const turn = beginChatTurn(text);
   let context;
   let pageUnreadable = false;
   try {
     context = await extractForChat();
     setInternalPageNotice(false);
   } catch (err) {
-    // No switch to turn page reading off any more: an unreadable tab must
-    // never block a question. Say why the page is out of reach, then send
-    // the question without it (the model answers, or says it needs the page).
-    // A browser-internal page gets the line above the composer instead of a
-    // chat message, and the model is told the page cannot be read.
     pageUnreadable = isInternalPageFailure(err);
-    if (pageUnreadable) {
-      setInternalPageNotice(true);
-    } else {
-      reportExtractionError(err, {
-        accessDenied: t("panel_access_denied_sent", [ACCESS_DENIED_HINT]),
-        other: (e) => t("panel_read_error_sent", [e.message]),
-      });
-    }
+    if (pageUnreadable) setInternalPageNotice(true);
+    else reportExtractionError(err, {
+      accessDenied: t("panel_access_denied_sent", [ACCESS_DENIED_HINT]),
+      other: (e) => t("panel_read_error_sent", [e.message]),
+    });
     context = undefined;
   }
-
-  const text0 = text;
-  els.input.value = "";
-  resizeComposer();
-  updateSavePromptEnabled();
+  if (panelState.activeRequestId !== turn.id) return;
   // Page-on-demand branch (docs/PROTOCOL.md "Page on demand"): only the
-  // composer's own Send button takes it — summarize()/runSuggestion()/a
-  // relaunch keep attaching `context` directly ("exactly as today"), by
-  // simply never passing a 3rd argument to sendChatMessage() below.
+  // composer's own Send and a relaunch take it — summarize()/runSuggestion()
+  // keep attaching `context` directly, by never passing `extraction`.
   if (context && hasFeature("pageOnDemand")) {
-    await sendChatMessage(text0, undefined, context);
+    await dispatchChat(turn, text, undefined, context);
   } else {
-    await sendChatMessage(text0, context, undefined, undefined, pageUnreadable);
+    await dispatchChat(turn, text, context, undefined, undefined, pageUnreadable);
   }
 }
 
@@ -111,22 +110,35 @@ function pageMetaFor(context) {
   return meta;
 }
 
-/** Shared tail of sendChat(), runSuggestion() and relaunchMessage(). When the
- * broker offers "pageOnDemand" and `extraction` is passed (sendChat() only),
- * the wire carries `page` metadata instead of `context`; `extraction` is kept
- * for a later `page.request`. */
-export async function sendChatMessage(text, context, extraction, searchQuery, pageUnreadable) {
+/** Adds this turn's user bubble and assistant placeholder (waiting line
+ * showing) and marks the request in flight. History is computed BEFORE the
+ * two bubbles join `conversation`: it is the PAST exchanges only. */
+function beginChatTurn(text, searchQuery) {
   const id = newId();
-  // History: computed
-  // from `conversation` BEFORE the two addMessage() calls below push this
-  // turn's own user/assistant placeholders onto it — history is the PAST
-  // exchanges only, never this one. Gated on the negotiated capability,
-  // same pattern as `elements`/`vision` above/below.
   const history = hasFeature("history") ? buildHistoryForWire(panelState.conversation) : null;
+  // `relaunch`: resending this exact message means resending `text` through
+  // sendChatWithPage(), reading the CURRENT page fresh — never a cached copy
+  // of `context`, which can hold page content (kept out of chrome.storage.local).
+  const shown = searchQuery ? t("panel_search_button", [searchQuery]) : text;
+  panelState.activeRequestId = id;
+  addMessage({ id: `${id}-u`, role: "user", text: shown, relaunch: { type: "chat", text } });
+  addMessage({ id, role: "assistant", text: "", question: text, streaming: true, readsPage: false, approvedSearch: searchQuery, progress: "reading" });
+  setStreamingUi(true);
+  persistConversation();
+  return { id, history };
+}
 
-  // The page-on-demand branch: only sendChat() ever passes `extraction`, and
-  // only when the broker actually understands it — otherwise `context` (set
-  // by sendChat() itself in that case) carries the page exactly as before.
+/** Shared tail of sendChat(), runSuggestion() and relaunchMessage(). When the
+ * broker offers "pageOnDemand" and `extraction` is passed, the wire carries
+ * `page` metadata instead of `context`; `extraction` is kept for a later
+ * `page.request`. */
+export async function sendChatMessage(text, context, extraction, searchQuery, pageUnreadable) {
+  await dispatchChat(beginChatTurn(text, searchQuery), text, context, extraction, searchQuery, pageUnreadable);
+}
+
+async function dispatchChat({ id, history }, text, context, extraction, searchQuery, pageUnreadable) {
+  // The page-on-demand branch: only when the broker actually understands it —
+  // otherwise `context` carries the page exactly as before.
   const pageOnDemand = !!extraction && hasFeature("pageOnDemand");
   const wirePage = pageOnDemand ? pageMetaFor(extraction) : undefined;
   const wireContext = pageOnDemand ? undefined : prepareContextForWire(context, hasFeature("elements"));
@@ -138,32 +150,21 @@ export async function sendChatMessage(text, context, extraction, searchQuery, pa
   // No marker for the page-on-demand branch: the page's content wasn't
   // actually attached, only offered — the done.page mention line under the
   // finished answer (chat-stream.js) says what actually happened instead.
-  const note = wireContext ? PAGE_CONTENT_MARKER_SUFFIX : "";
-  // `relaunch`: resending this exact
-  // message means resending `text` through this same function, reading the
-  // CURRENT page fresh — never a cached copy of `context`, which can hold
-  // page content (kept out of chrome.storage.local, same reasoning as
-  // context.url elsewhere).
-  const shown = searchQuery ? t("panel_search_button", [searchQuery]) : `${text}${note}`;
-  addMessage({ id: `${id}-u`, role: "user", text: shown, relaunch: { type: "chat", text } });
-  // elementsSnapshot: see its own comment above `frameLimitNoticeShown` —
-  // THIS message's own {extractionId, elements}, computed now, never read
-  // back from a shared variable later. `pageOnDemand` makes the mention say
-  // "did not read the page" when the model never asked for it (chat-stream.js's onDone).
-  addMessage({
-    id,
-    role: "assistant",
-    text: "",
-    question: text,
-    streaming: true,
-    readsPage: !pageOnDemand && !!context,
-    approvedSearch: searchQuery,
-    pageOnDemand,
-    elementsSnapshot: buildElementsSnapshot(context),
-  });
-
-  panelState.activeRequestId = id;
-  setStreamingUi(true);
+  const userMsg = panelState.conversation.find((m) => m.id === `${id}-u`);
+  if (userMsg && wireContext && !searchQuery) {
+    userMsg.text += PAGE_CONTENT_MARKER_SUFFIX;
+    renderMessage(userMsg);
+  }
+  // elementsSnapshot: THIS message's own {extractionId, elements}, computed
+  // now, never read back from a shared variable later. `pageOnDemand` makes
+  // the mention say "did not read the page" when the model never asked for it.
+  const msg = panelState.conversation.find((m) => m.id === id);
+  if (msg) {
+    msg.readsPage = !pageOnDemand && !!context;
+    msg.pageOnDemand = pageOnDemand;
+    msg.elementsSnapshot = buildElementsSnapshot(context);
+    renderMessage(msg);
+  }
   persistConversation();
 
   // Offers the dev marker on top of the text

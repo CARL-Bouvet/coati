@@ -472,22 +472,6 @@
       }
     }
   },
-  "panel_access_denied_relaunch": {
-    "message": "⚠ Coati n'a pas accès à cette page, la relance n'a pas été envoyée. $HINT$",
-    "placeholders": {
-      "hint": {
-        "content": "$1"
-      }
-    }
-  },
-  "panel_read_error_relaunch": {
-    "message": "⚠ Lecture de la page impossible, la relance n'a pas été envoyée : $DETAIL$",
-    "placeholders": {
-      "detail": {
-        "content": "$1"
-      }
-    }
-  },
   "panel_transcript_missing": {
     "message": "La transcription n'a pas pu être lue. Sous la vidéo : « … » → « Afficher la transcription », puis relancez. Si le bouton est absent, la vidéo n'a pas de sous-titres."
   },
