@@ -189,7 +189,7 @@ function buildSearchMentionBlock(msg) {
 }
 
 /** Only the results Coati found itself are listed; a blocked address is text,
- * not a link, and plain http carries a warning. */
+ * not a link, plain http carries a warning and an unreachable page is greyed. */
 function buildSourcesBlock(sources) {
   const wrap = document.createElement("div");
   wrap.className = "search-sources";
@@ -198,7 +198,7 @@ function buildSourcesBlock(sources) {
   list.className = "search-sources-list";
   for (const source of sources) {
     const li = document.createElement("li");
-    li.className = "search-sources-item";
+    li.className = source.unreachable ? "search-sources-item search-sources-item--unreachable" : "search-sources-item";
     li.appendChild(document.createTextNode(`[S${source.n}] `));
     if (isClickableSource(source)) {
       const a = document.createElement("a");
@@ -210,6 +210,7 @@ function buildSourcesBlock(sources) {
     } else {
       li.appendChild(document.createTextNode(source.title));
     }
+    if (source.unreachable) li.appendChild(document.createTextNode(` — ${t("panel_source_unreachable")}`));
     if (source.verdict === "warn-http") li.appendChild(document.createTextNode(` — ${t("panel_source_http_warning")}`));
     list.appendChild(li);
   }

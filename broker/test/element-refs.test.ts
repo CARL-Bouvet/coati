@@ -167,7 +167,7 @@ describe("prepareContextForWire", () => {
 
 // --- Web search: results extraction and sources list ------------------------
 
-import { collectSearchResults, sourcesFromSearch, isClickableSource } from "../../extension/lib/search-results.js";
+import { collectSearchResults, navigationStatus, sourcesFromSearch, isClickableSource } from "../../extension/lib/search-results.js";
 import { checkOpen } from "../../extension/lib/open-guard.js";
 import { readStructuredData } from "../../extension/lib/structured-data.js";
 
@@ -285,6 +285,33 @@ describe("sourcesFromSearch across searches", () => {
     const opened = sourcesFromSearch(second, [], [{ n: 3, url: "https://example.org/c", title: "C", text: "x" }], check);
     expect(opened.map((s: any) => s.n)).toEqual([1, 2, 3]);
     expect(opened.map((s: any) => s.read)).toEqual([false, false, true]);
+  });
+});
+
+describe("unreachable pages", () => {
+  const check = (u: string) => checkOpen("https://www.google.com/search?q=t", u, "text");
+  const list = [
+    { n: 1, title: "A", url: "https://example.org/a", snippet: "" },
+    { n: 2, title: "B", url: "https://example.org/b", snippet: "" },
+  ];
+  test("a failed page stays listed and clickable, marked unreachable, never read", () => {
+    const after = sourcesFromSearch(sourcesFromSearch([], list, [], check), [], [], check, 0, [{ n: 2, reason: "http", status: 502 }]);
+    expect(after.map((s: any) => [s.read, s.unreachable])).toEqual([[false, undefined], [false, true]]);
+    expect(isClickableSource(after[1])).toBe(true);
+  });
+
+  test("navigationStatus reads the navigation entry's status, 0 when the browser hides it", () => {
+    const run = (entry: unknown) => {
+      (globalThis as any).performance = { getEntriesByType: () => [entry] };
+      return navigationStatus();
+    };
+    const saved = globalThis.performance;
+    try {
+      expect(run({ responseStatus: 502 })).toBe(502);
+      expect(run({})).toBe(0);
+    } finally {
+      (globalThis as any).performance = saved;
+    }
   });
 });
 

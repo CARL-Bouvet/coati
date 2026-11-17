@@ -1903,6 +1903,9 @@
   "panel_sources_title": {
     "message": "来源"
   },
+  "panel_source_unreachable": {
+    "message": "无法访问"
+  },
   "panel_source_http_warning": {
     "message": "未加密连接（http）"
   },

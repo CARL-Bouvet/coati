@@ -327,8 +327,8 @@ export function searchContentError(c: SearchBody): string | undefined {
 /** What an `open.content` answering a request for `refs` breaches, or undefined. */
 export function openContentError(
   pages: readonly SearchPageEntry[],
-  failed: readonly OpenFailedEntry[],
   refs: readonly number[],
+  failed: readonly OpenFailedEntry[] = [],
 ): { code: "bad-request" | "context-too-large"; message: string } | undefined {
   const seen = new Set<number>();
   for (const f of failed) {

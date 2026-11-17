@@ -966,7 +966,7 @@ async function runChatPageOnDemandLoop(
       runs.push({ query: searchQuery, results });
       if (results.length > 0) queries.push(searchQuery);
     } else if (answer.kind === "open") {
-      const error = openContentError(answer.pages, answer.failed, openRefs);
+      const error = openContentError(answer.pages, openRefs, answer.failed);
       if (error) {
         send(ws, { type: "error", id: message.id, code: error.code, message: error.message });
         logRequestCompleted(message.id, `error:${error.code}`, Date.now() - startedAt);

@@ -478,6 +478,9 @@ describe("parseClientMessage — search", () => {
     expect(openContentError([page(2, "x".repeat(6001))], [2])?.code).toBe("context-too-large");
     expect(openContentError([page(4)], [2])?.code).toBe("bad-request");
     expect(openContentError([page(2), page(2)], [2])?.code).toBe("bad-request");
+    expect(openContentError([page(2)], [2, 3], [{ n: 3, reason: "empty" }])).toBeUndefined();
+    expect(openContentError([page(2)], [2, 3], [{ n: 2, reason: "empty" }])?.code).toBe("bad-request");
+    expect(openContentError([], [2], [{ n: 9, reason: "failed" }])?.code).toBe("bad-request");
   });
 });
 

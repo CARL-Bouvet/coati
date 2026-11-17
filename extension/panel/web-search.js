@@ -8,7 +8,7 @@
 import { api } from "../lib/browser-compat.js";
 import { checkOpen } from "../lib/open-guard.js";
 import { openedPageReadable } from "../lib/link-safety.js";
-import { collectSearchResults, sourcesFromSearch } from "../lib/search-results.js";
+import { collectSearchResults, navigationStatus, sourcesFromSearch } from "../lib/search-results.js";
 import { readStructuredData } from "../lib/structured-data.js";
 import { panelState, newId } from "./panel-state.js";
 import { renderMessage } from "./message-render.js";
@@ -89,8 +89,9 @@ async function readResults(query, slots) {
   return Array.isArray(found) ? found.map((r, i) => ({ n: i + 1, ...r })) : [];
 }
 
-/** Loads `url` in the reused tab and reads it, or returns null when the page
- * the tab ended on (after redirects) fails `mayRead`. */
+/** Loads `url` in the reused tab and reads it: `{ page }`, or `{ failed: { reason, status? } }`
+ * (docs/PROTOCOL.md "Search") when the page the tab ended on (after redirects)
+ * fails `mayRead`, answered an HTTP error or has no text. */
 async function readPage(url, slots, mayRead) {
   const existing = await liveTab(slots.pages);
   let tab = existing;
@@ -103,13 +104,17 @@ async function readPage(url, slots, mayRead) {
     await waitForLoad(tab.id, TAB_LOAD_TIMEOUT_MS, false);
   }
   slots.pages = tab.id;
-  if (!mayRead((await liveTab(tab.id))?.url)) return null;
+  if (!mayRead((await liveTab(tab.id))?.url)) return { failed: { reason: "failed" } };
+  const injectedStatus = await api.scripting.executeScript({ target: { tabId: tab.id }, func: navigationStatus }).catch(() => undefined);
+  const status = injectedStatus?.[0]?.result;
+  if (status >= 400) return { failed: { reason: "http", status } };
   const page = await extractFromTab(tab.id);
   const injected = await api.scripting.executeScript({ target: { tabId: tab.id }, func: readStructuredData }).catch(() => undefined);
   const data = injected?.[0]?.result;
   const text = `${typeof data === "string" && data ? `${data}\n\n` : ""}${page.text || ""}`.slice(0, OPEN_PAGE_MAX_CHARS);
   const finalUrl = (await liveTab(tab.id))?.url;
-  return mayRead(finalUrl) ? { title: page.title || "", text, finalUrl } : null;
+  if (!mayRead(finalUrl)) return { failed: { reason: "failed" } };
+  return text ? { page: { title: page.title || "", text, finalUrl } } : { failed: { reason: "empty" } };
 }
 
 async function decline(type, id, reason) {
@@ -235,18 +240,16 @@ export async function onOpenRequest(message) {
   try {
     const slots = tabsFor(id);
     const pages = [];
+    const failed = [];
     for (const ref of allowed) {
-      try {
-        const page = await readPage(ref.url, slots, (final) => openedPageReadable(check, ref.url, final));
-        if (page?.text) pages.push({ n: ref.n, url: page.finalUrl, title: page.title || ref.url, text: page.text });
-      } catch {
-        // an unreadable page is simply not read
-      }
+      const read = await readPage(ref.url, slots, (final) => openedPageReadable(check, ref.url, final)).catch(() => ({ failed: { reason: "failed" } }));
+      if (read.page) pages.push({ n: ref.n, url: read.page.finalUrl, title: read.page.title || ref.url, text: read.page.text });
+      else failed.push({ n: ref.n, ...read.failed });
     }
     if (pages.length > 0) msg.pageRead = true;
-    msg.sources = sourcesFromSearch(msg.sources ?? [], [], pages, check);
+    msg.sources = sourcesFromSearch(msg.sources ?? [], [], pages, check, 0, failed);
     msg.openedPages = [...(msg.openedPages ?? []), ...pages.map((p) => ({ n: p.n, title: p.title, url: p.url }))];
-    await sendClientMessage({ type: "open.content", id: newId(), target: id, pages });
+    await sendClientMessage({ type: "open.content", id: newId(), target: id, pages, failed });
   } catch {
     await decline("open.decline", id, "failed");
   } finally {

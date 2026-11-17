@@ -73,17 +73,29 @@ export function collectSearchResults(limit) {
 }
 
 /**
+ * Runs inside the opened page. The HTTP status of its own navigation (read from
+ * the Performance API, no extra request, no extra permission); 0 when the
+ * browser does not expose it.
+ */
+export function navigationStatus() {
+  const status = performance.getEntriesByType("navigation")[0]?.responseStatus;
+  return typeof status === "number" ? status : 0;
+}
+
+/**
  * The sources list under an answer: only URLs Coati itself found (the results
  * it sent to the model), never one the model wrote. It grows with every search
  * of the question: `prior` is the list so far, `results` the new search's
  * (numbered after the `offset` results already sent), `pages` the pages just
- * read (matched by `n`). `check(url)` is the open-guard verdict; a blocked
- * address stays listed as text, not a link.
- * @returns {Array<{ n: number, title: string, url: string, read: boolean, verdict: string }>}
+ * read and `failed` the ones that could not be (both matched by `n`; a failed
+ * source stays listed, marked `unreachable`). `check(url)` is the open-guard
+ * verdict; a blocked address stays listed as text, not a link.
+ * @returns {Array<{ n: number, title: string, url: string, read: boolean, verdict: string, unreachable?: true }>}
  */
-export function sourcesFromSearch(prior, results, pages, check, offset = 0) {
+export function sourcesFromSearch(prior, results, pages, check, offset = 0, failed = []) {
   const readNumbers = new Set(pages.map((p) => p.n));
-  const sources = prior.map((s) => (readNumbers.has(s.n) ? { ...s, read: true } : s));
+  const failedNumbers = new Set(failed.map((f) => f.n));
+  const sources = prior.map((s) => (readNumbers.has(s.n) ? { ...s, read: true } : failedNumbers.has(s.n) ? { ...s, unreachable: true } : s));
   for (const r of results) {
     let verdict;
     try {
