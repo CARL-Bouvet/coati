@@ -56,6 +56,7 @@ import {
   type SearchDeclineReason,
   type SearchPageEntry,
   type OpenDeclineReason,
+  type OpenFailedEntry,
 } from "../protocol.ts";
 import type { Lang } from "../messages.ts";
 import type { SettingsCtx } from "./settings.ts";
@@ -490,7 +491,7 @@ export type ClientAnswer =
   | { kind: "decline" }
   | { kind: "search"; content: SearchBody }
   | { kind: "search-decline"; reason: SearchDeclineReason }
-  | { kind: "open"; pages: SearchPageEntry[] }
+  | { kind: "open"; pages: SearchPageEntry[]; failed: OpenFailedEntry[] }
   | { kind: "open-decline"; reason: OpenDeclineReason };
 
 /** Per-connection state this module needs beyond `active` — a slice of
@@ -701,6 +702,8 @@ export function handleChatPageOnDemand(
   const { provider, providerOpts, startedAt } = gated;
   void runChatPageOnDemandLoop(ws, message, active, provider, providerOpts, lang, connState, startedAt);
 }
+
+const OPEN_FAILED_TEXT: Record<OpenFailedEntry["reason"], string> = { http: "HTTP error", empty: "no text", failed: "unreachable" };
 
 type SearchReport = { queries: string[]; results: number; pages: number; chars: number; capped?: true };
 
@@ -963,7 +966,7 @@ async function runChatPageOnDemandLoop(
       runs.push({ query: searchQuery, results });
       if (results.length > 0) queries.push(searchQuery);
     } else if (answer.kind === "open") {
-      const error = openContentError(answer.pages, openRefs);
+      const error = openContentError(answer.pages, answer.failed, openRefs);
       if (error) {
         send(ws, { type: "error", id: message.id, code: error.code, message: error.message });
         logRequestCompleted(message.id, `error:${error.code}`, Date.now() - startedAt);
@@ -973,7 +976,8 @@ async function runChatPageOnDemandLoop(
       searchChars += fit.used;
       pages.push(...fit.kept);
       if (fit.dropped > 0) noteBudget();
-      const missing = openRefs.filter((n) => !answer.pages.some((p) => p.n === n));
+      for (const f of answer.failed) searchNotes.push(openFailedNote([f.n], f.status ? `HTTP ${f.status}` : OPEN_FAILED_TEXT[f.reason]));
+      const missing = openRefs.filter((n) => !answer.pages.some((p) => p.n === n) && !answer.failed.some((f) => f.n === n));
       if (missing.length > 0) searchNotes.push(openFailedNote(missing, "not read"));
     } else {
       const error = contextBudgetError(answer.context);

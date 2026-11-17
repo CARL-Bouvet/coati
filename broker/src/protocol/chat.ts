@@ -244,6 +244,14 @@ export interface SearchPageEntry {
   text: string;
 }
 
+export const OPEN_FAILED_REASONS = ["http", "empty", "failed"] as const;
+export interface OpenFailedEntry {
+  n: number;
+  reason: (typeof OPEN_FAILED_REASONS)[number];
+  /** HTTP status (400 to 599), with reason "http". */
+  status?: number;
+}
+
 export const SEARCH_DECLINE_REASONS = ["no-access", "no-result", "blocked", "failed"] as const;
 export type SearchDeclineReason = (typeof SEARCH_DECLINE_REASONS)[number];
 export const OPEN_DECLINE_REASONS = ["no-access", "blocked", "failed"] as const;
@@ -295,6 +303,17 @@ export function parseOpenPages(v: unknown): SearchPageEntry[] | undefined {
   );
 }
 
+/** Shape check of `open.content`'s optional `failed`; absent gives an empty list. */
+export function parseOpenFailed(v: unknown): OpenFailedEntry[] | undefined {
+  if (v === undefined) return [];
+  return parseEntries(v, (r) => {
+    const reason = OPEN_FAILED_REASONS.find((x) => x === r.reason);
+    if (!isN(r.n) || !reason) return undefined;
+    if (r.status === undefined) return { n: r.n, reason };
+    return isN(r.status) && r.status >= 400 && r.status <= 599 ? { n: r.n, reason, status: r.status } : undefined;
+  });
+}
+
 export interface SearchBody {
   query: string;
   results: SearchResultEntry[];
@@ -308,9 +327,14 @@ export function searchContentError(c: SearchBody): string | undefined {
 /** What an `open.content` answering a request for `refs` breaches, or undefined. */
 export function openContentError(
   pages: readonly SearchPageEntry[],
+  failed: readonly OpenFailedEntry[],
   refs: readonly number[],
 ): { code: "bad-request" | "context-too-large"; message: string } | undefined {
   const seen = new Set<number>();
+  for (const f of failed) {
+    if (!refs.includes(f.n) || seen.has(f.n)) return { code: "bad-request", message: `open.content: failed S${f.n} was not requested` };
+    seen.add(f.n);
+  }
   for (const p of pages) {
     if (!refs.includes(p.n) || seen.has(p.n)) return { code: "bad-request", message: `open.content: page S${p.n} was not requested` };
     seen.add(p.n);

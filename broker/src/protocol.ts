@@ -79,6 +79,7 @@ export {
   type SearchPageEntry,
   type SearchDeclineReason,
   type OpenDeclineReason,
+  type OpenFailedEntry,
   OPEN_DECLINE_REASONS,
   SEARCH_QUERY_MAX_CHARS,
   SEARCH_MAX_PER_QUESTION,

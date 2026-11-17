@@ -20,6 +20,7 @@ import {
   parseAbilities,
   parseSearchQuery,
   parseSearchBody,
+  parseOpenFailed,
   parseOpenPages,
   OPEN_DECLINE_REASONS,
   SEARCH_DECLINE_REASONS,
@@ -425,10 +426,11 @@ export function parseClientMessage(raw: string): ParseResult {
     }
     case "open.content": {
       const pages = parseOpenPages(parsed.pages);
-      if (!isNonEmptyString(parsed.target) || !pages) {
+      const failed = parseOpenFailed(parsed.failed);
+      if (!isNonEmptyString(parsed.target) || !pages || !failed) {
         return { ok: false, error: { code: "bad-request", message: "open.content: invalid", id } };
       }
-      return { ok: true, message: { type: "open.content", id, target: parsed.target, pages } };
+      return { ok: true, message: { type: "open.content", id, target: parsed.target, pages, failed } };
     }
     case "open.decline": {
       const reason = OPEN_DECLINE_REASONS.find((r) => r === parsed.reason);

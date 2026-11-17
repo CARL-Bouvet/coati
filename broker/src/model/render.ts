@@ -312,7 +312,7 @@ export function searchDeclinedNote(reason: string): string {
 
 // Spliced into the re-run prompt for pages asked for and not read.
 export function openFailedNote(refs: readonly number[], reason: string): string {
-  return `Pages ${refs.map((n) => `[S${n}]`).join(" ")} could not be read (${reason}). Do not ask for them again; use the other sources or say what is missing.`;
+  return `Pages ${refs.map((n) => `[S${n}]`).join(" ")} could not be read (${reason}). Never present them as read or describe their content. Do not ask for them again; use the other sources or say what is missing.`;
 }
 
 // "page on demand" — docs/PROTOCOL.md "Page

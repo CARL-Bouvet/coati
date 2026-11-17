@@ -4,7 +4,7 @@
 import type { ProviderId } from "../config.ts";
 import type { Context } from "./context.ts";
 import type { SitePrefs } from "./prompts-prefs.ts";
-import type { ChatAbility, ChatImage, HistoryEntry, OpenDeclineReason, PageMeta, ReadPart, SearchBody, SearchDeclineReason, SearchPageEntry } from "./chat.ts";
+import type { ChatAbility, ChatImage, HistoryEntry, OpenDeclineReason, OpenFailedEntry, PageMeta, ReadPart, SearchBody, SearchDeclineReason, SearchPageEntry } from "./chat.ts";
 
 // v: 2 handshake — docs/PROTOCOL.md "Handshake `v: 2`". `v: 1` (secret-based) no longer exists
 // anywhere in the code, not even behind `legacyPairing` — see "Legacy mode".
@@ -109,6 +109,7 @@ export interface OpenContentMessage {
   id: string;
   target: string;
   pages: SearchPageEntry[];
+  failed: OpenFailedEntry[];
 }
 
 export interface OpenDeclineMessage {

@@ -95,7 +95,7 @@ export function handleMessage(
       return;
     }
     case "open.content": {
-      connState.clientRequests.get(message.target)?.({ kind: "open", pages: message.pages });
+      connState.clientRequests.get(message.target)?.({ kind: "open", pages: message.pages, failed: message.failed });
       return;
     }
     case "open.decline": {

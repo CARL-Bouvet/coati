@@ -1014,6 +1014,35 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     }
   });
 
+  test("open.content failed -> one note per ref with its reason, an unlisted missing ref stays \"not read\"; a failed ref also in pages is bad-request", async () => {
+    const prompts: string[] = [];
+    const server = boot(scriptedProvider("fixture-open-failed", [["[[SEARCH: q]]"], ["[[OPEN: S1 S2 S3]]"], ["ok"]], prompts));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "c8", text: "hi", abilities: ["search"] }));
+    await waitFor(messages, (m) => m.type === "search.request");
+    const results = [1, 2, 3].map((k) => result("q", k));
+    ws.send(JSON.stringify({ ...SEARCH_CONTENT, target: "c8", results }));
+    await waitFor(messages, (m) => m.type === "open.request");
+    const pages = [{ n: 1, url: "https://r1.example/q", title: "P1", text: "PAGE_TEXT_S1" }];
+    ws.send(JSON.stringify({ type: "open.content", id: "oc", target: "c8", pages, failed: [{ n: 2, reason: "http", status: 502 }] }));
+    await waitFor(messages, (m) => m.type === "done");
+    expect(prompts[2]).toContain("Pages [S2] could not be read (HTTP 502)");
+    expect(prompts[2]).toContain("Pages [S3] could not be read (not read)");
+    expect(prompts[2]).not.toContain("Pages [S1] could not");
+    ws.close();
+
+    const again = await connect(boot(scriptedProvider("fixture-open-failed-dup", [["[[SEARCH: q]]"], ["[[OPEN: S1]]"]], [])));
+    const again1 = collectMessages(again);
+    again.send(JSON.stringify({ type: "chat", id: "c9", text: "hi", abilities: ["search"] }));
+    await waitFor(again1, (m) => m.type === "search.request");
+    again.send(JSON.stringify({ ...SEARCH_CONTENT, target: "c9" }));
+    await waitFor(again1, (m) => m.type === "open.request");
+    again.send(JSON.stringify({ type: "open.content", id: "oc", target: "c9", pages, failed: [{ n: 1, reason: "failed" }] }));
+    expect(await waitFor(again1, (m) => m.type === "error")).toMatchObject({ code: "bad-request" });
+    again.close();
+  });
+
   test("open.decline -> trusted note naming the refs", async () => {
     const prompts: string[] = [];
     const server = boot(scriptedProvider("fixture-open-decline", [["[[SEARCH: q]]"], ["[[OPEN: S1]]"], ["ok"]], prompts));

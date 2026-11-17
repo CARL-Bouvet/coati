@@ -92,7 +92,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `page.decline` | `target` | Answers a `page.request`: the user declined to share the page. |
 | `search.content` | `target`, `query`, `results: [{ n, title, url, snippet }]` | Answers a `search.request`: the results, no page. |
 | `search.decline` | `target`, `reason` (`"no-access"`\|`"no-result"`\|`"blocked"`\|`"failed"`) | Answers a `search.request`: nothing could be searched or read (`"blocked"`: the user refused the search). |
-| `open.content` | `target`, `pages: [{ n, url, title, text }]` | Answers an `open.request`: the pages read. |
+| `open.content` | `target`, `pages: [{ n, url, title, text }]`, `failed?: [{ n, reason, status? }]` | Answers an `open.request`: the pages read, and the requested pages that could not be. |
 | `open.decline` | `target`, `reason` (`"no-access"`\|`"blocked"`\|`"failed"`) | Answers an `open.request`: no page could be opened. |
 | `summarize` | `context` (required), `readPart?` | Summarize a page/selection. `readPart` is as in `chat`, with `level: "text"` only. |
 | `prompts.list` | — | List saved prompts. |
@@ -279,10 +279,16 @@ the page markers (same detector, same place).
   in this question, separated by spaces or commas; a repeated number counts once. Broker → client `open.request { id, refs: [{ n, url }],
   discard? }`, `url` being the one the client reported for result `S<n>`. The client opens those
   pages and answers `open.content { target, pages: [{ n, url, title, text }] }` (`n` among the
-  requested refs, each at most once; `url` the page's final address; a page it could not read is
-  simply absent) or `open.decline { target, reason }` (`"no-access"`\|`"blocked"`\|`"failed"`).
-  A page whose final address (after redirects) fails the open guard or is on another site than
-  the result is not read: it is absent.
+  requested refs, each at most once; `url` the page's final address) or
+  `open.decline { target, reason }` (`"no-access"`\|`"blocked"`\|`"failed"`).
+  A requested page the client tried and could not read is listed in `failed: [{ n, reason, status? }]`
+  (`n` among the requested refs, in no more than one of `pages` / `failed`; `reason` is `"http"`
+  (the server answered an error, `status` its code, 400 to 599), `"empty"` (no text) or
+  `"failed"` (anything else: no load, a browser error page, a final address that fails the open
+  guard or is on another site than the result). The broker tells the model those pages were not
+  read; a requested page in neither list is told as "not read", so a client without `failed`
+  keeps working. A refused `failed` (unknown `n`, repeated, in `pages` too, unknown `reason`)
+  is a `bad-request`.
   Unknown refs and refs already opened are dropped; with none left, the marker is stripped and
   ignored. Refs beyond the pages still allowed are dropped from the request.
 - `S<n>` numbering is continuous over every search of the question: a result's number is the

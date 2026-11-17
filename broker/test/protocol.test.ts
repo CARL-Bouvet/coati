@@ -438,7 +438,10 @@ describe("parseClientMessage — search", () => {
     expect(decline.ok && decline.message).toEqual({ type: "search.decline", id: "x2", target: "c1", reason: "no-result" });
     const pages = [{ n: 3, url: "https://a.b/p", title: "t", text: "x" }];
     const open = parseClientMessage(JSON.stringify({ type: "open.content", id: "x3", target: "c1", pages }));
-    expect(open.ok && open.message).toEqual({ type: "open.content", id: "x3", target: "c1", pages });
+    expect(open.ok && open.message).toEqual({ type: "open.content", id: "x3", target: "c1", pages, failed: [] });
+    const failed = [{ n: 4, reason: "http", status: 502 }, { n: 5, reason: "empty" }];
+    const withFailed = parseClientMessage(JSON.stringify({ type: "open.content", id: "x5", target: "c1", pages, failed }));
+    expect(withFailed.ok && withFailed.message).toEqual({ type: "open.content", id: "x5", target: "c1", pages, failed });
     const openDecline = parseClientMessage(JSON.stringify({ type: "open.decline", id: "x4", target: "c1", reason: "blocked" }));
     expect(openDecline.ok && openDecline.message).toEqual({ type: "open.decline", id: "x4", target: "c1", reason: "blocked" });
     for (const bad of [
@@ -447,6 +450,9 @@ describe("parseClientMessage — search", () => {
       { type: "search.decline", id: "x", target: "c1", reason: "because" },
       { type: "open.content", id: "x", target: "c1", pages: "no" },
       { type: "open.content", id: "x", target: "c1", pages: [{ n: 1, url: "u", title: "t" }] },
+      { type: "open.content", id: "x", target: "c1", pages, failed: [{ n: 4, reason: "dns" }] },
+      { type: "open.content", id: "x", target: "c1", pages, failed: [{ n: 4, reason: "http", status: 200 }] },
+      { type: "open.content", id: "x", target: "c1", pages, failed: "no" },
       { type: "open.decline", id: "x", target: "c1", reason: "no-result" },
     ]) {
       const r = parseClientMessage(JSON.stringify(bad));
