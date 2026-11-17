@@ -1,0 +1,14 @@
+# Coati
+
+> Coati is a virtual assistant in a browser side panel. Plug in your own AI model, on your computer (Ollama, LM Studio) or online, to summarise articles and YouTube videos, explain the page you are on, or search the web. Open source, AGPL-3.0.
+
+## Site
+
+- [Homepage](https://getcoati.com/): what Coati does, how the extension, the local program and your model fit together, and where to download.
+- [Privacy policy](https://getcoati.com/privacy): what data is handled, where it goes and where it is stored. No server of our own, no telemetry.
+
+## Project
+
+- [Source code on GitHub](https://github.com/CARL-Bouvet/coati): the extension (native JavaScript) and the local program (TypeScript on Bun).
+- [Install guide](https://github.com/CARL-Bouvet/coati/blob/main/docs/INSTALL.md): load the extension and install the local program on Linux, macOS or Windows.
+- [Chrome Web Store](https://chromewebstore.google.com/detail/coati/hehlgipomfminodhahcjbencblepjhah): add the extension to Chrome, Brave, Edge or Chromium.

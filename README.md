@@ -63,6 +63,8 @@ the [templates](https://github.com/CARL-Bouvet/coati/issues/new/choose), or pick
 
 AGPL-3.0, see [`LICENSE`](LICENSE). The Coati name and logo are not covered by the AGPL.
 
+Made by [Carl Bouvet](https://github.com/CARL-Bouvet).
+
 ## Interface languages
 
 English, French and Simplified Chinese. The Chinese interface is machine-translated and has not
