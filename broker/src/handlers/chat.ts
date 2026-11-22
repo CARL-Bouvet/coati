@@ -643,6 +643,8 @@ async function runOnDemandCall(
     if (controller.signal.aborted) return { outcome: "cancelled", usage, historyKept };
     for (const ev of detector.flush()) {
       if (ev.kind === "text") sendText(ev.text);
+      else if (canTrigger(ev.marker)) return { outcome: "marker", usage, historyKept, marker: { marker: ev.marker, position: ev.position } };
+      else onIgnored(ev.marker);
     }
     return { outcome: "ok", usage, historyKept, empty: !sent };
   } catch (err) {
@@ -854,6 +856,11 @@ async function runChatPageOnDemandLoop(
         answerNow = true;
         built = rebuild();
         continue;
+      }
+      if (result.outcome === "ok" && result.empty) {
+        send(ws, { type: "error", id: message.id, code: "model-empty", message: "the model gave no usable answer" });
+        logRequestCompleted(message.id, "error:model-empty", Date.now() - startedAt);
+        return;
       }
       if (result.outcome === "ok") {
         const searchReport: SearchReport | undefined =

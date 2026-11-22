@@ -75,6 +75,7 @@ const ERROR_CODE_KEYS = {
   // No text for 60 s after the first
   // word / no first word before the deadline.
   "model-stalled": "common_error_model_stalled",
+  "model-empty": "common_error_model_empty",
   "model-timeout": "common_error_model_timeout",
   "auth-required": "common_error_auth_required",
   "quota-exceeded": "common_error_quota_exceeded",

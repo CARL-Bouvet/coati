@@ -68,6 +68,9 @@
   "common_error_model_stalled": {
     "message": "The model sent no text for a minute, so the answer stops here. You can try again."
   },
+  "common_error_model_empty": {
+    "message": "The model gave no usable answer. Try again, or try another model."
+  },
   "common_error_model_timeout": {
     "message": "The model didn't start answering in time. Try again in a moment."
   },

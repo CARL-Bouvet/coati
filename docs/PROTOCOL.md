@@ -155,14 +155,15 @@ reply is a static HTML page in the language of the requesting connection, with
 
 `bad-request`, `unauthorized`, `model-unavailable`, `auth-required`, `quota-exceeded`,
 `rate-limited`, `model-missing`, `provider-overloaded`, `context-too-large`, `cancelled`,
-`model-stalled`, `vision-unsupported`, `page-unavailable`, `internal`.
+`model-stalled`, `model-empty`, `vision-unsupported`, `page-unavailable`, `internal`.
 
 `bad-request` also covers a malformed or unknown message that carries an `id` (one without an
 `id` gets no reply), a fourth concurrent `chat`/`summarize`, and a wrong answer to a
 `page.request`/`search.request`/`open.request` (see "Page on demand" and "Search"). A configured
 provider the broker doesn't know fails `chat`/`summarize` with `model-unavailable`; a `chat` with an
 `image` for a model without vision fails with `vision-unsupported`. `model-stalled`: no output for
-`INACTIVITY_TIMEOUT_MS` mid-answer.
+`INACTIVITY_TIMEOUT_MS` mid-answer. `model-empty`: the model ended with no visible text
+(for instance only markers that were ignored), even after the one "answer now" retry.
 
 `page-unavailable`: the client never answered a `page.request` (with `page.content` or
 `page.decline`) or an `open.request` (with `open.content` or `open.decline`) within
@@ -275,8 +276,8 @@ the page markers (same detector, same place).
   opens no page on its own) or `search.decline`. Once a page was read in the conversation, the
   client first asks the user to allow the query and answers `search.decline "blocked"` on a
   refusal; the wait for that answer is `SEARCH_REQUEST_TIMEOUT_MS`.
-- `[[OPEN: S<n> S<m> …]]` — 1 to `OPEN_MAX_REFS` result numbers (`S1` to `S999`) already received
-  in this question, separated by spaces or commas; a repeated number counts once. Broker → client `open.request { id, refs: [{ n, url }],
+- `[[OPEN: S<n> S<m> …]]` — result numbers (`S1` to `S999`) already received in this question,
+  separated by spaces or commas; a repeated number counts once, only the first `OPEN_MAX_REFS` are kept. Broker → client `open.request { id, refs: [{ n, url }],
   discard? }`, `url` being the one the client reported for result `S<n>`. The client opens those
   pages and answers `open.content { target, pages: [{ n, url, title, text }] }` (`n` among the
   requested refs, each at most once; `url` the page's final address) or

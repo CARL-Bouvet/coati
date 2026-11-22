@@ -68,6 +68,9 @@
   "common_error_model_stalled": {
     "message": "模型已有一分钟没有发送文字，回答到此为止。您可以重试。"
   },
+  "common_error_model_empty": {
+    "message": "模型没有给出可用的回答。请重试，或换一个模型。"
+  },
   "common_error_model_timeout": {
     "message": "模型未能及时开始回答。请稍后重试。"
   },

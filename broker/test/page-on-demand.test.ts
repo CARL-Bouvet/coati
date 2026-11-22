@@ -460,8 +460,8 @@ describe("page on demand — re-run flow with a fake provider", () => {
       JSON.stringify({ type: "page.content", id: "pc1", target: "c3", level: "text", context: { kind: "page", text: "x" } }),
     );
 
-    const done = await waitFor(messages, (m) => m.type === "done");
-    expect(done).toBeDefined();
+    await waitFor(messages, (m) => m.type === "error");
+    expect(messages.find((m) => m.type === "error")).toMatchObject({ code: "model-empty" });
     // Only ONE page.request was ever sent for this question.
     const requests = messages.filter((m) => m.type === "page.request");
     expect(requests).toHaveLength(1);
@@ -922,11 +922,11 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     const messages = collectMessages(ws);
     autoClient(ws, 2);
     ws.send(JSON.stringify({ type: "chat", id: "c3", text: "compare", abilities: ["search"] }));
-    const done: any = await waitFor(messages, (m) => m.type === "done");
+    await waitFor(messages, (m) => m.type === "error");
     expect(prompts).toHaveLength(10);
     expect(messages.filter((m) => m.type === "open.request")).toHaveLength(5);
     expect(prompts[9]).not.toContain("[[OPEN:");
-    expect(done.search).toMatchObject({ pages: 5, capped: true });
+    expect(messages.find((m) => m.type === "error")).toMatchObject({ code: "model-empty" });
     ws.close();
   });
 
@@ -976,16 +976,49 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     ws.close();
   });
 
-  test("[[OPEN]] shape: 1 to 3 S<n> refs, spaces or commas; anything else stays text", () => {
+  test("[[OPEN]] shape: S<n> refs, spaces or commas, first 3 kept; anything else stays text", () => {
     const feed = (s: string, allowSearch = true) => {
       const d = new PageMarkerDetector({ allowDev: false, allowSearch });
       return [...d.feed(s), ...d.flush()];
     };
     expect(feed("[[OPEN: S2, S5 S2]]")).toEqual([{ kind: "marker", marker: { type: "open", refs: [2, 5] }, position: "start" }]);
-    for (const text of ["[[OPEN: S1 S2 S3 S4]]", "[[OPEN: 2]]", "[[OPEN:]]", "[[OPEN: S0]]"]) {
+    expect(feed("[[OPEN: S1 S2 S5 S8]]")).toEqual([{ kind: "marker", marker: { type: "open", refs: [1, 2, 5] }, position: "start" }]);
+    for (const text of ["[[OPEN: 2]]", "[[OPEN:]]", "[[OPEN: S0]]"]) {
       expect(feed(text).map((e) => (e.kind === "text" ? e.text : "MARKER")).join("")).toBe(text);
     }
     expect(feed("[[OPEN: S1]]", false)).toEqual([{ kind: "text", text: "[[OPEN: S1]]" }]);
+  });
+
+  test("marker variants small models write: READ_PAGE with refs, any case, [S2] refs, many refs", () => {
+    const feed = (s: string, allowSearch = true) => {
+      const d = new PageMarkerDetector({ allowDev: true, allowSearch });
+      return [...d.feed(s), ...d.flush()];
+    };
+    const open = (refs: number[]) => [{ kind: "marker", marker: { type: "open", refs }, position: "start" }];
+    expect(feed("[[READ_PAGE: S2]]")).toEqual(open([2]));
+    expect(feed("[[READ_PAGE_DEV: S2 S3]]")).toEqual(open([2, 3]));
+    expect(feed("[[open: s2]]")).toEqual(open([2]));
+    expect(feed("[[OPEN: [S2], [S5]]]")).toEqual(open([2, 5]));
+    expect(feed("[[OPEN: S1, S2, S3, S4, S5, S6, S7, S8]]")).toEqual(open([1, 2, 3]));
+    expect(feed("[[read_page]]")).toEqual([{ kind: "marker", marker: { type: "read", level: "text" }, position: "start" }]);
+    expect(feed("[[READ_PAGE: S2]]", false)).toEqual([{ kind: "text", text: "[[READ_PAGE: S2]]" }]);
+    expect(feed("[[READ_PAGE: hello]]")).toEqual([{ kind: "text", text: "[[READ_PAGE: hello]]" }]);
+    // A single closing bracket, at the end of the answer or of its line.
+    expect(feed("[[SEARCH: coati diet 2024]")).toEqual([{ kind: "marker", marker: { type: "search", query: "coati diet 2024" }, position: "start" }]);
+    expect(feed("Let me look.\n[[OPEN: S2 S5]\nthanks")).toContainEqual({ kind: "marker", marker: { type: "open", refs: [2, 5] }, position: "mid" });
+    expect(feed("[[SEARCH: coati] diet")).toEqual([{ kind: "text", text: "[[SEARCH: coati] diet" }]);
+  });
+
+  test("a reply that stays empty after the retry ends with model-empty, never an empty done", async () => {
+    const server = boot(scriptedProvider("fixture-model-empty", [["[[SEARCH: q]]"], ["[[OPEN: S9]]"]], []));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    autoClient(ws, 1);
+    ws.send(JSON.stringify({ type: "chat", id: "c-empty", text: "hi", abilities: ["search"] }));
+    await waitFor(messages, (m) => m.type === "error" || m.type === "done");
+    expect(messages.some((m) => m.type === "done")).toBe(false);
+    expect(messages.find((m) => m.type === "error")).toMatchObject({ code: "model-empty" });
+    ws.close();
   });
 
   test("searchCharBudget: local models get the smaller budget", () => {

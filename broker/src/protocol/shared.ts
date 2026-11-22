@@ -23,6 +23,8 @@ export type ErrorCode =
   | "context-too-large"
   | "cancelled"
   | "model-stalled"
+  // The model finished without any visible text (only stripped markers).
+  | "model-empty"
   // The active model has no vision, or the
   // provider's own 400 names the image as the problem while vision was
   // unknown — see docs/PROTOCOL.md §4.

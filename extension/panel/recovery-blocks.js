@@ -203,6 +203,7 @@ export function describeBrokerError(message) {
     case "model-missing":
       return `⚠ ${message.message || t("common_error_model_missing")}`;
     case "model-stalled":
+    case "model-empty":
     case "model-timeout":
       // Plain words, no "Detail" line: the reason is fully known.
       return `⚠ ${describeError(message.code)}`;

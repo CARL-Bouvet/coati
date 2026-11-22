@@ -68,6 +68,9 @@
   "common_error_model_stalled": {
     "message": "Le modèle n'a plus envoyé de texte depuis une minute : la réponse s'arrête là. Vous pouvez réessayer."
   },
+  "common_error_model_empty": {
+    "message": "Le modèle n'a donné aucune réponse exploitable. Réessayez, ou essayez un autre modèle."
+  },
   "common_error_model_timeout": {
     "message": "Le modèle n'a pas commencé à répondre à temps. Réessayez dans un instant."
   },

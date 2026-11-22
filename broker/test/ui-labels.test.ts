@@ -62,6 +62,10 @@ describe("describeError", () => {
     expect(describeError("quota-exceeded")).toBe("Votre compte chez le fournisseur n'a plus de crédit.");
   });
 
+  test("model-empty has its own label", () => {
+    expect(describeError("model-empty")).not.toBe("Une erreur est survenue.");
+  });
+
   test("rate-limited has its own fallback label", () => {
     expect(describeError("rate-limited")).toBe("Le fournisseur reçoit trop de requêtes en ce moment.");
   });
