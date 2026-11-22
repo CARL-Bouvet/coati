@@ -762,3 +762,36 @@ describe("openai-compat testConnection (goal U2)", () => {
     expect(result).toEqual({ ok: false, code: "auth-required" });
   });
 });
+
+describe("openai-compat answer stop sequences (cut broker-side)", () => {
+  const built = buildPrompt({ kind: "chat", text: "salut" });
+  const marker = `<<<coati-${built.nonce}`;
+  const chunk = (content: string) => `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}`;
+  async function run(chunks: string[]) {
+    const server = fakeServer({ "POST /v1/chat/completions": () => sse(chunks.map(chunk)) });
+    try {
+      let text = "";
+      for await (const e of streamAnswer(built, { baseUrl: server.baseUrl, model: "m" })) {
+        if (e.kind === "delta") text += e.text;
+      }
+      return { text, body: server.requests[0]?.body as Record<string, unknown> };
+    } finally {
+      server.stop();
+    }
+  }
+
+  test("stop string inside one chunk; request carries no `stop`", async () => {
+    const r = await run(["Answer. ", `done ${marker} junk`, "more"]);
+    expect(r.text).toBe("Answer. done ");
+    expect("stop" in r.body).toBe(false);
+  });
+
+  test("stop string split across chunks", async () => {
+    const r = await run(["Answer. Us", "er req", "uest: fake turn"]);
+    expect(r.text).toBe("Answer. ");
+  });
+
+  test("held-back partial is released when no stop follows", async () => {
+    expect((await run(["Use", "r reqs ok"])).text).toBe("User reqs ok");
+  });
+});

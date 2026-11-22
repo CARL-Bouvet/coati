@@ -15,7 +15,7 @@ export interface ChunkMessage {
 export interface DoneMessage {
   type: "done";
   id: string;
-  usage: { inputTokens: number; outputTokens: number };
+  usage: { inputTokens: number; outputTokens: number; uncounted?: true };
   /**
    * ("historique" — docs/PROTOCOL.md). Number of
    * `history` entries actually included in the prompt sent to the provider

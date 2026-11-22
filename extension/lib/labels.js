@@ -183,10 +183,12 @@ function pageReadPart(page) {
  * @returns {string|undefined} */
 export function buildPageMention(pageOnDemand, message) {
   const usage = message.usage || {};
-  const kTokens = formatTokensK((usage.inputTokens || 0) + (usage.outputTokens || 0));
+  const kTokens = usage.uncounted ? undefined : formatTokensK((usage.inputTokens || 0) + (usage.outputTokens || 0));
+  /** `uncounted`: the line says the tokens were not counted instead of showing a false figure. */
+  const mention = (key) => (kTokens === undefined ? t(`${key}_uncounted`) : t(key, [kTokens]));
   const page = message.page;
-  if (!page) return pageOnDemand ? t("panel_page_mention_not_read", [kTokens]) : undefined;
-  const base = t(page.level === "dev" ? "panel_page_mention_read_dev" : "panel_page_mention_read_text", [kTokens]);
+  if (!page) return pageOnDemand ? mention("panel_page_mention_not_read") : undefined;
+  const base = mention(page.level === "dev" ? "panel_page_mention_read_dev" : "panel_page_mention_read_text");
   const part = pageReadPart(page);
   return part ? `${base} · ${part}` : base;
 }

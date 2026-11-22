@@ -170,6 +170,9 @@
       }
     }
   },
+  "panel_page_mention_read_text_uncounted": {
+    "message": "已读取页面 · 未计入 token 数"
+  },
   "panel_page_mention_read_dev": {
     "message": "已读取页面代码 · $KTOKENS$ k tokens",
     "placeholders": {
@@ -179,6 +182,9 @@
       }
     }
   },
+  "panel_page_mention_read_dev_uncounted": {
+    "message": "已读取页面代码 · 未计入 token 数"
+  },
   "panel_page_mention_not_read": {
     "message": "未读取页面 · $KTOKENS$ k tokens",
     "placeholders": {
@@ -187,6 +193,9 @@
         "example": "3.2"
       }
     }
+  },
+  "panel_page_mention_not_read_uncounted": {
+    "message": "未读取页面 · 未计入 token 数"
   },
   "panel_page_mention_part_start": {
     "message": "已读：开头（$PERCENT$%）。此页面约需 $NEED$k 个 token，你的模型可读 $FIT$k。",

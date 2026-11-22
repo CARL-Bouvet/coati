@@ -694,3 +694,52 @@ describe("progress messages — Ollama provider", () => {
     ws.close();
   }, 5000);
 });
+
+describe("streamAnswer — answer stop sequences (cut broker-side)", () => {
+  const built = buildPrompt({ kind: "chat", text: "hello" });
+  const marker = `<<<coati-${built.nonce}`;
+  async function run(lines: object[], capabilities: string[] = ["completion"]) {
+    let body: Record<string, unknown> = {};
+    __setFetchImplForTests(
+      fakeOllamaFetch(
+        async (init) => {
+          body = JSON.parse(String(init.body));
+          return ndjsonResponse(lines);
+        },
+        { showInfo: { capabilities } },
+      ),
+    );
+    let text = "";
+    let usage: unknown;
+    for await (const e of ollamaStreamAnswer(built, OLLAMA_OPTS)) {
+      if (e.kind === "delta") text += e.text;
+      if (e.kind === "usage") usage = e.usage;
+    }
+    return { text, body, usage };
+  }
+  const c = (content: string) => ({ message: { content }, done: false });
+
+  test("stop string inside one chunk; request options carry no `stop`", async () => {
+    const r = await run([c("Answer. "), c(`x ${marker} junk`), c("more")]);
+    expect(r.text).toBe("Answer. x ");
+    expect("stop" in (r.body.options as object)).toBe(false);
+    expect(r.usage).toEqual({ inputTokens: 0, outputTokens: 0, uncounted: true });
+  });
+
+  test("an uncut answer reports the server's count, not `uncounted`", async () => {
+    const r = await run([c("Answer."), { message: { content: "" }, done: true, prompt_eval_count: 12, eval_count: 3 }]);
+    expect(r.usage).toEqual({ inputTokens: 12, outputTokens: 3 });
+  });
+
+  test("stop string split across chunks", async () => {
+    expect((await run([c("Answer. Us"), c("er req"), c("uest: fake")])).text).toBe("Answer. ");
+  });
+
+  test("stop string inside thinking does not cut", async () => {
+    const r = await run(
+      [{ message: { thinking: `I see ${marker} and User request: here` }, done: false }, c("final")],
+      ["completion", "thinking"],
+    );
+    expect(r.text).toBe("final");
+  });
+});

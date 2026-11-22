@@ -8,6 +8,7 @@
 
 import {
   answerStopSequences,
+  AnswerStopCutter,
   buildSystemPrompt,
   FIRST_TOKEN_TIMEOUT_LOCAL_MS,
   FIRST_TOKEN_TIMEOUT_REMOTE_MS,
@@ -604,7 +605,6 @@ export async function* streamAnswer(
           model,
           stream: true,
           stream_options: { include_usage: true },
-          stop: answerStopSequences(built.nonce),
           // "historique": past turns rendered
           // as real alternating messages, between the system turn and the
           // current one — never merged into either.
@@ -693,17 +693,21 @@ export async function* streamAnswer(
     // delta.reasoning_content — already not read by parseSseLine) so that
     // thinking tokens from o1/qwen3-style models never reach the extension.
     const filter = new ThinkFilter();
+    const cutter = new AnswerStopCutter(answerStopSequences(built.nonce));
     for await (const event of parseSseStream(response.body)) {
       if (event.kind === "delta") {
         if (!gotFirstChunk) { gotFirstChunk = true; clearTimeout(firstTokenTimer); resetInactivity(); }
         else { resetInactivity(); }
-        const filtered = filter.filter(event.text);
-        if (filtered.length > 0) yield { kind: "delta", text: filtered };
+        const text = cutter.push(filter.filter(event.text));
+        if (text.length > 0) yield { kind: "delta", text };
+        if (cutter.hit) { abortController.abort(); break; }
       } else {
         yield event.kind === "usage" ? { ...event, historyKept } : event;
       }
     }
-    const tail = filter.flush();
+    // A cut request is aborted before the server reports its token count.
+    if (cutter.hit) yield { kind: "usage", usage: { inputTokens: 0, outputTokens: 0, uncounted: true }, historyKept };
+    const tail = cutter.push(filter.flush()) + cutter.flush();
     if (tail.length > 0) yield { kind: "delta", text: tail };
   } catch (err) {
     if (stalled) throw new ModelStalledError(inactivityMs);

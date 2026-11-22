@@ -15,6 +15,7 @@
 
 export {
   answerStopSequences,
+  AnswerStopCutter,
   imageFenceOpenText,
   imageFenceCloseText,
   LANGUAGE_NAME,

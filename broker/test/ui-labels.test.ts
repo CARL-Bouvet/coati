@@ -91,6 +91,12 @@ describe("buildPageMention / nextReadPart", () => {
     expect(nextReadPart(page({}))).toBeUndefined();
   });
 
+  test("uncounted usage: says so instead of showing a figure", () => {
+    const usage = { inputTokens: 0, outputTokens: 0, uncounted: true };
+    expect(buildPageMention(false, { page: page({}), usage })).toBe("A lu la page · tokens non comptés");
+    expect(buildPageMention(true, { usage })).toBe("N'a pas lu la page · tokens non comptés");
+  });
+
   test("first part: percent, what the page needs and what the model reads", () => {
     const p = page({ sentChars: 40_000, truncated: true });
     const line = buildPageMention(false, { page: p, usage: {} });

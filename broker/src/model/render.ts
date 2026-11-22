@@ -29,9 +29,49 @@ export function delimiterClose(nonce: string): string {
 }
 
 /** Strings that end a streamed answer: a small model that runs past its
- * answer re-emits a fence marker or writes a fake next "User request:" turn. */
+ * answer re-emits a fence marker or writes a fake next "User request:" turn.
+ * Applied broker-side by AnswerStopCutter on visible text only, never sent to
+ * the server as `stop`: servers apply `stop` to the reasoning too, and a
+ * thinking model quoting a marker would end with an empty answer. */
 export function answerStopSequences(nonce: string): string[] {
   return [delimiterOpen(nonce), delimiterClose(nonce), "User request:"];
+}
+
+/** Cuts a stream of visible answer text at the first stop sequence. Holds back
+ * only a trailing run that is a prefix of a stop string (split across chunks). */
+export class AnswerStopCutter {
+  hit = false;
+  private held = "";
+  constructor(private readonly stops: string[]) {}
+  /** Text safe to emit now; "" once a stop sequence was seen. */
+  push(text: string): string {
+    if (this.hit) return "";
+    const buf = this.held + text;
+    let cut = -1;
+    for (const x of this.stops) {
+      const i = buf.indexOf(x);
+      if (i !== -1 && (cut === -1 || i < cut)) cut = i;
+    }
+    if (cut !== -1) {
+      this.hit = true;
+      this.held = "";
+      return buf.slice(0, cut);
+    }
+    let keep = 0;
+    for (const x of this.stops) {
+      for (let n = Math.min(x.length - 1, buf.length); n > keep; n--) {
+        if (x.startsWith(buf.slice(buf.length - n))) { keep = n; break; }
+      }
+    }
+    this.held = buf.slice(buf.length - keep);
+    return buf.slice(0, buf.length - keep);
+  }
+  /** Held-back text, once the stream ended without a stop sequence. */
+  flush(): string {
+    const out = this.hit ? "" : this.held;
+    this.held = "";
+    return out;
+  }
 }
 
 // L8: a provider that places its image

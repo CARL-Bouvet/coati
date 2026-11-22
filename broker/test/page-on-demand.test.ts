@@ -320,6 +320,21 @@ function fakeOnDemandProvider(id: string): ModelProvider {
 }
 
 describe("page on demand — re-run flow with a fake provider", () => {
+  test("a call cut by the broker makes done.usage uncounted", async () => {
+    const server = boot({
+      ...fakeOnDemandProvider("fixture-pod-uncounted"),
+      async *streamAnswer() {
+        yield { kind: "delta", text: "cut here" };
+        yield { kind: "usage", usage: { inputTokens: 0, outputTokens: 0, uncounted: true } };
+      },
+    });
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "cu", text: "hi" }));
+    const done = await waitFor(messages, (m) => m.type === "done");
+    expect((done as any).usage.uncounted).toBe(true);
+  });
+
   test("marker at start -> page.request -> page.content -> re-run -> done with page + summed usage", async () => {
     const server = boot(fakeOnDemandProvider("fixture-pod-1"));
     const ws = await connect(server);

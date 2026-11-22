@@ -292,7 +292,7 @@ export type AnswerEvent =
   | { kind: "delta"; text: string }
   | {
       kind: "usage";
-      usage: { inputTokens: number; outputTokens: number };
+      usage: { inputTokens: number; outputTokens: number; uncounted?: true };
       /**
        * ("historique"). Number of `history`
        * entries this provider actually kept after its own trim (char

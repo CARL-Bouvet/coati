@@ -170,6 +170,9 @@
       }
     }
   },
+  "panel_page_mention_read_text_uncounted": {
+    "message": "A lu la page · tokens non comptés"
+  },
   "panel_page_mention_read_dev": {
     "message": "A lu le code de la page · $KTOKENS$ k tokens",
     "placeholders": {
@@ -179,6 +182,9 @@
       }
     }
   },
+  "panel_page_mention_read_dev_uncounted": {
+    "message": "A lu le code de la page · tokens non comptés"
+  },
   "panel_page_mention_not_read": {
     "message": "N'a pas lu la page · $KTOKENS$ k tokens",
     "placeholders": {
@@ -187,6 +193,9 @@
         "example": "3.2"
       }
     }
+  },
+  "panel_page_mention_not_read_uncounted": {
+    "message": "N'a pas lu la page · tokens non comptés"
   },
   "panel_page_mention_part_start": {
     "message": "Lu : le début ($PERCENT$ %). Cette page demande environ $NEED$ k tokens, votre modèle en lit $FIT$ k.",

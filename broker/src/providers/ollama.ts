@@ -8,6 +8,7 @@
 import { DEFAULT_OLLAMA_URL, isAllowedOllamaUrl } from "../config.ts";
 import {
   answerStopSequences,
+  AnswerStopCutter,
   buildSystemPrompt,
   FIRST_TOKEN_TIMEOUT_LOCAL_MS,
   INACTIVITY_TIMEOUT_MS,
@@ -713,7 +714,7 @@ export async function* streamAnswer(
               ...(hasImage ? { images: built.images!.map((img) => img.data) } : {}),
             },
           ],
-          options: { num_ctx, stop: answerStopSequences(built.nonce) },
+          options: { num_ctx },
         }),
         // Same reasoning as /api/tags/show/ps/generate above: never follow a
         // redirect that could carry page content off-machine
@@ -743,34 +744,28 @@ export async function* streamAnswer(
     // they satisfy the first-token deadline and reset the 60 s inactivity
     // timer. They are yielded upstream (as { kind: "thinking" }) so server.ts
     // can emit the "thinking" progress stage once, but never forwarded as text.
-    if (hasThinking) {
-      const filter = new ThinkFilter();
-      for await (const event of parseNdjsonStream(response.body)) {
-        if (event.kind === "thinking") {
-          // Counts as activity — satisfies first-token deadline if still pending.
-          if (!gotFirstChunk) { gotFirstChunk = true; clearTimeout(firstTokenTimer); resetInactivity(); }
-          else { resetInactivity(); }
-          yield { kind: "thinking" }; // forwarded so server.ts can send progress:thinking once
-        } else if (event.kind === "delta") {
-          if (!gotFirstChunk) { gotFirstChunk = true; clearTimeout(firstTokenTimer); resetInactivity(); }
-          else { resetInactivity(); }
-          const filtered = filter.filter(event.text);
-          if (filtered.length > 0) yield { kind: "delta", text: filtered };
-        } else {
-          yield event.kind === "usage" ? { ...event, historyKept } : event;
-        }
+    const filter = hasThinking ? new ThinkFilter() : null;
+    const cutter = new AnswerStopCutter(answerStopSequences(built.nonce));
+    for await (const event of parseNdjsonStream(response.body)) {
+      if (event.kind === "thinking" || event.kind === "delta") {
+        // Thinking deltas count as activity too, but are never stop-checked.
+        if (!gotFirstChunk) { gotFirstChunk = true; clearTimeout(firstTokenTimer); resetInactivity(); }
+        else { resetInactivity(); }
       }
-      const tail = filter.flush();
-      if (tail.length > 0) yield { kind: "delta", text: tail };
-    } else {
-      for await (const event of parseNdjsonStream(response.body)) {
-        if (event.kind === "delta") {
-          if (!gotFirstChunk) { gotFirstChunk = true; clearTimeout(firstTokenTimer); resetInactivity(); }
-          else { resetInactivity(); }
-        }
+      if (event.kind === "thinking") {
+        yield { kind: "thinking" }; // forwarded so server.ts can send progress:thinking once
+      } else if (event.kind === "delta") {
+        const text = cutter.push(filter ? filter.filter(event.text) : event.text);
+        if (text.length > 0) yield { kind: "delta", text };
+        if (cutter.hit) { abortController.abort(); break; }
+      } else {
         yield event.kind === "usage" ? { ...event, historyKept } : event;
       }
     }
+    // A cut request is aborted before the server reports its token count.
+    if (cutter.hit) yield { kind: "usage", usage: { inputTokens: 0, outputTokens: 0, uncounted: true }, historyKept };
+    const tail = cutter.push(filter ? filter.flush() : "") + cutter.flush();
+    if (tail.length > 0) yield { kind: "delta", text: tail };
   } catch (err) {
     if (stalled) throw new ModelStalledError(inactivityMs);
     if (timedOut) throw new ModelTimeoutError(firstTokenMs);

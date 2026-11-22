@@ -191,7 +191,7 @@ async function runStream(
   const progress = await startProgressTracking(ws, id, provider, providerOpts, controller.signal);
 
   try {
-    let usage = { inputTokens: 0, outputTokens: 0 };
+    let usage: Usage = { inputTokens: 0, outputTokens: 0 };
     // "historique": forwarded verbatim as
     // DoneMessage.historyKept below — undefined stays undefined (no
     // `history` on this request), never coerced to 0.
@@ -569,7 +569,7 @@ export async function fitPageContent(
 
 interface OnDemandCallResult {
   outcome: "ok" | "cancelled" | "error" | "marker";
-  usage: { inputTokens: number; outputTokens: number };
+  usage: { inputTokens: number; outputTokens: number; uncounted?: true };
   historyKept?: number;
   marker?: { marker: PageMarker; position: PageMarkerPosition };
   err?: unknown;
@@ -605,7 +605,7 @@ async function runOnDemandCall(
   active.set(id, controller);
   const progress = await startProgressTracking(ws, id, provider, providerOpts, controller.signal);
   const detector = new PageMarkerDetector(detectorOpts);
-  let usage = { inputTokens: 0, outputTokens: 0 };
+  let usage: Usage = { inputTokens: 0, outputTokens: 0 };
   let historyKept: number | undefined;
   let sent = false;
   const sendText = (text: string) => {
@@ -656,11 +656,14 @@ async function runOnDemandCall(
   }
 }
 
-function addUsage(
-  a: { inputTokens: number; outputTokens: number },
-  b: { inputTokens: number; outputTokens: number },
-): { inputTokens: number; outputTokens: number } {
-  return { inputTokens: a.inputTokens + b.inputTokens, outputTokens: a.outputTokens + b.outputTokens };
+type Usage = { inputTokens: number; outputTokens: number; uncounted?: true };
+
+function addUsage(a: Usage, b: Usage): Usage {
+  return {
+    inputTokens: a.inputTokens + b.inputTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    ...(a.uncounted || b.uncounted ? { uncounted: true as const } : {}),
+  };
 }
 
 /** What the page-on-demand loop needs from a `chat`. */
@@ -741,7 +744,7 @@ async function runChatPageOnDemandLoop(
 ): Promise<void> {
   const devMode = message.devMode === true;
   const canSearch = message.abilities?.includes("search") === true || message.searchQuery !== undefined;
-  let totalUsage = { inputTokens: 0, outputTokens: 0 };
+  let totalUsage: Usage = { inputTokens: 0, outputTokens: 0 };
   let historyKept: number | undefined;
   let calls = 0;
   let reads = 0;
