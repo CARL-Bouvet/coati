@@ -2290,7 +2290,7 @@
     "message": "a demandé : lire la page"
   },
   "runlog_accepted": {
-    "message": "accepté"
+    "message": "transmis"
   },
   "runlog_refused": {
     "message": "refusé"
@@ -2340,15 +2340,6 @@
       }
     }
   },
-  "runlog_answer_declined": {
-    "message": "Refusé : $REASON$",
-    "placeholders": {
-      "reason": {
-        "content": "$1",
-        "example": "too large"
-      }
-    }
-  },
   "runlog_answer_failed": {
     "message": "Échec"
   },
@@ -2363,5 +2354,26 @@
   },
   "runlog_limits": {
     "message": "Limites"
+  },
+  "runlog_continued": {
+    "message": "Lecture de la suite de la page, partie $N$",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "runlog_declined_blocked": {
+    "message": "Vous avez refusé"
+  },
+  "runlog_declined_no_access": {
+    "message": "Coati n’a pas accès à ce site"
+  },
+  "runlog_declined_no_result": {
+    "message": "La recherche n’a rien trouvé"
+  },
+  "runlog_declined_failed": {
+    "message": "Cela a échoué"
   }
 }

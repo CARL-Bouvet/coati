@@ -5,12 +5,12 @@
 import { api } from "../lib/browser-compat.js";
 import { applyI18n, reloadOnLanguageChange } from "../lib/i18n-page.js";
 import { DEV_MODE_KEY, parseStoredDevMode } from "../lib/dev-mode-pref.js";
-import { renderNote, renderRun } from "./runlog-render.js";
+import { renderNote, renderRuns } from "./runlog-render.js";
 
 applyI18n(document);
 
 const REPLY_TIMEOUT_MS = 8000;
-const chatId = new URLSearchParams(location.search).get("id") || "";
+const chatIds = (new URLSearchParams(location.search).get("id") || "").split(",").filter(Boolean);
 const els = {
   refresh: document.getElementById("refresh"),
   content: document.getElementById("content"),
@@ -31,7 +31,7 @@ function onRuntimeMessage(message) {
   resolve(reply);
 }
 
-function requestRun() {
+function requestRun(chatId) {
   const id = nextId();
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
@@ -59,10 +59,9 @@ async function load() {
   } else if (!(status.features ?? []).includes("run-log")) {
     renderNote(document, els.content, "runlog_unsupported");
   } else {
-    const reply = await requestRun();
-    if (!reply) renderNote(document, els.content, "runlog_offline");
-    else if (!reply.found || !reply.run) renderNote(document, els.content, "runlog_not_found");
-    else renderRun(document, els.content, reply.run);
+    const replies = await Promise.all(chatIds.map(requestRun));
+    if (replies.every((reply) => !reply)) renderNote(document, els.content, "runlog_offline");
+    else renderRuns(document, els.content, replies.map((reply) => (reply?.found && reply.run ? reply.run : null)));
   }
   els.refresh.disabled = false;
 }

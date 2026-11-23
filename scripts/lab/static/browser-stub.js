@@ -321,11 +321,13 @@
             message: { type: "error", id: payload.id, code: "bad-request", message: "unknown type: models.list" },
           });
         }, 0);
-      } else if (payload.type === "run.get" && fixture.run !== undefined) {
+      } else if (payload.type === "run.get" && (fixture.run !== undefined || fixture.runs)) {
+        // `runs` maps a chat id to its run (chains); `run` answers every id.
+        var found = fixture.runs ? fixture.runs[payload.target] : fixture.run;
         setTimeout(function () {
           dispatchToListeners({
             type: "coati:broker-message",
-            message: { type: "run", id: payload.id, target: payload.target, found: !!fixture.run, run: fixture.run || undefined },
+            message: { type: "run", id: payload.id, target: payload.target, found: !!found, run: found || undefined },
           });
         }, 0);
       } else if (payload.type === "settings.set" && fixture.echoSettingsSet) {

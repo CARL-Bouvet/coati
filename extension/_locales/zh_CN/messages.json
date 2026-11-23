@@ -2290,7 +2290,7 @@
     "message": "请求：读取页面"
   },
   "runlog_accepted": {
-    "message": "已接受"
+    "message": "已转交"
   },
   "runlog_refused": {
     "message": "已拒绝"
@@ -2340,15 +2340,6 @@
       }
     }
   },
-  "runlog_answer_declined": {
-    "message": "已拒绝：$REASON$",
-    "placeholders": {
-      "reason": {
-        "content": "$1",
-        "example": "too large"
-      }
-    }
-  },
   "runlog_answer_failed": {
     "message": "失败"
   },
@@ -2363,5 +2354,26 @@
   },
   "runlog_limits": {
     "message": "限制"
+  },
+  "runlog_continued": {
+    "message": "继续阅读页面，第 $N$ 部分",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "runlog_declined_blocked": {
+    "message": "你拒绝了"
+  },
+  "runlog_declined_no_access": {
+    "message": "Coati 无法访问此网站"
+  },
+  "runlog_declined_no_result": {
+    "message": "搜索没有找到任何结果"
+  },
+  "runlog_declined_failed": {
+    "message": "执行失败"
   }
 }

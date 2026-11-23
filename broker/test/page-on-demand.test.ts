@@ -1274,6 +1274,9 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     const done = await waitFor(messages, (m) => m.type === "done");
     expect((done as any).search).toBeUndefined();
     expect(prompts[1]).toContain("The user refused this web search");
+    ws.send(JSON.stringify({ type: "run.get", id: "rg5", target: "s5" }));
+    const reply: any = await waitFor(messages, (m) => m.type === "run");
+    expect(reply.run.steps.find((st: any) => st.kind === "search")).toMatchObject({ answer: "declined", declineReason: "blocked" });
     ws.close();
   });
 

@@ -149,6 +149,16 @@ function buildSearchConfirmBlock(msg, query) {
   return wrap;
 }
 
+/** Chat ids of the run behind `msg` and of the earlier "Read the rest" parts it continues, oldest first. */
+function runChain(msg) {
+  const chain = [msg.id];
+  for (let prev = msg.continues; prev && !chain.includes(prev); ) {
+    chain.unshift(prev);
+    prev = panelState.conversation.find((m) => m.id === prev)?.continues;
+  }
+  return chain;
+}
+
 /** "Model · 2 limits · 14 tokens/s": what the model hit (limits.*) and, for Ollama, the machine it ran on.
  * @returns {HTMLElement|undefined} absent when there is nothing to say. */
 function buildModelLimitsBlock(msg) {
@@ -182,7 +192,7 @@ function buildModelLimitsBlock(msg) {
   button.textContent = t("panel_limits_see_run");
   button.hidden = !hasFeature("run-log");
   button.addEventListener("click", () =>
-    api.tabs.create({ url: api.runtime.getURL(`runlog/runlog.html?id=${encodeURIComponent(msg.id)}`) }),
+    api.tabs.create({ url: api.runtime.getURL(`runlog/runlog.html?id=${encodeURIComponent(runChain(msg).join(","))}`) }),
   );
   details.appendChild(button);
   return details;

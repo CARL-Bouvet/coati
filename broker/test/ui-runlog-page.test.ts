@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { renderNote, renderRun } from "../../extension/runlog/runlog-render.js";
+import { renderNote, renderRun, renderRuns } from "../../extension/runlog/runlog-render.js";
 
 class FakeNode {
   className = "";
@@ -67,6 +67,29 @@ describe("renderRun", () => {
     expect(has(root, "runlog-head")[0].text()).toContain("m1");
     expect(has(root, "runlog-tokens").some((n) => n.textContent !== "" && n.textContent.length > 0)).toBe(true);
     expect(has(root, "runlog-limits").length).toBe(1);
+  });
+});
+
+describe("declined steps and chains", () => {
+  const declined = (answer: any) => ({ ...run, steps: [{ t: 0, ms: 1, kind: "search", answer: "declined", ...answer }], limits: undefined });
+  const answerOf = (step: any) => {
+    const root = new FakeNode("main");
+    renderRun(doc, root, declined(step));
+    return has(root, "runlog-answer")[0].textContent;
+  };
+
+  test("one sentence per reason, never the raw code", () => {
+    const sentences = ["blocked", "no-access", "no-result", "failed", undefined].map((declineReason) => answerOf({ declineReason }));
+    expect(new Set(sentences).size).toBe(4);
+    for (const s of sentences) expect(s).not.toMatch(/blocked|no-access|no-result|failed/);
+  });
+
+  test("a chain renders each run in order; a missing one shows a note at its place", () => {
+    const root = new FakeNode("main");
+    renderRuns(doc, root, [run, null, run]);
+    expect(has(root, "runlog-part").length).toBe(2);
+    expect(has(root, "runlog-head").length).toBe(2);
+    expect(has(root, "runlog-note").length).toBe(1);
   });
 });
 

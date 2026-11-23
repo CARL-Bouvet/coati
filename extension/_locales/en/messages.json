@@ -2290,7 +2290,7 @@
     "message": "asked: read the page"
   },
   "runlog_accepted": {
-    "message": "accepted"
+    "message": "passed on"
   },
   "runlog_refused": {
     "message": "refused"
@@ -2340,15 +2340,6 @@
       }
     }
   },
-  "runlog_answer_declined": {
-    "message": "Declined: $REASON$",
-    "placeholders": {
-      "reason": {
-        "content": "$1",
-        "example": "too large"
-      }
-    }
-  },
   "runlog_answer_failed": {
     "message": "Failed"
   },
@@ -2363,5 +2354,26 @@
   },
   "runlog_limits": {
     "message": "Limits"
+  },
+  "runlog_continued": {
+    "message": "Read the rest of the page, part $N$",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "runlog_declined_blocked": {
+    "message": "You refused"
+  },
+  "runlog_declined_no_access": {
+    "message": "Coati has no access to this site"
+  },
+  "runlog_declined_no_result": {
+    "message": "The search found nothing"
+  },
+  "runlog_declined_failed": {
+    "message": "It failed"
   }
 }

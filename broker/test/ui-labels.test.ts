@@ -161,7 +161,9 @@ describe("model limits", () => {
     expect(hardwareRows({ contextTokens: 8000 })).toHaveLength(1);
     const rows = hardwareRows({ gpuPercent: 62, contextTokens: 8000, tokensPerSec: 14, vramGb: 8, unifiedMemory: true });
     expect(rows).toHaveLength(4);
-    expect(rows[3][1]).toContain("8");
+    expect(rows[3][1]).toContain("7.5");
+    expect(hardwareRows({ vramGb: 6.442 })[0][1]).toMatch(/^6 /);
+    expect(hardwareRows({ vramGb: 12.9 })[0][1]).toMatch(/^12 /);
   });
 
   test("uncounted with a counted total: at least", () => {

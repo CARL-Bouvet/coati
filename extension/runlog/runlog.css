@@ -36,6 +36,8 @@ p, dl, dd, ol, ul { margin: 0; padding: 0; }
 
 .runlog-note { color: var(--muted); }
 
+.runlog-part { margin-top: var(--space-4); }
+
 .runlog-head,
 .runlog-limits {
   display: flex;

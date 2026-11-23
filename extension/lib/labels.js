@@ -259,7 +259,9 @@ export function hardwareRows(local) {
   if (local.contextTokens > 0) rows.push([t("panel_limits_hw_context"), t("panel_limits_hw_context_value", [formatTokensK(local.contextTokens)])]);
   if (local.tokensPerSec > 0) rows.push([t("panel_limits_hw_speed"), t("panel_limits_hw_speed_value", [String(Math.round(local.tokensPerSec))])]);
   if (local.vramGb > 0) {
-    rows.push([t(local.unifiedMemory ? "panel_limits_hw_shared" : "panel_limits_hw_vram"), t("panel_limits_hw_gb_value", [String(local.vramGb)])]);
+    // The broker reports decimal GB; cards are sold and read in binary GB.
+    const gb = String(Math.round(((local.vramGb * 1e9) / 2 ** 30) * 10) / 10);
+    rows.push([t(local.unifiedMemory ? "panel_limits_hw_shared" : "panel_limits_hw_vram"), t("panel_limits_hw_gb_value", [gb])]);
   }
   return rows;
 }

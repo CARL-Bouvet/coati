@@ -117,6 +117,12 @@ function renderCall(doc, step, limits) {
   return item;
 }
 
+const DECLINE_KEYS = {
+  "no-access": "runlog_declined_no_access",
+  "no-result": "runlog_declined_no_result",
+  failed: "runlog_declined_failed",
+};
+
 function answerText(step) {
   switch (step.answer) {
     case "results":
@@ -126,7 +132,7 @@ function answerText(step) {
     case "page":
       return t("runlog_answer_page", [formatTokensK(step.chars)]);
     case "declined":
-      return t("runlog_answer_declined", [step.declineReason ?? ""]);
+      return t(DECLINE_KEYS[step.declineReason] ?? "runlog_declined_blocked");
     case "failed":
       return t("runlog_answer_failed");
     default:
@@ -180,9 +186,9 @@ function renderLimits(doc, run) {
   return block;
 }
 
-/** Fills `root` with the whole run: header, one row per step, limits block. */
-export function renderRun(doc, root, run) {
-  root.replaceChildren();
+/** Appends one run to `root`: header, one row per step, limits block. A `part` (2, 3...) adds the "Read the rest" heading. */
+export function appendRun(doc, root, run, part) {
+  if (part > 1) root.appendChild(el(doc, "h2", "c-section-title runlog-part", t("runlog_continued", [String(part)])));
   root.appendChild(renderHeader(doc, run));
   const steps = el(doc, "ol", "runlog-steps");
   for (const step of run.steps) {
@@ -191,6 +197,22 @@ export function renderRun(doc, root, run) {
   root.appendChild(steps);
   const limits = renderLimits(doc, run);
   if (limits) root.appendChild(limits);
+}
+
+/** Fills `root` with one run. */
+export function renderRun(doc, root, run) {
+  root.replaceChildren();
+  appendRun(doc, root, run, 1);
+}
+
+/** Fills `root` with a chain of runs, oldest first; `null` entries are runs the broker no longer has. */
+export function renderRuns(doc, root, runs) {
+  root.replaceChildren();
+  runs.forEach((run, i) => {
+    if (run) return appendRun(doc, root, run, i + 1);
+    if (i > 0) root.appendChild(el(doc, "h2", "c-section-title runlog-part", t("runlog_continued", [String(i + 1)])));
+    root.appendChild(el(doc, "p", "runlog-note", t("runlog_not_found")));
+  });
 }
 
 /** A single message in place of the run (loading, not found, offline, unsupported). */

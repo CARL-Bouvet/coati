@@ -211,7 +211,7 @@ export async function readRest(msg) {
     text: t("panel_read_rest_user"),
     relaunch: isChat ? { type: "chat", text: part.text } : { type: "summarize" },
   });
-  addMessage({ id, role: "assistant", text: "", question: part.text, streaming: true, readsPage: true, videoId: msg.videoId });
+  addMessage({ id, role: "assistant", text: "", question: part.text, streaming: true, readsPage: true, videoId: msg.videoId, continues: msg.id });
   showReadingStatus(panelState.conversation.find((m) => m.id === id), part.context.text.length - from);
 
   panelState.activeRequestId = id;
