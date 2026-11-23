@@ -325,7 +325,9 @@ the page markers (same detector, same place).
   client first asks the user to allow the query and answers `search.decline "blocked"` on a
   refusal; the wait for that answer is `SEARCH_REQUEST_TIMEOUT_MS`.
 - `[[OPEN: S<n> S<m> …]]` — result numbers (`S1` to `S999`) already received in this question,
-  separated by spaces or commas; a repeated number counts once, only the first `OPEN_MAX_REFS` are kept. Broker → client `open.request { id, refs: [{ n, url }],
+  separated by spaces or commas; a repeated number counts once, only the first `OPEN_MAX_REFS` are kept.
+  Any other body (an address, a bare number) names no result. `[[OPEN:` is detected even when
+  search was not offered, so it is never shown as text. Broker → client `open.request { id, refs: [{ n, url }],
   discard? }`, `url` being the one the client reported for result `S<n>`. The client opens those
   pages and answers `open.content { target, pages: [{ n, url, title, text }] }` (`n` among the
   requested refs, each at most once; `url` the page's final address) or

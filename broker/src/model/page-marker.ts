@@ -8,9 +8,9 @@
 //  - literals: MARKER_TEXT (always offered) and MARKER_DEV (devMode only);
 //  - parameterised: `[[SEARCH: <query>]]` (offered when the panel can search),
 //    one line, 1 to SEARCH_QUERY_MAX_CHARS characters, no `]]` inside;
-//    `[[OPEN: S<n> …]]` (same offer), result numbers separated by spaces or
-//    commas, the first OPEN_MAX_REFS kept — whether they name real results is
-//    handlers/chat.ts's call;
+//    `[[OPEN: S<n> …]]` (same offer, detected always), result numbers separated
+//    by spaces or commas, the first OPEN_MAX_REFS kept, any other body none —
+//    whether they name real results is handlers/chat.ts's call;
 // A new parameterised marker is one more entry in PARAM_MARKERS.
 // None is ever forwarded to the client as text — that is the whole point of
 // holding output back while it's still being decided. Text that merely looks
@@ -86,6 +86,7 @@ function buildOpen(body: string): PageMarker | null {
 const PARAM_MARKERS: readonly {
   prefix: string;
   maxBody: number;
+  always?: true; // detected even when search is not offered
   build(body: string): PageMarker | null;
 }[] = [
   {
@@ -96,8 +97,10 @@ const PARAM_MARKERS: readonly {
       return query.length >= 1 && query.length <= SEARCH_QUERY_MAX_CHARS ? { type: "search", query } : null;
     },
   },
+  // Any other body (an address, a bare number) names no result: an OPEN with no refs, stripped as unknown.
+  { prefix: "[[OPEN:", maxBody: 2048, always: true, build: (body) => buildOpen(body) ?? { type: "open", refs: [] } },
   // Small models mix READ_PAGE and OPEN: a READ_PAGE carrying S refs means OPEN.
-  ...["[[OPEN:", "[[READ_PAGE:", "[[READ_PAGE_DEV:"].map((prefix) => ({ prefix, maxBody: 64, build: buildOpen })),
+  ...["[[READ_PAGE:", "[[READ_PAGE_DEV:"].map((prefix) => ({ prefix, maxBody: 64, build: buildOpen })),
 ];
 
 export class PageMarkerDetector {
@@ -109,7 +112,8 @@ export class PageMarkerDetector {
   /** `allowDev: false` means MARKER_DEV is never recognised at all for this
    * call — a model that emits it anyway (devMode wasn't offered to it, or it
    * ignored the instruction) gets it treated as ordinary text (docs/PROTOCOL.md:
-   * "dev marker refused when devMode false"). Same for `allowSearch` (SEARCH and OPEN). */
+   * "dev marker refused when devMode false"). Same for `allowSearch` (SEARCH; OPEN is
+   * always detected, and names no result when search was not offered). */
   constructor(opts: { allowDev: boolean; allowSearch?: boolean }) {
     this.literals = opts.allowDev ? [MARKER_TEXT, MARKER_DEV] : [MARKER_TEXT];
     this.search = opts.allowSearch === true;
@@ -125,7 +129,7 @@ export class PageMarkerDetector {
       if (s.length < m.length && m.startsWith(head)) partial = true;
     }
     for (const pm of PARAM_MARKERS) {
-      if (!this.search) continue;
+      if (!this.search && !pm.always) continue;
       const r = paramBody(s, pm.prefix, pm.maxBody, final);
       if (r === "partial") partial = true;
       else if (r !== null) {

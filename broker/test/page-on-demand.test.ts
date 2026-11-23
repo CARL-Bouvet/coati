@@ -135,33 +135,33 @@ function feedAll(detector: PageMarkerDetector, chunks: string[]) {
 
 describe("PageMarkerDetector", () => {
   test("whole answer is exactly the text marker — reported as start, nothing forwarded", () => {
-    const d = new PageMarkerDetector({ allowDev: false });
+    const d = new PageMarkerDetector({ allowDev: false, allowSearch: true });
     const events = feedAll(d, [MARKER_TEXT]);
     expect(events).toEqual([{ kind: "marker", marker: { type: "read", level: "text" }, position: "start" }]);
   });
 
   test("marker split across chunk boundaries at the start is still detected", () => {
-    const d = new PageMarkerDetector({ allowDev: false });
+    const d = new PageMarkerDetector({ allowDev: false, allowSearch: true });
     const events = feedAll(d, ["[[READ_", "PAGE]]"]);
     expect(events).toEqual([{ kind: "marker", marker: { type: "read", level: "text" }, position: "start" }]);
   });
 
   test("normal text with no marker is forwarded untouched", () => {
-    const d = new PageMarkerDetector({ allowDev: false });
+    const d = new PageMarkerDetector({ allowDev: false, allowSearch: true });
     const events = feedAll(d, ["Hello, ", "world."]);
     expect(events.filter((e) => e.kind === "marker")).toHaveLength(0);
     expect(events.map((e) => (e.kind === "text" ? e.text : "")).join("")).toBe("Hello, world.");
   });
 
   test("marker appearing mid-answer is reported as position mid, preceding text forwarded first", () => {
-    const d = new PageMarkerDetector({ allowDev: false });
+    const d = new PageMarkerDetector({ allowDev: false, allowSearch: true });
     const events = feedAll(d, ["Let me check. ", MARKER_TEXT, " more"]);
     expect(events[0]).toEqual({ kind: "text", text: "Let me check. " });
     expect(events.some((e) => e.kind === "marker" && e.position === "mid" && e.marker.type === "read")).toBe(true);
   });
 
   test("marker split across chunks mid-answer is still detected", () => {
-    const d = new PageMarkerDetector({ allowDev: false });
+    const d = new PageMarkerDetector({ allowDev: false, allowSearch: true });
     const events = feedAll(d, ["Sure. [[READ_", "PAGE]] done"]);
     expect(events.some((e) => e.kind === "marker" && e.position === "mid")).toBe(true);
   });
@@ -173,7 +173,7 @@ describe("PageMarkerDetector", () => {
   });
 
   test("dev marker is treated as plain text when allowDev is false (devMode false)", () => {
-    const d = new PageMarkerDetector({ allowDev: false });
+    const d = new PageMarkerDetector({ allowDev: false, allowSearch: true });
     const events = feedAll(d, [MARKER_DEV]);
     expect(events.every((e) => e.kind === "text")).toBe(true);
     expect(events.map((e) => (e.kind === "text" ? e.text : "")).join("")).toBe(MARKER_DEV);
@@ -207,7 +207,7 @@ describe("PageMarkerDetector", () => {
   });
 
   test("leading whitespace before the marker is held and consumed with it", () => {
-    const d = new PageMarkerDetector({ allowDev: false });
+    const d = new PageMarkerDetector({ allowDev: false, allowSearch: true });
     const events = feedAll(d, ["  \n" + MARKER_TEXT]);
     expect(events).toEqual([{ kind: "marker", marker: { type: "read", level: "text" }, position: "start" }]);
   });
@@ -1190,9 +1190,9 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     ws.close();
   });
 
-  test("[[OPEN]] on unknown refs: dropped; none left -> stripped, no request, not capped", async () => {
+  test("[[OPEN]] on unknown refs or an address: dropped; none left -> stripped, no request, not capped", async () => {
     const prompts: string[] = [];
-    const server = boot(scriptedProvider("fixture-search-unknown", [["[[SEARCH: q]]"], ["[[OPEN: S1 S99]]"], ["x [[OPEN: S99]] [[OPEN: S1]] y"]], prompts));
+    const server = boot(scriptedProvider("fixture-search-unknown", [["[[SEARCH: q]]"], ["[[OPEN: S1 S99]]"], ["x [[OPEN: S99]] [[OPEN: S1]] [[OPEN: https://r2.example/]] y"]], prompts));
     const ws = await connect(server);
     const messages = collectMessages(ws);
     autoClient(ws, 1);
@@ -1200,8 +1200,20 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     const done: any = await waitFor(messages, (m) => m.type === "done");
     const opens = messages.filter((m) => m.type === "open.request") as any[];
     expect(opens.map((o) => o.refs)).toEqual([[{ n: 1, url: "https://r1.example/q" }]]);
-    expect(chunksOf(messages)).toBe("x   y");
+    expect(chunksOf(messages)).toBe("x    y");
     expect(done.search.capped).toBeUndefined();
+    ws.close();
+  });
+
+  test("[[OPEN: <address>]] with search not offered: stripped and noted as refused, nothing opened", async () => {
+    const server = boot(scriptedProvider("fixture-open-address", [["See [[OPEN: https://solscan.io/swappairs]] here."]], []));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "c4a", text: "hi", page: { title: "T", url: "https://example.com", chars: 10 } }));
+    const done: any = await waitFor(messages, (m) => m.type === "done");
+    expect(messages.some((m) => m.type === "open.request")).toBe(false);
+    expect(chunksOf(messages)).toBe("See  here.");
+    expect(done.limits).toMatchObject({ refused: [{ kind: "open", reason: "unknown-ref", count: 1 }] });
     ws.close();
   });
 
@@ -1239,17 +1251,18 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     ws.close();
   });
 
-  test("[[OPEN]] shape: S<n> refs, spaces or commas, first 3 kept; anything else stays text", () => {
+  test("[[OPEN]] shape: S<n> refs, spaces or commas, first 3 kept; any other body, or search not offered, names none", () => {
     const feed = (s: string, allowSearch = true) => {
       const d = new PageMarkerDetector({ allowDev: false, allowSearch });
       return [...d.feed(s), ...d.flush()];
     };
-    expect(feed("[[OPEN: S2, S5 S2]]")).toEqual([{ kind: "marker", marker: { type: "open", refs: [2, 5] }, position: "start" }]);
-    expect(feed("[[OPEN: S1 S2 S5 S8]]")).toEqual([{ kind: "marker", marker: { type: "open", refs: [1, 2, 5] }, position: "start" }]);
-    for (const text of ["[[OPEN: 2]]", "[[OPEN:]]", "[[OPEN: S0]]"]) {
-      expect(feed(text).map((e) => (e.kind === "text" ? e.text : "MARKER")).join("")).toBe(text);
-    }
-    expect(feed("[[OPEN: S1]]", false)).toEqual([{ kind: "text", text: "[[OPEN: S1]]" }]);
+    const open = (refs: number[], position = "start") => [{ kind: "marker", marker: { type: "open", refs }, position }];
+    expect(feed("[[OPEN: S2, S5 S2]]")).toEqual(open([2, 5]));
+    expect(feed("[[OPEN: S1 S2 S5 S8]]")).toEqual(open([1, 2, 5]));
+    const url = `https://solscan.io/${"a".repeat(120)}`;
+    for (const text of ["[[OPEN: 2]]", "[[OPEN:]]", "[[OPEN: S0]]", `[[OPEN: ${url}]]`]) expect(feed(text)).toEqual(open([]));
+    expect(feed(`See [[OPEN: ${url}]] here`, false)).toEqual([{ kind: "text", text: "See " }, ...open([], "mid"), { kind: "text", text: " here" }]);
+    expect(feed("[[OPEN: S1]]", false)).toEqual(open([1]));
   });
 
   test("marker variants small models write: READ_PAGE with refs, any case, [S2] refs, many refs", () => {
