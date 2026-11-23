@@ -20,7 +20,7 @@ import { buildHistoryForWire, historyAlertState, readUntrustedIn } from "./histo
 import { sendChatWithPage, sendChatMessage, readRest } from "./composer-send.js";
 import { summarize } from "./page-extract.js";
 import { pendingRetries, lastHistoryKept, readParts } from "./chat-stream.js";
-import { currentConnState, modelsReply, switchFromTip, openOllamaSpeedup } from "./model-status.js";
+import { openOllamaSpeedup } from "./model-status.js";
 import { buildAuthRecoveryBlock } from "./request-watch.js";
 import { api } from "../lib/browser-compat.js";
 import { isClickableSource } from "../lib/search-results.js";
@@ -378,12 +378,7 @@ export function renderMessage(msg, { append = false } = {}) {
     }
     if (msg.slowTip && !msg.streaming) {
       node.appendChild(
-        buildSlowTip(document, msg.slowTip, {
-          t,
-          canSwitch: currentConnState === "connected" && !!modelsReply,
-          onSwitch: switchFromTip,
-          onSpeedup: openOllamaSpeedup,
-        }),
+        buildSlowTip(document, { t, onSpeedup: openOllamaSpeedup }),
       );
     }
   }

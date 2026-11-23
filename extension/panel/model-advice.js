@@ -7,7 +7,7 @@
 // are unit-tested under bun, and the builders receive `t` from panel.js.
 // Security rule 3: every node is built with createElement/textContent —
 // model names come from the local program, never inserted as markup.
-import { bestGpuModel, isSlowLocalModel, sameModel, shortModelName } from "../lib/model-list.js";
+import { isSlowLocalModel, shortModelName } from "../lib/model-list.js";
 
 /** A first word later than this, on a model that doesn't fit the card,
  * earns the tip under the answer. */
@@ -30,22 +30,9 @@ export function progressKey(stage, readsPage) {
   return readsPage ? "panel_progress_reading_page" : "panel_progress_reading_request";
 }
 
-/** The best model that fits the card, never `entry` itself, or null. */
-function alternativeTo(entry, grouped) {
-  const best = bestGpuModel(grouped);
-  return best && !sameModel(best.model, entry?.model) ? best : null;
-}
-
-/**
- * Tip under a slow or cut answer, or null when none applies (only Ollama
- * models get one). `suggest`: model id to offer instead (largest one that
- * fits the card), null when `entry` isn't slow or nothing fits.
- * @returns {{suggest: string|null}|null}
- */
-export function slowTipFor(entry, grouped) {
-  if (entry?.provider !== "ollama") return null;
-  const alt = isSlowLocalModel(entry) ? alternativeTo(entry, grouped) : null;
-  return { suggest: alt ? alt.model : null };
+/** true when a slow or cut answer earns the tip (only Ollama models get one). */
+export function slowTipFor(entry) {
+  return entry?.provider === "ollama";
 }
 
 /** true when the first word came late on a model that doesn't fit the card. */
@@ -53,12 +40,9 @@ export function isSlowFirstWord(elapsedMs, entry) {
   return elapsedMs > SLOW_FIRST_WORD_MS && isSlowLocalModel(entry);
 }
 
-/** "qwen3:8b doesn't fully fit in the graphics card: it will be slow.
- * qwen3:4b fits." — second sentence only when an alternative model fits. */
-export function sharedModelNoticeText(entry, grouped, t) {
-  const first = t("panel_shared_model_note", [shortModelName(entry.model)]);
-  const alt = alternativeTo(entry, grouped);
-  return alt ? `${first} ${t("panel_shared_model_alt", [shortModelName(alt.model)])}` : first;
+/** "qwen3:8b doesn't fully fit in the graphics card: it will be slow." */
+export function sharedModelNoticeText(entry, t) {
+  return t("panel_shared_model_note", [shortModelName(entry.model)]);
 }
 
 /** Waiting line: what the model is doing, and why thinking takes longer. */
@@ -83,31 +67,16 @@ export function buildProgress(doc, { stage, readsPage, t }) {
   return wrap;
 }
 
-/**
- * The tip under the answer: one sentence, then "Switch to …" (when a model
- * fits) and "Speed up Ollama".
- * @param {{suggest: string|null}} tip
- * @param {{t: Function, onSwitch: (model: string) => void, onSpeedup: () => void, canSwitch: boolean}} opts
- */
-export function buildSlowTip(doc, tip, { t, onSwitch, onSpeedup, canSwitch }) {
+/** The tip under the answer: one sentence and a "Speed up Ollama" button. */
+export function buildSlowTip(doc, { t, onSpeedup }) {
   const wrap = doc.createElement("div");
   wrap.className = "slow-tip";
   wrap.setAttribute("role", "note");
   const text = doc.createElement("p");
   text.className = "slow-tip-text";
-  const name = tip.suggest ? shortModelName(tip.suggest) : "";
-  text.textContent = tip.suggest ? t("panel_slow_tip_switch_text", [name]) : t("panel_slow_tip_speedup_text");
+  text.textContent = t("panel_slow_tip_speedup_text");
   const actions = doc.createElement("div");
   actions.className = "slow-tip-actions";
-  if (tip.suggest && canSwitch) {
-    const switchButton = doc.createElement("button");
-    switchButton.type = "button";
-    switchButton.className = "slow-tip-action";
-    switchButton.textContent = t("panel_slow_tip_switch_action", [name]);
-    switchButton.title = tip.suggest;
-    switchButton.addEventListener("click", () => onSwitch(tip.suggest));
-    actions.append(switchButton);
-  }
   const speedup = doc.createElement("button");
   speedup.type = "button";
   speedup.className = "slow-tip-action";

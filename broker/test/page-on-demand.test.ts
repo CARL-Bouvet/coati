@@ -5,7 +5,7 @@
 // same pattern as concurrency.test.ts), decline, read caps, and the English
 // scaffolding (model/render.ts, no French left in the on-demand prompt).
 
-import { describe, expect, test, afterEach } from "bun:test";
+import { describe, expect, test, afterEach, spyOn } from "bun:test";
 import {
   parseClientMessage,
   MAX_MESSAGE_BYTES,
@@ -382,6 +382,26 @@ describe("page on demand — re-run flow with a fake provider", () => {
     expect(chunks).not.toContain("READ_PAGE");
 
     ws.close();
+  });
+
+  test("the journal gets one timeline line: calls, page.request, done, never the page text", async () => {
+    const lines: string[] = [];
+    const spy = spyOn(console, "log").mockImplementation((...args: unknown[]) => void lines.push(args.join(" ")));
+    try {
+      const server = boot(fakeOnDemandProvider("fixture-pod-timeline"));
+      const ws = await connect(server);
+      const messages = collectMessages(ws);
+      ws.send(JSON.stringify({ type: "chat", id: "tl1", text: "q", page: { title: "T", url: "https://example.com", chars: 42 } }));
+      await waitFor(messages, (m) => m.type === "page.request");
+      ws.send(JSON.stringify({ type: "page.content", id: "pc1", target: "tl1", level: "text", context: { kind: "page", text: "PAGE_CONTENT_SEEN here" } }));
+      await waitFor(messages, (m) => m.type === "done");
+      ws.close();
+    } finally {
+      spy.mockRestore();
+    }
+    const line = lines.find((l) => l.includes("request timeline id=tl1"));
+    expect(line).toMatch(/0\.\d call1 .*page\.request:text .*call2 .*chunk×\d+ .*done · longest silence after a chunk \d+ s$/);
+    expect(line).not.toContain("PAGE_CONTENT_SEEN");
   });
 
   test("text-level content larger than the window is cut on a line break and reported", async () => {

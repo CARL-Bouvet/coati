@@ -517,35 +517,8 @@
       }
     }
   },
-  "panel_shared_model_alt": {
-    "message": "$MODEL$ y tient.",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "qwen3:4b"
-      }
-    }
-  },
-  "panel_slow_tip_switch_text": {
-    "message": "Pour des réponses plus rapides, essayez $MODEL$ : il tient entièrement dans la carte graphique.",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "qwen3:4b"
-      }
-    }
-  },
   "panel_slow_tip_speedup_text": {
     "message": "Deux réglages d'Ollama peuvent rendre ses réponses plus rapides."
-  },
-  "panel_slow_tip_switch_action": {
-    "message": "Passer à $MODEL$",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "qwen3:4b"
-      }
-    }
   },
   "panel_slow_tip_speedup_action": {
     "message": "Accélérer Ollama"

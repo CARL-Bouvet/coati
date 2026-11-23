@@ -3,6 +3,7 @@
 // server.ts.
 
 import { readFileSync } from "node:fs";
+import { timelineStart, timelineFinish, formatTimeline } from "./request-timeline.ts";
 import {
   FACTS_MAX,
   FACT_LABEL_MAX,
@@ -122,6 +123,7 @@ export function logRequestReceived(
   // never mediaType/data/dimensions.
   hasImage = false,
 ): void {
+  timelineStart(id);
   console.log(
     `coati-broker: request received type=${type} id=${sanitizeLogValue(id)} context=${contextKind ?? "-"} textLength=${textLength} pageKind=${pageKind ?? "-"} facts=${factsCount} items=${itemsCount} image=${hasImage}`,
   );
@@ -139,6 +141,12 @@ export function logRequestCompleted(id: string, outcome: string, elapsedMs: numb
   console.log(
     `coati-broker: request completed id=${sanitizeLogValue(id)} outcome=${outcome} elapsedMs=${elapsedMs}${reasonPart}`,
   );
+  const timeline = timelineFinish(id);
+  if (timeline) {
+    console.log(
+      `coati-broker: request timeline id=${sanitizeLogValue(id)} ${formatTimeline(timeline.events, timeline.longestSilenceMs)}`,
+    );
+  }
 }
 
 // --- A1: systemd unit drift detection -------------------------------------

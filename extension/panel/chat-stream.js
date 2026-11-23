@@ -13,7 +13,7 @@ import { renderMessage, addMessage } from "./message-render.js";
 import { armRequestDeadline, setStreamingUi } from "./request-watch.js";
 import { persistConversation } from "./conversation-store.js";
 import { updateHistoryNotice } from "./message-render.js";
-import { onFirstWord, currentModelEntry, currentGroupedModels, interceptOwnError, requestStarts, currentProvider } from "./model-status.js";
+import { onFirstWord, currentModelEntry, interceptOwnError, requestStarts, currentProvider } from "./model-status.js";
 import { describeBrokerError, authKindFor } from "./recovery-blocks.js";
 import { renderFirstRun, renderNeverConnected } from "./first-run-wiring.js";
 import { MODEL_EVER_ANSWERED_KEY } from "./first-run.js";
@@ -128,7 +128,7 @@ export function onError(message) {
   const modelStalled = message.code === "model-stalled" || message.code === "model-timeout";
   const start = requestStarts.get(message.id);
   requestStarts.delete(message.id);
-  const slowTip = modelStalled ? (slowTipFor(start?.entry ?? currentModelEntry(), currentGroupedModels()) ?? undefined) : undefined;
+  const slowTip = modelStalled ? slowTipFor(start?.entry ?? currentModelEntry()) : undefined;
   const retryAfterSec =
     rateLimited && Number.isFinite(message.retryAfterSec) && message.retryAfterSec > 0 ? message.retryAfterSec : undefined;
   const keepsRetryPayload =

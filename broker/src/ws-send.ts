@@ -3,7 +3,9 @@
 // each defining its own copy.
 
 import type { ServerMessage } from "./protocol.ts";
+import { timelineSent } from "./request-timeline.ts";
 
 export function send(ws: { send(data: string): unknown }, msg: ServerMessage): void {
+  timelineSent(msg);
   ws.send(JSON.stringify(msg));
 }

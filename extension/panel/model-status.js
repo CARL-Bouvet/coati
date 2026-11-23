@@ -331,7 +331,7 @@ export function onFirstWord(msg) {
   const start = requestStarts.get(msg.id);
   if (msg.role !== "assistant" || !start || msg.slowTip) return;
   if (isSlowFirstWord(Date.now() - start.at, start.entry)) {
-    msg.slowTip = slowTipFor(start.entry, currentGroupedModels()) ?? undefined;
+    msg.slowTip = slowTipFor(start.entry) || undefined;
   }
 }
 
@@ -342,16 +342,8 @@ export function maybeShowSharedNotice(entry) {
   const key = `${entry.provider}\n${shortModelName(entry.model)}`;
   if (sharedNoticeShown.has(key)) return;
   sharedNoticeShown.add(key);
-  addMessage({ id: newId(), role: "notice", text: sharedModelNoticeText(entry, currentGroupedModels(), t) });
+  addMessage({ id: newId(), role: "notice", text: sharedModelNoticeText(entry, t) });
   persistConversation();
-}
-
-/** "Switch to …" under a slow answer: same path as a pick in the menu. */
-export function switchFromTip(model) {
-  if (!modelsReply) return;
-  const known = modelsReply.current ?? {};
-  if (known.provider === "ollama" && sameModel(known.model, model)) return;
-  pickModel({ provider: "ollama", model, current: false });
 }
 
 export function openOllamaSpeedup() {

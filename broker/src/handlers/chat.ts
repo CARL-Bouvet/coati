@@ -2,6 +2,7 @@
 // the provider stream loop, and the page-on-demand loop.
 
 import { send } from "../ws-send.ts";
+import { timelineCall } from "../request-timeline.ts";
 import {
   logRequestReceived,
   logRequestCompleted,
@@ -196,6 +197,7 @@ async function runStream(
     // DoneMessage.historyKept below — undefined stays undefined (no
     // `history` on this request), never coerced to 0.
     let historyKept: number | undefined;
+    timelineCall(id);
     for await (const event of provider.streamAnswer(built, { signal: controller.signal, ...providerOpts })) {
       if (controller.signal.aborted) break;
       if (event.kind === "usage") {
@@ -614,6 +616,7 @@ async function runOnDemandCall(
     send(ws, { type: "chunk", id, delta: text });
   };
   try {
+    timelineCall(id);
     for await (const event of provider.streamAnswer(built, { signal: controller.signal, ...providerOpts })) {
       if (controller.signal.aborted) break;
       if (event.kind === "usage") {

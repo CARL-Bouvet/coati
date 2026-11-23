@@ -517,35 +517,8 @@
       }
     }
   },
-  "panel_shared_model_alt": {
-    "message": "$MODEL$ 可以完全放入。",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "qwen3:4b"
-      }
-    }
-  },
-  "panel_slow_tip_switch_text": {
-    "message": "想要更快的回答，可以试试 $MODEL$：它能完全放入显卡。",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "qwen3:4b"
-      }
-    }
-  },
   "panel_slow_tip_speedup_text": {
     "message": "Ollama 的两项设置可以让它回答得更快。"
-  },
-  "panel_slow_tip_switch_action": {
-    "message": "切换到 $MODEL$",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "qwen3:4b"
-      }
-    }
   },
   "panel_slow_tip_speedup_action": {
     "message": "加速 Ollama"

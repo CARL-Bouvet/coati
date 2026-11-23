@@ -513,7 +513,7 @@
 
     // Point 3 — qwen3:4b in use, qwen3:8b (« partagé ») picked in the menu:
     // the switch happens, and one calm line follows in the conversation
-    // (« … ne tient pas entièrement … il sera lent. qwen3.5:4b y tient. »).
+    // (« … ne tient pas entièrement … il sera lent. »).
     "shared-model-advice": {
       status: "connected",
       tab: ARTICLE_TAB,
@@ -535,7 +535,7 @@
 
     // Points 6-7 — qwen3:8b goes silent mid-answer (model-stalled): the
     // words stay, the reason follows, « Réessayer », then the tip
-    // (« essayez qwen3.5:4b… », « Passer à qwen3.5:4b », « Accélérer Ollama »).
+    // (« Deux réglages d'Ollama … », « Accélérer Ollama »).
     "answer-stalled-tip": {
       status: "connected",
       tab: ARTICLE_TAB,

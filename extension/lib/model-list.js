@@ -117,16 +117,6 @@ export function isSlowLocalModel(entry) {
   return entry.fit === "shared" || entry.fit === "too-big";
 }
 
-/** The model to suggest instead of a slow one: the largest installed Ollama
- * model whose fit is "gpu", or null when none fits the card. */
-export function bestGpuModel(grouped) {
-  const fitting = (grouped?.local ?? []).filter(
-    (entry) => entry.provider === "ollama" && entry.fit === "gpu" && typeof entry.sizeBytes === "number",
-  );
-  if (fitting.length === 0) return null;
-  return fitting.reduce((a, b) => (b.sizeBytes > a.sizeBytes ? b : a));
-}
-
 /** `{id: label}` from a `settings` message's `available` list — the only
  * place a module (an id lib/labels.js doesn't know, e.g. claude-cli) gets
  * its human name. */

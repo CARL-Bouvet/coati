@@ -517,35 +517,8 @@
       }
     }
   },
-  "panel_shared_model_alt": {
-    "message": "$MODEL$ fits.",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "qwen3:4b"
-      }
-    }
-  },
-  "panel_slow_tip_switch_text": {
-    "message": "For faster answers, try $MODEL$: it fits entirely in the graphics card.",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "qwen3:4b"
-      }
-    }
-  },
   "panel_slow_tip_speedup_text": {
     "message": "Two Ollama settings can make its answers faster."
-  },
-  "panel_slow_tip_switch_action": {
-    "message": "Switch to $MODEL$",
-    "placeholders": {
-      "model": {
-        "content": "$1",
-        "example": "qwen3:4b"
-      }
-    }
   },
   "panel_slow_tip_speedup_action": {
     "message": "Speed up Ollama"

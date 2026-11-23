@@ -25,10 +25,6 @@ const ROMAIN = groupModels({
     { provider: "claude-cli", model: "claude-sonnet-4-5", local: false },
   ],
 });
-const NOTHING_FITS = groupModels({
-  current: { provider: "ollama", model: "qwen3:8b" },
-  entries: [{ provider: "ollama", model: "qwen3:8b", local: true, sizeBytes: 5_225_387_923, fit: "shared" }],
-});
 const slow = ROMAIN.currentEntry;
 const fits = ROMAIN.local[1];
 const online = ROMAIN.online[0];
@@ -84,31 +80,20 @@ describe("progress stage", () => {
 });
 
 describe("« partagé » model notice", () => {
-  test("names the model, then the largest one that fits", () => {
-    expect(sharedModelNoticeText(slow, ROMAIN, t)).toBe("panel_shared_model_note|qwen3:8b panel_shared_model_alt|qwen3:4b");
-  });
-
-  test("one sentence when nothing fits", () => {
-    expect(sharedModelNoticeText(NOTHING_FITS.currentEntry, NOTHING_FITS, t)).toBe("panel_shared_model_note|qwen3:8b");
+  test("names the model and suggests no other", () => {
+    expect(sharedModelNoticeText(slow, t)).toBe("panel_shared_model_note|qwen3:8b");
   });
 });
 
 describe("tip after a slow or cut answer", () => {
-  test("slow Ollama model: suggests the largest one that fits", () => {
-    expect(slowTipFor(slow, ROMAIN)).toEqual({ suggest: "qwen3:4b" });
-  });
-
-  test("Ollama model that fits: speed-up only", () => {
-    expect(slowTipFor(fits, ROMAIN)).toEqual({ suggest: null });
-  });
-
-  test("nothing fits: speed-up only", () => {
-    expect(slowTipFor(NOTHING_FITS.currentEntry, NOTHING_FITS)).toEqual({ suggest: null });
+  test("Ollama model: no model is suggested", () => {
+    expect(slowTipFor(slow)).toBe(true);
+    expect(slowTipFor(fits)).toBe(true);
   });
 
   test("online model or unknown: no tip", () => {
-    expect(slowTipFor(online, ROMAIN)).toBeNull();
-    expect(slowTipFor(null, ROMAIN)).toBeNull();
+    expect(slowTipFor(online)).toBe(false);
+    expect(slowTipFor(null)).toBe(false);
   });
 
   test("late first word only counts on a model that doesn't fit", () => {

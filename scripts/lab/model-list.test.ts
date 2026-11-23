@@ -2,7 +2,6 @@
 // renderer itself is exercised by the lab states `model-menu-*` and the Chromium e2e.
 import { describe, expect, test } from "bun:test";
 import {
-  bestGpuModel,
   classifyFit,
   currentModelVision,
   FIT_CONSTANTS,
@@ -230,15 +229,6 @@ describe("slow model advice (plan-ollama-rapide-07-10.md, points 4 and 6)", () =
       { provider: "claude-cli", model: "claude-sonnet-4-5", local: false },
     ],
   };
-
-  test("bestGpuModel picks the largest model that fits the card", () => {
-    expect(bestGpuModel(groupModels(reply))?.model).toBe("qwen3.5:4b");
-  });
-
-  test("bestGpuModel is null when nothing fits", () => {
-    const none = { ...reply, entries: reply.entries.filter((e) => e.fit !== "gpu") };
-    expect(bestGpuModel(groupModels(none))).toBeNull();
-  });
 
   test("isSlowLocalModel: shared / too-big Ollama models, measured share wins", () => {
     const grouped = groupModels(reply);
