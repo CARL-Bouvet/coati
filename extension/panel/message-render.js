@@ -312,7 +312,8 @@ export function wasNearBottom() {
 }
 
 /** What an answer's links are checked against (docs/DECISIONS.md T61): the
- * sources found so far in the conversation, the current page, and whether this
+ * sources found so far in the conversation (a read one by its final address and
+ * the one shown in the results), the current page, and whether this
  * answer or an earlier one read the page, searched, or was sent the page's
  * title and address. */
 function answerLinks(msg) {
@@ -320,7 +321,7 @@ function answerLinks(msg) {
   const idx = conversation.indexOf(msg);
   const upTo = [...conversation.slice(0, idx === -1 ? conversation.length : idx), msg];
   const readUntrusted = readUntrustedIn(upTo);
-  const urls = upTo.flatMap((m) => (m.sources ?? []).map((s) => s.url));
+  const urls = upTo.flatMap((m) => (m.sources ?? []).flatMap((s) => [s.url, s.shown]));
   return { ctx: linkContext(urls, currentPageUrl, readUntrusted), t };
 }
 

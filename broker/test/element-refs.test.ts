@@ -168,6 +168,7 @@ describe("prepareContextForWire", () => {
 // --- Web search: results extraction and sources list ------------------------
 
 import { collectSearchResults, navigationStatus, sourcesFromSearch, isClickableSource } from "../../extension/lib/search-results.js";
+import { linkContext, linkVerdict } from "../../extension/lib/link-safety.js";
 import { checkOpen } from "../../extension/lib/open-guard.js";
 import { readStructuredData } from "../../extension/lib/structured-data.js";
 
@@ -312,6 +313,12 @@ describe("sourcesFromSearch across searches", () => {
     expect(opened.map((s: any) => s.n)).toEqual([1, 2, 3]);
     expect(opened.map((s: any) => s.read)).toEqual([false, false, true]);
     expect(opened[2].url).toBe("https://example.org/c");
+  });
+  test("a read result keeps the address shown in the results, so links to either pass the link rules", () => {
+    const listed = sourcesFromSearch([], [{ n: 1, title: "Bags", url: "https://leafpackage.com/", snippet: "" }], [], check);
+    const read = sourcesFromSearch(listed, [], [{ n: 1, url: "https://leafpackage.com/collections/bags", title: "Bags", text: "x" }], check);
+    const ctx = linkContext(read.flatMap((s: any) => [s.url, s.shown]), "https://search.brave.com/search?q=t", true);
+    for (const href of ["https://leafpackage.com/", "https://leafpackage.com/collections/bags"]) expect(linkVerdict(href, href, ctx).verdict).toBe("clickable");
   });
 });
 

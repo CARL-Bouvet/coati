@@ -123,15 +123,18 @@ export function navigationStatus() {
  * of the question: `prior` is the list so far, `results` the new search's
  * (numbered after the `offset` results already sent), `pages` the pages just
  * read and `failed` the ones that could not be (both matched by `n`; a read
- * source takes the page's final address, a failed one stays listed, marked
- * `unreachable`). `check(url)` is the open-guard
- * verdict; a blocked address stays listed as text, not a link.
- * @returns {Array<{ n: number, title: string, url: string, read: boolean, verdict: string, unreachable?: true }>}
+ * source takes the page's final address and keeps the one the model was shown
+ * in the results as `shown`, a failed one stays listed, marked `unreachable`).
+ * `check(url)` is the open-guard verdict; a blocked address stays listed as
+ * text, not a link.
+ * @returns {Array<{ n: number, title: string, url: string, shown?: string, read: boolean, verdict: string, unreachable?: true }>}
  */
 export function sourcesFromSearch(prior, results, pages, check, offset = 0, failed = []) {
   const read = new Map(pages.map((p) => [p.n, p.url]));
   const failedNumbers = new Set(failed.map((f) => f.n));
-  const sources = prior.map((s) => (read.has(s.n) ? { ...s, url: read.get(s.n), read: true } : failedNumbers.has(s.n) ? { ...s, unreachable: true } : s));
+  const sources = prior.map((s) =>
+    read.has(s.n) ? { ...s, url: read.get(s.n), shown: s.shown ?? s.url, read: true } : failedNumbers.has(s.n) ? { ...s, unreachable: true } : s,
+  );
   for (const r of results) {
     let verdict;
     try {
