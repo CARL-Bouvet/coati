@@ -12,6 +12,68 @@ export interface ChunkMessage {
   delta: string;
 }
 
+/** What a `chat` ran into, for the line under the answer and the run log
+ * (docs/PROTOCOL.md "Run log"). Numbers and flags only. */
+export interface RunLimits {
+  /** Markers Coati ignored; `limit` is the cap hit (absent for `unknown-ref`). */
+  refused?: {
+    kind: "search" | "open" | "read";
+    reason: "turns" | "searches" | "pages" | "reads" | "budget" | "unknown-ref";
+    count: number;
+    limit?: number;
+  }[];
+  /** A call stopped on length; `tokens` is what that call used, `contextTokens` the Ollama context size. */
+  memoryFull?: { tokens: number; contextTokens?: number };
+  /** The visible answer was cut after a stop marker. */
+  cut?: true;
+  /** The model wrote only markers; one forced answer call followed. */
+  answerNow?: true;
+  /** Ollama only. */
+  local?: { gpuPercent?: number; contextTokens: number; tokensPerSec?: number; vramGb?: number; unifiedMemory?: true };
+}
+
+/** One step of a `chat` run: a model call, or the client's answer to a request. */
+export interface RunStep {
+  t: number;
+  ms: number;
+  kind: "call" | "search" | "open" | "read";
+  n?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  uncounted?: true;
+  stop?: "answer" | "marker" | "length" | "cut" | "error" | "cancelled";
+  reasoning?: string;
+  reasoningCut?: true;
+  marker?: { type: "read" | "search" | "open"; query?: string; refs?: number[]; level?: "text" | "dev" };
+  decision?: "accepted" | "refused";
+  reason?: "turns" | "searches" | "pages" | "reads" | "budget" | "unknown-ref";
+  answer?: "results" | "pages" | "page" | "declined" | "failed";
+  results?: number;
+  /** Titles, hosts and character counts only — never page text. */
+  pages?: { n: number; title: string; host: string; chars: number }[];
+  declineReason?: string;
+  chars?: number;
+}
+
+export interface RunLog {
+  startedAt: number;
+  ms: number;
+  provider: string;
+  model: string;
+  question: string;
+  steps: RunStep[];
+  limits: RunLimits;
+}
+
+/** Reply to `run.get`. */
+export interface RunMessage {
+  type: "run";
+  id: string;
+  target: string;
+  found: boolean;
+  run?: RunLog;
+}
+
 export interface DoneMessage {
   type: "done";
   id: string;
@@ -46,6 +108,10 @@ export interface DoneMessage {
   search?: { queries: string[]; results: number; pages: number; chars: number; capped?: true };
   /** A further search the model asked for and Coati did not run, for the user to launch. */
   suggest?: { search: string };
+  /** `chat` only. */
+  limits?: RunLimits;
+  /** `chat` only: at least one call received reasoning text. */
+  reasoned?: true;
 }
 
 export interface ErrorMessage {
@@ -56,6 +122,9 @@ export interface ErrorMessage {
   /** Only ever present for code "rate-limited", and only when the provider
    * sent a Retry-After header (docs/PROTOCOL.md). */
   retryAfterSec?: number;
+  /** An error ending a `chat` carries what the run ran into, like `done`. */
+  limits?: RunLimits;
+  reasoned?: true;
 }
 
 export interface PromptsMessage {
@@ -340,6 +409,7 @@ export type ServerMessage =
   | ErrorMessage
   | PromptsMessage
   | PrefsMessage
+  | RunMessage
   | HelloOkMessage
   | ChallengeMessage
   | SettingsMessage

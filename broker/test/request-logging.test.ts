@@ -7,6 +7,7 @@ import { describe, expect, test, afterEach, mock } from "bun:test";
 import { startServer } from "../src/server.ts";
 import { __setFetchImplForTests, __resetFetchImplForTests } from "../src/providers/ollama.ts";
 import type { ServerMessage } from "../src/protocol.ts";
+import { timelineStart, timelineCall, timelineFinish, formatTimeline, runBegin, runReasoning, runGet } from "../src/request-timeline.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
 import { connectAndAuthV2, connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
 
@@ -53,6 +54,22 @@ afterEach(() => {
 function loggedLines(): string[] {
   return logSpy.mock.calls.map((call: unknown[]) => String(call[0]));
 }
+
+describe("run log recorder", () => {
+  test("reasoning is kept head + tail past the cap, and never reaches the journal line", () => {
+    originalLog = console.log;
+    timelineStart("rl1");
+    runBegin("rl1", { provider: "p", model: "m", question: "Q" });
+    timelineCall("rl1");
+    runReasoning("rl1", "H".repeat(80_000));
+    runReasoning("rl1", "T".repeat(80_000));
+    const timeline = timelineFinish("rl1")!;
+    expect(formatTimeline(timeline.events, timeline.longestSilenceMs)).toMatch(/^\d\.\d call1 · longest silence after a chunk 0 s$/);
+    const step = runGet("rl1")!.steps[0]!;
+    expect(step.reasoning).toBe("H".repeat(50_000) + "T".repeat(50_000));
+    expect(step.reasoningCut).toBe(true);
+  });
+});
 
 describe("A2 — one journal line per request", () => {
   test("a successful chat logs one 'received' and one 'completed: ok' line, without leaking text", async () => {

@@ -83,6 +83,17 @@ describe("openai-compat SSE line parsing", () => {
     expect([...parseSseLine(line)]).toEqual([]);
   });
 
+  test("reasoning_content and reasoning become thinking events; a length stop rides on the usage event", () => {
+    const state = {};
+    for (const key of ["reasoning_content", "reasoning"]) {
+      const line = `data: ${JSON.stringify({ choices: [{ delta: { [key]: "hmm" } }] })}`;
+      expect([...parseSseLine(line, state)]).toEqual([{ kind: "thinking", text: "hmm" }]);
+    }
+    expect([...parseSseLine(`data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "length" }] })}`, state)]).toEqual([]);
+    const usage = `data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 4, completion_tokens: 2 } })}`;
+    expect([...parseSseLine(usage, state)]).toEqual([{ kind: "usage", usage: { inputTokens: 4, outputTokens: 2 }, stop: "length" }]);
+  });
+
   test("a usage-bearing chunk yields a usage event", () => {
     const line = `data: ${JSON.stringify({
       choices: [],

@@ -515,16 +515,20 @@ export function* parseNdjsonLine(line: string): Generator<AnswerEvent> {
   // is never forwarded as text. Emitted BEFORE content so streamAnswer can
   // satisfy the first-token deadline from thinking alone.
   if (message && typeof message.thinking === "string" && message.thinking.length > 0) {
-    yield { kind: "thinking" };
+    yield { kind: "thinking", text: message.thinking };
   }
   if (message && typeof message.content === "string" && message.content.length > 0) {
     yield { kind: "delta", text: message.content };
   }
   if (obj.done === true) {
     const num = (key: string): number => (typeof obj[key] === "number" ? (obj[key] as number) : 0);
+    const ms = (name: string, key: string) => (typeof obj[key] === "number" ? { [name]: Math.round((obj[key] as number) / 1e6) } : {});
+    const stats = { ...ms("evalMs", "eval_duration"), ...ms("promptMs", "prompt_eval_duration"), ...ms("loadMs", "load_duration") };
     yield {
       kind: "usage",
       usage: { inputTokens: num("prompt_eval_count"), outputTokens: num("eval_count") },
+      ...(obj.done_reason === "length" ? { stop: "length" as const } : {}),
+      ...(Object.keys(stats).length > 0 ? { stats } : {}),
     };
   }
 }
@@ -753,18 +757,22 @@ export async function* streamAnswer(
         else { resetInactivity(); }
       }
       if (event.kind === "thinking") {
-        yield { kind: "thinking" }; // forwarded so server.ts can send progress:thinking once
+        yield event;
       } else if (event.kind === "delta") {
         const text = cutter.push(filter ? filter.filter(event.text) : event.text);
+        const thought = filter?.takeThought();
+        if (thought) yield { kind: "thinking", text: thought };
         if (text.length > 0) yield { kind: "delta", text };
         if (cutter.hit) { abortController.abort(); break; }
       } else {
-        yield event.kind === "usage" ? { ...event, historyKept } : event;
+        yield event.kind === "usage" ? { ...event, historyKept, stats: { ...event.stats, numCtx: num_ctx } } : event;
       }
     }
     // A cut request is aborted before the server reports its token count.
-    if (cutter.hit) yield { kind: "usage", usage: { inputTokens: 0, outputTokens: 0, uncounted: true }, historyKept };
+    if (cutter.hit) yield { kind: "usage", usage: { inputTokens: 0, outputTokens: 0, uncounted: true }, historyKept, stats: { numCtx: num_ctx } };
     const tail = cutter.push(filter ? filter.flush() : "") + cutter.flush();
+    const thought = filter?.takeThought();
+    if (thought) yield { kind: "thinking", text: thought };
     if (tail.length > 0) yield { kind: "delta", text: tail };
   } catch (err) {
     if (stalled) throw new ModelStalledError(inactivityMs);

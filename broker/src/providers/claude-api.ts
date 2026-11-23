@@ -217,7 +217,7 @@ async function listModels(opts: ProviderRuntimeOptions): Promise<string[]> {
  */
 export function* parseSseLine(
   line: string,
-  state: { inputTokens: number; outputTokens: number },
+  state: { inputTokens: number; outputTokens: number; stop?: "length" },
 ): Generator<AnswerEvent> {
   const trimmed = line.trimEnd();
   if (!trimmed.startsWith("data:")) return;
@@ -241,21 +241,28 @@ export function* parseSseLine(
     }
     case "content_block_delta": {
       const delta = obj.delta as Record<string, unknown> | undefined;
-      // Only text_delta carries visible reply text — thinking_delta (adaptive
-      // thinking, on by default on this model family) is intentionally not
-      // surfaced to the panel.
+      // Only text_delta carries visible reply text; thinking_delta (adaptive
+      // thinking) goes out as a thinking event, never as answer text.
       if (delta?.type === "text_delta" && typeof delta.text === "string") {
         yield { kind: "delta", text: delta.text };
+      } else if (delta?.type === "thinking_delta" && typeof delta.thinking === "string" && delta.thinking.length > 0) {
+        yield { kind: "thinking", text: delta.thinking };
       }
       return;
     }
     case "message_delta": {
       const usage = obj.usage as Record<string, unknown> | undefined;
       if (usage && typeof usage.output_tokens === "number") state.outputTokens = usage.output_tokens;
+      const stopReason = (obj.delta as Record<string, unknown> | undefined)?.stop_reason;
+      if (stopReason === "max_tokens") state.stop = "length";
       return;
     }
     case "message_stop": {
-      yield { kind: "usage", usage: { inputTokens: state.inputTokens, outputTokens: state.outputTokens } };
+      yield {
+        kind: "usage",
+        usage: { inputTokens: state.inputTokens, outputTokens: state.outputTokens },
+        ...(state.stop ? { stop: state.stop } : {}),
+      };
       return;
     }
     case "error": {
@@ -275,7 +282,7 @@ export function* parseSseLine(
 export async function* parseSseStream(body: ReadableStream<Uint8Array>): AsyncGenerator<AnswerEvent> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
-  const state = { inputTokens: 0, outputTokens: 0 };
+  const state: { inputTokens: number; outputTokens: number; stop?: "length" } = { inputTokens: 0, outputTokens: 0 };
   let buffer = "";
   try {
     while (true) {
@@ -474,7 +481,7 @@ export async function* streamAnswer(
     }
 
     for await (const event of parseSseStream(response.body)) {
-      if (event.kind === "delta") {
+      if (event.kind === "delta" || event.kind === "thinking") {
         if (!gotFirstChunk) { gotFirstChunk = true; clearTimeout(firstTokenTimer); resetInactivity(); }
         else { resetInactivity(); }
       }

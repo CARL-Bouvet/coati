@@ -408,13 +408,19 @@ async function testConnection(
   }
 }
 
+/** What one SSE line leaves for the next: a length stop waits for the usage chunk that follows it. */
+interface SseState {
+  stop?: "length";
+  usageSeen?: true;
+}
+
 /** Parses one SSE line of an OpenAI-compatible /v1/chat/completions streaming
  * response. Tolerates providers that send no `usage`/`role` chunks (task
  * brief) — those fields are read only when present, never required. Exported
  * standalone (alongside parseSseStream below) so tests can feed fixed line
  * fixtures without going through a fake fetch. Mirrors claude-api.ts's
  * parseSseLine structure. */
-export function* parseSseLine(line: string): Generator<AnswerEvent> {
+export function* parseSseLine(line: string, state: SseState = {}): Generator<AnswerEvent> {
   const trimmed = line.trimEnd();
   if (!trimmed.startsWith("data:")) return;
   const jsonText = trimmed.slice(5).trim();
@@ -462,7 +468,11 @@ export function* parseSseLine(line: string): Generator<AnswerEvent> {
     throw new ModelUnavailableError(message);
   }
 
+  if (choice?.finish_reason === "length") state.stop = "length";
+
   const delta = choice?.delta as Record<string, unknown> | undefined;
+  const reasoning = delta?.reasoning_content ?? delta?.reasoning;
+  if (typeof reasoning === "string" && reasoning.length > 0) yield { kind: "thinking", text: reasoning };
   if (delta && typeof delta.content === "string" && delta.content.length > 0) {
     yield { kind: "delta", text: delta.content };
   }
@@ -477,7 +487,10 @@ export function* parseSseLine(line: string): Generator<AnswerEvent> {
     yield {
       kind: "usage",
       usage: { inputTokens: usage.prompt_tokens, outputTokens: usage.completion_tokens },
+      ...(state.stop ? { stop: state.stop } : {}),
     };
+    state.stop = undefined;
+    state.usageSeen = true;
   }
 }
 
@@ -488,6 +501,7 @@ export function* parseSseLine(line: string): Generator<AnswerEvent> {
 export async function* parseSseStream(body: ReadableStream<Uint8Array>): AsyncGenerator<AnswerEvent> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
+  const state: SseState = {};
   let buffer = "";
   try {
     while (true) {
@@ -498,10 +512,12 @@ export async function* parseSseStream(body: ReadableStream<Uint8Array>): AsyncGe
       while ((newlineIndex = buffer.indexOf("\n")) >= 0) {
         const line = buffer.slice(0, newlineIndex);
         buffer = buffer.slice(newlineIndex + 1);
-        yield* parseSseLine(line);
+        yield* parseSseLine(line, state);
       }
     }
-    if (buffer.trim()) yield* parseSseLine(buffer);
+    if (buffer.trim()) yield* parseSseLine(buffer, state);
+    // The server stopped on length and never sent a usage chunk.
+    if (state.stop && !state.usageSeen) yield { kind: "usage", usage: { inputTokens: 0, outputTokens: 0 }, stop: state.stop };
   } finally {
     reader.releaseLock();
   }
@@ -689,16 +705,22 @@ export async function* streamAnswer(
       throw new Error("server response has no body");
     }
 
-    // Strip <think>…</think> blocks (and ignore any
-    // delta.reasoning_content — already not read by parseSseLine) so that
-    // thinking tokens from o1/qwen3-style models never reach the extension.
+    // Strip <think>…</think> blocks so that thinking tokens from
+    // o1/qwen3-style models never reach the answer text; they go out as
+    // thinking events, like delta.reasoning_content.
     const filter = new ThinkFilter();
     const cutter = new AnswerStopCutter(answerStopSequences(built.nonce));
     for await (const event of parseSseStream(response.body)) {
-      if (event.kind === "delta") {
+      if (event.kind === "thinking" || event.kind === "delta") {
         if (!gotFirstChunk) { gotFirstChunk = true; clearTimeout(firstTokenTimer); resetInactivity(); }
         else { resetInactivity(); }
+      }
+      if (event.kind === "thinking") {
+        yield event;
+      } else if (event.kind === "delta") {
         const text = cutter.push(filter.filter(event.text));
+        const thought = filter.takeThought();
+        if (thought) yield { kind: "thinking", text: thought };
         if (text.length > 0) yield { kind: "delta", text };
         if (cutter.hit) { abortController.abort(); break; }
       } else {
@@ -708,6 +730,8 @@ export async function* streamAnswer(
     // A cut request is aborted before the server reports its token count.
     if (cutter.hit) yield { kind: "usage", usage: { inputTokens: 0, outputTokens: 0, uncounted: true }, historyKept };
     const tail = cutter.push(filter.flush()) + cutter.flush();
+    const thought = filter.takeThought();
+    if (thought) yield { kind: "thinking", text: thought };
     if (tail.length > 0) yield { kind: "delta", text: tail };
   } catch (err) {
     if (stalled) throw new ModelStalledError(inactivityMs);

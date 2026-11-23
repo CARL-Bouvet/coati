@@ -63,6 +63,7 @@ let providerStatusActionable = false;
 export function applyBrokerFeatures(state, features) {
   brokerFeatures = state === "connected" && Array.isArray(features) ? features.filter((f) => typeof f === "string") : [];
   updateDevModeUi();
+  for (const button of document.querySelectorAll(".model-limits-run")) button.hidden = !hasFeature("run-log");
 }
 
 /** Same "are you there?" message the panel already sends once at startup

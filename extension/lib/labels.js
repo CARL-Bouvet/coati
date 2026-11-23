@@ -183,9 +183,14 @@ function pageReadPart(page) {
  * @returns {string|undefined} */
 export function buildPageMention(pageOnDemand, message) {
   const usage = message.usage || {};
-  const kTokens = usage.uncounted ? undefined : formatTokensK((usage.inputTokens || 0) + (usage.outputTokens || 0));
-  /** `uncounted`: the line says the tokens were not counted instead of showing a false figure. */
-  const mention = (key) => (kTokens === undefined ? t(`${key}_uncounted`) : t(key, [kTokens]));
+  const total = (usage.inputTokens || 0) + (usage.outputTokens || 0);
+  // `uncounted`: the total is a floor ("at least"); with nothing counted, the line says so instead of a false 0.
+  const kTokens = usage.uncounted && total === 0 ? undefined : formatTokensK(total);
+  const atLeast = usage.uncounted && total > 0;
+  const mention = (key) => {
+    if (kTokens === undefined) return t(`${key}_uncounted`);
+    return atLeast ? t(key.replace("panel_page_mention_", "panel_limits_") + "_at_least", [kTokens]) : t(key, [kTokens]);
+  };
   const page = message.page;
   if (!page) return pageOnDemand ? mention("panel_page_mention_not_read") : undefined;
   const base = mention(page.level === "dev" ? "panel_page_mention_read_dev" : "panel_page_mention_read_text");
@@ -196,4 +201,65 @@ export function buildPageMention(pageOnDemand, message) {
 /** Where "Read the rest" resumes after a `done.page`, or `undefined` when the page was read to its end. */
 export function nextReadPart(page) {
   return page && page.truncated ? { from: page.from + page.sentChars, level: page.level } : undefined;
+}
+
+const REFUSED_KEYS = {
+  turns: "panel_limits_refused_turns",
+  searches: "panel_limits_refused_searches",
+  pages: "panel_limits_refused_pages",
+  reads: "panel_limits_refused_reads",
+  budget: "panel_limits_refused_budget",
+  "unknown-ref": "panel_limits_refused_unknown_ref",
+};
+
+/** One sentence per fact of `done.limits`, heaviest first (docs/PROTOCOL.md "Run log"). The budget cap is in
+ * characters, shown in k. A `usage.uncounted` run adds its own sentence. Never names the model.
+ * @returns {string[]} */
+export function limitSentences(limits, usage) {
+  const out = [];
+  const mem = limits?.memoryFull;
+  if (mem) {
+    out.push(
+      mem.contextTokens > 0
+        ? t("panel_limits_memory_full_ctx", [formatTokensK(mem.tokens), formatTokensK(mem.contextTokens)])
+        : t("panel_limits_memory_full"),
+    );
+  }
+  const seen = new Set();
+  for (const r of limits?.refused ?? []) {
+    const key = REFUSED_KEYS[r?.reason];
+    if (!key || seen.has(r.reason)) continue;
+    seen.add(r.reason);
+    if (r.reason === "unknown-ref") out.push(t(key));
+    else if (r.limit > 0) out.push(t(key, [r.reason === "budget" ? formatTokensK(r.limit) : String(r.limit)]));
+  }
+  if (limits?.cut) out.push(t("panel_limits_cut"));
+  if (limits?.answerNow) out.push(t("panel_limits_answer_now"));
+  if (usage?.uncounted) out.push(t("panel_limits_uncounted"));
+  return out;
+}
+
+/** "Model · 2 limits · 14 tokens/s": the count only from one limit up, the speed only when measured (Ollama). */
+export function limitsSummary(limits) {
+  const parts = [t("panel_limits_summary")];
+  // Uncounted tokens are Coati's own measuring gap, not a limit the model hit.
+  const n = limitSentences(limits).length;
+  if (n === 1) parts.push(t("panel_limits_count_one"));
+  else if (n > 1) parts.push(t("panel_limits_count_many", [String(n)]));
+  const speed = limits?.local?.tokensPerSec;
+  if (speed > 0) parts.push(t("panel_limits_speed_short", [String(Math.round(speed))]));
+  return parts.join(" · ");
+}
+
+/** The Ollama block: `[label, value]` rows for what is known of `limits.local`. @returns {[string, string][]} */
+export function hardwareRows(local) {
+  if (!local) return [];
+  const rows = [];
+  if (local.gpuPercent >= 0) rows.push([t("panel_limits_hw_gpu"), t("panel_limits_hw_gpu_value", [String(Math.round(local.gpuPercent))])]);
+  if (local.contextTokens > 0) rows.push([t("panel_limits_hw_context"), t("panel_limits_hw_context_value", [formatTokensK(local.contextTokens)])]);
+  if (local.tokensPerSec > 0) rows.push([t("panel_limits_hw_speed"), t("panel_limits_hw_speed_value", [String(Math.round(local.tokensPerSec))])]);
+  if (local.vramGb > 0) {
+    rows.push([t(local.unifiedMemory ? "panel_limits_hw_shared" : "panel_limits_hw_vram"), t("panel_limits_hw_gb_value", [String(local.vramGb)])]);
+  }
+  return rows;
 }

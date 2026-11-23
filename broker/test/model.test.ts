@@ -218,7 +218,7 @@ describe("streamAnswer — timeout (item 3)", () => {
     }
     expect(events).toEqual([
       { kind: "delta", text: "hi" },
-      { kind: "usage", usage: { inputTokens: 3, outputTokens: 1 } },
+      { kind: "usage", usage: { inputTokens: 3, outputTokens: 1 }, stats: { numCtx: expect.any(Number) } },
     ]);
   });
 

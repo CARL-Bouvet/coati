@@ -335,6 +335,55 @@ describe("page on demand — re-run flow with a fake provider", () => {
     expect((done as any).usage.uncounted).toBe(true);
   });
 
+  test("a marker call that keeps writing is cut after the drain wait and flagged uncounted", async () => {
+    const base = fakeOnDemandProvider("fixture-pod-drain");
+    const server = boot({
+      ...base,
+      async *streamAnswer(built: any, opts: any) {
+        if (!built.prompt.includes("Page available (not yet read)")) return yield* base.streamAnswer(built, opts);
+        yield { kind: "delta", text: MARKER_TEXT };
+        yield { kind: "delta", text: "more text" };
+        await new Promise((ok) => opts.signal.addEventListener("abort", ok));
+        throw new Error("aborted");
+      },
+    });
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "cd", text: "what?", page: { title: "T", url: "https://example.com", chars: 42 } }));
+    await waitFor(messages, (m) => m.type === "page.request", 5000);
+    expect(messages.some((m) => m.type === "chunk")).toBe(false);
+    ws.send(JSON.stringify({ type: "page.content", id: "pd", target: "cd", level: "text", context: { kind: "page", text: "PAGE_CONTENT_SEEN" } }));
+    const done = await waitFor(messages, (m) => m.type === "done");
+    expect((done as any).usage).toMatchObject({ inputTokens: 20, outputTokens: 5, uncounted: true });
+  });
+
+  test("while draining a marker call, trailing text and a second marker are swallowed and the usage is counted", async () => {
+    const base = fakeOnDemandProvider("fixture-pod-trailing");
+    const prompts: string[] = [];
+    const server = boot({
+      ...base,
+      async *streamAnswer(built: any, opts: any) {
+        prompts.push(built.prompt);
+        if (!built.prompt.includes("Page available (not yet read)")) return yield* base.streamAnswer(built, opts);
+        yield { kind: "delta", text: `${MARKER_TEXT} TRAILING_ONE ` };
+        yield { kind: "delta", text: `TRAILING_TWO ${MARKER_TEXT}` };
+        yield { kind: "usage", usage: { inputTokens: 10, outputTokens: 1 } };
+      },
+    });
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "ct", text: "what?", page: { title: "T", url: "https://example.com", chars: 42 } }));
+    await waitFor(messages, (m) => m.type === "page.request");
+    ws.send(JSON.stringify({ type: "page.content", id: "pt", target: "ct", level: "text", context: { kind: "page", text: "PAGE_CONTENT_SEEN" } }));
+    const done: any = await waitFor(messages, (m) => m.type === "done");
+    expect(messages.filter((m) => m.type === "page.request")).toHaveLength(1);
+    const chunks = messages.filter((m) => m.type === "chunk").map((m: any) => m.delta).join("");
+    expect(chunks).toBe("Got it: PAGE_CONTENT_SEEN");
+    expect(prompts.at(-1)).not.toContain("TRAILING");
+    expect(done.usage).toEqual({ inputTokens: 30, outputTokens: 6 });
+    expect(done.limits?.refused).toBeUndefined();
+  });
+
   test("marker at start -> page.request -> page.content -> re-run -> done with page + summed usage", async () => {
     const server = boot(fakeOnDemandProvider("fixture-pod-1"));
     const ws = await connect(server);
@@ -364,15 +413,12 @@ describe("page on demand — re-run flow with a fake provider", () => {
     );
 
     const done = await waitFor(messages, (m) => m.type === "done");
-    // Note: the FIRST call's usage event is never reached — the provider
-    // yields it right after the marker delta, but the broker aborts the
-    // instant the marker is detected (never forwarding it), so that usage
-    // event is never read. Only the second (real-answer) call's usage
-    // survives — the sum is only ever over usage events actually received.
+    // The marker call is left to end, so its usage (sent right after the marker) is summed in.
+    expect((done as any).usage.uncounted).toBeUndefined();
     expect(done).toMatchObject({
       type: "done",
       id: "c1",
-      usage: { inputTokens: 20, outputTokens: 5 },
+      usage: { inputTokens: 30, outputTokens: 6 },
       page: { level: "text", chars: 22, from: 0, sentChars: 22, truncated: false },
     });
 
@@ -381,7 +427,65 @@ describe("page on demand — re-run flow with a fake provider", () => {
     // The marker itself must never have been forwarded as a chunk.
     expect(chunks).not.toContain("READ_PAGE");
 
+    ws.send(JSON.stringify({ type: "run.get", id: "r1", target: "c1" }));
+    const reply: any = await waitFor(messages, (m) => m.type === "run");
+    expect(reply.run.steps.map((st: any) => st.kind)).toEqual(["call", "read", "call"]);
+    expect(reply.run.steps[0]).toMatchObject({ n: 1, stop: "marker", inputTokens: 10, outputTokens: 1, decision: "accepted", marker: { type: "read", level: "text" } });
+    expect(reply.run.steps[1]).toMatchObject({ answer: "page", chars: 22 });
+    expect(reply.run.steps[2]).toMatchObject({ n: 2, inputTokens: 20, outputTokens: 5, stop: "answer" });
+    expect(JSON.stringify(reply.run)).not.toContain("PAGE_CONTENT_SEEN here");
+
     ws.close();
+  });
+
+  test("run.get: unknown or evicted runs are found:false; the last 5 are kept", async () => {
+    const server = boot(fakeOnDemandProvider("fixture-pod-ring"));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    for (let i = 1; i <= 6; i++) {
+      ws.send(JSON.stringify({ type: "chat", id: `ring${i}`, text: `q${i}` }));
+      await waitFor(messages, (m) => m.type === "done" && m.id === `ring${i}`);
+    }
+    for (const target of ["ring1", "never-seen", "ring2", "ring6"]) {
+      ws.send(JSON.stringify({ type: "run.get", id: `g-${target}`, target }));
+    }
+    const found = async (target: string) => ((await waitFor(messages, (m) => m.type === "run" && m.target === target)) as any).found;
+    expect([await found("ring1"), await found("never-seen"), await found("ring2"), await found("ring6")]).toEqual([false, false, true, true]);
+    ws.close();
+  });
+
+  test("a call stopped on length: memoryFull, reasoned, local figures from /api/ps, reasoning in the run only", async () => {
+    __setFetchImplForTests(
+      (async (url: string) => {
+        if (String(url).endsWith("/api/ps")) return new Response(JSON.stringify({ models: [{ name: "x", size: 100, size_vram: 62 }] }), { status: 200 });
+        throw new Error(`unexpected fetch: ${url}`);
+      }) as unknown as typeof fetch,
+    );
+    try {
+      const server = boot({
+        ...fakeOnDemandProvider("ollama"),
+        async *streamAnswer() {
+          yield { kind: "thinking", text: "SECRET_REASONING" };
+          yield { kind: "delta", text: "partial" };
+          yield { kind: "usage", usage: { inputTokens: 7000, outputTokens: 600 }, stop: "length", stats: { numCtx: 8192, evalMs: 2000 } };
+        },
+      });
+      const ws = await connect(server);
+      const messages = collectMessages(ws);
+      ws.send(JSON.stringify({ type: "chat", id: "len1", text: "hi" }));
+      const done: any = await waitFor(messages, (m) => m.type === "done");
+      expect(done.reasoned).toBe(true);
+      expect(done.limits.memoryFull).toEqual({ tokens: 7600, contextTokens: 8192 });
+      expect(done.limits.local).toMatchObject({ gpuPercent: 62, contextTokens: 8192, tokensPerSec: 300 });
+      expect(JSON.stringify(done)).not.toContain("SECRET_REASONING");
+      ws.send(JSON.stringify({ type: "run.get", id: "r2", target: "len1" }));
+      const reply: any = await waitFor(messages, (m) => m.type === "run");
+      expect(reply.run.steps[0]).toMatchObject({ stop: "length", reasoning: "SECRET_REASONING", inputTokens: 7000 });
+      expect(reply.run.limits).toEqual(done.limits);
+      ws.close();
+    } finally {
+      __resetFetchImplForTests();
+    }
   });
 
   test("the journal gets one timeline line: calls, page.request, done, never the page text", async () => {
@@ -812,7 +916,7 @@ describe("page on demand — fix 4 (Ollama progress notifications in the loop)",
         return { state: "ok", reason: "ready" };
       },
       async *streamAnswer(built: any) {
-        yield { kind: "thinking" };
+        yield { kind: "thinking", text: "hmm" };
         if (built.prompt.includes("Page available (not yet read)")) {
           yield { kind: "delta", text: MARKER_TEXT };
           yield { kind: "usage", usage: { inputTokens: 1, outputTokens: 1 } };
@@ -944,6 +1048,19 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     expect(done.search).toMatchObject({ results: 8, pages: 6, capped: true });
     expect(done.suggest).toEqual({ search: "e" });
     expect(chunksOf(messages)).toBe("Done.  ");
+    expect(done.limits.refused).toEqual([
+      { kind: "open", reason: "pages", count: 1, limit: 6 },
+      { kind: "search", reason: "searches", count: 1, limit: 4 },
+    ]);
+    ws.send(JSON.stringify({ type: "run.get", id: "r-limits", target: "c2" }));
+    const { run }: any = await waitFor(messages, (m) => m.type === "run");
+    expect(run.steps.map((st: any) => st.kind)).toEqual(["call", "search", "call", "search", "call", "search", "call", "search", "call", "open", "call", "open", "call"]);
+    expect(run.steps[1]).toMatchObject({ answer: "results", results: 2 });
+    expect(run.steps[9]).toMatchObject({ answer: "pages", pages: [{ n: 1, title: "P1", host: "r1.example", chars: "PAGE_TEXT_S1".length }, expect.anything(), expect.anything()] });
+    expect(run.steps[12]).toMatchObject({ decision: "refused", reason: "pages", marker: { type: "open", refs: [7] } });
+    expect(run.limits).toEqual(done.limits);
+    expect(JSON.stringify(run)).not.toContain("snippet ");
+    expect(JSON.stringify(run)).not.toContain("PAGE_TEXT_S1\"");
     expect(prompts[6]).not.toContain("[[OPEN:");
     expect(prompts[6]).toContain("No more searches or pages");
     ws.close();
@@ -961,7 +1078,10 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     expect(prompts).toHaveLength(10);
     expect(messages.filter((m) => m.type === "open.request")).toHaveLength(5);
     expect(prompts[9]).not.toContain("[[OPEN:");
-    expect(messages.find((m) => m.type === "error")).toMatchObject({ code: "model-empty" });
+    expect(messages.find((m) => m.type === "error")).toMatchObject({
+      code: "model-empty",
+      limits: { refused: [{ kind: "open", reason: "turns", count: 1, limit: 10 }] },
+    });
     ws.close();
   });
 
@@ -992,6 +1112,9 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     expect(prompts[3]).not.toContain("[[SEARCH:");
     expect(prompts[3]).toContain("No more searches or pages");
     expect(chunksOf(messages)).toBe("Answer [S1]");
+    expect((await waitFor(messages, (m) => m.type === "done")) as any).toMatchObject({
+      limits: { refused: [{ kind: "open", reason: "unknown-ref", count: 1 }], answerNow: true },
+    });
     ws.close();
   });
 

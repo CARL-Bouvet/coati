@@ -401,6 +401,16 @@ describe("ThinkFilter", () => {
     expect(f.flush()).toBe("");
   });
 
+  test("hands back the text it strips", () => {
+    const f = new ThinkFilter();
+    expect(f.filter("A<think>one</th")).toBe("A");
+    expect(f.takeThought()).toBe("one");
+    expect(f.filter("ink>B<think>two")).toBe("B");
+    expect(f.flush()).toBe("");
+    expect(f.takeThought()).toBe("two");
+    expect(f.takeThought()).toBe("");
+  });
+
   test("strips a complete <think>…</think> block in one chunk", () => {
     const f = new ThinkFilter();
     expect(f.filter("Before<think>reasoning</think>After")).toBe("BeforeAfter");

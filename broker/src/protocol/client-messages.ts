@@ -173,6 +173,13 @@ export interface CancelMessage {
   target: string;
 }
 
+/** Reads the run log of the `chat` named by `target` (docs/PROTOCOL.md "Run log"). */
+export interface RunGetMessage {
+  type: "run.get";
+  id: string;
+  target: string;
+}
+
 // 3 — see docs/PROTOCOL.md's dated. Lets the
 // options page read and change the active model provider. Never carries a
 // secret (no API key field) — see project rule 17.
@@ -275,6 +282,7 @@ export type ClientMessage =
   | PrefsGetMessage
   | PrefsSetMessage
   | CancelMessage
+  | RunGetMessage
   | SettingsGetMessage
   | SettingsSetMessage
   | SettingsTestMessage

@@ -91,6 +91,9 @@ export function onDone(message) {
     msg.progress = undefined;
     msg.pageReading = undefined;
     msg.pageMention = buildPageMention(msg.pageOnDemand === true, message);
+    msg.limits = message.limits;
+    msg.reasoned = message.reasoned;
+    msg.usage = message.usage;
     msg.readMore = nextReadPart(message.page);
     if (msg.readMore && sent?.context) rememberReadPart(message.id, sent);
     msg.searchMention = buildSearchMention(message);
@@ -149,6 +152,9 @@ export function onError(message) {
     if (modelStalled && msg.text) msg.cutNotice = text;
     msg.text = msg.text || text;
     msg.modelStalled = modelStalled;
+    msg.limits = message.limits;
+    msg.reasoned = message.reasoned;
+    msg.errorCode = message.code;
     if (slowTip) msg.slowTip = slowTip;
     msg.authRequired = authRequired;
     msg.authKind = authKind;

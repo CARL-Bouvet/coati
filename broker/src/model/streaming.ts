@@ -293,6 +293,10 @@ export type AnswerEvent =
   | {
       kind: "usage";
       usage: { inputTokens: number; outputTokens: number; uncounted?: true };
+      /** The call stopped because the model's memory (or output limit) was full. */
+      stop?: "length";
+      /** Ollama only: the context size used and the server's own timings, in ms. */
+      stats?: { numCtx?: number; evalMs?: number; promptMs?: number; loadMs?: number };
       /**
        * ("historique"). Number of `history`
        * entries this provider actually kept after its own trim (char
@@ -303,10 +307,10 @@ export type AnswerEvent =
        */
       historyKept?: number;
     }
-  // Thinking-only models (e.g. qwen3:4b):
-  // Ollama routes reasoning to message.thinking; the provider emits this event
-  // so callers can count it as activity without forwarding it as text.
-  | { kind: "thinking" };
+  // Reasoning (Ollama message.thinking, <think> blocks, reasoning_content,
+  // thinking_delta). Callers count it as activity and keep the text in the
+  // run log; it is never forwarded as answer text.
+  | { kind: "thinking"; text: string };
 
 /**
  * Streaming filter that removes `<think>…</think>` blocks from text deltas.
@@ -323,6 +327,15 @@ export class ThinkFilter {
   private _inThink = false;
   /** Tail of the last chunk that could be a partial opening/closing tag. */
   private _buf = "";
+  /** Text stripped from think blocks since the last `takeThought()`. */
+  private _thought = "";
+
+  /** Returns, and forgets, the think-block text stripped so far. */
+  takeThought(): string {
+    const thought = this._thought;
+    this._thought = "";
+    return thought;
+  }
 
   /** Feed the next text chunk; returns the filtered output (may be ""). */
   filter(chunk: string): string {
@@ -335,6 +348,7 @@ export class ThinkFilter {
         const end = text.indexOf("</think>");
         if (end !== -1) {
           // Found the close tag — resume normal output after it.
+          this._thought += text.slice(0, end);
           text = text.slice(end + "</think>".length);
           this._inThink = false;
         } else {
@@ -344,6 +358,7 @@ export class ThinkFilter {
           for (let k = Math.min(CLOSE.length - 1, text.length); k > 0; k--) {
             if (text.endsWith(CLOSE.slice(0, k))) { kept = k; break; }
           }
+          this._thought += text.slice(0, text.length - kept);
           this._buf = text.slice(text.length - kept);
           text = "";
         }
@@ -376,7 +391,8 @@ export class ThinkFilter {
    */
   flush(): string {
     // If we were in a think block that never closed, the buffered partial is
-    // part of the think content — discard it. Otherwise emit it.
+    // part of the think content — keep it as thought. Otherwise emit it.
+    if (this._inThink) this._thought += this._buf;
     const result = this._inThink ? "" : this._buf;
     this._buf = "";
     return result;

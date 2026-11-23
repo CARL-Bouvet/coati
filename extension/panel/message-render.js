@@ -20,7 +20,8 @@ import { buildHistoryForWire, historyAlertState, readUntrustedIn } from "./histo
 import { sendChatWithPage, sendChatMessage, readRest } from "./composer-send.js";
 import { summarize } from "./page-extract.js";
 import { pendingRetries, lastHistoryKept, readParts } from "./chat-stream.js";
-import { openOllamaSpeedup } from "./model-status.js";
+import { openOllamaSpeedup, hasFeature } from "./model-status.js";
+import { limitSentences, limitsSummary, hardwareRows } from "../lib/labels.js";
 import { buildAuthRecoveryBlock } from "./request-watch.js";
 import { api } from "../lib/browser-compat.js";
 import { isClickableSource } from "../lib/search-results.js";
@@ -146,6 +147,45 @@ function buildSearchConfirmBlock(msg, query) {
     wrap.appendChild(button);
   }
   return wrap;
+}
+
+/** "Model · 2 limits · 14 tokens/s": what the model hit (limits.*) and, for Ollama, the machine it ran on.
+ * @returns {HTMLElement|undefined} absent when there is nothing to say. */
+function buildModelLimitsBlock(msg) {
+  const sentences = limitSentences(msg.limits, msg.usage);
+  const rows = hardwareRows(msg.limits?.local);
+  if (sentences.length === 0 && !msg.limits?.local) return undefined;
+  const details = document.createElement("details");
+  details.className = "model-limits";
+  details.open = !!msg.errorCode;
+  const summary = document.createElement("summary");
+  summary.className = "search-status-line";
+  summary.textContent = limitsSummary(msg.limits);
+  details.appendChild(summary);
+  for (const sentence of sentences) appendLine(details, "model-limits-sentence", sentence);
+  if (rows.length) {
+    const grid = document.createElement("dl");
+    grid.className = "model-limits-hardware";
+    for (const [label, value] of rows) {
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      const dd = document.createElement("dd");
+      dd.textContent = value;
+      grid.append(dt, dd);
+    }
+    details.appendChild(grid);
+  }
+  // Restored messages render before the broker's features arrive: model-status.js un-hides it then.
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "c-button c-button--small model-limits-run";
+  button.textContent = t("panel_limits_see_run");
+  button.hidden = !hasFeature("run-log");
+  button.addEventListener("click", () =>
+    api.tabs.create({ url: api.runtime.getURL(`runlog/runlog.html?id=${encodeURIComponent(msg.id)}`) }),
+  );
+  details.appendChild(button);
+  return details;
 }
 
 /** "Web search · 3 searches · 5 pages · 14 k tokens", expandable to the
@@ -368,6 +408,10 @@ export function renderMessage(msg, { append = false } = {}) {
       mention.className = "search-status-line message-page-mention";
       mention.textContent = msg.pageMention;
       node.appendChild(mention);
+    }
+    if (!msg.streaming && (msg.limits || msg.usage?.uncounted)) {
+      const limitsBlock = buildModelLimitsBlock(msg);
+      if (limitsBlock) node.appendChild(limitsBlock);
     }
     if (msg.readMore && readParts.has(msg.id) && !msg.streaming) node.appendChild(buildReadRestButton(msg));
     if (!msg.streaming) {

@@ -94,6 +94,11 @@ describe("parseClientMessage", () => {
       parseClientMessage(JSON.stringify({ type: "prompts.delete", id: "c6", promptId: "p_000000000000" })).ok,
     ).toBe(true);
     expect(parseClientMessage(JSON.stringify({ type: "cancel", id: "c7", target: "c2" })).ok).toBe(true);
+    expect(parseClientMessage(JSON.stringify({ type: "run.get", id: "c8", target: "c2" }))).toEqual({
+      ok: true,
+      message: { type: "run.get", id: "c8", target: "c2" },
+    });
+    expect(parseClientMessage(JSON.stringify({ type: "run.get", id: "c9" })).ok).toBe(false);
   });
 
   test("parses prompts.save (update by id), site is carried but ignored server-side", () => {

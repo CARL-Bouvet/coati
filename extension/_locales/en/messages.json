@@ -236,6 +236,184 @@
       }
     }
   },
+  "panel_limits_summary": {
+    "message": "Model"
+  },
+  "panel_limits_count_one": {
+    "message": "1 limit"
+  },
+  "panel_limits_count_many": {
+    "message": "$COUNT$ limits",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "panel_limits_speed_short": {
+    "message": "$SPEED$ tokens/s",
+    "placeholders": {
+      "speed": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "panel_limits_memory_full_ctx": {
+    "message": "The model filled its memory ($USED$ k of $TOTAL$ k tokens) before finishing.",
+    "placeholders": {
+      "used": {
+        "content": "$1",
+        "example": "8"
+      },
+      "total": {
+        "content": "$2",
+        "example": "8"
+      }
+    }
+  },
+  "panel_limits_memory_full": {
+    "message": "The model filled its memory before finishing."
+  },
+  "panel_limits_refused_turns": {
+    "message": "The model asked for more steps; Coati allows $LIMIT$ model calls per question.",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "panel_limits_refused_searches": {
+    "message": "The model asked for more searches; Coati allows $LIMIT$ per question.",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "panel_limits_refused_pages": {
+    "message": "The model asked for more pages; Coati opens $LIMIT$ per question.",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "panel_limits_refused_reads": {
+    "message": "The model asked to read the page again; Coati reads it $LIMIT$ times per question.",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "panel_limits_refused_budget": {
+    "message": "The model asked for more; Coati sends $KCHARS$ k characters of results and pages per question.",
+    "placeholders": {
+      "kchars": {
+        "content": "$1",
+        "example": "24"
+      }
+    }
+  },
+  "panel_limits_refused_unknown_ref": {
+    "message": "The model asked to open a result that does not exist."
+  },
+  "panel_limits_cut": {
+    "message": "The model kept writing after its answer; Coati cut the rest."
+  },
+  "panel_limits_answer_now": {
+    "message": "The model only asked for more; Coati asked it once to answer with what it had."
+  },
+  "panel_limits_uncounted": {
+    "message": "Some model calls were stopped early; their tokens are not counted."
+  },
+  "panel_limits_hw_gpu": {
+    "message": "In the graphics card"
+  },
+  "panel_limits_hw_gpu_value": {
+    "message": "$PERCENT$ % of the model",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "40"
+      }
+    }
+  },
+  "panel_limits_hw_context": {
+    "message": "Model memory"
+  },
+  "panel_limits_hw_context_value": {
+    "message": "$KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_limits_hw_speed": {
+    "message": "Speed"
+  },
+  "panel_limits_hw_speed_value": {
+    "message": "$SPEED$ tokens/s",
+    "placeholders": {
+      "speed": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "panel_limits_hw_vram": {
+    "message": "Graphics memory"
+  },
+  "panel_limits_hw_shared": {
+    "message": "Shared memory"
+  },
+  "panel_limits_hw_gb_value": {
+    "message": "$GB$ GB",
+    "placeholders": {
+      "gb": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "panel_limits_see_run": {
+    "message": "See the run"
+  },
+  "panel_limits_read_text_at_least": {
+    "message": "Read the page · at least $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_limits_read_dev_at_least": {
+    "message": "Read the page's code · at least $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_limits_not_read_at_least": {
+    "message": "Did not read the page · at least $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
   "panel_read_rest_button": {
     "message": "Read the rest"
   },
@@ -1195,6 +1373,9 @@
   "setup_online_free_warning": {
     "message": "OpenRouter's free models may keep the texts you send them, and use them. Don't send anything confidential."
   },
+  "model_free_note": {
+    "message": "Claude and OpenAI (ChatGPT) models are billed per use through an API account; a subscription does not include API access. Without paying, other models stay free through OpenRouter, enough for simple tasks such as summarising a YouTube video. Some free providers may keep what you send and train on it."
+  },
   "setup_online_free_detail": {
     "message": "Free models: up to $PERDAY$ questions a day, $WITHCREDIT$ if you buy at least $CREDIT$ of credit.",
     "placeholders": {
@@ -2019,5 +2200,168 @@
   },
   "setup_program_ok": {
     "message": "The program answers. Next, the model."
+  },
+  "runlog_title": {
+    "message": "Coati · run"
+  },
+  "runlog_refresh": {
+    "message": "Refresh"
+  },
+  "runlog_loading": {
+    "message": "Loading…"
+  },
+  "runlog_not_found": {
+    "message": "Coati keeps the last 5 questions until the local program stops."
+  },
+  "runlog_offline": {
+    "message": "The local program is not connected."
+  },
+  "runlog_unsupported": {
+    "message": "The local program is too old to show the run."
+  },
+  "runlog_question": {
+    "message": "Question"
+  },
+  "runlog_model": {
+    "message": "Model"
+  },
+  "runlog_total_time": {
+    "message": "$SECONDS$ s",
+    "placeholders": {
+      "seconds": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "runlog_total_tokens": {
+    "message": "$KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "runlog_step_call": {
+    "message": "Call $N$",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "runlog_tokens_in_out": {
+    "message": "$IN$ k in / $OUT$ out",
+    "placeholders": {
+      "in": {
+        "content": "$1",
+        "example": "3.2"
+      },
+      "out": {
+        "content": "$2",
+        "example": "410"
+      }
+    }
+  },
+  "runlog_uncounted": {
+    "message": "not counted"
+  },
+  "runlog_asked_search": {
+    "message": "asked: search “$QUERY$”",
+    "placeholders": {
+      "query": {
+        "content": "$1",
+        "example": "coati"
+      }
+    }
+  },
+  "runlog_asked_open": {
+    "message": "asked: open $REF$",
+    "placeholders": {
+      "ref": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "runlog_asked_read": {
+    "message": "asked: read the page"
+  },
+  "runlog_accepted": {
+    "message": "accepted"
+  },
+  "runlog_refused": {
+    "message": "refused"
+  },
+  "runlog_stop_answer": {
+    "message": "answered"
+  },
+  "runlog_stop_marker": {
+    "message": "asked for more"
+  },
+  "runlog_stop_length": {
+    "message": "memory full"
+  },
+  "runlog_stop_cut": {
+    "message": "cut after its end"
+  },
+  "runlog_stop_error": {
+    "message": "error"
+  },
+  "runlog_stop_cancelled": {
+    "message": "stopped"
+  },
+  "runlog_answer_results": {
+    "message": "Search: $COUNT$ results",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "runlog_answer_pages": {
+    "message": "Opened $COUNT$ pages",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "runlog_answer_page": {
+    "message": "Page sent: $KCHARS$ k characters",
+    "placeholders": {
+      "kchars": {
+        "content": "$1",
+        "example": "24"
+      }
+    }
+  },
+  "runlog_answer_declined": {
+    "message": "Declined: $REASON$",
+    "placeholders": {
+      "reason": {
+        "content": "$1",
+        "example": "too large"
+      }
+    }
+  },
+  "runlog_answer_failed": {
+    "message": "Failed"
+  },
+  "runlog_reasoning": {
+    "message": "Reasoning"
+  },
+  "runlog_reasoning_cut": {
+    "message": "Reasoning shortened in the middle"
+  },
+  "runlog_no_reasoning": {
+    "message": "The model sent no reasoning"
+  },
+  "runlog_limits": {
+    "message": "Limits"
   }
 }

@@ -1889,5 +1889,72 @@
       },
       prompts: [],
     },
+
+    // Fold-out under the page line: every limit, the Ollama block, "Voir le déroulé".
+    "model-limits-done": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand", "run-log"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "ml-u", role: "user", text: "Que dit cette page sur les tarifs ?" },
+          {
+            id: "ml-a",
+            role: "assistant",
+            text: "La page ne donne pas de tarif précis ; elle renvoie vers un devis.",
+            streaming: false,
+            pageOnDemand: true,
+            pageMention: "A lu la page · au moins 3.2 k tokens",
+            usage: { inputTokens: 3000, outputTokens: 200, uncounted: true },
+            limits: {
+              memoryFull: { tokens: 7600, contextTokens: 8000 },
+              refused: [
+                { kind: "search", reason: "searches", count: 1, limit: 4 },
+                { kind: "open", reason: "pages", count: 2, limit: 6 },
+                { kind: "open", reason: "budget", count: 1, limit: 24000 },
+              ],
+              cut: true,
+              answerNow: true,
+              local: { gpuPercent: 62, contextTokens: 8000, tokensPerSec: 14.2, vramGb: 8 },
+            },
+            reasoned: true,
+          },
+        ],
+        "coati:attachPage": true,
+        "coati:devMode": false,
+      },
+      autoAction: { steps: [{ type: "click", selector: ".model-limits > summary", delayMs: 200 }] },
+      prompts: [],
+    },
+
+    // Answer ended in model-empty: the fold-out is open by itself.
+    "model-limits-error": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand", "run-log"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "mle-u", role: "user", text: "Résume cette page." },
+          {
+            id: "mle-a",
+            role: "assistant",
+            text: "Le modèle n'a rien répondu.",
+            streaming: false,
+            errorCode: "model-empty",
+            limits: {
+              memoryFull: { tokens: 7600, contextTokens: 8000 },
+              local: { gpuPercent: 100, contextTokens: 8000, tokensPerSec: 31, vramGb: 16, unifiedMemory: true },
+            },
+          },
+        ],
+        "coati:attachPage": true,
+        "coati:devMode": false,
+      },
+      prompts: [],
+    },
   };
 })();

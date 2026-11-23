@@ -57,14 +57,19 @@ describe("claude-api SSE line parsing", () => {
     expect([...parseSseLine(line, state)]).toEqual([{ kind: "delta", text: "Bon" }]);
   });
 
-  test("a thinking_delta content_block_delta yields nothing", () => {
+  test("a thinking_delta yields a thinking event; stop_reason max_tokens marks the usage as length", () => {
     const state = { inputTokens: 0, outputTokens: 0 };
     const line = `data: ${JSON.stringify({
       type: "content_block_delta",
       index: 0,
       delta: { type: "thinking_delta", thinking: "hmm" },
     })}`;
-    expect([...parseSseLine(line, state)]).toEqual([]);
+    expect([...parseSseLine(line, state)]).toEqual([{ kind: "thinking", text: "hmm" }]);
+    const delta = `data: ${JSON.stringify({ type: "message_delta", delta: { stop_reason: "max_tokens" }, usage: { output_tokens: 9 } })}`;
+    expect([...parseSseLine(delta, state)]).toEqual([]);
+    expect([...parseSseLine(`data: ${JSON.stringify({ type: "message_stop" })}`, state)]).toEqual([
+      { kind: "usage", usage: { inputTokens: 0, outputTokens: 9 }, stop: "length" },
+    ]);
   });
 
   test("message_start records input tokens without yielding", () => {

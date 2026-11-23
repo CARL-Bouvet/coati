@@ -9,6 +9,9 @@ import {
   describeError,
   describeProviderUnavailable,
   buildPageMention,
+  limitSentences,
+  limitsSummary,
+  hardwareRows,
   nextReadPart,
 } from "../../extension/lib/labels.js";
 
@@ -117,5 +120,56 @@ describe("buildPageMention / nextReadPart", () => {
   test("no done.page: a line only for a page-on-demand answer", () => {
     expect(buildPageMention(false, {})).toBeUndefined();
     expect(buildPageMention(true, {})).toContain("N'a pas lu la page");
+  });
+});
+
+describe("model limits", () => {
+  const all = {
+    memoryFull: { tokens: 7600, contextTokens: 8000 },
+    refused: [
+      { kind: "search", reason: "searches", count: 1, limit: 4 },
+      { kind: "open", reason: "budget", count: 1, limit: 24000 },
+      { kind: "open", reason: "unknown-ref", count: 1 },
+    ],
+    cut: true,
+    answerNow: true,
+  };
+
+  test("one sentence per fact, caps shown as sent, budget in k", () => {
+    const sentences = limitSentences(all, { uncounted: true });
+    expect(sentences).toHaveLength(7);
+    expect(sentences[0]).toMatch(/7[.,]6 k/);
+    expect(sentences[1]).toContain("4");
+    expect(sentences[2]).toContain("24 k");
+  });
+
+  test("memory full without contextTokens uses the plain sentence; nothing hit gives nothing", () => {
+    expect(limitSentences({ memoryFull: { tokens: 900 } }, {})).toHaveLength(1);
+    expect(limitSentences({ memoryFull: { tokens: 900 } }, {})[0]).not.toMatch(/\d/);
+    expect(limitSentences({ local: { contextTokens: 8000 } }, {})).toEqual([]);
+  });
+
+  test("summary: at most two items after the label", () => {
+    const parts = limitsSummary({ ...all, local: { contextTokens: 8000, tokensPerSec: 14.2 } }).split(" · ");
+    expect(parts).toEqual(["Modèle", "6 limites", "14 tokens/s"]);
+    expect(limitsSummary({ local: { contextTokens: 8000 } })).toBe("Modèle");
+    expect(limitsSummary({ cut: true })).toBe("Modèle · 1 limite");
+  });
+
+  test("hardware rows follow what is known; shared memory when unified", () => {
+    expect(hardwareRows(undefined)).toEqual([]);
+    expect(hardwareRows({ contextTokens: 8000 })).toHaveLength(1);
+    const rows = hardwareRows({ gpuPercent: 62, contextTokens: 8000, tokensPerSec: 14, vramGb: 8, unifiedMemory: true });
+    expect(rows).toHaveLength(4);
+    expect(rows[3][1]).toContain("8");
+  });
+
+  test("uncounted with a counted total: at least", () => {
+    const line = buildPageMention(false, { page: { level: "text", chars: 10, from: 0, sentChars: 10, truncated: false }, usage: { inputTokens: 3000, outputTokens: 200, uncounted: true } });
+    expect(line).toMatch(/^A lu la page · au moins 3[.,]2 k tokens$/);
+  });
+
+  test("no sentence names a model", () => {
+    for (const s of limitSentences(all, { uncounted: true })) expect(s).not.toMatch(/qwen|llama|gpt|claude|gemma/i);
   });
 });

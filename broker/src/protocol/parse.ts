@@ -297,6 +297,12 @@ export function parseClientMessage(raw: string): ParseResult {
       }
       return { ok: true, message: { type: "cancel", id, target: parsed.target } };
     }
+    case "run.get": {
+      if (!isNonEmptyString(parsed.target)) {
+        return { ok: false, error: { code: "bad-request", message: "run.get: missing target", id } };
+      }
+      return { ok: true, message: { type: "run.get", id, target: parsed.target } };
+    }
     case "settings.get": {
       return { ok: true, message: { type: "settings.get", id } };
     }

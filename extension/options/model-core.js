@@ -18,7 +18,7 @@ import {
 } from "../lib/model-list.js";
 import { ONLINE_PROVIDERS } from "../lib/setup-data.js";
 import { els } from "./dom-refs.js";
-import { newId, sendClientMessage } from "./dom-helpers.js";
+import { el, newId, sendClientMessage } from "./dom-helpers.js";
 import { testTargets, registerTestTarget, testProvider, applyTestResult } from "./provider-tests.js";
 import {
   renderServices,
@@ -492,6 +492,7 @@ export function wireModelSettings() {
   els.modelSelect.addEventListener("change", () => setProvider(undefined, els.modelSelect.value));
   els.modelSave.addEventListener("click", () => setProvider(undefined, els.modelInput.value.trim()));
   els.otherAddressBody.append(baseUrlField.element);
+  els.setupOnline.before(el("p", "help", t("model_free_note")));
   renderCapLinks();
   setupOpenOnHash();
 }

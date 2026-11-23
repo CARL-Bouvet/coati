@@ -2,7 +2,8 @@
 // the provider stream loop, and the page-on-demand loop.
 
 import { send } from "../ws-send.ts";
-import { timelineCall } from "../request-timeline.ts";
+import { timelineCall, runBegin, runClientStep, runCloseStep, runStepNote, runReasoning, runSetLimits } from "../request-timeline.ts";
+import { readHostCapacity } from "../host.ts";
 import {
   logRequestReceived,
   logRequestCompleted,
@@ -58,6 +59,8 @@ import {
   type SearchPageEntry,
   type OpenDeclineReason,
   type OpenFailedEntry,
+  type RunLimits,
+  type RunStep,
 } from "../protocol.ts";
 import type { Lang } from "../messages.ts";
 import type { SettingsCtx } from "./settings.ts";
@@ -186,10 +189,17 @@ async function runStream(
   providerOpts: ProviderRuntimeOptions,
   startedAt: number,
   pageReport?: PageReport,
+  /** Set for a `chat`: its run log is kept. */
+  question?: string,
 ): Promise<void> {
   const controller = new AbortController();
   active.set(id, controller);
   const progress = await startProgressTracking(ws, id, provider, providerOpts, controller.signal);
+  const tally = question !== undefined ? makeRunTally(id, provider, providerOpts) : undefined;
+  if (question !== undefined) runBegin(id, { provider: provider.id, model: providerOpts.model ?? "", question });
+  let stop: OnDemandCallResult["stop"];
+  let stats: OnDemandCallResult["stats"];
+  let reasoned = false;
 
   try {
     let usage: Usage = { inputTokens: 0, outputTokens: 0 };
@@ -203,19 +213,30 @@ async function runStream(
       if (event.kind === "usage") {
         usage = event.usage;
         historyKept = event.historyKept;
+        stop = event.stop;
+        stats = event.stats;
         continue;
       }
       // Thinking event — emit progress:thinking
       // once (before any content chunk), never forward as text.
       if (event.kind === "thinking") {
         progress.markThinking();
+        reasoned = true;
+        runReasoning(id, event.text);
         continue;
       }
       progress.markFirstChunk();
       send(ws, { type: "chunk", id, delta: event.text });
     }
+    tally?.call({ usage, stop, stats, reasoned });
+    runCloseStep(id, {
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      ...(usage.uncounted ? { uncounted: true as const } : {}),
+      stop: controller.signal.aborted ? "cancelled" : stop === "length" ? "length" : usage.uncounted ? "cut" : "answer",
+    });
     if (controller.signal.aborted) {
-      send(ws, { type: "error", id, code: "cancelled", message: "request cancelled" });
+      send(ws, { type: "error", id, code: "cancelled", message: "request cancelled", ...(await tally?.end()) });
       logRequestCompleted(id, "cancelled", Date.now() - startedAt);
     } else {
       send(ws, {
@@ -224,17 +245,19 @@ async function runStream(
         usage,
         ...(historyKept !== undefined ? { historyKept } : {}),
         ...(pageReport ? { page: pageReport } : {}),
+        ...(await tally?.end()),
       });
       logRequestCompleted(id, "ok", Date.now() - startedAt);
     }
   } catch (err) {
     progress.stop();
+    runCloseStep(id, { stop: controller.signal.aborted ? "cancelled" : "error" });
     if (controller.signal.aborted) {
-      send(ws, { type: "error", id, code: "cancelled", message: "request cancelled" });
+      send(ws, { type: "error", id, code: "cancelled", message: "request cancelled", ...(await tally?.end()) });
       logRequestCompleted(id, "cancelled", Date.now() - startedAt);
     } else {
       const { code, retryAfterSec, outcome, message } = classifyProviderError(err);
-      send(ws, { type: "error", id, code, message, ...(retryAfterSec !== undefined ? { retryAfterSec } : {}) });
+      send(ws, { type: "error", id, code, message, ...(retryAfterSec !== undefined ? { retryAfterSec } : {}), ...(await tally?.end()) });
       logRequestCompleted(id, outcome, Date.now() - startedAt, message);
     }
   } finally {
@@ -384,11 +407,12 @@ export function handleStreamingRequest(
   const gated = gateStreamingRequest(ws, message, active, settingsCtx, { ...opts, hasImage: opts.image !== undefined });
   if (!gated) return;
   const { provider, providerOpts, startedAt } = gated;
+  const chatQuestion = opts.logType === "chat" ? opts.tooLargeText : undefined;
   void (async () => {
     if (opts.image && !(await gateVisionSupport(ws, message, provider, providerOpts, startedAt))) return;
     const context = opts.budgetContext;
     if (!context) {
-      void runStream(ws, active, message.id, opts.build(), provider, providerOpts, startedAt);
+      void runStream(ws, active, message.id, opts.build(), provider, providerOpts, startedAt, undefined, chatQuestion);
       return;
     }
     const from = opts.readPart?.from ?? 0;
@@ -402,7 +426,7 @@ export function handleStreamingRequest(
       providerOpts,
       opts.hasHistory === true,
     );
-    void runStream(ws, active, message.id, opts.build(fit.context, partOf(fit.report.chars)), provider, providerOpts, startedAt, fit.report);
+    void runStream(ws, active, message.id, opts.build(fit.context, partOf(fit.report.chars)), provider, providerOpts, startedAt, fit.report, chatQuestion);
   })();
 }
 
@@ -442,6 +466,7 @@ const CLAUDE_CONTEXT_TOKENS = 200_000;
 const OTHER_PROVIDER_CONTEXT_TOKENS = 32_768;
 // A cut lands on a line break when one falls within this share of the room.
 const LINE_BREAK_WINDOW = 0.02;
+const MARKER_DRAIN_MS = 2000;
 
 /** Exported for tests. Pure: characters of page text that fit the model's
  * window next to `overheadChars` of other prompt (instructions, question,
@@ -577,6 +602,11 @@ interface OnDemandCallResult {
   err?: unknown;
   /** "ok" with no visible text: the reply was only markers that were stripped. */
   empty?: boolean;
+  /** The provider stopped this call on length. */
+  stop?: "length";
+  stats?: { numCtx?: number; evalMs?: number; promptMs?: number; loadMs?: number };
+  /** The call received reasoning text. */
+  reasoned?: true;
 }
 
 /**
@@ -609,12 +639,28 @@ async function runOnDemandCall(
   const detector = new PageMarkerDetector(detectorOpts);
   let usage: Usage = { inputTokens: 0, outputTokens: 0 };
   let historyKept: number | undefined;
+  let stop: OnDemandCallResult["stop"];
+  let stats: OnDemandCallResult["stats"];
+  let reasoned = false;
   let sent = false;
   const sendText = (text: string) => {
     if (text.length === 0) return;
     if (text.trim()) sent = true;
     send(ws, { type: "chunk", id, delta: text });
   };
+  const base = () => ({ usage, historyKept, stop, stats, ...(reasoned ? { reasoned: true as const } : {}) });
+  // A triggering marker: the rest of the stream is dropped, but the call is left to end on its own for
+  // MARKER_DRAIN_MS so the server reports its count (models stop right after a marker); cut after that.
+  let pending: OnDemandCallResult["marker"];
+  let counted = false;
+  let drainExpired = false;
+  let drainTimer: ReturnType<typeof setTimeout> | undefined;
+  const markerResult = (): OnDemandCallResult => ({
+    ...base(),
+    outcome: "marker",
+    usage: counted ? usage : { ...usage, uncounted: true },
+    marker: pending,
+  });
   try {
     timelineCall(id);
     for await (const event of provider.streamAnswer(built, { signal: controller.signal, ...providerOpts })) {
@@ -622,10 +668,17 @@ async function runOnDemandCall(
       if (event.kind === "usage") {
         usage = event.usage;
         historyKept = event.historyKept;
+        stop = event.stop;
+        stats = event.stats;
+        counted = true;
+        if (pending) break;
         continue;
       }
+      if (pending) continue;
       if (event.kind === "thinking") {
         progress.markThinking();
+        reasoned = true;
+        runReasoning(id, event.text);
         continue; // never scanned, never forwarded
       }
       progress.markFirstChunk();
@@ -635,25 +688,32 @@ async function runOnDemandCall(
           continue;
         }
         if (canTrigger(ev.marker)) {
-          controller.abort();
-          return { outcome: "marker", usage, historyKept, marker: { marker: ev.marker, position: ev.position } };
+          pending = { marker: ev.marker, position: ev.position };
+          drainTimer = setTimeout(() => {
+            drainExpired = true;
+            controller.abort();
+          }, MARKER_DRAIN_MS);
+          break;
         }
         // Beyond the caps: stripped and ignored — keep consuming the rest of
         // this same stream, never aborting, never requesting again.
         onIgnored(ev.marker);
       }
     }
-    if (controller.signal.aborted) return { outcome: "cancelled", usage, historyKept };
+    if (pending && (drainExpired || !controller.signal.aborted)) return markerResult();
+    if (controller.signal.aborted) return { ...base(), outcome: "cancelled" };
     for (const ev of detector.flush()) {
       if (ev.kind === "text") sendText(ev.text);
-      else if (canTrigger(ev.marker)) return { outcome: "marker", usage, historyKept, marker: { marker: ev.marker, position: ev.position } };
+      else if (canTrigger(ev.marker)) return { ...base(), outcome: "marker", marker: { marker: ev.marker, position: ev.position } };
       else onIgnored(ev.marker);
     }
-    return { outcome: "ok", usage, historyKept, empty: !sent };
+    return { ...base(), outcome: "ok", empty: !sent };
   } catch (err) {
-    if (controller.signal.aborted) return { outcome: "cancelled", usage, historyKept };
-    return { outcome: "error", usage, historyKept, err };
+    if (pending && drainExpired) return markerResult();
+    if (controller.signal.aborted) return { ...base(), outcome: "cancelled" };
+    return { ...base(), outcome: "error", err };
   } finally {
+    clearTimeout(drainTimer);
     progress.stop();
     if (active.get(id) === controller) active.delete(id);
   }
@@ -711,6 +771,84 @@ export function handleChatPageOnDemand(
   void runChatPageOnDemandLoop(ws, message, active, provider, providerOpts, lang, connState, startedAt);
 }
 
+type RefusalReason = NonNullable<RunLimits["refused"]>[number]["reason"];
+
+/** What a `chat` ran into, call by call; `end()` gives the closing message's
+ * `limits` / `reasoned` and stores `limits` in the run log. One /api/ps read
+ * after the last call gives the share of an Ollama model in the graphics card. */
+function makeRunTally(id: string, provider: ModelProvider, providerOpts: ProviderRuntimeOptions) {
+  const refused = new Map<string, NonNullable<RunLimits["refused"]>[number]>();
+  let memoryFull: RunLimits["memoryFull"];
+  let cut = false;
+  let answerNow = false;
+  let reasoned = false;
+  let numCtx: number | undefined;
+  let evalMs = 0;
+  let evalTokens = 0;
+  return {
+    refuse(kind: "search" | "open" | "read", reason: RefusalReason, limit?: number) {
+      const entry = refused.get(`${kind}:${reason}`);
+      if (entry) entry.count++;
+      else refused.set(`${kind}:${reason}`, { kind, reason, count: 1, ...(limit !== undefined ? { limit } : {}) });
+    },
+    forcedAnswer() {
+      answerNow = true;
+    },
+    call(r: Pick<OnDemandCallResult, "usage" | "stop" | "stats"> & { reasoned?: boolean; cut?: boolean }) {
+      reasoned ||= r.reasoned === true;
+      cut ||= r.cut === true;
+      if (r.stats?.numCtx !== undefined) numCtx = r.stats.numCtx;
+      if (r.stats?.evalMs && !r.usage.uncounted) {
+        evalMs += r.stats.evalMs;
+        evalTokens += r.usage.outputTokens;
+      }
+      if (r.stop === "length") {
+        memoryFull = { tokens: r.usage.inputTokens + r.usage.outputTokens, ...(r.stats?.numCtx !== undefined ? { contextTokens: r.stats.numCtx } : {}) };
+      }
+    },
+    async end(): Promise<{ limits?: RunLimits; reasoned?: true }> {
+      let local: RunLimits["local"];
+      if (provider.id === "ollama" && numCtx !== undefined) {
+        const model = providerOpts.model?.trim();
+        const [ps, host] = await Promise.all([
+          fetchPsEntries({ ollamaUrl: providerOpts.ollamaUrl, signal: AbortSignal.timeout(PS_TIMEOUT_MS) }).catch(() => []),
+          readHostCapacity().catch(() => null),
+        ]);
+        const loaded = model ? ps.find((e) => e.size > 0 && matchesModel(e.name, model)) : undefined;
+        local = {
+          ...(loaded ? { gpuPercent: Math.round((100 * loaded.size_vram) / loaded.size) } : {}),
+          contextTokens: numCtx,
+          ...(evalMs > 0 ? { tokensPerSec: Math.round((evalTokens * 10000) / evalMs) / 10 } : {}),
+          ...(host?.vramGb != null ? { vramGb: host.vramGb } : {}),
+          ...(host?.unifiedMemory ? { unifiedMemory: true as const } : {}),
+        };
+      }
+      const limits: RunLimits = {
+        ...(refused.size > 0 ? { refused: [...refused.values()] } : {}),
+        ...(memoryFull ? { memoryFull } : {}),
+        ...(cut ? { cut: true as const } : {}),
+        ...(answerNow ? { answerNow: true as const } : {}),
+        ...(local ? { local } : {}),
+      };
+      runSetLimits(id, limits);
+      return { ...(Object.keys(limits).length > 0 ? { limits } : {}), ...(reasoned ? { reasoned: true as const } : {}) };
+    },
+  };
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "";
+  }
+}
+
+/** Page reads (one per level) a question may trigger. */
+const PAGE_READS_MAX = 2;
+/** Bound on the one /api/ps read that closes a run. */
+const PS_TIMEOUT_MS = 1500;
+
 const OPEN_FAILED_TEXT: Record<OpenFailedEntry["reason"], string> = { http: "HTTP error", empty: "no text", failed: "unreachable" };
 
 type SearchReport = { queries: string[]; results: number; pages: number; chars: number; capped?: true };
@@ -753,6 +891,7 @@ async function runChatPageOnDemandLoop(
   let reads = 0;
   let searches = 0;
   const usedLevels = new Set<"text" | "dev">();
+  runBegin(message.id, { provider: provider.id, model: providerOpts.model ?? "", question: message.text });
 
   // Search state: S<n> numbers are the broker's, continuous over the question.
   const budget = searchCharBudget(provider, providerOpts);
@@ -766,12 +905,16 @@ async function runChatPageOnDemandLoop(
   const searchNotes: string[] = [];
   let capped = false;
 
+  const tally = makeRunTally(message.id, provider, providerOpts);
+  /** The first marker the current call had refused. */
+  const callRefused: { marker: PageMarker; reason: RefusalReason }[] = [];
+
   // The last model call allowed is offered no marker, and any it writes is stripped.
   // `answerNow`: a reply made only of stripped markers gets one more call, offered none.
   let answerNow = false;
   const turnsLeft = () => !answerNow && calls < CHAT_MAX_MODEL_TURNS - 1;
   const roomLeft = () => searchChars < budget;
-  const canTriggerRead = (level: "text" | "dev") => reads < 2 && !usedLevels.has(level);
+  const canTriggerRead = (level: "text" | "dev") => reads < PAGE_READS_MAX && !usedLevels.has(level);
   const openable = (refs: readonly number[]) =>
     refs.filter((n) => resultUrls.has(n) && !opened.has(n)).slice(0, Math.max(0, SEARCH_MAX_OPENED - opened.size));
   const canTrigger = (m: PageMarker) => {
@@ -779,6 +922,29 @@ async function runChatPageOnDemandLoop(
     if (m.type === "read") return canTriggerRead(m.level);
     if (m.type === "search") return searches < SEARCH_MAX_PER_QUESTION && roomLeft();
     return openable(m.refs).length > 0 && roomLeft();
+  };
+
+  /** Why `canTrigger` said no, from the same predicates and in the same order. */
+  const refusal = (m: PageMarker): { reason: RefusalReason; limit?: number } => {
+    if (!turnsLeft()) return { reason: "turns", limit: CHAT_MAX_MODEL_TURNS };
+    if (m.type === "read") return { reason: "reads", limit: PAGE_READS_MAX };
+    if (m.type === "search" && searches >= SEARCH_MAX_PER_QUESTION) return { reason: "searches", limit: SEARCH_MAX_PER_QUESTION };
+    if (m.type === "open") {
+      if (!m.refs.some((n) => resultUrls.has(n) && !opened.has(n))) return { reason: "unknown-ref" };
+      if (opened.size >= SEARCH_MAX_OPENED) return { reason: "pages", limit: SEARCH_MAX_OPENED };
+    }
+    return { reason: "budget", limit: budget };
+  };
+  const noteRefused = (m: PageMarker) => {
+    if (answerNow) return; // the forced answer call is offered no marker: not a cap
+    const { reason, limit } = refusal(m);
+    tally.refuse(m.type, reason, limit);
+    if (callRefused.length === 0) callRefused.push({ marker: m, reason });
+  };
+
+  const fail = async (code: ErrorCode, text: string, logOutcome: string, extra: { retryAfterSec?: number } = {}, logReason?: string) => {
+    send(ws, { type: "error", id: message.id, code, message: text, ...extra, ...(await tally.end()) });
+    logRequestCompleted(message.id, logOutcome, Date.now() - startedAt, logReason);
   };
 
   // What the re-run prompt is made of; every answer below updates one field.
@@ -825,6 +991,7 @@ async function runChatPageOnDemandLoop(
       marker = forced;
       forced = undefined;
     } else {
+      callRefused.length = 0;
       const result = await runOnDemandCall(
         ws,
         active,
@@ -835,6 +1002,7 @@ async function runChatPageOnDemandLoop(
         { allowDev: devMode, allowSearch: canSearch },
         canTrigger,
         (ignored) => {
+          noteRefused(ignored);
           if (ignored.type === "search") {
             capped = true;
             if (suggest === undefined) suggest = ignored.query;
@@ -846,26 +1014,42 @@ async function runChatPageOnDemandLoop(
       calls++;
       totalUsage = addUsage(totalUsage, result.usage);
       if (result.historyKept !== undefined) historyKept = result.historyKept;
+      const cutCall = result.outcome === "ok" && result.usage.uncounted === true;
+      tally.call({ ...result, cut: cutCall });
+      const marked = result.outcome === "marker" ? result.marker!.marker : undefined;
+      const noted = marked ?? callRefused[0]?.marker;
+      runCloseStep(message.id, {
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens,
+        ...(result.usage.uncounted ? { uncounted: true as const } : {}),
+        stop: result.outcome !== "ok" ? result.outcome : result.stop === "length" ? "length" : cutCall ? "cut" : "answer",
+        ...(noted
+          ? {
+              marker: noted.type === "read" ? { type: "read", level: noted.level } : noted.type === "search" ? { type: "search", query: noted.query } : { type: "open", refs: noted.refs },
+              decision: marked ? "accepted" : "refused",
+              ...(marked ? {} : { reason: callRefused[0]!.reason }),
+            }
+          : {}),
+      } satisfies Partial<RunStep>);
 
       if (result.outcome === "cancelled") {
-        if (!connState.closed) send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
-        logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
+        if (!connState.closed) await fail("cancelled", "request cancelled", "cancelled");
+        else logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
         return;
       }
       if (result.outcome === "error") {
         const { code, retryAfterSec, outcome, message: msg } = classifyProviderError(result.err);
-        send(ws, { type: "error", id: message.id, code, message: msg, ...(retryAfterSec !== undefined ? { retryAfterSec } : {}) });
-        logRequestCompleted(message.id, outcome, Date.now() - startedAt, msg);
+        await fail(code, msg, outcome, retryAfterSec !== undefined ? { retryAfterSec } : {}, msg);
         return;
       }
       if (result.outcome === "ok" && result.empty && !answerNow && calls < CHAT_MAX_MODEL_TURNS && (runs.length > 0 || pageRead)) {
         answerNow = true;
+        tally.forcedAnswer();
         built = rebuild();
         continue;
       }
       if (result.outcome === "ok" && result.empty) {
-        send(ws, { type: "error", id: message.id, code: "model-empty", message: "the model gave no usable answer" });
-        logRequestCompleted(message.id, "error:model-empty", Date.now() - startedAt);
+        await fail("model-empty", "the model gave no usable answer", "error:model-empty");
         return;
       }
       if (result.outcome === "ok") {
@@ -881,6 +1065,7 @@ async function runChatPageOnDemandLoop(
           ...(pageReport ? { page: pageReport } : {}),
           ...(searchReport ? { search: searchReport } : {}),
           ...(suggest !== undefined ? { suggest: { search: suggest } } : {}),
+          ...(await tally.end()),
         });
         logRequestCompleted(message.id, "ok", Date.now() - startedAt);
         return;
@@ -906,6 +1091,7 @@ async function runChatPageOnDemandLoop(
       logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
       return;
     }
+    runClientStep(message.id, marker.type);
     const discard = position === "mid" ? { discard: true as const } : {};
     send(
       ws,
@@ -925,15 +1111,15 @@ async function runChatPageOnDemandLoop(
       marker.type === "search" ? SEARCH_REQUEST_TIMEOUT_MS : PAGE_REQUEST_TIMEOUT_MS,
     );
     if (active.get(message.id) === waitController) active.delete(message.id);
+    runCloseStep(message.id, typeof answer === "string" ? { answer: "failed" } : {});
 
     if (answer === "timeout") {
-      send(ws, { type: "error", id: message.id, code: "page-unavailable", message: "the client did not answer the request in time" });
-      logRequestCompleted(message.id, "error:page-unavailable", Date.now() - startedAt);
+      await fail("page-unavailable", "the client did not answer the request in time", "error:page-unavailable");
       return;
     }
     if (answer === "aborted" || connState.closed) {
-      if (!connState.closed) send(ws, { type: "error", id: message.id, code: "cancelled", message: "request cancelled" });
-      logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
+      if (!connState.closed) await fail("cancelled", "request cancelled", "cancelled");
+      else logRequestCompleted(message.id, "cancelled", Date.now() - startedAt);
       return;
     }
 
@@ -949,22 +1135,23 @@ async function runChatPageOnDemandLoop(
           ? answer.kind !== "search" && answer.kind !== "search-decline" && "expected search.content or search.decline"
           : answer.kind !== "open" && answer.kind !== "open-decline" && "expected open.content or open.decline";
     if (mismatch) {
-      send(ws, { type: "error", id: message.id, code: "bad-request", message: mismatch });
-      logRequestCompleted(message.id, "error:bad-request", Date.now() - startedAt);
+      await fail("bad-request", mismatch, "error:bad-request");
       return;
     }
 
     if (answer.kind === "decline") {
       declinedPageRead = true;
+      runStepNote(message.id, { answer: "declined" });
     } else if (answer.kind === "search-decline") {
       searchNotes.push(searchDeclinedNote(answer.reason));
+      runStepNote(message.id, { answer: "declined", declineReason: answer.reason });
     } else if (answer.kind === "open-decline") {
       searchNotes.push(openFailedNote(openRefs, answer.reason));
+      runStepNote(message.id, { answer: "declined", declineReason: answer.reason });
     } else if (answer.kind === "search") {
       const error = searchContentError(answer.content);
       if (error) {
-        send(ws, { type: "error", id: message.id, code: "context-too-large", message: error });
-        logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
+        await fail("context-too-large", error, "error:context-too-large");
         return;
       }
       // Every result received takes a number, shown or not, so the client
@@ -975,18 +1162,22 @@ async function runChatPageOnDemandLoop(
       searchChars += fit.used;
       if (fit.dropped > 0) noteBudget();
       const results = fit.kept;
+      runStepNote(message.id, { answer: "results", results: results.length });
       for (const r of results) resultUrls.set(r.n, r.url);
       runs.push({ query: searchQuery, results });
       if (results.length > 0) queries.push(searchQuery);
     } else if (answer.kind === "open") {
       const error = openContentError(answer.pages, openRefs, answer.failed);
       if (error) {
-        send(ws, { type: "error", id: message.id, code: error.code, message: error.message });
-        logRequestCompleted(message.id, `error:${error.code}`, Date.now() - startedAt);
+        await fail(error.code, error.message, `error:${error.code}`);
         return;
       }
       const fit = fitBudget(answer.pages, (p) => p.text.length, budget - searchChars);
       searchChars += fit.used;
+      runStepNote(message.id, {
+        answer: fit.kept.length > 0 ? "pages" : "failed",
+        pages: fit.kept.map((p) => ({ n: p.n, title: p.title, host: hostOf(p.url), chars: p.text.length })),
+      });
       pages.push(...fit.kept);
       if (fit.dropped > 0) noteBudget();
       for (const f of answer.failed) searchNotes.push(openFailedNote([f.n], f.status ? `HTTP ${f.status}` : OPEN_FAILED_TEXT[f.reason]));
@@ -995,8 +1186,7 @@ async function runChatPageOnDemandLoop(
     } else {
       const error = contextBudgetError(answer.context);
       if (error) {
-        send(ws, { type: "error", id: message.id, code: "context-too-large", message: error });
-        logRequestCompleted(message.id, "error:context-too-large", Date.now() - startedAt);
+        await fail("context-too-large", error, "error:context-too-large");
         return;
       }
       const fit = await fitPageContent(
@@ -1009,12 +1199,12 @@ async function runChatPageOnDemandLoop(
         (message.history?.length ?? 0) > 0,
       );
       pageReport = fit.report;
+      runStepNote(message.id, { answer: "page", chars: fit.report.sentChars });
       pageContext = fit.context;
       pageRead = true;
     }
     built = rebuild();
   }
   // Unreachable: the last allowed call can trigger nothing, so it ends the loop above.
-  send(ws, { type: "error", id: message.id, code: "internal", message: "too many model calls for one question" });
-  logRequestCompleted(message.id, "error:internal", Date.now() - startedAt);
+  await fail("internal", "too many model calls for one question", "error:internal");
 }

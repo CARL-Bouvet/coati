@@ -78,7 +78,7 @@ followed by WebSocket close code **4401**. The real reason goes only to the brok
 
 On success: `{ type: "hello-ok", v: 2, features: string[] }`. `features` is an open-ended list
 of capability words this broker build understands (currently `"elements"`, `"vision"`,
-`"history"`, `"pageOnDemand"`, `"search"`) — the extension only offers a capability's UI when
+`"history"`, `"pageOnDemand"`, `"search"`, `"run-log"`) — the extension only offers a capability's UI when
 its word is present.
 
 ## Client → broker messages
@@ -95,6 +95,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `open.content` | `target`, `pages: [{ n, url, title, text }]`, `failed?: [{ n, reason, status? }]` | Answers an `open.request`: the pages read, and the requested pages that could not be. |
 | `open.decline` | `target`, `reason` (`"no-access"`\|`"blocked"`\|`"failed"`) | Answers an `open.request`: no page could be opened. |
 | `summarize` | `context` (required), `readPart?` | Summarize a page/selection. `readPart` is as in `chat`, with `level: "text"` only. |
+| `run.get` | `target` (the `id` of a `chat`) | Read the run log of a `chat`, in flight or among the last 5 finished; replied with `run`. See "Run log". |
 | `prompts.list` | — | List saved prompts. |
 | `prompts.save` | `prompt: { id?, site, title?, body }` | Create (no `id`) or update (with `id`: `title` and `body` change, `site` is ignored) a saved prompt. `body` is 1–`PROMPT_BODY_MAX` characters, `title` at most `PROMPT_TITLE_MAX` (trimmed; empty means none). `id` has the form `p_` + 12 hex chars; an unknown `id` is a `bad-request`. |
 | `prompts.delete` | `promptId` | Delete a saved prompt. |
@@ -115,13 +116,14 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | Type | Key fields | Purpose |
 |---|---|---|
 | `chunk` | `id`, `delta` | One streamed fragment of a model answer. |
-| `done` | `id`, `usage: { inputTokens, outputTokens }`, `historyKept?`, `page?`, `search?`, `suggest?` | End of stream; token usage (summed over every provider call this request made, see "Page on demand"; `usage.uncounted: true` when at least one call was cut by the broker before the server reported its count, so the numbers are incomplete and must not be shown); how many `history` entries were actually used; `page: { level, chars, from, sentChars, truncated }` present when page content reached the model (`summarize`, `chat` with `context`, `page.content`): `chars` is the content's length, `from` where the part read starts, `sentChars` its length, `truncated` is `from + sentChars < chars`, and the next part starts at `from + sentChars`; `search: { queries, results, pages, chars, capped? }` only when a search returned results; `suggest: { search }` when the model asked for a further search that was not run |
+| `done` | `id`, `usage: { inputTokens, outputTokens }`, `historyKept?`, `page?`, `search?`, `suggest?` | End of stream; token usage (summed over every provider call this request made, see "Page on demand"; `usage.uncounted: true` when at least one call was cut by the broker before the server reported its count: `inputTokens`/`outputTokens` are then the sum of the counted calls only, a floor); how many `history` entries were actually used; `page: { level, chars, from, sentChars, truncated }` present when page content reached the model (`summarize`, `chat` with `context`, `page.content`): `chars` is the content's length, `from` where the part read starts, `sentChars` its length, `truncated` is `from + sentChars < chars`, and the next part starts at `from + sentChars`; `search: { queries, results, pages, chars, capped? }` only when a search returned results; `suggest: { search }` when the model asked for a further search that was not run; `limits?` and `reasoned?` for a `chat`, see "Run log" |
 | `page.request` | `id` (the `chat`'s own id), `level` (`"text"`\|`"dev"`), `discard?` | The model asked to read the page — see "Page on demand" below. |
 | `search.request` | `id` (the `chat`'s own id), `query`, `discard?` | The model asked to search the web — see "Search" below. |
 | `open.request` | `id` (the `chat`'s own id), `refs: [{ n, url }]`, `discard?` | The model asked to open search results — see "Search" below. |
-| `error` | `id`, `code`, `message`, `retryAfterSec?` | A request failed — see error codes below. `retryAfterSec` appears only with `rate-limited`, when the provider sent a `Retry-After` header. |
+| `error` | `id`, `code`, `message`, `retryAfterSec?` | A request failed — see error codes below. `retryAfterSec` appears only with `rate-limited`, when the provider sent a `Retry-After` header. An `error` ending a `chat` may also carry `limits?` and `reasoned?`, as `done` does. |
 | `prompts` | `id`, `items`, `prefs?` | Reply to `prompts.list`/`prompts.save`/`prompts.delete`/`prompts.move`. |
 | `prefs` | `id`, `sites` | Reply to `prefs.get`/`prefs.set`. |
+| `run` | `id`, `target`, `found`, `run?` | Reply to `run.get`. `found: false` (no `run`) when `target` is unknown or already evicted, never an error. See "Run log". |
 | `hello-ok` | `v: 2`, `features` | Handshake succeeded. |
 | `challenge` | `v: 2`, `nonce`, `proof` | Handshake step 2 (see above). |
 | `settings` | `id`, `provider`, `model?`, `available`, `models?`, `baseUrl?`, `services?` | Reply to `settings.get`/`settings.set`. `available` lists every known provider as `{ id, label, available, reason?, configured }`, including unavailable ones; `reason` is a localized sentence, present when `available` is false, and `configured` says the provider has what it needs at all (a stored key, a reachable daemon), whatever the selected model. `models` lists the active provider's installed models when it can enumerate them. `baseUrl` is the active openai-compat address, sent only while `openai-compat` is the active provider. `services` lists every configured openai-compat service, active or not: `{ baseUrl, model?, hasKey }` (`hasKey` is a boolean; the key is never sent); absent when none. |
@@ -131,6 +133,51 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `models` | `id`, `current`, `entries`, `sources`, `host` | Reply to `models.list`. `current` is `{ provider, model }`. `sources` is `[{ provider, state }]` with `state` `"ok"`, `"unreachable"` or `"not-configured"`. Ollama is always queried; `openai-compat` lists its models when its address is loopback, otherwise offers its remembered model if a key is stored. `host` is `null` when the machine's capacity can't be read. Each entry carries `provider`, `model`, `local`, and when known `sizeBytes`, `thinks?`, `fit?` (`"gpu"`\|`"shared"`\|`"too-big"`), `gpuPercent?`, `contextTokens?`, `vision?`. `host` reports rounded `ramGb`/`vramGb`/`unifiedMemory?`, read locally, never sent anywhere external. |
 | `model.warmup-result` | `id`, `state` (`"loaded"`\|`"already"`\|`"skipped"`\|`"failed"`), `ms?` | Reply to `model.warmup`. |
 | `progress` | `id`, `stage` (`"loading"`\|`"reading"`\|`"thinking"`) | Sent before the first chunk, Ollama only. |
+
+## Run log
+
+Announced by the `"run-log"` feature. Only for `chat` (every `chat`, with or without the page-on-demand loop; `summarize` has none). The broker keeps, in memory only, a log of each
+question: the in-flight ones and the last 5 finished. Nothing goes to disk or to the journal, and a broker
+restart empties it. It holds no page text, search snippet or opened-page text: only titles, hosts and
+character counts.
+
+`done` and `error` of a `chat` may carry:
+
+```
+limits?: {
+  refused?: [{ kind: "search"|"open"|"read",
+               reason: "turns"|"searches"|"pages"|"reads"|"budget"|"unknown-ref",
+               count, limit? }],   // markers Coati ignored; limit = the cap (10 calls, 4 searches,
+                                   // 6 pages, 2 reads, budget in characters), absent for unknown-ref
+                                   // (no requested result is available to open)
+  memoryFull?: { tokens, contextTokens? },   // a call stopped on length; tokens = input + output of that
+                                             // call; contextTokens = Ollama num_ctx
+  cut?: true,          // the visible answer was cut after a stop marker
+  answerNow?: true,    // the model wrote only markers; one forced answer call
+  local?: { gpuPercent?, contextTokens, tokensPerSec?, vramGb?, unifiedMemory? }   // Ollama only
+}
+reasoned?: true        // at least one call of this request received reasoning text
+```
+
+`run.get { id, target }` is answered with `run { id, target, found, run? }`:
+
+```
+run: { startedAt, ms, provider, model, question,        // question = the chat's own text
+  steps: [{ t, ms, kind: "call"|"search"|"open"|"read",
+    // call:
+    n?, inputTokens?, outputTokens?, uncounted?,
+    stop?: "answer"|"marker"|"length"|"cut"|"error"|"cancelled",
+    reasoning?, reasoningCut?,
+    marker?: { type, query?, refs?, level? },
+    decision?: "accepted"|"refused", reason?,           // refused: same reasons as limits.refused
+    // search/open/read (the client's answer):
+    answer?: "results"|"pages"|"page"|"declined"|"failed",
+    results?, pages?: [{ n, title, host, chars }], declineReason?, chars? }],
+  limits }
+```
+
+`reasoning` is the text the provider sent as reasoning for that call; across a run it is capped at 100 000
+characters (head and tail kept, `reasoningCut: true`).
 
 ## OAuth sign-in
 

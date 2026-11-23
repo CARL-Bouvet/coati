@@ -236,6 +236,184 @@
       }
     }
   },
+  "panel_limits_summary": {
+    "message": "模型"
+  },
+  "panel_limits_count_one": {
+    "message": "1 项限制"
+  },
+  "panel_limits_count_many": {
+    "message": "$COUNT$ 项限制",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "panel_limits_speed_short": {
+    "message": "$SPEED$ tokens/秒",
+    "placeholders": {
+      "speed": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "panel_limits_memory_full_ctx": {
+    "message": "模型在完成之前已用满内存（$USED$ k / $TOTAL$ k 个 token）。",
+    "placeholders": {
+      "used": {
+        "content": "$1",
+        "example": "8"
+      },
+      "total": {
+        "content": "$2",
+        "example": "8"
+      }
+    }
+  },
+  "panel_limits_memory_full": {
+    "message": "模型在完成之前已用满内存。"
+  },
+  "panel_limits_refused_turns": {
+    "message": "模型要求更多步骤；Coati 每个问题最多允许调用模型 $LIMIT$ 次。",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "panel_limits_refused_searches": {
+    "message": "模型要求更多次搜索；Coati 每个问题最多允许 $LIMIT$ 次。",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "panel_limits_refused_pages": {
+    "message": "模型要求打开更多页面；Coati 每个问题最多打开 $LIMIT$ 个。",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "panel_limits_refused_reads": {
+    "message": "模型要求再次读取页面；Coati 每个问题最多读取 $LIMIT$ 次。",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "panel_limits_refused_budget": {
+    "message": "模型要求更多内容；Coati 每个问题最多发送 $KCHARS$ k 个字符的搜索结果和页面。",
+    "placeholders": {
+      "kchars": {
+        "content": "$1",
+        "example": "24"
+      }
+    }
+  },
+  "panel_limits_refused_unknown_ref": {
+    "message": "模型要求打开一个不存在的搜索结果。"
+  },
+  "panel_limits_cut": {
+    "message": "模型在给出回答后仍在继续输出；Coati 已截掉多余部分。"
+  },
+  "panel_limits_answer_now": {
+    "message": "模型一直只是要求更多内容；Coati 已让它根据已有信息作答一次。"
+  },
+  "panel_limits_uncounted": {
+    "message": "部分模型调用被提前中止；其 token 未计入。"
+  },
+  "panel_limits_hw_gpu": {
+    "message": "在显卡中"
+  },
+  "panel_limits_hw_gpu_value": {
+    "message": "模型的 $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "40"
+      }
+    }
+  },
+  "panel_limits_hw_context": {
+    "message": "模型内存"
+  },
+  "panel_limits_hw_context_value": {
+    "message": "$KTOKENS$ k token",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_limits_hw_speed": {
+    "message": "速度"
+  },
+  "panel_limits_hw_speed_value": {
+    "message": "$SPEED$ tokens/秒",
+    "placeholders": {
+      "speed": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "panel_limits_hw_vram": {
+    "message": "显存"
+  },
+  "panel_limits_hw_shared": {
+    "message": "统一内存"
+  },
+  "panel_limits_hw_gb_value": {
+    "message": "$GB$ GB",
+    "placeholders": {
+      "gb": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "panel_limits_see_run": {
+    "message": "查看运行过程"
+  },
+  "panel_limits_read_text_at_least": {
+    "message": "已读取页面 · 至少 $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_limits_read_dev_at_least": {
+    "message": "已读取页面代码 · 至少 $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "panel_limits_not_read_at_least": {
+    "message": "未读取页面 · 至少 $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
   "panel_read_rest_button": {
     "message": "继续阅读"
   },
@@ -1192,6 +1370,9 @@
   "setup_online_service_title": {
     "message": "选择服务"
   },
+  "model_free_note": {
+    "message": "Claude 和 OpenAI（ChatGPT）的模型通过 API 账户按用量付费；订阅不包含 API 访问权限。不付费时，仍可通过 OpenRouter 使用其他免费模型，足以完成总结 YouTube 视频等简单任务。部分免费提供商可能保留您发送的内容并用于训练。"
+  },
   "setup_online_free_warning": {
     "message": "OpenRouter 的免费模型可能会保留并使用您发送的文本。请勿发送任何机密内容。"
   },
@@ -2019,5 +2200,168 @@
   },
   "setup_program_ok": {
     "message": "程序已响应。接下来设置模型。"
+  },
+  "runlog_title": {
+    "message": "Coati · 运行过程"
+  },
+  "runlog_refresh": {
+    "message": "刷新"
+  },
+  "runlog_loading": {
+    "message": "加载中…"
+  },
+  "runlog_not_found": {
+    "message": "Coati 会保留最近 5 个问题，直到本地程序停止。"
+  },
+  "runlog_offline": {
+    "message": "本地程序未连接。"
+  },
+  "runlog_unsupported": {
+    "message": "本地程序版本过旧，无法显示运行过程。"
+  },
+  "runlog_question": {
+    "message": "问题"
+  },
+  "runlog_model": {
+    "message": "模型"
+  },
+  "runlog_total_time": {
+    "message": "$SECONDS$ 秒",
+    "placeholders": {
+      "seconds": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "runlog_total_tokens": {
+    "message": "$KTOKENS$ k token",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "runlog_step_call": {
+    "message": "调用 $N$",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "runlog_tokens_in_out": {
+    "message": "输入 $IN$ k / 输出 $OUT$",
+    "placeholders": {
+      "in": {
+        "content": "$1",
+        "example": "3.2"
+      },
+      "out": {
+        "content": "$2",
+        "example": "410"
+      }
+    }
+  },
+  "runlog_uncounted": {
+    "message": "未计入"
+  },
+  "runlog_asked_search": {
+    "message": "请求：搜索“$QUERY$”",
+    "placeholders": {
+      "query": {
+        "content": "$1",
+        "example": "coati"
+      }
+    }
+  },
+  "runlog_asked_open": {
+    "message": "请求：打开 $REF$",
+    "placeholders": {
+      "ref": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "runlog_asked_read": {
+    "message": "请求：读取页面"
+  },
+  "runlog_accepted": {
+    "message": "已接受"
+  },
+  "runlog_refused": {
+    "message": "已拒绝"
+  },
+  "runlog_stop_answer": {
+    "message": "已回答"
+  },
+  "runlog_stop_marker": {
+    "message": "要求更多"
+  },
+  "runlog_stop_length": {
+    "message": "内存已满"
+  },
+  "runlog_stop_cut": {
+    "message": "结束后被截断"
+  },
+  "runlog_stop_error": {
+    "message": "错误"
+  },
+  "runlog_stop_cancelled": {
+    "message": "已停止"
+  },
+  "runlog_answer_results": {
+    "message": "搜索：$COUNT$ 条结果",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "runlog_answer_pages": {
+    "message": "已打开 $COUNT$ 个页面",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "runlog_answer_page": {
+    "message": "已发送页面：$KCHARS$ k 个字符",
+    "placeholders": {
+      "kchars": {
+        "content": "$1",
+        "example": "24"
+      }
+    }
+  },
+  "runlog_answer_declined": {
+    "message": "已拒绝：$REASON$",
+    "placeholders": {
+      "reason": {
+        "content": "$1",
+        "example": "too large"
+      }
+    }
+  },
+  "runlog_answer_failed": {
+    "message": "失败"
+  },
+  "runlog_reasoning": {
+    "message": "推理过程"
+  },
+  "runlog_reasoning_cut": {
+    "message": "推理过程中间部分已省略"
+  },
+  "runlog_no_reasoning": {
+    "message": "模型未返回推理过程"
+  },
+  "runlog_limits": {
+    "message": "限制"
   }
 }

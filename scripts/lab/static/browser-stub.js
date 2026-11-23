@@ -321,6 +321,13 @@
             message: { type: "error", id: payload.id, code: "bad-request", message: "unknown type: models.list" },
           });
         }, 0);
+      } else if (payload.type === "run.get" && fixture.run !== undefined) {
+        setTimeout(function () {
+          dispatchToListeners({
+            type: "coati:broker-message",
+            message: { type: "run", id: payload.id, target: payload.target, found: !!fixture.run, run: fixture.run || undefined },
+          });
+        }, 0);
       } else if (payload.type === "settings.set" && fixture.echoSettingsSet) {
         setTimeout(function () {
           dispatchToListeners({ type: "coati:broker-message", message: applySettingsSet(payload) });

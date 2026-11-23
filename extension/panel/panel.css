@@ -1160,3 +1160,42 @@ html.mode-dev .message--assistant {
 .search-mention > summary {
   cursor: pointer;
 }
+
+/* Fold-out under the page line: what the model hit, and the machine it ran on. */
+.model-limits > summary {
+  cursor: pointer;
+}
+
+.model-limits-sentence {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-s);
+  color: var(--muted);
+}
+
+.model-limits-hardware {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-s);
+  color: var(--muted);
+}
+
+.model-limits-hardware dt,
+.model-limits-hardware dd {
+  margin: 0;
+}
+
+.model-limits-hardware dd {
+  color: var(--fg);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.model-limits-run {
+  margin-top: var(--space-2);
+}
+
+.model-limits-run[hidden] {
+  display: none;
+}

@@ -4,6 +4,7 @@
 
 import type { ClientMessage } from "../protocol.ts";
 import { send } from "../ws-send.ts";
+import { runGet } from "../request-timeline.ts";
 import { buildPrompt } from "../model.ts";
 import { listPrompts, savePrompt, deletePrompt, setPromptSite, withDirLock, type PromptsDirs } from "../prompts.ts";
 import { getPrefs, setSitePrefs, moveInPrefs, type PrefsDirs } from "../prefs.ts";
@@ -165,6 +166,11 @@ export function handleMessage(
     }
     case "cancel": {
       active.get(message.target)?.abort();
+      return;
+    }
+    case "run.get": {
+      const run = runGet(message.target);
+      send(ws, { type: "run", id: message.id, target: message.target, found: run !== undefined, ...(run ? { run } : {}) });
       return;
     }
     case "settings.get": {

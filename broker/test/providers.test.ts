@@ -105,6 +105,27 @@ describe("ollama NDJSON line parsing", () => {
     expect(events).toEqual([{ kind: "usage", usage: { inputTokens: 12, outputTokens: 4 } }]);
   });
 
+  test("thinking text, done_reason length and durations (ns to ms) are read", () => {
+    const events = [
+      ...parseNdjsonLine(
+        JSON.stringify({
+          message: { thinking: "hmm", content: "" },
+          done: true,
+          done_reason: "length",
+          prompt_eval_count: 5,
+          eval_count: 2,
+          eval_duration: 2_000_000_000,
+          prompt_eval_duration: 300_000_000,
+          load_duration: 1_500_000,
+        }),
+      ),
+    ];
+    expect(events).toEqual([
+      { kind: "thinking", text: "hmm" },
+      { kind: "usage", usage: { inputTokens: 5, outputTokens: 2 }, stop: "length", stats: { evalMs: 2000, promptMs: 300, loadMs: 2 } },
+    ]);
+  });
+
   test("a line with both content and done yields both events, in order", () => {
     const events = [
       ...parseNdjsonLine(
@@ -223,7 +244,7 @@ describe("ollama streamAnswer — end to end against a fake fetch", () => {
     expect(events).toEqual([
       { kind: "delta", text: "Bon" },
       { kind: "delta", text: "jour" },
-      { kind: "usage", usage: { inputTokens: 7, outputTokens: 3 } },
+      { kind: "usage", usage: { inputTokens: 7, outputTokens: 3 }, stats: { numCtx: expect.any(Number) } },
     ]);
   });
 
