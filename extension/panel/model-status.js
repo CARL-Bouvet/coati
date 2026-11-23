@@ -273,6 +273,8 @@ export let modelsReply = null;
 let modelsRequestedAt = 0;
 let modelSwitchRequestId = null;
 let modelMenuItems = [];
+// Provider groups the user opened/folded by hand (key -> open); see renderModelList().
+const modelGroupState = new Map();
 // True once an older local program has answered
 // `error` to models.list — the pill then shows a calm "update the local
 // program" state (renderStaleBrokerPill()) instead of hiding.
@@ -440,7 +442,7 @@ export function renderModelPicker() {
 
   // Re-rendered while open (a fresh reply): keep focus on the same item.
   const focused = els.modelMenu.contains(document.activeElement) ? document.activeElement : null;
-  const focusedKey = focused ? `${focused.dataset.provider}\n${focused.dataset.model}\n${focused.className}` : null;
+  const focusedKey = focused ? `${focused.dataset.group}\n${focused.dataset.provider}\n${focused.dataset.model}\n${focused.className}` : null;
   modelMenuItems = renderModelList(els.modelMenu, modelsReply, {
     t,
     providerLabel,
@@ -448,6 +450,8 @@ export function renderModelPicker() {
     baseUrl: currentProviderBaseUrl,
     mode: "menu",
     idPrefix: "modelMenu",
+    groupState: modelGroupState,
+    onToggleGroup: renderModelPicker,
     onPick: pickModel,
     onAdd: () => {
       closeModelMenu(false);
@@ -456,7 +460,7 @@ export function renderModelPicker() {
   });
   if (focusedKey) {
     const same = modelMenuItems.find(
-      (item) => `${item.dataset.provider}\n${item.dataset.model}\n${item.className}` === focusedKey,
+      (item) => `${item.dataset.group}\n${item.dataset.provider}\n${item.dataset.model}\n${item.className}` === focusedKey,
     );
     (same ?? modelMenuItems[0])?.focus();
   }

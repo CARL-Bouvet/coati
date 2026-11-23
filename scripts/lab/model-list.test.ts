@@ -7,6 +7,7 @@ import {
   FIT_CONSTANTS,
   fitLimitsGb,
   fitNoteKey,
+  groupByProvider,
   groupModels,
   isCurrentLocal,
   isSlowLocalModel,
@@ -245,5 +246,35 @@ describe("slow model advice (plan-ollama-rapide-07-10.md, points 4 and 6)", () =
   test("contextTokens is kept on Ollama entries", () => {
     expect(groupModels(reply).currentEntry?.contextTokens).toBe(8192);
     expect(groupModels(reply).local[1].contextTokens).toBeUndefined();
+  });
+
+  test("groupByProvider: Claude by family, newest first; others alphabetical", () => {
+    const e = (provider: string, model: string) => ({ provider, model });
+    const groups = groupByProvider(
+      [
+        e("claude-cli", "claude-haiku-4-5"),
+        e("claude-cli", "claude-sonnet-4-5"),
+        e("claude-cli", "claude-3-5-sonnet-20241022"),
+        e("claude-cli", "claude-opus-4-1-20250805"),
+        e("claude-cli", "claude-sonnet-5-5"),
+        e("claude-cli", "claude-fable-5"),
+        e("claude-cli", "claude-opus-5"),
+        e("ollama", "qwen3:8b"),
+        e("ollama", "gemma3:12b"),
+        e("ollama", "llama3.2:latest"),
+      ],
+      (entry) => (entry.provider === "ollama" ? "Ollama" : "Claude"),
+    );
+    expect(groups.map((g) => g.label)).toEqual(["Claude", "Ollama"]);
+    const claude = groups[0];
+    expect(claude.families?.map((f) => f.family)).toEqual(["fable", "opus", "sonnet", "haiku"]);
+    expect(claude.families?.map((f) => f.entries.map((x) => x.model))).toEqual([
+      ["claude-fable-5"],
+      ["claude-opus-5", "claude-opus-4-1-20250805"],
+      ["claude-sonnet-5-5", "claude-sonnet-4-5", "claude-3-5-sonnet-20241022"],
+      ["claude-haiku-4-5"],
+    ]);
+    expect(groups[1].families).toBeNull();
+    expect(groups[1].entries.map((x) => x.model)).toEqual(["gemma3:12b", "llama3.2:latest", "qwen3:8b"]);
   });
 });

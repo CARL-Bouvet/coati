@@ -88,12 +88,13 @@ function openProgramTutorial() {
 }
 
 /** Standalone notice shown while Coati has never gotten a real answer from a
- * model — hidden for good once MODEL_EVER_ANSWERED_KEY is set. While the
+ * model — hidden for good once MODEL_EVER_ANSWERED_KEY is set, and while the
+ * last provider check says the model is ready. While the
  * first-run card is still visible, its own "model" step already carries the
  * same action, so this notice stays hidden rather than stacking a second one
  * ("a shown first-run card absorbs the action"). */
 export function renderNeverConnected() {
-  if (!accessPrefsLoaded || panelState.modelEverAnswered || !firstRunDone) {
+  if (!accessPrefsLoaded || panelState.modelEverAnswered || !firstRunDone || providerState === "ok") {
     els.neverConnected.hidden = true;
     return;
   }

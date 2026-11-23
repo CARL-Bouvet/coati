@@ -274,12 +274,34 @@
   var MODELS_FIT_4B_CURRENT = Object.assign({}, MODELS_WITH_FIT, {
     current: { provider: "ollama", model: "qwen3:4b" },
   });
+  // Grouped menu: Claude split in families (Fable, Opus, Sonnet, Haiku), Ollama
+  // alphabetical, a third provider folded. Claude is current, so it opens.
+  var MODELS_GROUPED = {
+    current: { provider: "claude-cli", model: "claude-sonnet-4-5" },
+    entries: [
+      { provider: "claude-cli", model: "claude-haiku-4-5", local: false },
+      { provider: "claude-cli", model: "claude-opus-4-1", local: false },
+      { provider: "claude-cli", model: "claude-sonnet-4-5", local: false },
+      { provider: "claude-cli", model: "claude-opus-5", local: false },
+      { provider: "claude-cli", model: "claude-sonnet-5-5", local: false },
+      { provider: "claude-cli", model: "claude-fable-5", local: false },
+      { provider: "ollama", model: "qwen3:8b", local: true, sizeBytes: 5_225_387_923 },
+      { provider: "ollama", model: "gemma3:12b", local: true, sizeBytes: 8_149_190_253 },
+      { provider: "ollama", model: "llama3.2:latest", local: true, sizeBytes: 2_019_393_189 },
+      { provider: "openai-compat", model: "meta-llama/llama-3.3-70b-instruct:free", local: false },
+    ],
+    sources: [
+      { provider: "ollama", state: "ok" },
+      { provider: "claude-cli", state: "ok" },
+      { provider: "openai-compat", state: "ok" },
+    ],
+  };
   var ARTICLE_QUESTION = "Résumer cet article : Une mesure publiée le 25 septembre";
   function sendQuestion() {
     return {
       steps: [
         { type: "fill", selector: "#input", value: ARTICLE_QUESTION, delayMs: 40 },
-        { type: "click", selector: "#send", delayMs: 20 },
+        { type: "click", selector: "#send", delayMs: 120 },
       ],
     };
   }
@@ -353,6 +375,22 @@
       models: MODELS_LOCAL_AND_ONLINE,
       settings: settingsFor("ollama", "qwen3:4b"),
       echoSettingsSet: true,
+      autoAction: {
+        steps: [{ type: "click", selector: "#modelPill", delayMs: 60 }],
+      },
+    },
+
+    // Grouped menu: Claude open (families), Ollama and the compatible service folded.
+    "model-menu-grouped": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_CLAUDE_CLI_OK,
+      models: MODELS_GROUPED,
+      settings: settingsFor("claude-cli", "claude-sonnet-4-5"),
       autoAction: {
         steps: [{ type: "click", selector: "#modelPill", delayMs: 60 }],
       },

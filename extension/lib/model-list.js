@@ -205,6 +205,67 @@ export function groupModels(reply) {
   };
 }
 
+// Claude families, in display order (Haiku sits under Sonnet). Matched as a
+// word of the model id; no model identifier is held here.
+const CLAUDE_FAMILIES = ["fable", "opus", "sonnet", "haiku"];
+
+function claudeFamily(model) {
+  const lower = model.toLowerCase();
+  return CLAUDE_FAMILIES.find((family) => lower.includes(family)) ?? null;
+}
+
+/** Version numbers of an id ("claude-3-5-sonnet-20241022" -> [3, 5]); dates skipped. */
+function versionOf(model) {
+  return (model.match(/\d+/g) ?? []).filter((digits) => digits.length < 8).map(Number);
+}
+
+function newestFirst(a, b) {
+  const va = versionOf(a.model);
+  const vb = versionOf(b.model);
+  for (let i = 0; i < Math.max(va.length, vb.length); i++) {
+    const diff = (vb[i] ?? -1) - (va[i] ?? -1);
+    if (diff !== 0) return diff;
+  }
+  return a.model.localeCompare(b.model);
+}
+
+/**
+ * Entries -> provider groups for the panel menu. A Claude provider is split
+ * in families (Fable, Opus, Sonnet, Haiku; others last), newest version
+ * first; every other provider is alphabetical. Groups are alphabetical.
+ * @param {object[]} entries
+ * @param {(entry: object) => string} labelOf provider group label of an entry
+ * @returns {{key: string, label: string, entries: object[],
+ *   families: {family: string|null, entries: object[]}[]|null}[]}
+ */
+export function groupByProvider(entries, labelOf) {
+  const byProvider = new Map();
+  for (const entry of entries) {
+    if (!byProvider.has(entry.provider)) byProvider.set(entry.provider, []);
+    byProvider.get(entry.provider).push(entry);
+  }
+  const groups = [];
+  for (const [key, list] of byProvider) {
+    const label = labelOf(list[0]);
+    if (/claude|anthropic/i.test(key)) {
+      const order = [...CLAUDE_FAMILIES, null];
+      const families = order
+        .map((family) => ({
+          family,
+          entries: list.filter((entry) => claudeFamily(entry.model) === family).sort(newestFirst),
+        }))
+        .filter((part) => part.entries.length > 0);
+      groups.push({ key, label, entries: list, families });
+    } else {
+      const sorted = [...list].sort((a, b) =>
+        shortModelName(a.model).localeCompare(shortModelName(b.model), undefined, { numeric: true }),
+      );
+      groups.push({ key, label, entries: sorted, families: null });
+    }
+  }
+  return groups.sort((a, b) => a.label.localeCompare(b.label));
+}
+
 /** true = runs on this computer, false = online. Read from the matching
  * entry when there is one; else from the provider id (Ollama is always
  * local; anything unknown is presumed online, the cautious claim). */
@@ -255,10 +316,13 @@ function el(tag, className, text) {
  * @param {boolean} [opts.localOnly]    only "On this computer" (tutorial)
  * @param {(() => void)} [opts.onAdd]   adds "Add a model…" last (menu)
  * @param {string} [opts.idPrefix]      unique prefix for heading ids
+ * @param {Map<string, boolean>} [opts.groupState] menu: user-chosen open/closed
+ *                                      per provider group (default: open = holds the current model)
+ * @param {() => void} [opts.onToggleGroup] menu: called after a group toggled
  * @returns {HTMLElement[]} the focusable items, in order
  */
 export function renderModelList(container, reply, opts) {
-  const { t, providerLabel, onPick, mode = "list", localOnly = false, onAdd, idPrefix = "models" } = opts;
+  const { t, providerLabel, onPick, mode = "list", localOnly = false, onAdd, idPrefix = "models", groupState, onToggleGroup } = opts;
   // From the latest `settings` message (module labels, openai-compat's
   // address) — both optional, see providerDisplayName().
   const { moduleLabels, baseUrl } = opts;
@@ -294,7 +358,7 @@ export function renderModelList(container, reply, opts) {
     text.append(el("span", "model-item-name", shortModelName(entry.model)));
 
     const details = [];
-    if (entry.provider !== "ollama" || !entry.local) {
+    if (!menu && (entry.provider !== "ollama" || !entry.local)) {
       details.push(
         providerDisplayName(entry.provider, {
           providerLabel,
@@ -348,15 +412,74 @@ export function renderModelList(container, reply, opts) {
     container.append(group);
   }
 
-  // Ollama down: one calm line where its models would be (LM Studio's, if
-  // any, still listed above it).
+  // Menu: one collapsible group per provider; folded groups render no rows.
+  function menuGroups(grouped, localNote) {
+    const labelOf = (entry) =>
+      providerDisplayName(entry.provider, {
+        providerLabel,
+        moduleLabels,
+        baseUrl,
+        fallback: t(entry.local ? "model_list_provider_local" : "model_list_provider_online"),
+      });
+    const entries = [...grouped.local, ...grouped.online];
+    const groups = groupByProvider(entries, labelOf);
+    // Ollama unreachable: its group still shows, holding the calm line.
+    if (grouped.ollamaUnreachable && !groups.some((group) => group.key === "ollama")) {
+      groups.unshift({ key: "ollama", label: providerLabel("ollama"), entries: [], families: null });
+    }
+    if (localNote && !groups.some((group) => group.key === "ollama")) container.append(note(localNote));
+    for (const group of groups) {
+      const open = groupState?.get(group.key) ?? group.entries.some((entry) => entry.current);
+      const wrap = el("div", "model-list-section");
+      wrap.setAttribute("role", "group");
+      const toggle = itemButton("model-group-toggle", "menuitem");
+      toggle.dataset.group = group.key;
+      toggle.setAttribute("aria-expanded", String(open));
+      const arrow = el("span", "model-group-arrow", open ? "▾" : "▸"); // i18n-allow: symbol
+      arrow.setAttribute("aria-hidden", "true");
+      const local = group.entries.length === 0 ? group.key === "ollama" : group.entries[0].local;
+      toggle.append(
+        arrow,
+        el("span", "model-group-name", group.label),
+        el("span", "model-group-where", t(local ? "model_list_local" : "model_list_online")),
+        el("span", "model-group-count", String(group.entries.length)),
+      );
+      toggle.addEventListener("click", () => {
+        groupState?.set(group.key, !open);
+        onToggleGroup?.();
+      });
+      focusables.push(toggle);
+      wrap.append(toggle);
+      if (open) {
+        if (group.families) {
+          for (const part of group.families) {
+            // i18n-allow: model family names are proper nouns
+            if (part.family) wrap.append(el("div", "model-list-heading", part.family[0].toUpperCase() + part.family.slice(1)));
+            for (const entry of part.entries) wrap.append(entryButton(entry));
+          }
+        } else {
+          for (const entry of group.entries) wrap.append(entryButton(entry));
+        }
+        if (group.key === "ollama" && localNote) {
+          wrap.append(note(localNote));
+        }
+      }
+      container.append(wrap);
+    }
+  }
+
   const localNote = grouped.ollamaUnreachable
     ? t("model_list_ollama_unreachable")
     : grouped.local.length === 0
       ? t("model_list_no_local")
       : null;
-  section("local", "model_list_local", grouped.local, localNote);
-  if (!localOnly && grouped.online.length > 0) section("online", "model_list_online", grouped.online, null);
+  if (menu) {
+    menuGroups(grouped, localNote);
+  } else {
+    // Ollama down: one calm line where its models would be.
+    section("local", "model_list_local", grouped.local, localNote);
+    if (!localOnly && grouped.online.length > 0) section("online", "model_list_online", grouped.online, null);
+  }
 
   if (onAdd) {
     const separator = el("div", "model-list-separator");
