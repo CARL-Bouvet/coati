@@ -342,7 +342,12 @@ the page markers (same detector, same place).
   ignored. Refs beyond the pages still allowed are dropped from the request.
 - `S<n>` numbering is continuous over every search of the question: a result's number is the
   count of results received in earlier searches plus its rank in its own `search.content`. A
-  result dropped for budget keeps its number, unused, so client and broker always agree.
+  result dropped for budget keeps its number, unused, so client and broker always agree. The
+  client leaves out a result it already sent for the question, which keeps its first number; a
+  search whose results were all sent before answers `search.content` with no results, and the
+  model is told so. When the engine hides a result's address behind its own link, `url` is the
+  origin of the site the engine shows, the client opens the page through the engine's link, and
+  the page must end on that site.
 - No answer to `open.request` within `PAGE_REQUEST_TIMEOUT_MS`, or to `search.request` within
   `SEARCH_REQUEST_TIMEOUT_MS`, fails the request with `page-unavailable`. An answer of the wrong
   kind is a `bad-request`. A `search.content` with more than `SEARCH_MAX_RESULTS` results or an

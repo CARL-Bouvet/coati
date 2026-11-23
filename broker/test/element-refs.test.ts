@@ -195,7 +195,15 @@ const GENERIC = `<!doctype html><html><body><main>
 const BRAVE_LIKE = `<!doctype html><html><body><main>
 <div class="snippet" data-type="web"><a href="https://github.com/comfy-org/comfyui"><div class="site-name">GitHub</div><div class="title search-snippet-title">Comfy-Org/ComfyUI</div></a>
 <div class="generic-snippet"><div class="content">The most powerful and modular diffusion model GUI, api and backend.</div></div></div>
+<div class="snippet" data-type="web"><a href="/go/v1#AbC"><cite>https://shop.example › bags › coffee</cite><div class="title">Hidden link result</div></a>
+<div class="generic-snippet">A result whose address the engine shows but hides behind its own link.</div></div>
 <a href="https://search.brave.com/images?q=x"><div class="title">Images</div></a>
+</main></body></html>`;
+// A result with sub-links of its own site under it, then results of other sites.
+const SITELINKS = `<!doctype html><html><body><main>
+<article><h2><a href="https://one.example/">One</a></h2><ul>${[1, 2, 3, 4, 5, 6, 7, 8].map((i) => `<li><a href="https://one.example/p${i}"><h3>Page ${i}</h3></a></li>`).join("")}</ul></article>
+<article><h2><a href="https://two.example/">Two</a></h2></article>
+<article><h2><a href="https://three.example/">Three</a></h2></article>
 </main></body></html>`;
 const DDG_LIKE = `<!doctype html><html><body><div id="links">
 <div class="result"><h2 class="result__title"><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgithub.com%2Fx%2Fy&rut=1">GitHub - x/y</a></h2>
@@ -242,12 +250,30 @@ describe("collectSearchResults", () => {
   test("Brave Search, DuckDuckGo and Bing markup", async () => {
     const brave = await runCollect(BRAVE_LIKE, "https://search.brave.com/search?q=t");
     if (!brave) return;
-    expect(brave.map((r) => [r.title, r.url])).toEqual([["Comfy-Org/ComfyUI", "https://github.com/comfy-org/comfyui"]]);
+    expect(brave.map((r) => [r.title, r.url, r.via])).toEqual([
+      ["Comfy-Org/ComfyUI", "https://github.com/comfy-org/comfyui", undefined],
+      ["Hidden link result", "https://shop.example/", "https://search.brave.com/go/v1#AbC"],
+    ]);
     expect(brave[0].snippet).toContain("modular diffusion");
     const ddg = await runCollect(DDG_LIKE, "https://html.duckduckgo.com/html/?q=t");
     expect(ddg!.map((r) => r.url)).toEqual(["https://github.com/x/y"]);
     const bing = await runCollect(BING_LIKE, "https://www.bing.com/search?q=t");
     expect(bing!.map((r) => [r.title, r.url])).toEqual([["Bing result", "https://example.com/bing"]]);
+  });
+
+  test("one result per site first: sub-links of one site do not fill the list", async () => {
+    const results = await runCollect(SITELINKS, "https://duckduckgo.com/?q=t");
+    if (!results) return;
+    expect(results.map((r) => r.url)).toEqual([
+      "https://one.example/",
+      "https://one.example/p1",
+      "https://one.example/p2",
+      "https://one.example/p3",
+      "https://one.example/p4",
+      "https://one.example/p5",
+      "https://two.example/",
+      "https://three.example/",
+    ]);
   });
 });
 
@@ -279,12 +305,13 @@ describe("sourcesFromSearch", () => {
 
 describe("sourcesFromSearch across searches", () => {
   const check = (u: string) => checkOpen("https://www.google.com/search?q=t", u, "text");
-  test("a second search is numbered after the first; opened pages mark their source read", () => {
+  test("a second search is numbered after the first; an opened page marks its source read, with its final address", () => {
     const first = sourcesFromSearch([], [{ n: 1, title: "A", url: "https://example.org/a", snippet: "" }, { n: 2, title: "B", url: "https://example.org/b", snippet: "" }], [], check);
-    const second = sourcesFromSearch(first, [{ n: 1, title: "C", url: "https://example.org/c", snippet: "" }], [], check, 2);
+    const second = sourcesFromSearch(first, [{ n: 1, title: "C", url: "https://example.org/", snippet: "" }], [], check, 2);
     const opened = sourcesFromSearch(second, [], [{ n: 3, url: "https://example.org/c", title: "C", text: "x" }], check);
     expect(opened.map((s: any) => s.n)).toEqual([1, 2, 3]);
     expect(opened.map((s: any) => s.read)).toEqual([false, false, true]);
+    expect(opened[2].url).toBe("https://example.org/c");
   });
 });
 

@@ -1368,6 +1368,23 @@ describe("search — [[SEARCH: …]] / [[OPEN: …]] markers, search, open and t
     ws.close();
   });
 
+  test("a search with no results, then one with only results already sent: plain notes", async () => {
+    const prompts: string[] = [];
+    const server = boot(scriptedProvider("fixture-search-empty", [["[[SEARCH: q]]"], ["[[SEARCH: r]]"], ["ok"]], prompts));
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "s3", text: "hi", abilities: ["search"] }));
+    await waitFor(messages, (m) => m.type === "search.request");
+    ws.send(JSON.stringify({ type: "search.decline", id: "sd", target: "s3", reason: "no-result" }));
+    await waitFor(messages, (m) => m.type === "search.request" && m.query === "r");
+    ws.send(JSON.stringify({ type: "search.content", id: "sc", target: "s3", query: "r", results: [] }));
+    await waitFor(messages, (m) => m.type === "done");
+    expect(prompts[1]).toContain("This web search returned no results.");
+    expect(prompts[1]).not.toContain("could not be done");
+    expect(prompts[2]).toContain("found only results already listed above");
+    ws.close();
+  });
+
   test("search.decline blocked (refused by the user) -> note telling the model not to ask again", async () => {
     const prompts: string[] = [];
     const server = boot(scriptedProvider("fixture-search-refused", [["[[SEARCH: q]]"], ["answering without it"]], prompts));

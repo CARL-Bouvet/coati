@@ -1,9 +1,9 @@
 // Coati side panel — answers the broker's `search.request` and `open.request`
 // (docs/PROTOCOL.md "Search"). A query runs in the browser's default engine in
-// one background tab reused for the whole question; the results are sent as
-// they are. Pages the model asks to open (after the open guard) load one after
-// another in a second reused tab and are read with their structured data
-// first. Both tabs are left open. Needs the "all sites" permission; without it
+// one background tab reused for the whole question; a result already sent for
+// the question is left out. Pages the model asks to open (after the open
+// guard) load one after another in a second reused tab and are read with their
+// structured data first. Both tabs are left open. Needs the "all sites" permission; without it
 // the answer is `search.decline` / `open.decline` "no-access".
 import { api } from "../lib/browser-compat.js";
 import { checkOpen } from "../lib/open-guard.js";
@@ -61,11 +61,12 @@ function waitForLoad(tabId, ms, afterNavigation) {
   });
 }
 
-// The two reused tabs of the question being answered.
-let session = { id: "", search: undefined, pages: undefined };
+// The question being answered: its two reused tabs, the results already sent
+// (`seen`), and the engine link of each result the engine hides (`via`, by number).
+let session = { id: "" };
 
 function tabsFor(id) {
-  if (session.id !== id) session = { id, search: undefined, pages: undefined };
+  if (session.id !== id) session = { id, search: undefined, pages: undefined, seen: new Set(), via: new Map() };
   return session;
 }
 
@@ -86,24 +87,39 @@ async function readResults(query, slots) {
     args: [SEARCH_MAX_RESULTS],
   });
   const found = injected?.[0]?.result;
-  return Array.isArray(found) ? found.map((r, i) => ({ n: i + 1, ...r })) : [];
+  return Array.isArray(found) ? found : [];
 }
 
-/** Loads `url` in the reused tab and reads it: `{ page }`, or `{ failed: { reason, status? } }`
+/** Same result: same address; when the engine hid it (`via`), same site and title. */
+const resultKey = (r) => (r.via ? `${r.url} ${r.title}` : r.url);
+
+/** Resolves true once the tab has left `origin` and finished loading, false after `ms`. */
+async function leaveOrigin(tabId, origin, ms) {
+  for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 200))) {
+    const tab = await liveTab(tabId);
+    if (!tab) return false;
+    if (tab.status === "complete" && tab.url && new URL(tab.url).origin !== origin) return true;
+  }
+  return false;
+}
+
+/** Loads `url` (through the engine link `via` when the engine hid the address) in
+ * the reused tab and reads it: `{ page }`, or `{ failed: { reason, status? } }`
  * (docs/PROTOCOL.md "Search") when the page the tab ended on (after redirects)
  * fails `mayRead`, answered an HTTP error or has no text. */
-async function readPage(url, slots, mayRead) {
+async function readPage(url, via, slots, mayRead) {
   const existing = await liveTab(slots.pages);
   let tab = existing;
   if (existing) {
     const loaded = waitForLoad(existing.id, TAB_LOAD_TIMEOUT_MS, true);
-    await api.tabs.update(existing.id, { url });
+    await api.tabs.update(existing.id, { url: via ?? url });
     await loaded;
   } else {
-    tab = await api.tabs.create({ url, active: false });
+    tab = await api.tabs.create({ url: via ?? url, active: false });
     await waitForLoad(tab.id, TAB_LOAD_TIMEOUT_MS, false);
   }
   slots.pages = tab.id;
+  if (via) await leaveOrigin(tab.id, new URL(via).origin, TAB_LOAD_TIMEOUT_MS);
   if (!mayRead((await liveTab(tab.id))?.url)) return { failed: { reason: "failed" } };
   const injectedStatus = await api.scripting.executeScript({ target: { tabId: tab.id }, func: navigationStatus }).catch(() => undefined);
   const status = injectedStatus?.[0]?.result;
@@ -203,14 +219,22 @@ export async function onSearchRequest(message) {
   msg.lastQuery = query;
   setStatus(msg, { searchQuery: query, searchIndex: msg.searchRuns, searchMax: SEARCH_MAX_PER_QUESTION });
   try {
-    const results = await readResults(query, tabsFor(id));
-    if (results.length === 0) {
+    const slots = tabsFor(id);
+    const found = await readResults(query, slots);
+    if (found.length === 0) {
       await decline("search.decline", id, "no-result");
       return;
     }
+    const offset = msg.resultTotal ?? 0;
+    const fresh = found.filter((r) => !slots.seen.has(resultKey(r)));
+    const results = fresh.map(({ title, url, snippet, via }, i) => {
+      slots.seen.add(resultKey({ title, url, via }));
+      if (via) slots.via.set(offset + i + 1, via);
+      return { n: i + 1, title, url, snippet };
+    });
     const level = panelState.devModePreference ? "dev" : "text";
-    msg.sources = sourcesFromSearch(msg.sources ?? [], results, [], (url) => checkOpen(currentPageUrl, url, level), msg.resultTotal ?? 0);
-    msg.resultTotal = (msg.resultTotal ?? 0) + results.length;
+    msg.sources = sourcesFromSearch(msg.sources ?? [], results, [], (url) => checkOpen(currentPageUrl, url, level), offset);
+    msg.resultTotal = offset + results.length;
     await sendClientMessage({ type: "search.content", id: newId(), target: id, query, results });
   } catch {
     await decline("search.decline", id, "failed");
@@ -242,7 +266,7 @@ export async function onOpenRequest(message) {
     const pages = [];
     const failed = [];
     for (const ref of allowed) {
-      const read = await readPage(ref.url, slots, (final) => openedPageReadable(check, ref.url, final)).catch(() => ({ failed: { reason: "failed" } }));
+      const read = await readPage(ref.url, slots.via.get(ref.n), slots, (final) => openedPageReadable(check, ref.url, final)).catch(() => ({ failed: { reason: "failed" } }));
       if (read.page) pages.push({ n: ref.n, url: read.page.finalUrl, title: read.page.title || ref.url, text: read.page.text });
       else failed.push({ n: ref.n, ...read.failed });
     }

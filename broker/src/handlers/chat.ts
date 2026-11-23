@@ -37,6 +37,7 @@ import {
   searchDeclinedNote,
   openFailedNote,
   SEARCH_BUDGET_NOTE,
+  SEARCH_REPEAT_NOTE,
 } from "../model.ts";
 import {
   SEARCH_MAX_PER_QUESTION,
@@ -1175,7 +1176,8 @@ async function runChatPageOnDemandLoop(
       runStepNote(message.id, { answer: "results", results: results.length });
       for (const r of results) resultUrls.set(r.n, r.url);
       runs.push({ query: searchQuery, results });
-      if (results.length > 0) queries.push(searchQuery);
+      if (numbered.length === 0) searchNotes.push(SEARCH_REPEAT_NOTE);
+      if (results.length > 0 || numbered.length === 0) queries.push(searchQuery);
     } else if (answer.kind === "open") {
       const error = openContentError(answer.pages, openRefs, answer.failed);
       if (error) {

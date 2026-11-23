@@ -27,6 +27,7 @@ export {
   searchDeclinedNote,
   openFailedNote,
   SEARCH_BUDGET_NOTE,
+  SEARCH_REPEAT_NOTE,
   type PageMeta,
   renderPageMeta,
   pageOnDemandInstruction,

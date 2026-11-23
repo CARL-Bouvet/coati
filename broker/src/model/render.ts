@@ -347,8 +347,12 @@ export function searchDeclinedNote(reason: string): string {
   if (reason === "blocked") {
     return "The user refused this web search. Do not search again for it: answer without it if you can, or say plainly that you need a search and the user declined.";
   }
+  if (reason === "no-result") return "This web search returned no results. Results found earlier for this question, if any, still stand.";
   return `A web search for this request could not be done (${reason}). Answer without it if you can, or say plainly that you need a search and cannot answer without it — never pretend to have searched.`;
 }
+
+// Spliced into the re-run prompt when a search found only results already listed.
+export const SEARCH_REPEAT_NOTE = "This web search found only results already listed above, under their first number.";
 
 // Spliced into the re-run prompt for pages asked for and not read.
 export function openFailedNote(refs: readonly number[], reason: string): string {
