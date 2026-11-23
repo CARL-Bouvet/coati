@@ -5,7 +5,8 @@
 import { t } from "../lib/i18n-page.js";
 import { formatTokensK, hardwareRows, limitSentences } from "../lib/labels.js";
 
-const seconds = (ms) => t("runlog_total_time", [((ms || 0) / 1000).toFixed(1)]);
+const seconds = (ms) =>
+  t("runlog_total_time", [((ms || 0) / 1000).toLocaleString((typeof document !== "undefined" && document.documentElement.lang) || undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })]);
 
 function el(doc, tag, className, text) {
   const node = doc.createElement(tag);
@@ -87,7 +88,7 @@ function renderCall(doc, step, limits) {
     doc,
     row,
     "runlog-tokens",
-    step.uncounted ? t("runlog_uncounted") : t("runlog_tokens_in_out", [formatTokensK(step.inputTokens), String(step.outputTokens || 0)]),
+    step.uncounted ? t("runlog_uncounted") : t("runlog_tokens_in_out", [formatTokensK(step.inputTokens), formatTokensK(step.outputTokens)]),
   );
   cell(doc, row, "runlog-ms", seconds(step.ms));
   cell(doc, row, "runlog-stop", STOP_KEYS[step.stop] ? t(STOP_KEYS[step.stop]) : "");

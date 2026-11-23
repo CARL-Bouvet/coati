@@ -45,6 +45,23 @@ describe("_locales — every key exists in every language", () => {
   });
 });
 
+describe("setup — « Speed up Ollama » data and keys", () => {
+  test("every setup_speedup_* key used by options-setup.js exists", () => {
+    const source = readFileSync(join(EXT, "options-setup.js"), "utf8");
+    const used = [...source.matchAll(/t\("(setup_speedup_[a-z_]+)"/g)].map((m) => m[1]);
+    expect(used.length).toBeGreaterThan(10);
+    expect(used.filter((k) => !messagesByLang.en[k])).toEqual([]);
+  });
+
+  test("manual Linux command is built from OLLAMA_SPEEDUP.env; issue link is the bug template", async () => {
+    const { OLLAMA_SPEEDUP } = await import(join(EXT, "lib", "setup-data.js"));
+    const source = readFileSync(join(EXT, "options-setup.js"), "utf8");
+    expect(source).toContain('"ollama serve"');
+    expect(OLLAMA_SPEEDUP.env.map(([name]: string[]) => name)).toEqual(["OLLAMA_FLASH_ATTENTION", "OLLAMA_KV_CACHE_TYPE"]);
+    expect(OLLAMA_SPEEDUP.issueUrl).toBe("https://github.com/CARL-Bouvet/coati/issues/new?template=bug_report.md");
+  });
+});
+
 describe("_locales — placeholders match across languages", () => {
   for (const key of Object.keys(messagesByLang.en)) {
     test(`${key}: same $PLACEHOLDER$ set in every language`, () => {

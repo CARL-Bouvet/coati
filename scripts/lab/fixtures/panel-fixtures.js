@@ -1815,6 +1815,34 @@
       prompts: [],
     },
 
+    // Page sent, model thinking for 2 min 05 s: the status line names the
+    // stage and ticks the time (stageSince is seeded; the lab clock keeps it).
+    "page-reading-thinking": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "pt-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
+          {
+            id: "pt1",
+            role: "assistant",
+            text: "",
+            streaming: true,
+            pageReading: { kTokens: "30" },
+            progress: "thinking",
+            stageKey: "thinking",
+            stageSince: Date.now() - 125_000,
+          },
+        ],
+        "coati:devMode": false,
+        "coati:devModeAcknowledged": true,
+      },
+      prompts: [],
+    },
+
     // The three mention-line variants under a finished answer
     // (buildPageMention(), chat-stream.js) — read at text level, read at
     // dev level, and declined/not read.

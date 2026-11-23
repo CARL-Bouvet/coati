@@ -13,12 +13,11 @@ import {
   MAX_PAGE_CHARS,
 } from "../logging.ts";
 import { DEFAULT_OLLAMA_URL } from "../config.ts";
-import { fetchPsEntries, matchesModel, ollamaContentChars, listModelEntries as listOllamaModelEntries } from "../providers/ollama.ts";
+import { fetchPsEntries, matchesModel, ollamaContentChars, ollamaPromptChars, listModelEntries as listOllamaModelEntries } from "../providers/ollama.ts";
 import { isLoopbackHost } from "../providers/openai-compat.ts";
 import type { ModelProvider, ProviderRuntimeOptions } from "../providers/types.ts";
 import {
   buildPrompt,
-  buildSystemPrompt,
   HISTORY_CHAR_BUDGET,
   isAuthRequiredError,
   isQuotaExceededError,
@@ -99,6 +98,9 @@ function classifyProviderError(err: unknown): { code: ErrorCode; retryAfterSec?:
   return { code, retryAfterSec, outcome, message };
 }
 
+/** Gap between two `progress` thinking notifications of one call. */
+export const THINKING_PROGRESS_REPEAT_MS = 30_000;
+
 /** Handle a provider call's own in-flight `progress` notifications
  * (Ollama-only, docs/PROTOCOL.md's `progress` message) — factored out of
  * runStream so the page-on-demand loop (runOnDemandCall below) gets the
@@ -110,7 +112,8 @@ interface ProgressTracker {
    * it) — stops the /api/ps poll. Idempotent. */
   markFirstChunk(): void;
   /** Call on a `thinking` event, before any content chunk — emits
-   * progress:thinking at most once, never after a content chunk. */
+   * progress:thinking, repeated at most every THINKING_PROGRESS_REPEAT_MS,
+   * never after a content chunk. */
   markThinking(): void;
   /** Call once the stream is done/erroring/cancelled — stops the poll loop
    * for good, whichever way the call ended. */
@@ -132,9 +135,9 @@ async function startProgressTracking(
 ): Promise<ProgressTracker> {
   let firstChunkSent = false;
   let progressPollingDone = false;
-  // Thinking stage — sent at most once, before
-  // any content, when the provider emits a thinking event (thinking-only model).
-  let thinkingProgressSent = false;
+  // Thinking stage: sent before any content when the provider emits thinking
+  // events, and repeated so the panel's deadline keeps being pushed back.
+  let thinkingSentAt = -Infinity;
 
   if (provider.id === "ollama") {
     const ollamaUrl = providerOpts.ollamaUrl ?? DEFAULT_OLLAMA_URL;
@@ -169,8 +172,9 @@ async function startProgressTracking(
       progressPollingDone = true;
     },
     markThinking() {
-      if (!thinkingProgressSent && !firstChunkSent) {
-        thinkingProgressSent = true;
+      const now = Date.now();
+      if (!firstChunkSent && now - thinkingSentAt >= THINKING_PROGRESS_REPEAT_MS) {
+        thinkingSentAt = now;
         send(ws, { type: "progress", id, stage: "thinking" });
       }
     },
@@ -464,6 +468,9 @@ const MIN_PAGE_ROOM_CHARS = 2000;
 // reports no context size to this broker, so 32768 is a conservative guess.
 const CLAUDE_CONTEXT_TOKENS = 200_000;
 const OTHER_PROVIDER_CONTEXT_TOKENS = 32_768;
+// A continuation's range note ("characters a–b of n") is built with an empty
+// text while sizing and carries the real end afterwards.
+const PART_RANGE_SLACK_CHARS = 16;
 // A cut lands on a line break when one falls within this share of the room.
 const LINE_BREAK_WINDOW = 0.02;
 const MARKER_DRAIN_MS = 2000;
@@ -580,7 +587,7 @@ export async function fitPageContent(
   const text = context.text ?? "";
   const base: Context = from > 0 ? { ...context, facts: undefined, items: undefined, elements: undefined } : context;
   const empty = build({ ...base, text: "" });
-  const overhead = empty.prompt.length + buildSystemPrompt(empty.nonce, empty.lang).length;
+  const overhead = ollamaPromptChars(empty) + (from > 0 ? PART_RANGE_SLACK_CHARS : 0);
   const contextTokens = await resolveActiveContextTokens(provider, providerOpts);
   const room = pageContentRoom(contextTokens, overhead, { ollama: provider.id === "ollama", hasHistory });
   let end = Math.min(text.length, from + room);
@@ -802,8 +809,10 @@ function makeRunTally(id: string, provider: ModelProvider, providerOpts: Provide
         evalMs += r.stats.evalMs;
         evalTokens += r.usage.outputTokens;
       }
-      if (r.stop === "length") {
-        memoryFull = { tokens: r.usage.inputTokens + r.usage.outputTokens, ...(r.stats?.numCtx !== undefined ? { contextTokens: r.stats.numCtx } : {}) };
+      // Past num_ctx, Ollama drops the oldest tokens and keeps going instead of stopping on length.
+      const total = r.usage.inputTokens + r.usage.outputTokens;
+      if (r.stop === "length" || (r.stats?.numCtx !== undefined && !r.usage.uncounted && total > r.stats.numCtx)) {
+        memoryFull = { tokens: total, ...(r.stats?.numCtx !== undefined ? { contextTokens: r.stats.numCtx } : {}) };
       }
     },
     async end(): Promise<{ limits?: RunLimits; reasoned?: true }> {
@@ -958,18 +967,19 @@ async function runChatPageOnDemandLoop(
     if (!searchNotes.includes(SEARCH_BUDGET_NOTE)) searchNotes.push(SEARCH_BUDGET_NOTE);
   };
 
-  const rebuild = () =>
+  // The prompt of the next call; the page-fitting step builds with the page part it is sizing.
+  const rebuild = (context = pageContext, read = pageRead) =>
     buildPrompt(
       {
         kind: "chat",
         text: message.text,
-        page: pageContext || declinedPageRead ? undefined : message.page,
-        context: pageContext,
+        page: context || declinedPageRead ? undefined : message.page,
+        context,
         devMode,
         declinedPageRead,
         // After a text read, still offer the dev marker when devMode allows
         // it and dev hasn't been used yet; never after a dev read.
-        offerDevRead: turnsLeft() && pageRead && devMode && canTriggerRead("dev"),
+        offerDevRead: turnsLeft() && read && devMode && canTriggerRead("dev"),
         search: runs.length > 0 ? { searches: runs, pages } : undefined,
         searchNotes,
         offerSearch: canSearch && turnsLeft() && searches < SEARCH_MAX_PER_QUESTION && roomLeft(),
@@ -1193,7 +1203,7 @@ async function runChatPageOnDemandLoop(
         answer.level,
         answer.context,
         0,
-        (c) => buildPrompt({ kind: "chat", text: message.text, context: c, devMode, history: message.history }, lang),
+        (c) => rebuild(c, true),
         provider,
         providerOpts,
         (message.history?.length ?? 0) > 0,

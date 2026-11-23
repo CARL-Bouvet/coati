@@ -12,7 +12,7 @@ import { t } from "../lib/i18n-page.js";
 import { els } from "./dom-refs.js";
 import { panelState, MAX_PERSISTED_MESSAGES } from "./panel-state.js";
 import { renderMarkdown } from "./markdown.js";
-import { buildProgress, buildSlowTip } from "./model-advice.js";
+import { buildProgress, buildElapsed, buildSlowTip, elapsedText, progressKey } from "./model-advice.js";
 import { isNearBottom } from "./scroll.js";
 import { parseTimestamps } from "./timestamps.js";
 import { parseElementRefs, resolveElementClick } from "./element-refs.js";
@@ -324,6 +324,44 @@ function answerLinks(msg) {
   return { ctx: linkContext(urls, currentPageUrl, readUntrusted), t };
 }
 
+// One ticker, for the one answer still waiting for its first word: the time
+// since the current stage began (restarts when the stage changes).
+let waitTimer;
+let waitId;
+
+function stopWaitTimer() {
+  clearInterval(waitTimer);
+  waitTimer = waitId = undefined;
+}
+
+function tickWait() {
+  const msg = panelState.conversation.find((m) => m.id === waitId);
+  const el = document.querySelector(`#msg-${waitId} .message-elapsed`);
+  if (!msg || !msg.streaming || msg.text || !el) return stopWaitTimer();
+  el.textContent = elapsedText(Date.now() - msg.stageSince, t);
+}
+
+/** Returns the elapsed text to draw, or undefined when `msg` isn't waiting. */
+function trackWait(msg, waiting) {
+  if (!waiting) {
+    if (waitId === msg.id) stopWaitTimer();
+    return undefined;
+  }
+  const key = msg.progress ?? "";
+  if (msg.stageKey !== key) {
+    msg.stageKey = key;
+    msg.stageSince = Date.now();
+  }
+  if (waitId !== msg.id) {
+    stopWaitTimer();
+    waitId = msg.id;
+    waitTimer = setInterval(tickWait, 1000);
+  }
+  return elapsedText(Date.now() - msg.stageSince, t);
+}
+
+const withoutEllipsis = (s) => s.replace(/…$/, "");
+
 export function renderMessage(msg, { append = false } = {}) {
   let node = document.getElementById(`msg-${msg.id}`);
   // Capture BEFORE mutating the DOM: appending/growing the node can itself
@@ -341,6 +379,7 @@ export function renderMessage(msg, { append = false } = {}) {
   // Coati is doing right now than "thinking"/"loading".
   const reading = msg.streaming && !!msg.pageReading;
   const waiting = !reading && msg.streaming && !msg.text && !!msg.progress;
+  const elapsed = trackWait(msg, (reading || waiting) && !msg.text);
   node.className = `message message--${msg.role}${msg.streaming ? " message--streaming" : ""}${waiting || reading ? " message--progress" : ""}`;
 
   if (msg.role === "notice") {
@@ -365,11 +404,13 @@ export function renderMessage(msg, { append = false } = {}) {
       const line = document.createElement("p");
       line.className = "search-status-line message-page-reading";
       const r = msg.pageReading;
-      line.textContent = r.searchQuery
+      const status = r.searchQuery
         ? t("panel_search_status", [String(r.searchIndex), String(r.searchMax), r.searchQuery])
         : r.openCount
           ? t("panel_open_status", [String(r.openCount)])
           : t("panel_page_reading_status", [r.kTokens]);
+      const stage = msg.progress ? withoutEllipsis(t(progressKey(msg.progress, true))) : "";
+      line.append(stage ? `${withoutEllipsis(status)} · ${stage} · ` : `${withoutEllipsis(status)} · `, buildElapsed(document, elapsed));
       node.appendChild(line);
     }
     if (waiting) {
@@ -378,6 +419,7 @@ export function renderMessage(msg, { append = false } = {}) {
           stage: msg.progress,
           readsPage: msg.readsPage === true,
           t,
+          elapsed,
         }),
       );
     }

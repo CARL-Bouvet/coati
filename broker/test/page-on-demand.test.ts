@@ -15,10 +15,11 @@ import {
 } from "../src/protocol.ts";
 import { buildPrompt } from "../src/model.ts";
 import { PageMarkerDetector, MARKER_TEXT, MARKER_DEV } from "../src/model/page-marker.ts";
-import { pageContentRoom, resolveActiveContextTokens, searchCharBudget, PAGE_REQUEST_TIMEOUT_MS, SEARCH_REQUEST_TIMEOUT_MS } from "../src/handlers/chat.ts";
+import { pageContentRoom, resolveActiveContextTokens, THINKING_PROGRESS_REPEAT_MS, searchCharBudget, PAGE_REQUEST_TIMEOUT_MS, SEARCH_REQUEST_TIMEOUT_MS } from "../src/handlers/chat.ts";
 import { startServer, MAX_PAGE_CHARS } from "../src/server.ts";
 import { __setProvidersForTests, __resetProvidersForTests } from "../src/providers/registry.ts";
-import { __setFetchImplForTests, __resetFetchImplForTests } from "../src/providers/ollama.ts";
+import { __setFetchImplForTests, __resetFetchImplForTests, ollamaPromptChars } from "../src/providers/ollama.ts";
+import { __overrideCapacityForTests, __resetHostForTests } from "../src/host.ts";
 import type { ModelProvider } from "../src/providers/types.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
 import { connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
@@ -266,6 +267,8 @@ afterEach(() => {
   for (const s of servers) s.stop(true);
   servers = [];
   __resetProvidersForTests();
+  __resetHostForTests();
+  __resetFetchImplForTests();
 });
 
 async function connect(server: ReturnType<typeof startServer>): Promise<WebSocket> {
@@ -482,6 +485,27 @@ describe("page on demand — re-run flow with a fake provider", () => {
       const reply: any = await waitFor(messages, (m) => m.type === "run");
       expect(reply.run.steps[0]).toMatchObject({ stop: "length", reasoning: "SECRET_REASONING", inputTokens: 7000 });
       expect(reply.run.limits).toEqual(done.limits);
+      ws.close();
+    } finally {
+      __resetFetchImplForTests();
+    }
+  });
+
+  test("an Ollama call that went past num_ctx without stopping is memoryFull too", async () => {
+    __setFetchImplForTests((async () => new Response(JSON.stringify({ models: [] }), { status: 200 })) as unknown as typeof fetch);
+    try {
+      const server = boot({
+        ...fakeOnDemandProvider("ollama"),
+        async *streamAnswer() {
+          yield { kind: "delta", text: "answer" };
+          yield { kind: "usage", usage: { inputTokens: 5877, outputTokens: 5382 }, stats: { numCtx: 8192 } };
+        },
+      });
+      const ws = await connect(server);
+      const messages = collectMessages(ws);
+      ws.send(JSON.stringify({ type: "chat", id: "ovf1", text: "hi" }));
+      const done: any = await waitFor(messages, (m) => m.type === "done");
+      expect(done.limits.memoryFull).toEqual({ tokens: 11259, contextTokens: 8192 });
       ws.close();
     } finally {
       __resetFetchImplForTests();
@@ -957,6 +981,87 @@ describe("page on demand — fix 4 (Ollama progress notifications in the loop)",
     expect(progressAfterReq.length).toBe(2);
 
     ws.close();
+  });
+
+  test("the page part is sized with the offers the read call carries: the whole prompt stays within the fixed window", async () => {
+    __overrideCapacityForTests({ ramGb: 32, vramGb: 8 });
+    __setFetchImplForTests(
+      (async (url: string) => {
+        const u = String(url);
+        if (u.endsWith("/api/tags")) return new Response(JSON.stringify({ models: [{ name: "x", digest: "d", size: 5_200_000_000 }] }), { status: 200 });
+        if (u.endsWith("/api/show")) return new Response("{}", { status: 200 });
+        return new Response(JSON.stringify({ models: [{ name: "x", size: 1, size_vram: 1 }] }), { status: 200 });
+      }) as unknown as typeof fetch,
+    );
+    const prompts: string[] = [];
+    const provider: ModelProvider = {
+      id: "ollama",
+      label: "ollama",
+      async isAvailable() {
+        return { available: true };
+      },
+      async checkStatus() {
+        return { state: "ok", reason: "ready" };
+      },
+      async *streamAnswer(built: any) {
+        prompts.push(built.prompt);
+        if (prompts.length === 1) yield { kind: "delta", text: MARKER_TEXT };
+        else yield { kind: "delta", text: "answered" };
+        yield { kind: "usage", usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    };
+    const server = boot(provider);
+    const ws = await connect(server);
+    const messages = collectMessages(ws);
+    ws.send(JSON.stringify({ type: "chat", id: "fit1", text: "hi", abilities: ["search"], devMode: true, page: { title: "T", url: "https://example.com", chars: 87_000 } }));
+    await waitFor(messages, (m) => m.type === "page.request");
+    ws.send(JSON.stringify({ type: "page.content", id: "pc1", target: "fit1", level: "text", context: { kind: "page", text: "mot ".repeat(22_000) } }));
+    await waitFor(messages, (m) => m.type === "done");
+    expect(prompts[1]).toContain("mot mot");
+    expect(ollamaPromptChars({ prompt: prompts[1]!, nonce: prompts[1]!.match(/<<<coati-(\w+)/)![1]!, lang: "en" })).toBeLessThanOrEqual((8192 - 1024) * 3);
+    ws.close();
+  });
+
+  test("thinking progress repeats every THINKING_PROGRESS_REPEAT_MS while reasoning continues, never after content", async () => {
+    __setFetchImplForTests(
+      (async () => new Response(JSON.stringify({ models: [{ name: "x", size: 1, size_vram: 1 }] }), { status: 200 })) as unknown as typeof fetch,
+    );
+    const start = Date.now();
+    let clock = start;
+    const nowSpy = spyOn(Date, "now").mockImplementation(() => clock);
+    try {
+      const provider: ModelProvider = {
+        id: "ollama",
+        label: "ollama",
+        async isAvailable() {
+          return { available: true };
+        },
+        async checkStatus() {
+          return { state: "ok", reason: "ready" };
+        },
+        async *streamAnswer() {
+          for (let i = 0; i < 7; i++) {
+            yield { kind: "thinking", text: "hmm" };
+            clock += THINKING_PROGRESS_REPEAT_MS / 3;
+          }
+          yield { kind: "delta", text: "answered" };
+          yield { kind: "thinking", text: "late" };
+          clock += THINKING_PROGRESS_REPEAT_MS;
+          yield { kind: "thinking", text: "late" };
+          yield { kind: "usage", usage: { inputTokens: 1, outputTokens: 1 } };
+        },
+      };
+      const server = boot(provider);
+      const ws = await connect(server);
+      const messages = collectMessages(ws);
+      ws.send(JSON.stringify({ type: "chat", id: "th1", text: "hi", context: { kind: "page", text: "txt" } }));
+      await waitFor(messages, (m) => m.type === "done", 1e9); // the clock is faked: waitFor's own deadline must outlast it
+      // Events at 0, 1/3, …, 2 periods: sent at 0, 1 and 2 periods.
+      expect(messages.filter((m) => m.type === "progress" && (m as { stage: string }).stage === "thinking").length).toBe(3);
+      ws.close();
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 });
 

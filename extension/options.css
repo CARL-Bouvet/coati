@@ -685,6 +685,13 @@ h4.setup-subtitle {
   font-weight: 600;
 }
 
+.setup-speedup-case-title {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-s);
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .setup-memory-hint:empty { display: none; }
 
 .setup-warning {

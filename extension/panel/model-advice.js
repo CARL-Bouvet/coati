@@ -30,6 +30,13 @@ export function progressKey(stage, readsPage) {
   return readsPage ? "panel_progress_reading_page" : "panel_progress_reading_request";
 }
 
+/** "40 s" / "2 min 05 s" — how long the current stage has lasted. */
+export function elapsedText(ms, t) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  if (total < 60) return t("panel_limits_elapsed_sec", [String(total)]);
+  return t("panel_limits_elapsed_min", [String(Math.floor(total / 60)), String(total % 60).padStart(2, "0")]);
+}
+
 /** true when a slow or cut answer earns the tip (only Ollama models get one). */
 export function slowTipFor(entry) {
   return entry?.provider === "ollama";
@@ -45,8 +52,16 @@ export function sharedModelNoticeText(entry, t) {
   return t("panel_shared_model_note", [shortModelName(entry.model)]);
 }
 
+/** The ticking time span, refreshed in place by message-render.js. */
+export function buildElapsed(doc, text) {
+  const el = doc.createElement("span");
+  el.className = "message-elapsed";
+  el.textContent = text;
+  return el;
+}
+
 /** Waiting line: what the model is doing, and why thinking takes longer. */
-export function buildProgress(doc, { stage, readsPage, t }) {
+export function buildProgress(doc, { stage, readsPage, t, elapsed }) {
   const wrap = doc.createElement("div");
   wrap.className = "message-progress";
   wrap.dataset.stage = stage;
@@ -56,6 +71,7 @@ export function buildProgress(doc, { stage, readsPage, t }) {
   label.className = "message-progress-text";
   label.textContent = t(progressKey(stage, readsPage));
   body.append(label);
+  if (elapsed !== undefined) body.append(buildElapsed(doc, elapsed));
   // Thinking-only models reason for minutes: say why it takes longer.
   if (stage === "thinking") {
     const hint = doc.createElement("span");

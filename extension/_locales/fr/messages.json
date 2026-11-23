@@ -414,6 +414,41 @@
       }
     }
   },
+  "panel_limits_elapsed_min": {
+    "message": "$A$ min $B$ s",
+    "placeholders": {
+      "a": { "content": "$1", "example": "2" },
+      "b": { "content": "$2", "example": "05" }
+    }
+  },
+  "panel_limits_elapsed_sec": {
+    "message": "$A$ s",
+    "placeholders": {
+      "a": { "content": "$1", "example": "40" }
+    }
+  },
+  "panel_limits_tokens": {
+    "message": "$KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": { "content": "$1", "example": "3.2" }
+    }
+  },
+  "panel_limits_tokens_uncounted": {
+    "message": "Tokens non comptés"
+  },
+  "panel_limits_tokens_at_least": {
+    "message": "Au moins $KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": { "content": "$1", "example": "3.2" }
+    }
+  },
+  "panel_limits_memory_overflow": {
+    "message": "Le modèle a dépassé sa mémoire ($USED$ k sur $TOTAL$ k tokens) ; une partie de ce qu’il avait lu a été oubliée.",
+    "placeholders": {
+      "used": { "content": "$1", "example": "11" },
+      "total": { "content": "$2", "example": "8" }
+    }
+  },
   "panel_read_rest_button": {
     "message": "Lire la suite"
   },
@@ -1367,6 +1402,24 @@
   "setup_speedup_faq": {
     "message": "Documentation d'Ollama (questions fréquentes)"
   },
+  "setup_speedup_linux_service": {
+    "message": "Ollama tourne comme service système (installation standard)"
+  },
+  "setup_speedup_linux_manual": {
+    "message": "Ollama lancé à la main dans un terminal"
+  },
+  "setup_speedup_linux_manual_step": {
+    "message": "Arrêtez-le (Ctrl+C dans son terminal), puis relancez-le avec cette seule commande :"
+  },
+  "setup_speedup_other_os": {
+    "message": "Autres systèmes"
+  },
+  "setup_speedup_check": {
+    "message": "Utile seulement si, sous une réponse, le volet « Modèle » affiche moins de 100 % à la ligne « Dans la carte graphique ». Après le réglage, ce chiffre doit augmenter."
+  },
+  "setup_speedup_report": {
+    "message": "Ça n'a pas marché ? Signalez-le sur GitHub"
+  },
   "setup_online_service_title": {
     "message": "Choisir un service"
   },
@@ -2253,7 +2306,7 @@
     }
   },
   "runlog_tokens_in_out": {
-    "message": "$IN$ k en entrée / $OUT$ en sortie",
+    "message": "$IN$ k en entrée / $OUT$ k en sortie",
     "placeholders": {
       "in": {
         "content": "$1",
@@ -2314,7 +2367,7 @@
     "message": "arrêté"
   },
   "runlog_answer_results": {
-    "message": "Recherche : $COUNT$ résultats",
+    "message": "Résultats de recherche : $COUNT$",
     "placeholders": {
       "count": {
         "content": "$1",

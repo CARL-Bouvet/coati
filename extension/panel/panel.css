@@ -1199,3 +1199,7 @@ html.mode-dev .message--assistant {
 .model-limits-run[hidden] {
   display: none;
 }
+
+.message-elapsed {
+  font-variant-numeric: tabular-nums;
+}

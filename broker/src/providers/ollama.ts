@@ -481,6 +481,12 @@ function promptTokenEstimate(totalChars: number): number {
   return Math.ceil(totalChars / OLLAMA_CHARS_PER_TOKEN) + OLLAMA_ANSWER_RESERVE_TOKENS;
 }
 
+/** Characters the request's fixed parts (system prompt + user prompt) take in the
+ * estimate — the one measure both the page sizing and `streamAnswer` use. */
+export function ollamaPromptChars(built: BuiltPrompt): number {
+  return buildSystemPrompt(built.nonce, built.lang).length + built.prompt.length;
+}
+
 /** Characters of page content that keep a request whose other parts total
  * `overheadChars` within `contextTokens`, i.e. at `num_ctx === contextTokens`. */
 export function ollamaContentChars(contextTokens: number, overheadChars: number): number {
@@ -639,7 +645,7 @@ export async function* streamAnswer(
   const contextTokens = host ? computeContextTokens(showInfo, matchedTag.sizeBytes, host) : undefined;
 
   const systemPrompt = buildSystemPrompt(built.nonce, built.lang);
-  const totalChars = systemPrompt.length + built.prompt.length;
+  const totalChars = ollamaPromptChars(built);
   const promptEstimate = promptTokenEstimate(totalChars);
   // Use the fixed context size; if the prompt is too large, fall back to the
   // smallest per-request bucket that fits, capped by the model's context_length.

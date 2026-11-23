@@ -240,7 +240,7 @@
 
     // « Accélérer Ollama » open, as
     // the panel's slow-answer tip opens it (options.html#setup-ollama-speedup):
-    // Linux first (systemd), then macOS and Windows.
+    // Linux host: its two cases (service, by hand), the other systems folded.
     "setup-ollama-speedup": guide({
       labPlatform: "Linux",
       labHash: "setup-ollama-speedup",

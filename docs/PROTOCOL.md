@@ -132,7 +132,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `provider.status-result` | `id`, `provider`, `state` (`"ok"`\|`"ko"`\|`"unknown"`), `reason`, `checkedAt`, `baseUrl?` | Reply to `provider.status`. |
 | `models` | `id`, `current`, `entries`, `sources`, `host` | Reply to `models.list`. `current` is `{ provider, model }`. `sources` is `[{ provider, state }]` with `state` `"ok"`, `"unreachable"` or `"not-configured"`. Ollama is always queried; `openai-compat` lists its models when its address is loopback, otherwise offers its remembered model if a key is stored. `host` is `null` when the machine's capacity can't be read. Each entry carries `provider`, `model`, `local`, and when known `sizeBytes`, `thinks?`, `fit?` (`"gpu"`\|`"shared"`\|`"too-big"`), `gpuPercent?`, `contextTokens?`, `vision?`. `host` reports rounded `ramGb`/`vramGb`/`unifiedMemory?`, read locally, never sent anywhere external. |
 | `model.warmup-result` | `id`, `state` (`"loaded"`\|`"already"`\|`"skipped"`\|`"failed"`), `ms?` | Reply to `model.warmup`. |
-| `progress` | `id`, `stage` (`"loading"`\|`"reading"`\|`"thinking"`) | Sent before the first chunk, Ollama only. |
+| `progress` | `id`, `stage` (`"loading"`\|`"reading"`\|`"thinking"`) | Sent before the first chunk, Ollama only. `"thinking"` is repeated every 30 s while the model keeps reasoning, so the panel does not time out on a long reasoning phase. |
 
 ## Run log
 
@@ -150,8 +150,9 @@ limits?: {
                count, limit? }],   // markers Coati ignored; limit = the cap (10 calls, 4 searches,
                                    // 6 pages, 2 reads, budget in characters), absent for unknown-ref
                                    // (no requested result is available to open)
-  memoryFull?: { tokens, contextTokens? },   // a call stopped on length; tokens = input + output of that
-                                             // call; contextTokens = Ollama num_ctx
+  memoryFull?: { tokens, contextTokens? },   // a call stopped on length, or (Ollama) went past num_ctx and
+                                             // dropped its oldest tokens (tokens > contextTokens);
+                                             // tokens = input + output of that call; contextTokens = num_ctx
   cut?: true,          // the visible answer was cut after a stop marker
   answerNow?: true,    // the model wrote only markers; one forced answer call
   local?: { gpuPercent?, contextTokens, tokensPerSec?, vramGb?, unifiedMemory? }   // Ollama only

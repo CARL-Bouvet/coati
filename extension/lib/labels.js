@@ -192,7 +192,7 @@ export function buildPageMention(pageOnDemand, message) {
     return atLeast ? t(key.replace("panel_page_mention_", "panel_limits_") + "_at_least", [kTokens]) : t(key, [kTokens]);
   };
   const page = message.page;
-  if (!page) return pageOnDemand ? mention("panel_page_mention_not_read") : undefined;
+  if (!page) return mention(pageOnDemand ? "panel_page_mention_not_read" : "panel_limits_tokens");
   const base = mention(page.level === "dev" ? "panel_page_mention_read_dev" : "panel_page_mention_read_text");
   const part = pageReadPart(page);
   return part ? `${base} · ${part}` : base;
@@ -219,11 +219,8 @@ export function limitSentences(limits, usage) {
   const out = [];
   const mem = limits?.memoryFull;
   if (mem) {
-    out.push(
-      mem.contextTokens > 0
-        ? t("panel_limits_memory_full_ctx", [formatTokensK(mem.tokens), formatTokensK(mem.contextTokens)])
-        : t("panel_limits_memory_full"),
-    );
+    const key = mem.tokens > mem.contextTokens ? "panel_limits_memory_overflow" : "panel_limits_memory_full_ctx";
+    out.push(mem.contextTokens > 0 ? t(key, [formatTokensK(mem.tokens), formatTokensK(mem.contextTokens)]) : t("panel_limits_memory_full"));
   }
   const seen = new Set();
   for (const r of limits?.refused ?? []) {

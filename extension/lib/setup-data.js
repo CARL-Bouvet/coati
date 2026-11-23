@@ -21,6 +21,7 @@ export const OLLAMA = {
  * reads them (https://docs.ollama.com/faq). */
 export const OLLAMA_SPEEDUP = {
   faqUrl: "https://docs.ollama.com/faq",
+  issueUrl: "https://github.com/CARL-Bouvet/coati/issues/new?template=bug_report.md",
   env: [
     ["OLLAMA_FLASH_ATTENTION", "1"],
     ["OLLAMA_KV_CACHE_TYPE", "q8_0"],

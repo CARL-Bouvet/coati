@@ -27,8 +27,8 @@ export async function loadConversation() {
  * page) and tab/extraction-specific — kept in memory only, same reasoning as
  * `context`/`pendingRetries` (project rule 17). `pageReading` (page-request.js's
  * transient "Reading the page…" status) is mid-request-only, meaningless after
- * a reload. The in-memory objects (and their rendered buttons) keep both. */
-export function storable({ elementsSnapshot, pageReading, ...rest }) {
+ * a reload, like the stage timer (`stageKey`/`stageSince`). The in-memory objects (and their rendered buttons) keep both. */
+export function storable({ elementsSnapshot, pageReading, stageKey, stageSince, ...rest }) {
   return rest;
 }
 

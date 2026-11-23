@@ -414,6 +414,41 @@
       }
     }
   },
+  "panel_limits_elapsed_min": {
+    "message": "$A$ 分 $B$ 秒",
+    "placeholders": {
+      "a": { "content": "$1", "example": "2" },
+      "b": { "content": "$2", "example": "05" }
+    }
+  },
+  "panel_limits_elapsed_sec": {
+    "message": "$A$ 秒",
+    "placeholders": {
+      "a": { "content": "$1", "example": "40" }
+    }
+  },
+  "panel_limits_tokens": {
+    "message": "$KTOKENS$ k token",
+    "placeholders": {
+      "ktokens": { "content": "$1", "example": "3.2" }
+    }
+  },
+  "panel_limits_tokens_uncounted": {
+    "message": "未统计 token"
+  },
+  "panel_limits_tokens_at_least": {
+    "message": "至少 $KTOKENS$ k token",
+    "placeholders": {
+      "ktokens": { "content": "$1", "example": "3.2" }
+    }
+  },
+  "panel_limits_memory_overflow": {
+    "message": "模型超出了其记忆容量（$USED$ k / $TOTAL$ k token），已读内容的一部分被遗忘。",
+    "placeholders": {
+      "used": { "content": "$1", "example": "11" },
+      "total": { "content": "$2", "example": "8" }
+    }
+  },
   "panel_read_rest_button": {
     "message": "继续阅读"
   },
@@ -1367,6 +1402,24 @@
   "setup_speedup_faq": {
     "message": "Ollama 文档（常见问题）"
   },
+  "setup_speedup_linux_service": {
+    "message": "Ollama 作为系统服务运行（标准安装）"
+  },
+  "setup_speedup_linux_manual": {
+    "message": "在终端中手动启动的 Ollama"
+  },
+  "setup_speedup_linux_manual_step": {
+    "message": "先停止它（在其终端中按 Ctrl+C），然后只用下面这一条命令重新启动："
+  },
+  "setup_speedup_other_os": {
+    "message": "其他系统"
+  },
+  "setup_speedup_check": {
+    "message": "仅当回答下方“模型”折叠栏中“在显卡中”一行显示低于 100% 时才有用。设置后，这个比例应该会上升。"
+  },
+  "setup_speedup_report": {
+    "message": "没有生效？请在 GitHub 上反馈"
+  },
   "setup_online_service_title": {
     "message": "选择服务"
   },
@@ -2253,7 +2306,7 @@
     }
   },
   "runlog_tokens_in_out": {
-    "message": "输入 $IN$ k / 输出 $OUT$",
+    "message": "输入 $IN$ k / 输出 $OUT$ k",
     "placeholders": {
       "in": {
         "content": "$1",
@@ -2314,7 +2367,7 @@
     "message": "已停止"
   },
   "runlog_answer_results": {
-    "message": "搜索：$COUNT$ 条结果",
+    "message": "搜索结果：$COUNT$",
     "placeholders": {
       "count": {
         "content": "$1",

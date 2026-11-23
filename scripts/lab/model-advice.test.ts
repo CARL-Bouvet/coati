@@ -5,6 +5,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { groupModels } from "../../extension/lib/model-list.js";
 import {
+  elapsedText,
   isSlowFirstWord,
   progressKey,
   readProgressStage,
@@ -104,3 +105,11 @@ describe("tip after a slow or cut answer", () => {
   });
 });
 
+
+describe("elapsed time of a stage", () => {
+  test("seconds under a minute, then minutes and zero-padded seconds", () => {
+    expect(elapsedText(40_900, t)).toBe("panel_limits_elapsed_sec|40");
+    expect(elapsedText(125_000, t)).toBe("panel_limits_elapsed_min|2|05");
+    expect(elapsedText(-5, t)).toBe("panel_limits_elapsed_sec|0");
+  });
+});

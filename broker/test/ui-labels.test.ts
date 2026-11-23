@@ -117,8 +117,9 @@ describe("buildPageMention / nextReadPart", () => {
     expect(nextReadPart(end)).toBeUndefined();
   });
 
-  test("no done.page: a line only for a page-on-demand answer", () => {
-    expect(buildPageMention(false, {})).toBeUndefined();
+  test("no done.page: the page-on-demand line, else the token count alone", () => {
+    expect(buildPageMention(false, { usage: { inputTokens: 9000, outputTokens: 1000 } })).toBe("10 k tokens");
+    expect(buildPageMention(false, { usage: { inputTokens: 900, outputTokens: 100, uncounted: true } })).toMatch(/^Au moins 1[.,]0 k tokens$/);
     expect(buildPageMention(true, {})).toContain("N'a pas lu la page");
   });
 });
@@ -146,6 +147,7 @@ describe("model limits", () => {
   test("memory full without contextTokens uses the plain sentence; nothing hit gives nothing", () => {
     expect(limitSentences({ memoryFull: { tokens: 900 } }, {})).toHaveLength(1);
     expect(limitSentences({ memoryFull: { tokens: 900 } }, {})[0]).not.toMatch(/\d/);
+    expect(limitSentences({ memoryFull: { tokens: 11259, contextTokens: 8192 } })[0]).not.toBe(limitSentences({ memoryFull: { tokens: 7600, contextTokens: 8192 } })[0]);
     expect(limitSentences({ local: { contextTokens: 8000 } }, {})).toEqual([]);
   });
 

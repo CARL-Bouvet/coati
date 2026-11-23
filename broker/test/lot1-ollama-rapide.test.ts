@@ -11,6 +11,7 @@ import {
   streamAnswer as ollamaStreamAnswer,
   computeContextTokens,
   ollamaContentChars,
+  ollamaProvider,
   warmupModel,
   __setFetchImplForTests,
   __resetFetchImplForTests,
@@ -25,6 +26,7 @@ import {
 } from "../src/model.ts";
 import type { HostCapacity } from "../src/protocol.ts";
 import { startServer } from "../src/server.ts";
+import { fitPageContent } from "../src/handlers/chat.ts";
 import type { ServerMessage } from "../src/protocol.ts";
 import { makeTmpDir } from "./helpers/tmp-dir.ts";
 import { connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
@@ -409,6 +411,33 @@ describe("streamAnswer — page content sized with ollamaContentChars keeps the 
   test("a few characters more fall back to a larger per-request window", async () => {
     const { numCtx, contextTokens } = await numCtxFor(10);
     expect(numCtx).toBeGreaterThan(contextTokens);
+  });
+});
+
+describe("fitPageContent — a page-read call stays at the model's fixed context", () => {
+  async function numCtxOf(built: ReturnType<typeof buildPrompt>): Promise<number> {
+    let numCtx = 0;
+    __setFetchImplForTests(
+      fakeOllamaFetch(async (init) => {
+        numCtx = (JSON.parse(String(init.body)) as { options: { num_ctx: number } }).options.num_ctx;
+        return ndjsonResponse([{ message: { content: "ok" } }, { done: true, prompt_eval_count: 1, eval_count: 1 }]);
+      }),
+    );
+    for await (const _ of ollamaStreamAnswer(built, { ...OLLAMA_OPTS, timeoutMs: 5000 })) void _;
+    return numCtx;
+  }
+
+  test("with the offers of the read call, the largest page part runs at 8192 and one more character does not", async () => {
+    __overrideCapacityForTests({ ramGb: 32, vramGb: 8 });
+    __setFetchImplForTests(fakeOllamaFetch(async () => ndjsonResponse([])));
+    const text = "mot ".repeat(22_000);
+    const build = (c: { kind: "page"; text?: string }) =>
+      buildPrompt({ kind: "chat", text: "Qui est Tesla ?", context: c, devMode: true, offerDevRead: true, offerSearch: true, offerOpen: true });
+    const fit = await fitPageContent("text", { kind: "page", text }, 0, build, ollamaProvider, OLLAMA_OPTS, false);
+    expect(fit.report.truncated).toBe(true);
+    const sent = fit.context.text ?? "";
+    expect(await numCtxOf(build(fit.context as { kind: "page"; text: string }))).toBe(8192);
+    expect(await numCtxOf(build({ kind: "page", text: text.slice(0, sent.length + 1) }))).toBe(16384);
   });
 });
 

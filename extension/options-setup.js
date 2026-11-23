@@ -293,10 +293,23 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   const speedupSummary = speedupFold.summary;
   const speedupBody = speedupFold.body;
   speedupBody.append(el("p", "setup-text", t("setup_speedup_intro")));
-  const speedupOrder = os ? [os, ...Object.keys(OS_NAMES).filter((key) => key !== os)] : Object.keys(OS_NAMES);
-  for (const key of speedupOrder) speedupBody.append(speedupOsBlock(key));
+  speedupBody.append(el("p", "setup-text", t("setup_speedup_check")));
+  const otherOs = Object.keys(OS_NAMES).filter((key) => key !== os);
+  if (os) {
+    speedupBody.append(speedupOsBlock(os));
+    const otherSystems = el("details", "fold fold--inner setup-speedup-others");
+    const otherSystemsBody = el("div", "fold-body");
+    otherSystems.append(el("summary", null, t("setup_speedup_other_os")), otherSystemsBody);
+    for (const key of otherOs) otherSystemsBody.append(speedupOsBlock(key));
+    speedupBody.append(otherSystems);
+  } else {
+    for (const key of Object.keys(OS_NAMES)) speedupBody.append(speedupOsBlock(key));
+  }
   const speedupLinks = el("p", "setup-links");
-  speedupLinks.append(externalLink(OLLAMA_SPEEDUP.faqUrl, t("setup_speedup_faq")));
+  speedupLinks.append(
+    externalLink(OLLAMA_SPEEDUP.faqUrl, t("setup_speedup_faq")),
+    externalLink(OLLAMA_SPEEDUP.issueUrl, t("setup_speedup_report")),
+  );
   speedupBody.append(speedupLinks);
 
   localRoot.append(guide.details, speedup);
@@ -308,7 +321,12 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
     const section = el("section", "setup-speedup-os");
     section.dataset.os = key;
     section.append(el("h4", "setup-speedup-os-title", OS_NAMES[key]));
-    const list = el("ol", "setup-os-list setup-speedup-steps");
+    let list;
+    const newList = (title) => {
+      if (title) section.append(el("h5", "setup-speedup-case-title", title));
+      list = el("ol", "setup-os-list setup-speedup-steps");
+      section.append(list);
+    };
     const step = (text, ...extra) => {
       const li = el("li", null);
       li.append(el("p", "setup-text", text), ...extra);
@@ -316,14 +334,20 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
     };
     const env = OLLAMA_SPEEDUP.env;
     if (key === "linux") {
+      newList(t("setup_speedup_linux_service"));
       step(t("setup_speedup_linux_edit"), commandLine(OLLAMA_SPEEDUP.linuxEditCommand));
       const lines = ["[Service]", ...env.map(([name, value]) => `Environment="${name}=${value}"`)].join("\n");
       step(t("setup_speedup_linux_add"), commandLine(lines, { block: true }));
       step(t("setup_speedup_linux_restart"), commandLine(OLLAMA_SPEEDUP.linuxRestartCommand));
+      newList(t("setup_speedup_linux_manual"));
+      const serve = [...env.map(([name, value]) => `${name}=${value}`), "ollama serve"].join(" ");
+      step(t("setup_speedup_linux_manual_step"), commandLine(serve));
     } else if (key === "mac") {
+      newList();
       step(t("setup_speedup_mac_set"), ...env.map(([name, value]) => commandLine(`launchctl setenv ${name} ${value}`)));
       step(t("setup_speedup_mac_restart"));
     } else {
+      newList();
       step(t("setup_speedup_win_open"));
       const rows = env.map(([name, value]) => {
         const row = el("div", "setup-env-row");
@@ -333,7 +357,6 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
       step(t("setup_speedup_win_add"), ...rows);
       step(t("setup_speedup_win_restart"));
     }
-    section.append(list);
     return section;
   }
 
