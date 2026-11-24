@@ -147,6 +147,66 @@ describe("settings.set", () => {
     expect(msg.model).toBe("llama3.2");
     ws.close();
   });
+
+  test("recentModels: the last 5 models picked on a provider, most recent first, kept on disk", async () => {
+    __setOllamaFetch((async () => Response.json({ models: [] })) as unknown as typeof fetch);
+    const configDir = makeTmpDir("coati-settings-recent-");
+    const server = boot(configDir);
+    const ws = await connectAndAuth(server);
+    let reply: SettingsMessage | undefined;
+    const set = async (patch: Record<string, unknown>) => {
+      ws.send(JSON.stringify({ type: "settings.set", id: "r", ...patch }));
+      reply = (await nextMessage(ws)) as SettingsMessage;
+    };
+    await set({ provider: "ollama" });
+    expect(reply!.recentModels).toBeUndefined();
+    for (const model of ["a", "b", "a", "c", "d", "e", "f"]) await set({ model });
+    expect(reply!.recentModels).toEqual(["f", "e", "d", "c", "a"]);
+    // Another provider has its own list; switching back without a model adds nothing.
+    await set({ provider: "claude-api" });
+    expect(reply!.recentModels).toBeUndefined();
+    await set({ provider: "ollama" });
+    expect(reply!.recentModels).toEqual(["f", "e", "d", "c", "a"]);
+    ws.close();
+
+    const { loadConfig } = await import("../src/config.ts");
+    expect(loadConfig({ configDir, dataDir: configDir }).recentModels).toEqual({ ollama: ["f", "e", "d", "c", "a"] });
+  });
+
+  test("recentModels: each openai-compat service keeps its own list; malformed entries on disk are dropped", async () => {
+    __setOpenAiFetch((async () => Response.json({ data: [] })) as unknown as typeof fetch);
+    const configDir = makeTmpDir("coati-settings-recent-compat-");
+    const server = boot(configDir);
+    const ws = await connectAndAuth(server);
+    let reply: SettingsMessage | undefined;
+    const set = async (patch: Record<string, unknown>) => {
+      ws.send(JSON.stringify({ type: "settings.set", id: "rc", ...patch }));
+      reply = (await nextMessage(ws)) as SettingsMessage;
+    };
+    const first = "http://127.0.0.1:1234/v1";
+    const second = "http://127.0.0.1:5678/v1";
+    await set({ provider: "openai-compat", baseUrl: first, model: "m1" });
+    await set({ model: "m2" });
+    expect(reply!.recentModels).toEqual(["m2", "m1"]);
+    await set({ baseUrl: second });
+    expect(reply!.recentModels).toBeUndefined();
+    await set({ model: "x1" });
+    expect(reply!.recentModels).toEqual(["x1"]);
+    await set({ baseUrl: first });
+    expect(reply!.recentModels).toEqual(["m2", "m1"]);
+    ws.close();
+
+    const { loadConfig } = await import("../src/config.ts");
+    const { writeFileSync } = await import("node:fs");
+    const path = join(configDir, "config.json");
+    const onDisk = JSON.parse(readFileSync(path, "utf8"));
+    expect(onDisk.compatServices[1].recentModels).toEqual(["x1"]);
+    onDisk.recentModels = { ollama: ["q", 7, "", "q"], "claude-api": "not-a-list" };
+    writeFileSync(path, JSON.stringify(onDisk));
+    const loaded = loadConfig({ configDir, dataDir: configDir });
+    expect(loaded.recentModels).toEqual({ ollama: ["q"] });
+    expect(loaded.compatServices?.[0].recentModels).toEqual(["m2", "m1"]);
+  });
 });
 
 // --- apiKey: write-only end to end (task 2) ---------------------------------

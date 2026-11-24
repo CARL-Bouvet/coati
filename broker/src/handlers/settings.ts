@@ -5,6 +5,7 @@ import {
   DEFAULT_CONFIG,
   resolveApiKey,
   hasCompatKey,
+  recentModelsOf,
   type ProviderId,
   type CoatiConfig,
 } from "../config.ts";
@@ -71,6 +72,7 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
   models?: string[];
   catalog?: CatalogModel[];
   account?: OpenRouterAccount;
+  recentModels?: string[];
   baseUrl?: string;
   services?: CompatServiceInfo[];
 }> {
@@ -143,6 +145,7 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
     ...(svc.model ? { model: svc.model } : {}),
     hasKey: hasCompatKey(config, svc.baseUrl),
   }));
+  const recentModels = recentModelsOf(config);
   return {
     provider,
     model: config.model,
@@ -150,6 +153,7 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
     models,
     ...(catalog ? { catalog } : {}),
     ...(account ? { account } : {}),
+    ...(recentModels?.length ? { recentModels } : {}),
     baseUrl,
     ...(services?.length ? { services } : {}),
   };

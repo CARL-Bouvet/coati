@@ -34,7 +34,12 @@ export interface ModuleConfigEntry {
 export interface CompatService {
   baseUrl: string;
   model?: string;
+  /** Models chosen on this service, most recent first — see rememberRecentModel. */
+  recentModels?: string[];
 }
+
+/** How many chosen models each provider (each openai-compat service) remembers. */
+export const RECENT_MODELS_MAX = 5;
 
 export interface CoatiConfig {
   port: number;
@@ -92,6 +97,9 @@ export interface CoatiConfig {
    * config.model (backward compat). Seeded from provider+model on first
    * load of an older config.json that lacks this field. */
   lastModels?: Record<ProviderId, string>;
+  /** The models the user chose per provider, most recent first (openai-compat keeps one list per
+   * service, in compatServices). Only ids sent in settings.set, never a default. */
+  recentModels?: Record<ProviderId, string[]>;
 }
 
 export interface Dirs {
@@ -230,9 +238,14 @@ export function parseCompatServices(
   if (Array.isArray(raw)) {
     for (const item of raw) {
       if (!item || typeof item !== "object") continue;
-      const { baseUrl: url, model } = item as Record<string, unknown>;
+      const { baseUrl: url, model, recentModels: rawRecent } = item as Record<string, unknown>;
       if (typeof url !== "string" || !originOf(url) || services.some((s) => s.baseUrl === url)) continue;
-      services.push(typeof model === "string" && model ? { baseUrl: url, model } : { baseUrl: url });
+      const recentModels = parseModelList(rawRecent);
+      services.push({
+        baseUrl: url,
+        ...(typeof model === "string" && model ? { model } : {}),
+        ...(recentModels ? { recentModels } : {}),
+      });
     }
   }
   if (baseUrl && !services.some((s) => s.baseUrl === baseUrl)) {
@@ -303,6 +316,51 @@ export function setApiKey(
     }
   }
   return withoutEmpty(apiKeys);
+}
+
+/** A raw list of model ids: strings only, no duplicates, at most RECENT_MODELS_MAX. */
+function parseModelList(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const ids = [...new Set(raw.filter((m): m is string => typeof m === "string" && m.length > 0))];
+  return ids.length > 0 ? ids.slice(0, RECENT_MODELS_MAX) : undefined;
+}
+
+/** Reads the raw `recentModels` object tolerantly. */
+function parseRecentModels(raw: unknown): CoatiConfig["recentModels"] {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const result: Record<ProviderId, string[]> = {};
+  for (const [provider, list] of Object.entries(raw as Record<string, unknown>)) {
+    const ids = parseModelList(list);
+    if (isProviderId(provider) && ids) result[provider] = ids;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** Puts `model` first in the active provider's recent list (the active service's for
+ * openai-compat; nothing without an address), dropping its older place and anything past
+ * RECENT_MODELS_MAX. Pure. */
+export function rememberRecentModel(config: CoatiConfig, model: string): CoatiConfig {
+  const provider = config.provider ?? DEFAULT_CONFIG.provider!;
+  const push = (list: string[] | undefined) =>
+    [model, ...(list ?? []).filter((m) => m !== model)].slice(0, RECENT_MODELS_MAX);
+  if (provider !== "openai-compat") {
+    return { ...config, recentModels: { ...config.recentModels, [provider]: push(config.recentModels?.[provider]) } };
+  }
+  const baseUrl = config.baseUrl;
+  if (!baseUrl) return config;
+  return {
+    ...config,
+    compatServices: addCompatService(config, baseUrl).map((svc) =>
+      svc.baseUrl === baseUrl ? { ...svc, recentModels: push(svc.recentModels) } : svc,
+    ),
+  };
+}
+
+/** The active provider's recent list (the active service's for openai-compat). */
+export function recentModelsOf(config: CoatiConfig): string[] | undefined {
+  const provider = config.provider ?? DEFAULT_CONFIG.provider!;
+  if (provider !== "openai-compat") return config.recentModels?.[provider];
+  return config.compatServices?.find((svc) => svc.baseUrl === config.baseUrl)?.recentModels;
 }
 
 /** Adds `baseUrl` to the configured services (no-op when present). Pure. */
@@ -469,6 +527,7 @@ export function loadConfig(dirs: Dirs): CoatiConfig {
     modules: parseModuleConfigEntries(obj.modules),
     legacyPairing,
     lastModels,
+    recentModels: parseRecentModels(obj.recentModels),
   };
 }
 

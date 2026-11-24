@@ -24,6 +24,7 @@ import {
   setApiKey,
   addCompatService,
   removeCompatService,
+  rememberRecentModel,
   type Dirs,
   type ProviderId,
   type CoatiConfig,
@@ -261,6 +262,8 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
           }
           trackModels();
         }
+        // After the address: a chosen model joins the recent list of the service it is used on.
+        if (patch.model) currentConfig = rememberRecentModel(currentConfig, patch.model);
         // Empty string means "forget the stored key" (task 2) — setApiKey
         // drops it entirely (see config.ts), so a forgotten key leaves no
         // trace on disk either. Bound to whichever provider this same patch

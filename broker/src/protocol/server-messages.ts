@@ -192,6 +192,9 @@ export interface SettingsMessage {
   catalog?: CatalogModel[];
   /** OpenRouter active with a key, when its `GET /api/v1/key` answers. */
   account?: OpenRouterAccount;
+  /** The models the user chose on the active provider (on the active service for openai-compat),
+   * most recent first, at most 5, never a default. Absent when none. */
+  recentModels?: string[];
   /** The `openai-compat` provider's configured server address, ONLY when it
    * is the currently active provider. Not a
    * secret (unlike apiKey, never included here): see config.ts's
