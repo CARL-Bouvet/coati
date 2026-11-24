@@ -50,7 +50,7 @@ function uiLocale() {
   return (document.documentElement.lang || "fr").replace("_", "-");
 }
 
-function formatUsd(amount) {
+export function formatUsd(amount) {
   try {
     return new Intl.NumberFormat(uiLocale(), {
       style: "currency",

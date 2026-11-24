@@ -68,6 +68,7 @@ FILES=(
   "options/dom-helpers.js"
   "options/dom-refs.js"
   "options/model-core.js"
+  "options/model-picker.js"
   "options/model-services.js"
   "options/program-step.js"
   "options/provider-tests.js"

@@ -143,8 +143,8 @@
     ],
   };
 
-  // Model picker: an OpenRouter-like catalog (~470 models, 45 makers, 14 free, a
-  // few undated) and a direct service's (no maker, no price). Made-up names: only
+  // Model picker: an OpenRouter-like catalog (~470 models, 46 makers, 14 free, 8
+  // routers without a fixed price, a few undated) and a direct service's (no maker, no price). Made-up names: only
   // the shape of the service's facts matters (docs/PROTOCOL.md `catalog`).
   var PICKER_MAKERS = ["ai21", "aion-labs", "alfredpros", "amazon", "anthracite-org", "anthropic", "arcee-ai", "baidu",
     "bytedance", "cohere", "deepcogito", "deepseek", "eleutherai", "google", "gryphe", "ibm-granite", "inception",
@@ -164,11 +164,14 @@
           name: maker.charAt(0).toUpperCase() + maker.slice(1) + ": Model " + String.fromCharCode(65 + (i % 5)) + " " + (count - i) + (free ? " (free)" : ""),
           maker: maker,
           price: free ? "free" : "paid",
+          usdPerToken: free ? { prompt: 0, completion: 0 } : { prompt: (1 + (n % 30)) * 1e-7, completion: (4 + (n % 50)) * 1e-7 },
         };
         if (n % 41 !== 11) entry.created = newest - ((m * 17 + i * 23) % 700) * 86400;
         out.push(entry);
       }
     });
+    // OpenRouter's routers: no fixed price.
+    for (var r = 1; r <= 8; r++) out.push({ id: "openrouter/router-" + r, name: "OpenRouter: Router " + r, maker: "openrouter", created: newest - r * 30 * 86400 });
     return out;
   }
   function directCatalog() {
@@ -565,6 +568,8 @@
     // Typing filters at once (id and name).
     "model-picker-search": picker({ credit: true }, steps(fill("#modelSearch", "qwen", 60))),
     "model-picker-no-match": picker({ credit: true }, steps(fill("#modelSearch", "zzz", 60))),
+    // OpenRouter's routers: no fixed price, "price unknown".
+    "model-picker-routers": picker({ credit: true }, steps(fill("#modelSearch", "router", 60))),
     // A direct service: one group, no price, no switch.
     "model-picker-direct": picker({ direct: true, model: "claude-model-2" }),
 

@@ -5,6 +5,8 @@
 
 import { t } from "../lib/i18n-page.js";
 import { pageLang } from "../lib/labels.js";
+import { usdPerQuestion } from "../lib/setup-data.js";
+import { formatUsd } from "../options-setup.js";
 import { els } from "./dom-refs.js";
 import { el, buttonEl } from "./dom-helpers.js";
 
@@ -69,10 +71,19 @@ function modelButton(entry) {
   const text = el("span", "model-item-text");
   text.append(el("span", "model-item-name", entry.name ?? entry.id));
   const facts = [];
-  if (entry.name && entry.name !== entry.id) facts.push(entry.id);
-  if (entry.price) facts.push(t(entry.price === "free" ? "options_model_free" : "options_model_paid"));
+  // Price as the service gives it; a priced catalog says so for a model without a fixed price.
+  if (entry.price === "free") facts.push(t("options_model_free"));
+  else if (entry.usdPerToken) facts.push(t("options_model_cost_question", [formatUsd(usdPerQuestion(entry.usdPerToken))]));
+  else if (current.priced) facts.push(t("options_model_price_unknown"));
   if (entry.created !== undefined) facts.push(monthYear(entry.created));
-  if (facts.length > 0) text.append(el("span", "model-item-detail", facts.join(" · ")));
+  // The id may wrap anywhere; each fact after it stays on one line.
+  const detail = el("span", "model-item-detail");
+  if (entry.name && entry.name !== entry.id) detail.append(entry.id);
+  for (const fact of facts) {
+    if (detail.firstChild) detail.append(" · "); // i18n-allow: separator
+    detail.append(el("span", "model-picker-fact", fact));
+  }
+  if (detail.firstChild) text.append(detail);
   button.append(check, text);
   button.addEventListener("click", () => onPick(entry.id));
   return button;
@@ -110,8 +121,7 @@ function makerSection(group) {
 
 function paint() {
   const list = els.modelPickerList;
-  const freeShown = current.entries.some((entry) => entry.price);
-  els.modelFreeRow.hidden = !freeShown;
+  els.modelFreeRow.hidden = !current.priced;
   els.modelFreeOnly.setAttribute("aria-checked", String(freeOnly()));
   els.modelFreeOnly.classList.toggle("c-switch--on", freeOnly());
   els.modelNoCredit.hidden = current.account?.boughtCredit !== false;
@@ -134,7 +144,7 @@ function paint() {
  * @param {{ serviceKey: string, entries: object[], used: string[], model?: string, account?: object, groupLabel: string }} state
  */
 export function renderModelPicker(state) {
-  current = state;
+  current = { ...state, priced: state.entries.some((entry) => entry.price) };
   paint();
 }
 

@@ -355,7 +355,7 @@ try {
       throw new Error(`${err.message}\nsteps:\n${steps.join("\n")}\n--- broker log ---\n${brokerLogTail()}`);
     });
     const focused = await options.evaluate(() => document.activeElement?.id);
-    if (focused !== "modelSelect" && focused !== "modelInput") throw new Error(`model field not focused (${focused})`);
+    if (focused !== "modelSearch" && focused !== "modelInput") throw new Error(`model field not focused (${focused})`);
     if ((await options.locator('#serviceList a[href="https://openrouter.ai/settings/keys"]').count()) !== 1) {
       throw new Error("the configured OpenRouter row has no link to its keys page");
     }

@@ -373,7 +373,9 @@ code { font-size: var(--text-s); }
 
 .model-picker-list .model-item { padding: var(--space-2); }
 
-.model-picker-more { align-self: flex-start; margin-left: var(--space-2); }
+.model-picker-fact { white-space: nowrap; }
+
+.model-picker-more { align-self: flex-start; margin: var(--space-1) 0 0 var(--space-2); }
 
 /* Installed models: lib/model-list.js rows in one card. */
 .model-list {

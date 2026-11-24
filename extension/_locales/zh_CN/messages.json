@@ -1172,8 +1172,12 @@
   "options_model_free": {
     "message": "免费"
   },
-  "options_model_paid": {
-    "message": "付费"
+  "options_model_cost_question": {
+    "message": "每个问题约 $COST$",
+    "placeholders": { "cost": { "content": "$1", "example": "US$0.003" } }
+  },
+  "options_model_price_unknown": {
+    "message": "价格未知"
   },
   "options_model_free_only": {
     "message": "仅免费模型"

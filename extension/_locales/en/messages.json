@@ -1172,8 +1172,12 @@
   "options_model_free": {
     "message": "Free"
   },
-  "options_model_paid": {
-    "message": "Paid"
+  "options_model_cost_question": {
+    "message": "about $COST$ per question",
+    "placeholders": { "cost": { "content": "$1", "example": "$0.003" } }
+  },
+  "options_model_price_unknown": {
+    "message": "price unknown"
   },
   "options_model_free_only": {
     "message": "Free only"
