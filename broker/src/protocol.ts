@@ -138,6 +138,8 @@ export {
   type ProviderStatus,
   type SettingsMessage,
   type CompatServiceInfo,
+  type CatalogModel,
+  type OpenRouterAccount,
   type SettingsTestResultMessage,
   type ProviderStatusState,
   type ProviderStatusResultMessage,

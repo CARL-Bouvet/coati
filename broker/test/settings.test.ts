@@ -420,6 +420,37 @@ describe("settings.test", () => {
     ws.close();
   });
 
+  test("the settings reply carries each catalogue model's facts and the OpenRouter account state", async () => {
+    __setOpenAiFetch((async (url: string) =>
+      String(url).endsWith("/key")
+        ? Response.json({ data: { is_free_tier: true, free_model_daily_requests: { used: 12, limit: 50, remaining: 38 } } })
+        : Response.json({
+            data: [
+              { id: "maker-a/model-1:free", name: "Maker A: Model 1 (free)", created: 1760000000, pricing: { prompt: "0", completion: "0" } },
+              { id: "maker-b/model-2", created: 1750000000, pricing: { prompt: "0.000001", completion: "0" } },
+              { id: "maker-c/router", pricing: { prompt: "-1", completion: "-1" } },
+            ],
+          })) as unknown as typeof fetch);
+    __setClaudeApiFetch((async () =>
+      Response.json({ data: [{ id: "claude-x-1", display_name: "Claude X 1", created_at: "2026-01-02T00:00:00Z" }] })) as unknown as typeof fetch);
+    const server = boot();
+    const ws = await connectAndAuth(server);
+    ws.send(JSON.stringify({ type: "settings.set", id: "cat1", provider: "openai-compat", baseUrl: "https://openrouter.ai/api/v1", apiKey: "sk-or-v1-catalog-test" }));
+    const openRouter = (await nextMessage(ws)) as SettingsMessage;
+    expect(openRouter.models).toEqual(["maker-a/model-1:free", "maker-b/model-2", "maker-c/router"]);
+    expect(openRouter.catalog).toEqual([
+      { id: "maker-a/model-1:free", name: "Maker A: Model 1 (free)", maker: "maker-a", created: 1760000000, price: "free" },
+      { id: "maker-b/model-2", maker: "maker-b", created: 1750000000, price: "paid" },
+      { id: "maker-c/router", maker: "maker-c" },
+    ]);
+    expect(openRouter.account).toEqual({ boughtCredit: false, freeRequests: { used: 12, limit: 50, remaining: 38 } });
+    ws.send(JSON.stringify({ type: "settings.set", id: "cat2", provider: "claude-api", apiKey: "sk-ant-catalog-test" }));
+    const claude = (await nextMessage(ws)) as SettingsMessage;
+    expect(claude.catalog).toEqual([{ id: "claude-x-1", name: "Claude X 1", created: 1767312000 }]);
+    expect(claude.account).toBeUndefined();
+    ws.close();
+  });
+
   test("ollama: unreachable daemon fails, naming Ollama as the remedy", async () => {
     __setOllamaFetch((async () => {
       throw new Error("fetch failed: connect ECONNREFUSED 127.0.0.1:11434");

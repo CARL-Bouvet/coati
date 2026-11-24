@@ -27,6 +27,7 @@ import {
 } from "../model.ts";
 import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck, TestConnectionResult } from "./types.ts";
 import { t, DEFAULT_LANG } from "../messages.ts";
+import type { CatalogModel } from "../protocol.ts";
 
 // Testing seam: production code always drives the real global `fetch`. Tests
 // substitute a fake here so the SSE-parsing and error-classification paths
@@ -189,6 +190,11 @@ async function testConnection(
  * yields no model list at all.
  */
 async function listModels(opts: ProviderRuntimeOptions): Promise<string[]> {
+  return (await listCatalog(opts)).map((m) => m.id);
+}
+
+/** listModels() with each model's `display_name` and `created_at` (as Unix seconds). */
+async function listCatalog(opts: ProviderRuntimeOptions): Promise<CatalogModel[]> {
   const key = opts.apiKey?.trim();
   if (!key) throw new Error("no key");
   const response = await fetchImpl(`${ANTHROPIC_MODELS_URL}?limit=1000`, {
@@ -199,9 +205,16 @@ async function listModels(opts: ProviderRuntimeOptions): Promise<string[]> {
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const body = (await response.json()) as { data?: unknown };
   if (!Array.isArray(body?.data)) throw new Error("unexpected body");
-  return body.data
-    .map((m) => (m && typeof m === "object" ? (m as Record<string, unknown>).id : undefined))
-    .filter((id): id is string => typeof id === "string");
+  const catalog: CatalogModel[] = [];
+  for (const raw of body.data as Array<Record<string, unknown> | null>) {
+    if (typeof raw?.id !== "string") continue;
+    const entry: CatalogModel = { id: raw.id };
+    if (typeof raw.display_name === "string" && raw.display_name) entry.name = raw.display_name;
+    const created = typeof raw.created_at === "string" ? Math.floor(Date.parse(raw.created_at) / 1000) : NaN;
+    if (created > 0) entry.created = created;
+    catalog.push(entry);
+  }
+  return catalog;
 }
 
 /**
@@ -513,6 +526,7 @@ export const claudeApiProvider: ModelProvider = {
   checkStatus,
   testConnection,
   listModels,
+  listCatalog,
   streamAnswer,
   defaultModel: CLAUDE_API_DEFAULT_MODEL,
   // docs/PROTOCOL.md: every claude-api

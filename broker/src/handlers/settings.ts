@@ -10,7 +10,8 @@ import {
 } from "../config.ts";
 import { getProviders, getProvider } from "../providers/registry.ts";
 import type { ModelProvider, ProviderRuntimeOptions, TestConnectionCode } from "../providers/types.ts";
-import type { CompatServiceInfo, ProviderStatus, SettingsSetMessage } from "../protocol.ts";
+import type { CatalogModel, CompatServiceInfo, OpenRouterAccount, ProviderStatus, SettingsSetMessage } from "../protocol.ts";
+import { fetchOpenRouterAccount } from "../providers/openai-compat.ts";
 import { t, DEFAULT_LANG, type Lang } from "../messages.ts";
 import {
   buildPrompt,
@@ -68,6 +69,8 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
   model?: string;
   available: ProviderStatus[];
   models?: string[];
+  catalog?: CatalogModel[];
+  account?: OpenRouterAccount;
   baseUrl?: string;
   services?: CompatServiceInfo[];
 }> {
@@ -119,7 +122,15 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
     }),
   );
   const active = getProvider(provider);
-  const models = active?.listModels ? await active.listModels(opts).catch(() => undefined) : undefined;
+  const [catalog, account] = await Promise.all([
+    active?.listCatalog ? active.listCatalog(opts).catch(() => undefined) : undefined,
+    provider === "openai-compat" ? fetchOpenRouterAccount(opts) : undefined,
+  ]);
+  const models = catalog
+    ? catalog.map((m) => m.id)
+    : active?.listModels
+      ? await active.listModels(opts).catch(() => undefined)
+      : undefined;
   // baseUrl is NOT a secret (docs/PROTOCOL.md) —
   // unlike apiKey, echoed back, but ONLY for the currently active provider
   // (openai-compat), never for every provider in `available` (which never
@@ -132,7 +143,16 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
     ...(svc.model ? { model: svc.model } : {}),
     hasKey: hasCompatKey(config, svc.baseUrl),
   }));
-  return { provider, model: config.model, available, models, baseUrl, ...(services?.length ? { services } : {}) };
+  return {
+    provider,
+    model: config.model,
+    available,
+    models,
+    ...(catalog ? { catalog } : {}),
+    ...(account ? { account } : {}),
+    baseUrl,
+    ...(services?.length ? { services } : {}),
+  };
 }
 
 // --- settings.test (task 3): "Tester la connexion" backend ------------------

@@ -6,7 +6,7 @@
 // that's ../model.ts, on purpose, so it cannot be duplicated per provider.
 
 import type { AnswerEvent, BuiltPrompt, StreamAnswerOptions } from "../model.ts";
-import type { ProviderStatusState } from "../protocol.ts";
+import type { CatalogModel, ProviderStatusState } from "../protocol.ts";
 import type { Lang } from "../messages.ts";
 
 export interface Availability {
@@ -94,6 +94,9 @@ export interface ModelProvider {
    * (currently just ollama, via /api/tags). Used to populate the settings
    * UI's model picker. */
   listModels?(opts: ProviderRuntimeOptions): Promise<string[]>;
+  /** The same list with the facts the service gives per model (online services), in its order. When
+   * present, the settings reply reads it instead of `listModels()`. */
+  listCatalog?(opts: ProviderRuntimeOptions): Promise<CatalogModel[]>;
   /** The model this provider uses when none was ever set (docs/PROTOCOL.md). Lets `models.list`
    * still name a sensible model for a configured provider that has neither a
    * `listModels()` nor a remembered model yet — e.g. claude-api right after

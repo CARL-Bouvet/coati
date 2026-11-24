@@ -261,7 +261,7 @@
     }
   },
   "panel_limits_gpu_short": {
-    "message": "$PERCENT$ % in the graphics card",
+    "message": "$PERCENT$% in the graphics card",
     "placeholders": {
       "percent": {
         "content": "$1",

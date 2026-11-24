@@ -187,6 +187,11 @@ export interface SettingsMessage {
   /** Installed model names for the currently-selected provider, when it can
    * enumerate them (currently ollama and openai-compat). Absent otherwise. */
   models?: string[];
+  /** The same models with the facts their service gives, in the service's order, when the
+   * provider reads a catalogue (online services). Absent otherwise. */
+  catalog?: CatalogModel[];
+  /** OpenRouter active with a key, when its `GET /api/v1/key` answers. */
+  account?: OpenRouterAccount;
   /** The `openai-compat` provider's configured server address, ONLY when it
    * is the currently active provider. Not a
    * secret (unlike apiKey, never included here): see config.ts's
@@ -194,6 +199,24 @@ export interface SettingsMessage {
   baseUrl?: string;
   /** Every configured openai-compat service, whichever provider is active. Absent when none. */
   services?: CompatServiceInfo[];
+}
+
+/** One model of a service's catalogue, facts only: `name` when the service gives a display name,
+ * `maker` the `author/` prefix of an OpenRouter id, `created` the service's date (Unix seconds),
+ * `price` `"free"` or `"paid"` when the service gives prices (absent: unknown). */
+export interface CatalogModel {
+  id: string;
+  name?: string;
+  maker?: string;
+  created?: number;
+  price?: "free" | "paid";
+}
+
+/** `boughtCredit`: the account has bought credit at least once (OpenRouter's `is_free_tier`, inverted).
+ * `freeRequests`: today's free-model request counter (UTC day). Each absent when not reported. */
+export interface OpenRouterAccount {
+  boughtCredit?: boolean;
+  freeRequests?: { used: number; limit: number; remaining: number };
 }
 
 /** One configured openai-compat service. `hasKey` says a key is stored for its origin; the key

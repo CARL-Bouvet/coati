@@ -34,6 +34,7 @@ import {
 import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck, TestConnectionResult } from "./types.ts";
 import { t, DEFAULT_LANG } from "../messages.ts";
 import { openRouterApiBase } from "../oauth.ts";
+import type { CatalogModel, OpenRouterAccount } from "../protocol.ts";
 
 // Testing seam: production code always drives the real global `fetch`. Tests
 // substitute a fake here (a real Bun.serve fake server on 127.0.0.1, per the
@@ -164,6 +165,12 @@ function authHeaders(apiKey: string | undefined): Record<string, string> {
  * than the one configured. Throws on any non-2xx or network failure; callers
  * classify. */
 async function fetchModelIds(baseUrl: string, apiKey: string | undefined): Promise<string[]> {
+  return (await fetchCatalog(baseUrl, apiKey)).map((m) => m.id);
+}
+
+/** `GET {baseUrl}/models` with the facts each entry gives: `name`, `created` (Unix seconds), and at
+ * OpenRouter `maker` (the id's `author/` prefix) and `price` (prompt and completion both 0: free). */
+async function fetchCatalog(baseUrl: string, apiKey: string | undefined): Promise<CatalogModel[]> {
   const response = await fetchImpl(`${baseUrl}/models`, {
     headers: authHeaders(apiKey),
     redirect: "error",
@@ -175,13 +182,34 @@ async function fetchModelIds(baseUrl: string, apiKey: string | undefined): Promi
     (err as Error & { status?: number }).status = rejectedKey ? 401 : response.status;
     throw err;
   }
-  const body = (await response.json()) as { data?: Array<{ id?: unknown }> };
+  const body = (await response.json()) as { data?: unknown };
   if (!Array.isArray(body.data)) return [];
-  // Gemini lists "models/<id>" but takes the bare id in chat requests.
-  return body.data
-    .map((m) => m.id)
-    .filter((id): id is string => typeof id === "string" && id.length > 0)
-    .map((id) => id.replace(/^models\//, ""));
+  const openRouter = new URL(baseUrl).origin === OPENROUTER_ORIGIN;
+  const catalog: CatalogModel[] = [];
+  for (const raw of body.data as Array<Record<string, unknown> | null>) {
+    if (typeof raw?.id !== "string" || !raw.id) continue;
+    // Gemini lists "models/<id>" but takes the bare id in chat requests.
+    const entry: CatalogModel = { id: raw.id.replace(/^models\//, "") };
+    if (typeof raw.name === "string" && raw.name && raw.name !== entry.id) entry.name = raw.name;
+    if (typeof raw.created === "number" && raw.created > 0) entry.created = raw.created;
+    if (openRouter) {
+      const slash = entry.id.indexOf("/");
+      if (slash > 0) entry.maker = entry.id.slice(0, slash);
+      const price = priceOf(raw.pricing);
+      if (price) entry.price = price;
+    }
+    catalog.push(entry);
+  }
+  return catalog;
+}
+
+/** OpenRouter's `pricing.prompt` / `pricing.completion` (USD per token, as strings). */
+function priceOf(pricing: unknown): CatalogModel["price"] {
+  if (!pricing || typeof pricing !== "object") return undefined;
+  const { prompt, completion } = pricing as Record<string, unknown>;
+  const rates = [prompt, completion].map((v) => (typeof v === "string" && v.trim() !== "") || typeof v === "number" ? Number(v) : NaN);
+  if (rates.some((r) => !Number.isFinite(r) || r < 0)) return undefined;
+  return rates.every((r) => r === 0) ? "free" : "paid";
 }
 
 /** Gemini answers a bad key with 400 (`API_KEY_INVALID`), not 401. */
@@ -308,9 +336,39 @@ async function isAvailable(opts: ProviderRuntimeOptions): Promise<Availability> 
 }
 
 async function listModels(opts: ProviderRuntimeOptions): Promise<string[]> {
+  return (await listCatalog(opts)).map((m) => m.id);
+}
+
+async function listCatalog(opts: ProviderRuntimeOptions): Promise<CatalogModel[]> {
   const baseUrl = resolveBaseUrl(opts.baseUrl);
   if (!baseUrl || !isAllowedBaseUrl(baseUrl)) return [];
-  return fetchModelIds(baseUrl, opts.apiKey);
+  return fetchCatalog(baseUrl, opts.apiKey);
+}
+
+/** The OpenRouter account behind the key, from `GET /api/v1/key` (free, never billed). Undefined for
+ * any other service, without a key, or when the call fails. */
+export async function fetchOpenRouterAccount(opts: ProviderRuntimeOptions): Promise<OpenRouterAccount | undefined> {
+  const baseUrl = resolveBaseUrl(opts.baseUrl);
+  if (!baseUrl || !opts.apiKey) return undefined;
+  try {
+    if (new URL(baseUrl).origin !== OPENROUTER_ORIGIN) return undefined;
+    const response = await fetchImpl(`${openRouterApiBase()}/key`, {
+      headers: authHeaders(opts.apiKey),
+      redirect: "error",
+      signal: AbortSignal.timeout(MODELS_TIMEOUT_MS),
+    });
+    if (!response.ok) return undefined;
+    const data = ((await response.json()) as { data?: Record<string, unknown> }).data ?? {};
+    const account: OpenRouterAccount = {};
+    if (typeof data.is_free_tier === "boolean") account.boughtCredit = !data.is_free_tier;
+    const daily = data.free_model_daily_requests as Record<string, unknown> | undefined;
+    if ([daily?.used, daily?.limit, daily?.remaining].every((n) => Number.isInteger(n))) {
+      account.freeRequests = { used: daily!.used as number, limit: daily!.limit as number, remaining: daily!.remaining as number };
+    }
+    return Object.keys(account).length ? account : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -751,6 +809,7 @@ export const openaiCompatProvider: ModelProvider = {
   label: "Compatible OpenAI",
   isAvailable,
   listModels,
+  listCatalog,
   checkStatus,
   testConnection,
   streamAnswer,

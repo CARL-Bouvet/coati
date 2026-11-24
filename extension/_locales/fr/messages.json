@@ -261,7 +261,7 @@
     }
   },
   "panel_limits_gpu_short": {
-    "message": "$PERCENT$ % dans la carte graphique",
+    "message": "$PERCENT$ % dans la carte graphique",
     "placeholders": {
       "percent": {
         "content": "$1",
@@ -1433,7 +1433,7 @@
     "message": "Autres systèmes"
   },
   "setup_speedup_check": {
-    "message": "Pour vérifier, posez une question : quand le modèle n'y tient pas entièrement, la ligne « Modèle » sous la réponse indique la part dans la carte graphique. Après le réglage, elle doit augmenter ou disparaître."
+    "message": "Pour vérifier, posez une question : quand le modèle n'y tient pas entièrement, la ligne « Modèle » sous la réponse indique la part dans la carte graphique. Après le réglage, elle doit augmenter ou disparaître."
   },
   "setup_speedup_report": {
     "message": "Ça n'a pas marché ? Signalez-le sur GitHub"
