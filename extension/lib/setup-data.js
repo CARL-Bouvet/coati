@@ -48,8 +48,8 @@ export const LM_STUDIO = {
 // `provider` / `baseUrl` are exactly what the guide sends in `settings.set`
 // (docs/PROTOCOL.md); no model: the user picks one from the service's list.
 // `baseUrl` values match lib/model-provider-presets.js. `costUsdPerRequest`:
-// rough price of ONE question about an average page (~3,000 tokens in, ~500
-// out) with the service's smaller models — `0` means free. `group`: "free" (shown first),
+// rough price of ONE question about an average page (COST_BASIS_TOKENS) with
+// the service's smaller models — `0` means free. `group`: "free" (shown first),
 // "paid" (Claude, OpenAI), "other" (under "Others"). `needsCredit`: a new
 // key answers only once credit was added (billingUrl), the guide says so.
 // `freeTier`: a free key works (with limits), the price applies beyond them.
@@ -166,6 +166,13 @@ export const ONLINE_PROVIDERS = [
 
 /** Typical request size behind `costUsdPerRequest`, shown to the user. */
 export const COST_BASIS_WORDS = 2000;
+/** Tokens sent and received by that typical question. */
+const COST_BASIS_TOKENS = { prompt: 3000, completion: 500 };
+
+/** Price in USD of the typical question for a model's rates (`usdPerToken`, docs/PROTOCOL.md). */
+export function usdPerQuestion(usdPerToken) {
+  return usdPerToken.prompt * COST_BASIS_TOKENS.prompt + usdPerToken.completion * COST_BASIS_TOKENS.completion;
+}
 
 /**
  * Maps a broker provider id (docs/PROTOCOL.md, e.g. "claude-api",

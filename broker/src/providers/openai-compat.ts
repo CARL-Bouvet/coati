@@ -169,7 +169,7 @@ async function fetchModelIds(baseUrl: string, apiKey: string | undefined): Promi
 }
 
 /** `GET {baseUrl}/models` with the facts each entry gives: `name`, `created` (Unix seconds), and at
- * OpenRouter `maker` (the id's `author/` prefix) and `price` (prompt and completion both 0: free). */
+ * OpenRouter `maker` (the id's `author/` prefix), `usdPerToken` and `price` (both rates 0: free). */
 async function fetchCatalog(baseUrl: string, apiKey: string | undefined): Promise<CatalogModel[]> {
   const response = await fetchImpl(`${baseUrl}/models`, {
     headers: authHeaders(apiKey),
@@ -195,21 +195,27 @@ async function fetchCatalog(baseUrl: string, apiKey: string | undefined): Promis
     if (openRouter) {
       const slash = entry.id.indexOf("/");
       if (slash > 0) entry.maker = entry.id.slice(0, slash);
-      const price = priceOf(raw.pricing);
-      if (price) entry.price = price;
+      const rates = ratesOf(raw.pricing);
+      if (rates) {
+        entry.usdPerToken = rates;
+        entry.price = rates.prompt === 0 && rates.completion === 0 ? "free" : "paid";
+      }
     }
     catalog.push(entry);
   }
   return catalog;
 }
 
-/** OpenRouter's `pricing.prompt` / `pricing.completion` (USD per token, as strings). */
-function priceOf(pricing: unknown): CatalogModel["price"] {
+/** OpenRouter's `pricing.prompt` / `pricing.completion` (USD per token, as strings); undefined when
+ * either is missing or negative (variable price). */
+function ratesOf(pricing: unknown): CatalogModel["usdPerToken"] {
   if (!pricing || typeof pricing !== "object") return undefined;
-  const { prompt, completion } = pricing as Record<string, unknown>;
-  const rates = [prompt, completion].map((v) => (typeof v === "string" && v.trim() !== "") || typeof v === "number" ? Number(v) : NaN);
-  if (rates.some((r) => !Number.isFinite(r) || r < 0)) return undefined;
-  return rates.every((r) => r === 0) ? "free" : "paid";
+  const [prompt, completion] = ["prompt", "completion"].map((k) => {
+    const v = (pricing as Record<string, unknown>)[k];
+    return (typeof v === "string" && v.trim() !== "") || typeof v === "number" ? Number(v) : NaN;
+  });
+  if (![prompt, completion].every((r) => Number.isFinite(r) && r >= 0)) return undefined;
+  return { prompt, completion };
 }
 
 /** Gemini answers a bad key with 400 (`API_KEY_INVALID`), not 401. */

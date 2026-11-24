@@ -329,6 +329,52 @@ code { font-size: var(--text-s); }
 
 .model-field-slot:empty { display: none; }
 
+/* Online model picker (options/model-picker.js): search, "Free only", then
+ * the models by maker in one scrolling card. */
+.model-picker {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.model-picker-free {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.model-picker-free .setting-label,
+.model-picker > .help { margin: 0; }
+
+.model-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 28rem;
+  overflow-y: auto;
+  padding: var(--space-1);
+}
+
+.model-picker-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-picker-heading {
+  margin: 0;
+  padding: var(--space-1) var(--space-2) 0;
+  font-size: var(--text-s);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.model-picker-list .model-item { padding: var(--space-2); }
+
+.model-picker-more { align-self: flex-start; margin-left: var(--space-2); }
+
 /* Installed models: lib/model-list.js rows in one card. */
 .model-list {
   display: flex;

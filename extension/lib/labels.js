@@ -149,8 +149,9 @@ export function estimateTokensFromChars(chars) {
   return Math.round((chars || 0) / 4);
 }
 
-// Decimal separator of the page's own language ("0,8" in French).
-const pageLang = () => (typeof document !== "undefined" && document.documentElement.lang) || undefined;
+/** The page's language as a locale tag for number and date formats ("0,8" in French); the
+ * locale folder names ("zh_CN") are not valid tags. */
+export const pageLang = () => (typeof document !== "undefined" && document.documentElement.lang.replace("_", "-")) || undefined;
 
 /** @param {number} n @param {number} min fraction digits kept, even if zero @returns {string} */
 const formatDecimal = (n, min) => n.toLocaleString(pageLang(), { minimumFractionDigits: min, maximumFractionDigits: 1 });

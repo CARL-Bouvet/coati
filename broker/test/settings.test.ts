@@ -16,6 +16,7 @@ import { __setFetchImplForTests as __setClaudeApiFetch, __resetFetchImplForTests
 import { __setFetchImplForTests as __setOllamaFetch, __resetFetchImplForTests as __resetOllamaFetch } from "../src/providers/ollama.ts";
 import { __setFetchImplForTests as __setOpenAiFetch, __resetFetchImplForTests as __resetOpenAiFetch } from "../src/providers/openai-compat.ts";
 import { connectAndAuthV2OrThrow } from "./helpers/handshake-v2.ts";
+import { usdPerQuestion } from "../../extension/lib/setup-data.js";
 
 const ALLOWED_ID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const KEY = Buffer.from("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd", "hex");
@@ -439,10 +440,12 @@ describe("settings.test", () => {
     const openRouter = (await nextMessage(ws)) as SettingsMessage;
     expect(openRouter.models).toEqual(["maker-a/model-1:free", "maker-b/model-2", "maker-c/router"]);
     expect(openRouter.catalog).toEqual([
-      { id: "maker-a/model-1:free", name: "Maker A: Model 1 (free)", maker: "maker-a", created: 1760000000, price: "free" },
-      { id: "maker-b/model-2", maker: "maker-b", created: 1750000000, price: "paid" },
+      { id: "maker-a/model-1:free", name: "Maker A: Model 1 (free)", maker: "maker-a", created: 1760000000, price: "free", usdPerToken: { prompt: 0, completion: 0 } },
+      { id: "maker-b/model-2", maker: "maker-b", created: 1750000000, price: "paid", usdPerToken: { prompt: 0.000001, completion: 0 } },
       { id: "maker-c/router", maker: "maker-c" },
     ]);
+    // The settings page turns the rates into the price of the guide's typical question (3,000 tokens in).
+    expect(usdPerQuestion(openRouter.catalog![1].usdPerToken!)).toBeCloseTo(0.003, 9);
     expect(openRouter.account).toEqual({ boughtCredit: false, freeRequests: { used: 12, limit: 50, remaining: 38 } });
     ws.send(JSON.stringify({ type: "settings.set", id: "cat2", provider: "claude-api", apiKey: "sk-ant-catalog-test" }));
     const claude = (await nextMessage(ws)) as SettingsMessage;

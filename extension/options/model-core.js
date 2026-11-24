@@ -27,7 +27,9 @@ import {
   setProvider,
   renderCapLinks,
   baseUrlField,
+  focusModelField,
 } from "./model-services.js";
+import { wireModelPicker } from "./model-picker.js";
 
 // Connection state of the local program ("connected", "disconnected", …).
 export let status = "unknown";
@@ -62,11 +64,7 @@ const setupGuide = mountSetupGuide({
   send: sendClientMessage,
   newId,
   onModels: (reply) => acceptModels(reply),
-  onNeedModel: () => {
-    const field = els.modelSelect.hidden ? els.modelInput : els.modelSelect;
-    field.scrollIntoView?.({ block: "center" });
-    field.focus({ preventScroll: true });
-  },
+  onNeedModel: () => focusModelField(),
 });
 
 // "Install the local program" step (options/program-step.js).
@@ -494,7 +492,7 @@ export function wireModelSettings() {
     if (lastSettings) testProvider(lastSettings.provider, "current");
   });
   els.modelsRefresh.addEventListener("click", () => requestModels());
-  els.modelSelect.addEventListener("change", () => setProvider(undefined, els.modelSelect.value));
+  wireModelPicker((model) => setProvider(undefined, model));
   els.modelSave.addEventListener("click", () => setProvider(undefined, els.modelInput.value.trim()));
   els.otherAddressBody.append(baseUrlField.element);
   els.setupOnline.before(el("p", "help", t("model_free_note")));

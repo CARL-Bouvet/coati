@@ -143,6 +143,63 @@
     ],
   };
 
+  // Model picker: an OpenRouter-like catalog (~470 models, 45 makers, 14 free, a
+  // few undated) and a direct service's (no maker, no price). Made-up names: only
+  // the shape of the service's facts matters (docs/PROTOCOL.md `catalog`).
+  var PICKER_MAKERS = ["ai21", "aion-labs", "alfredpros", "amazon", "anthracite-org", "anthropic", "arcee-ai", "baidu",
+    "bytedance", "cohere", "deepcogito", "deepseek", "eleutherai", "google", "gryphe", "ibm-granite", "inception",
+    "inflection", "liquid", "mancer", "meta-llama", "microsoft", "minimax", "mistralai", "moonshotai", "morph",
+    "neversleep", "nousresearch", "nvidia", "openai", "opengvlab", "perplexity", "qwen", "raifle", "relace", "sao10k",
+    "stepfun-ai", "switchpoint", "tencent", "thedrummer", "thudm", "tngtech", "undi95", "x-ai", "z-ai"];
+  function routerCatalog() {
+    var out = [];
+    var newest = 1764547200; // a fixed "today" so captures do not move
+    PICKER_MAKERS.forEach(function (maker, m) {
+      var count = 1 + ((m * 7 + 3) % 20);
+      for (var i = 0; i < count; i++) {
+        var n = out.length;
+        var free = n % 34 === 7;
+        var entry = {
+          id: maker + "/model-" + String.fromCharCode(97 + (i % 5)) + "-" + (count - i) + (free ? ":free" : ""),
+          name: maker.charAt(0).toUpperCase() + maker.slice(1) + ": Model " + String.fromCharCode(65 + (i % 5)) + " " + (count - i) + (free ? " (free)" : ""),
+          maker: maker,
+          price: free ? "free" : "paid",
+        };
+        if (n % 41 !== 11) entry.created = newest - ((m * 17 + i * 23) % 700) * 86400;
+        out.push(entry);
+      }
+    });
+    return out;
+  }
+  function directCatalog() {
+    var out = [];
+    for (var i = 1; i <= 9; i++) out.push({ id: "claude-model-" + i, name: "Claude Model " + i, created: 1764547200 - i * 45 * 86400 });
+    return out;
+  }
+  function pickerSettings(opts) {
+    var catalog = opts.direct ? directCatalog() : routerCatalog();
+    var settings = {
+      provider: opts.direct ? "claude-api" : "openai-compat",
+      model: opts.model || null,
+      models: catalog.map(function (entry) { return entry.id; }),
+      catalog: catalog,
+      available: [
+        { id: "openai-compat", available: !opts.direct, configured: !opts.direct, label: "Compatible OpenAI" },
+        { id: "claude-api", available: true, configured: Boolean(opts.direct), label: "Clé API Anthropic" },
+        { id: "ollama", available: false, configured: false, reason: "Ollama unreachable at http://127.0.0.1:11434", label: "Ollama" },
+      ],
+    };
+    if (!opts.direct) {
+      settings.baseUrl = "https://openrouter.ai/api/v1";
+      settings.services = [{ baseUrl: "https://openrouter.ai/api/v1", hasKey: true, model: opts.model }];
+      settings.account = { boughtCredit: Boolean(opts.credit), freeRequests: { used: 3, limit: 50, remaining: 47 } };
+    }
+    return settings;
+  }
+  function picker(opts, autoAction) {
+    return { status: "connected", settings: pickerSettings(opts), storageLocal: { "coati:retentionDays": 30 }, permissions: [], autoAction: autoAction };
+  }
+
   // "Install the local program" step (options.html#setup-program): the local
   // program does not answer; `labPlatformInfo` is what runtime.getPlatformInfo()
   // returns. `help: true` unfolds the per-system help.
@@ -497,6 +554,19 @@
       storageLocal: { "coati:retentionDays": 30 },
       permissions: [],
     },
+
+    // Online model picker (options/model-picker.js). OpenRouter, no credit
+    // bought, no model chosen yet: "Free only" on, the no-credit line.
+    "model-picker-no-credit": picker({}),
+    // Credit bought, a paid model in use: "Already used" on top, every price shown.
+    "model-picker-used": picker({ credit: true, model: "mistralai/model-b-4" }),
+    // A group unfolded ("Other versions (N)").
+    "model-picker-more": picker({ credit: true }, steps(click(".model-picker-more", 60))),
+    // Typing filters at once (id and name).
+    "model-picker-search": picker({ credit: true }, steps(fill("#modelSearch", "qwen", 60))),
+    "model-picker-no-match": picker({ credit: true }, steps(fill("#modelSearch", "zzz", 60))),
+    // A direct service: one group, no price, no switch.
+    "model-picker-direct": picker({ direct: true, model: "claude-model-2" }),
 
     // Broker non connecté : encart "impossible d'afficher le modèle".
     disconnected: {

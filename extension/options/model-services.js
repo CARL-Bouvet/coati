@@ -8,8 +8,9 @@ import { externalLink } from "../options-setup.js";
 import { MODEL_PROVIDER_PRESETS, isAllowedBaseUrl } from "../lib/model-provider-presets.js";
 import { sameModel } from "../lib/model-list.js";
 import { els } from "./dom-refs.js";
-import { el, buttonEl, newId, clearChildren, sendClientMessage } from "./dom-helpers.js";
+import { el, buttonEl, newId, sendClientMessage } from "./dom-helpers.js";
 import { testTargets, registerTestTarget, testProvider } from "./provider-tests.js";
+import { renderModelPicker } from "./model-picker.js";
 import {
   status,
   lastSettings,
@@ -163,6 +164,10 @@ function keyInputFor(providerId) {
       getBaseUrl: () => lastSettings?.baseUrl,
       placeholder:
         providerId === "openai-compat" ? t("options_apikey_placeholder_optional") : t("options_apikey_placeholder_anthropic"),
+      // Key accepted on the service in use: choosing its model comes next.
+      onVerified(ok) {
+        if (ok && lastSettings?.provider === providerId) focusModelField();
+      },
     });
     keyInput.setConnected(status === "connected");
     keyInputs.set(providerId, keyInput);
@@ -231,24 +236,22 @@ function renderModelField(settings) {
   const names = modelNamesFor(settings);
 
   if (names.length > 0) {
-    els.modelSelect.hidden = false;
+    els.modelPicker.hidden = false;
     els.modelInput.hidden = true;
     els.modelSave.hidden = true;
-
-    clearChildren(els.modelSelect);
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = t("options_choose_model");
-    els.modelSelect.appendChild(placeholder);
-    for (const name of names) {
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = name;
-      els.modelSelect.appendChild(option);
-    }
-    els.modelSelect.value = settings.model ?? "";
+    // The service's facts when it gives them, else the bare ids.
+    const catalog = Array.isArray(settings.catalog) ? settings.catalog : [];
+    const entries = [...catalog, ...names.filter((name) => !catalog.some((entry) => sameModel(entry.id, name))).map((id) => ({ id }))];
+    renderModelPicker({
+      serviceKey: `${settings.provider}\n${settings.baseUrl ?? ""}`,
+      entries,
+      used: settings.model ? [settings.model] : [],
+      model: settings.model,
+      account: settings.account,
+      groupLabel: serviceName(settings.provider, settings),
+    });
   } else {
-    els.modelSelect.hidden = true;
+    els.modelPicker.hidden = true;
     els.modelInput.hidden = false;
     els.modelSave.hidden = false;
     if (document.activeElement !== els.modelInput) els.modelInput.value = settings.model ?? "";
@@ -259,6 +262,13 @@ function renderModelField(settings) {
           ? t("options_model_placeholder_openai_compat")
           : t("options_model_name_placeholder");
   }
+}
+
+/** The model field in view: the picker's search, or the free-text name. */
+export function focusModelField() {
+  const field = els.modelPicker.hidden ? els.modelInput : els.modelSearch;
+  field.scrollIntoView?.({ block: "center" });
+  field.focus({ preventScroll: true });
 }
 
 export function setProvider(provider, model, baseUrl) {

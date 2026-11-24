@@ -1149,8 +1149,37 @@
   "options_address_refused": {
     "message": "Adresse refusée : HTTPS, ou HTTP vers localhost/127.0.0.1 seulement."
   },
-  "options_choose_model": {
-    "message": "Choisir un modèle…"
+  "options_model_search_placeholder": {
+    "message": "Chercher un modèle (nom ou identifiant)"
+  },
+  "options_model_used": {
+    "message": "Déjà utilisés"
+  },
+  "options_model_matches": {
+    "message": "Modèles trouvés"
+  },
+  "options_model_no_match": {
+    "message": "Aucun modèle ne correspond à « $QUERY$ ».",
+    "placeholders": { "query": { "content": "$1", "example": "gemma" } }
+  },
+  "options_model_other_versions": {
+    "message": "Autres versions ($COUNT$)",
+    "placeholders": { "count": { "content": "$1", "example": "12" } }
+  },
+  "options_model_fewer_versions": {
+    "message": "Masquer les autres versions"
+  },
+  "options_model_free": {
+    "message": "Gratuit"
+  },
+  "options_model_paid": {
+    "message": "Payant"
+  },
+  "options_model_free_only": {
+    "message": "Gratuits seulement"
+  },
+  "options_model_no_credit": {
+    "message": "Votre compte OpenRouter n'a pas de crédit : seuls les modèles gratuits répondront."
   },
   "options_model_placeholder_claude": {
     "message": "ex : claude-sonnet-4-5 (facultatif)"

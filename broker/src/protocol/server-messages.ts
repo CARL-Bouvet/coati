@@ -203,13 +203,14 @@ export interface SettingsMessage {
 
 /** One model of a service's catalogue, facts only: `name` when the service gives a display name,
  * `maker` the `author/` prefix of an OpenRouter id, `created` the service's date (Unix seconds),
- * `price` `"free"` or `"paid"` when the service gives prices (absent: unknown). */
+ * `price` `"free"` or `"paid"` and `usdPerToken` the rates when the service gives prices (absent: unknown). */
 export interface CatalogModel {
   id: string;
   name?: string;
   maker?: string;
   created?: number;
   price?: "free" | "paid";
+  usdPerToken?: { prompt: number; completion: number };
 }
 
 /** `boughtCredit`: the account has bought credit at least once (OpenRouter's `is_free_tier`, inverted).

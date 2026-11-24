@@ -48,7 +48,12 @@ export const els = {
   otherAddressBody: document.getElementById("otherAddressBody"),
   capLinks: document.getElementById("capLinks"),
   modelField: document.getElementById("modelField"),
-  modelSelect: document.getElementById("modelSelect"),
+  modelPicker: document.getElementById("modelPicker"),
+  modelSearch: document.getElementById("modelSearch"),
+  modelFreeRow: document.getElementById("modelFreeRow"),
+  modelFreeOnly: document.getElementById("modelFreeOnly"),
+  modelNoCredit: document.getElementById("modelNoCredit"),
+  modelPickerList: document.getElementById("modelPickerList"),
   modelInput: document.getElementById("modelInput"),
   modelSave: document.getElementById("modelSave"),
 };

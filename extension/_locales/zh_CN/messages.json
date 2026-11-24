@@ -1149,8 +1149,37 @@
   "options_address_refused": {
     "message": "地址被拒绝：仅支持 HTTPS，或 HTTP 到 localhost/127.0.0.1。"
   },
-  "options_choose_model": {
-    "message": "选择模型…"
+  "options_model_search_placeholder": {
+    "message": "搜索模型（名称或 ID）"
+  },
+  "options_model_used": {
+    "message": "已使用"
+  },
+  "options_model_matches": {
+    "message": "匹配的模型"
+  },
+  "options_model_no_match": {
+    "message": "没有与“$QUERY$”匹配的模型。",
+    "placeholders": { "query": { "content": "$1", "example": "gemma" } }
+  },
+  "options_model_other_versions": {
+    "message": "其他版本（$COUNT$）",
+    "placeholders": { "count": { "content": "$1", "example": "12" } }
+  },
+  "options_model_fewer_versions": {
+    "message": "隐藏其他版本"
+  },
+  "options_model_free": {
+    "message": "免费"
+  },
+  "options_model_paid": {
+    "message": "付费"
+  },
+  "options_model_free_only": {
+    "message": "仅免费模型"
+  },
+  "options_model_no_credit": {
+    "message": "您的 OpenRouter 账户没有余额：只有免费模型会回答。"
   },
   "options_model_placeholder_claude": {
     "message": "例如：claude-sonnet-4-5（可选）"
