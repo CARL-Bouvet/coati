@@ -16,6 +16,8 @@ import { api, IS_GECKO } from "./lib/browser-compat.js";
 import { RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./panel/retention.js";
 import {
   DEV_MODE_KEY,
+  DEV_INFO_KEY,
+  parseStoredDevInfo,
   DEV_MODE_ACKNOWLEDGED_KEY,
   parseStoredDevMode,
   parseStoredDevModeAcknowledged,
@@ -60,20 +62,21 @@ async function init() {
     ? t("options_sites_help_gecko")
     : t("options_sites_help_chrome");
 
-  const data = await api.storage.local.get([RETENTION_DAYS_KEY, DEV_MODE_KEY]);
+  const data = await api.storage.local.get([RETENTION_DAYS_KEY, DEV_MODE_KEY, DEV_INFO_KEY]);
   const retentionDays = parseStoredRetentionDays(data[RETENTION_DAYS_KEY]);
   els.retention.value = retentionDays === null ? "never" : String(retentionDays);
   // Same storage key as the panel's "Dev mode" switch (lib/dev-mode-pref.js) —
   // ONE preference. Default off (unlike the former attachPage default of
   // "on"): dev mode sends more data and may expose personal data, so it
   // never turns itself on silently.
-  setDevModeSwitch(parseStoredDevMode(data[DEV_MODE_KEY]));
+  setSwitch(els.devMode, parseStoredDevMode(data[DEV_MODE_KEY]));
+  setSwitch(els.devInfo, parseStoredDevInfo(data[DEV_INFO_KEY]));
   // First-ever activation goes through the same risk/cost confirmation
   // dialog as the panel's switch (reused from lib/dev-mode-pref.js, not duplicated).
   // Declined: the switch stays off, nothing is written.
   els.devMode.addEventListener("click", async () => {
     if (els.devMode.getAttribute("aria-checked") === "true") {
-      setDevModeSwitch(false);
+      setSwitch(els.devMode, false);
       api.storage.local.set({ [DEV_MODE_KEY]: false });
       return;
     }
@@ -86,14 +89,22 @@ async function init() {
       if (!confirmed) return;
       await api.storage.local.set({ [DEV_MODE_ACKNOWLEDGED_KEY]: true }).catch(() => {});
     }
-    setDevModeSwitch(true);
+    setSwitch(els.devMode, true);
     api.storage.local.set({ [DEV_MODE_KEY]: true });
+  });
+  els.devInfo.addEventListener("click", () => {
+    const next = els.devInfo.getAttribute("aria-checked") !== "true";
+    setSwitch(els.devInfo, next);
+    api.storage.local.set({ [DEV_INFO_KEY]: next });
   });
   // The panel writes the same key too: adopt its value if changed while
   // this page is open.
   api.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && DEV_MODE_KEY in changes) {
-      setDevModeSwitch(parseStoredDevMode(changes[DEV_MODE_KEY].newValue));
+      setSwitch(els.devMode, parseStoredDevMode(changes[DEV_MODE_KEY].newValue));
+    }
+    if (area === "local" && DEV_INFO_KEY in changes) {
+      setSwitch(els.devInfo, parseStoredDevInfo(changes[DEV_INFO_KEY].newValue));
     }
   });
 
@@ -159,10 +170,10 @@ async function applyPastedKey(value) {
   els.token.value = "";
 }
 
-/** `#devMode` is a `role="switch"` button, as in the panel (panel/dev-mode.js). */
-function setDevModeSwitch(checked) {
-  els.devMode.setAttribute("aria-checked", String(checked));
-  els.devMode.classList.toggle("c-switch--on", checked);
+/** The dev switches are `role="switch"` buttons, as in the panel (panel/dev-mode.js). */
+function setSwitch(button, checked) {
+  button.setAttribute("aria-checked", String(checked));
+  button.classList.toggle("c-switch--on", checked);
 }
 
 async function saveRetention() {

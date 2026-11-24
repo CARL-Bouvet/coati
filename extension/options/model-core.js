@@ -62,6 +62,11 @@ const setupGuide = mountSetupGuide({
   send: sendClientMessage,
   newId,
   onModels: (reply) => acceptModels(reply),
+  onNeedModel: () => {
+    const field = els.modelSelect.hidden ? els.modelInput : els.modelSelect;
+    field.scrollIntoView?.({ block: "center" });
+    field.focus({ preventScroll: true });
+  },
 });
 
 // "Install the local program" step (options/program-step.js).

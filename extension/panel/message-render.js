@@ -12,7 +12,7 @@ import { t } from "../lib/i18n-page.js";
 import { els } from "./dom-refs.js";
 import { panelState, MAX_PERSISTED_MESSAGES } from "./panel-state.js";
 import { renderMarkdown } from "./markdown.js";
-import { buildProgress, buildElapsed, buildSlowTip, elapsedText, progressKey } from "./model-advice.js";
+import { buildProgress, buildSlowTip, elapsedText, withoutEllipsis } from "./model-advice.js";
 import { isNearBottom } from "./scroll.js";
 import { parseTimestamps } from "./timestamps.js";
 import { parseElementRefs, resolveElementClick } from "./element-refs.js";
@@ -159,9 +159,52 @@ function runChain(msg) {
   return chain;
 }
 
-/** "Model · 2 limits · 14 tokens/s": what the model hit (limits.*) and, for Ollama, the machine it ran on.
+/** The discreet lines under a finished answer: page (docs/PROTOCOL.md `done.page`, labels.js
+ * buildPageMention), web search, model.
+ * @returns {HTMLElement|undefined} absent when there is nothing to say. */
+function buildFacts(msg) {
+  const lines = [];
+  if (msg.pageMention) {
+    const mention = document.createElement("p");
+    mention.className = "search-status-line message-page-mention";
+    mention.textContent = msg.pageMention;
+    lines.push(mention);
+  }
+  if (msg.searchMention) lines.push(buildSearchMentionBlock(msg));
+  if (panelState.devInfo) lines.push(buildModelLimitsBlock(msg));
+  else lines.push(...buildModelLines(msg));
+  if (!lines.some(Boolean)) return undefined;
+  const facts = document.createElement("div");
+  facts.className = "message-facts";
+  facts.append(...lines.filter(Boolean));
+  return facts;
+}
+
+/** Without Developer info: "Model · 14 tokens/s · 62 % in the graphics card" (the share only below 100 %),
+ * preceded by why the answer is empty when the model's memory filled up. */
+function buildModelLines(msg) {
+  const out = [];
+  const line = (text) => {
+    const p = document.createElement("p");
+    p.className = "search-status-line message-model-line";
+    p.textContent = text;
+    out.push(p);
+  };
+  const local = msg.limits?.local;
+  if (msg.errorCode && msg.limits?.memoryFull) line(limitSentences({ memoryFull: msg.limits.memoryFull })[0]);
+  if (local?.tokensPerSec > 0) {
+    const parts = [t("panel_limits_summary"), t("panel_limits_speed_short", [String(Math.round(local.tokensPerSec))])];
+    const share = Math.round(local.gpuPercent);
+    if (share >= 0 && share < 100) parts.push(t("panel_limits_gpu_short", [String(share)]));
+    line(parts.join(" · "));
+  }
+  return out;
+}
+
+/** "Model · 2 limits · 14 tokens/s", expandable: what the model hit (limits.*) and, for Ollama, the machine it ran on.
  * @returns {HTMLElement|undefined} absent when there is nothing to say. */
 function buildModelLimitsBlock(msg) {
+  if (!msg.limits && !msg.usage?.uncounted) return undefined;
   const sentences = limitSentences(msg.limits, msg.usage);
   const rows = hardwareRows(msg.limits?.local);
   if (sentences.length === 0 && !msg.limits?.local) return undefined;
@@ -172,7 +215,10 @@ function buildModelLimitsBlock(msg) {
   summary.className = "search-status-line";
   summary.textContent = limitsSummary(msg.limits);
   details.appendChild(summary);
-  for (const sentence of sentences) appendLine(details, "model-limits-sentence", sentence);
+  const body = document.createElement("div");
+  body.className = "model-limits-body";
+  details.appendChild(body);
+  for (const sentence of sentences) appendLine(body, "model-limits-sentence", sentence);
   if (rows.length) {
     const grid = document.createElement("dl");
     grid.className = "model-limits-hardware";
@@ -183,7 +229,7 @@ function buildModelLimitsBlock(msg) {
       dd.textContent = value;
       grid.append(dt, dd);
     }
-    details.appendChild(grid);
+    body.appendChild(grid);
   }
   // Restored messages render before the broker's features arrive: model-status.js un-hides it then.
   const button = document.createElement("button");
@@ -194,7 +240,7 @@ function buildModelLimitsBlock(msg) {
   button.addEventListener("click", () =>
     api.tabs.create({ url: api.runtime.getURL(`runlog/runlog.html?id=${encodeURIComponent(runChain(msg).join(","))}`) }),
   );
-  details.appendChild(button);
+  body.appendChild(button);
   return details;
 }
 
@@ -361,8 +407,6 @@ function trackWait(msg, waiting) {
   return elapsedText(Date.now() - msg.stageSince, t);
 }
 
-const withoutEllipsis = (s) => s.replace(/…$/, "");
-
 export function renderMessage(msg, { append = false } = {}) {
   let node = document.getElementById(`msg-${msg.id}`);
   // Capture BEFORE mutating the DOM: appending/growing the node can itself
@@ -401,28 +445,18 @@ export function renderMessage(msg, { append = false } = {}) {
     node.appendChild(buildRelaunchButton(msg));
   } else {
     node.replaceChildren(renderMarkdown(document, msg.text, msg.role === "assistant" ? answerLinks(msg) : undefined));
-    if (reading) {
-      const line = document.createElement("p");
-      line.className = "search-status-line message-page-reading";
+    if (reading || waiting) {
       const r = msg.pageReading;
-      const status = r.searchQuery
-        ? t("panel_search_status", [String(r.searchIndex), String(r.searchMax), r.searchQuery])
-        : r.openCount
-          ? t("panel_open_status", [String(r.openCount)])
-          : t("panel_page_reading_status", [r.kTokens]);
-      const stage = msg.progress ? withoutEllipsis(t(progressKey(msg.progress, true))) : "";
-      line.append(stage ? `${withoutEllipsis(status)} · ${stage} · ` : `${withoutEllipsis(status)} · `, buildElapsed(document, elapsed));
-      node.appendChild(line);
-    }
-    if (waiting) {
-      node.appendChild(
-        buildProgress(document, {
-          stage: msg.progress,
-          readsPage: msg.readsPage === true,
-          t,
-          elapsed,
-        }),
-      );
+      const status = reading
+        ? withoutEllipsis(
+            r.searchQuery
+              ? t("panel_search_status", [String(r.searchIndex), String(r.searchMax), r.searchQuery])
+              : r.openCount
+                ? t("panel_open_status", [String(r.openCount)])
+                : t("panel_page_reading_status", [r.kTokens]),
+          )
+        : undefined;
+      node.appendChild(buildProgress(document, { stage: msg.progress, status, readsPage: msg.readsPage === true, t, elapsed }));
     }
     // Only a YouTube-context assistant message carries a videoId (set in
     // summarize()) — an ordinary article summary that happens to contain
@@ -453,22 +487,12 @@ export function renderMessage(msg, { append = false } = {}) {
       node.appendChild(notice);
     }
     if (msg.modelStalled && pendingRetries.has(msg.id)) node.appendChild(buildRateLimitRecoveryBlock(msg));
-    // docs/PROTOCOL.md `done.page` — discreet, one line (buildPageMention(), labels.js).
     const confirming = msg.streaming ? pendingSearchQuery(msg.id) : undefined;
     if (confirming !== undefined) node.appendChild(buildSearchConfirmBlock(msg, confirming));
-    if (msg.pageMention && !msg.streaming) {
-      const mention = document.createElement("p");
-      mention.className = "search-status-line message-page-mention";
-      mention.textContent = msg.pageMention;
-      node.appendChild(mention);
-    }
-    if (!msg.streaming && (msg.limits || msg.usage?.uncounted)) {
-      const limitsBlock = buildModelLimitsBlock(msg);
-      if (limitsBlock) node.appendChild(limitsBlock);
-    }
+    const facts = msg.streaming ? undefined : buildFacts(msg);
+    if (facts) node.appendChild(facts);
     if (msg.readMore && readParts.has(msg.id) && !msg.streaming) node.appendChild(buildReadRestButton(msg));
     if (!msg.streaming) {
-      if (msg.searchMention) node.appendChild(buildSearchMentionBlock(msg));
       if (msg.sources?.length) node.appendChild(buildSourcesBlock(msg.sources));
       if (msg.searchAccess) node.appendChild(buildSearchAccessBlock(msg));
       else if (msg.suggestSearch) node.appendChild(buildSearchButton(msg, msg.suggestSearch));

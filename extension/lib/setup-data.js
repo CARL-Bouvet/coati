@@ -45,11 +45,11 @@ export const LM_STUDIO = {
 
 // --- Online path ---------------------------------------------------------------
 //
-// `provider` / `baseUrl` / `model` are exactly what the guide sends in
-// `settings.set` (docs/PROTOCOL.md). `baseUrl` values match
-// lib/model-provider-presets.js. `costUsdPerRequest`: rough price of ONE
-// question about an average page (~3,000 tokens in, ~500 out) at the listed
-// model's public price — `0` means free. `group`: "free" (shown first),
+// `provider` / `baseUrl` are exactly what the guide sends in `settings.set`
+// (docs/PROTOCOL.md); no model: the user picks one from the service's list.
+// `baseUrl` values match lib/model-provider-presets.js. `costUsdPerRequest`:
+// rough price of ONE question about an average page (~3,000 tokens in, ~500
+// out) with the service's smaller models — `0` means free. `group`: "free" (shown first),
 // "paid" (Claude, OpenAI), "other" (under "Others"). `needsCredit`: a new
 // key answers only once credit was added (billingUrl), the guide says so.
 // `freeTier`: a free key works (with limits), the price applies beyond them.
@@ -66,7 +66,6 @@ export const ONLINE_PROVIDERS = [
     name: "OpenRouter",
     provider: "openai-compat",
     baseUrl: "https://openrouter.ai/api/v1",
-    model: "meta-llama/llama-3.3-70b-instruct:free",
     costUsdPerRequest: 0,
     signupUrl: "https://openrouter.ai/sign-up",
     keysUrl: "https://openrouter.ai/settings/keys",
@@ -87,7 +86,6 @@ export const ONLINE_PROVIDERS = [
     group: "paid",
     name: "Claude (Anthropic)",
     provider: "claude-api",
-    model: "claude-haiku-4-5",
     costUsdPerRequest: 0.006,
     signupUrl: "https://platform.claude.com/",
     keysUrl: "https://platform.claude.com/settings/keys",
@@ -106,7 +104,6 @@ export const ONLINE_PROVIDERS = [
     name: "OpenAI",
     provider: "openai-compat",
     baseUrl: "https://api.openai.com/v1",
-    model: "gpt-5-mini",
     costUsdPerRequest: 0.002,
     signupUrl: "https://platform.openai.com/signup",
     keysUrl: "https://platform.openai.com/api-keys",
@@ -122,7 +119,6 @@ export const ONLINE_PROVIDERS = [
     name: "Mistral",
     provider: "openai-compat",
     baseUrl: "https://api.mistral.ai/v1",
-    model: "mistral-small-latest",
     costUsdPerRequest: 0.0005,
     signupUrl: "https://console.mistral.ai/",
     keysUrl: "https://console.mistral.ai/api-keys",
@@ -139,7 +135,6 @@ export const ONLINE_PROVIDERS = [
     name: "Google Gemini",
     provider: "openai-compat",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-    model: "gemini-3.5-flash-lite",
     costUsdPerRequest: 0.002,
     signupUrl: "https://aistudio.google.com/",
     keysUrl: "https://aistudio.google.com/apikey",
@@ -157,7 +152,6 @@ export const ONLINE_PROVIDERS = [
     name: "DeepSeek",
     provider: "openai-compat",
     baseUrl: "https://api.deepseek.com/v1",
-    model: "deepseek-chat",
     costUsdPerRequest: 0.001,
     signupUrl: "https://platform.deepseek.com/sign_up",
     keysUrl: "https://platform.deepseek.com/api_keys",

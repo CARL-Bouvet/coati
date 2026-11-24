@@ -260,6 +260,15 @@
       }
     }
   },
+  "panel_limits_gpu_short": {
+    "message": "$PERCENT$ % dans la carte graphique",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "62"
+      }
+    }
+  },
   "panel_limits_memory_full_ctx": {
     "message": "Le modèle a rempli sa mémoire ($USED$ k sur $TOTAL$ k tokens) avant d'avoir fini.",
     "placeholders": {
@@ -475,6 +484,12 @@
   },
   "options_dev_mode_help": {
     "message": "Valeur de départ de l'interrupteur « Mode dev » du panneau. Envoie plus de données (coût plus élevé) et peut exposer des données personnelles présentes sur la page."
+  },
+  "options_dev_info_label": {
+    "message": "Infos pour développeurs"
+  },
+  "options_dev_info_help": {
+    "message": "Sous chaque réponse : les limites atteintes par le modèle, la part du modèle dans la carte graphique et le bouton « Voir le déroulé ». Ne change rien à ce que lit le modèle."
   },
   "panel_save_prompt": {
     "message": "Enregistrer le texte saisi comme prompt"
@@ -1363,11 +1378,14 @@
   "setup_speedup_title": {
     "message": "Accélérer Ollama"
   },
+  "setup_speedup_when": {
+    "message": "Utile seulement si le modèle ne tient pas entièrement dans la carte graphique."
+  },
   "setup_speedup_intro": {
     "message": "Deux réglages d'Ollama divisent environ par deux la mémoire qu'occupe la page lue, pour une perte de qualité minime : un calcul plus économe (« flash attention ») et une mémoire de travail compressée. Le modèle tient alors plus souvent entièrement dans la carte graphique, et répond plus vite."
   },
   "setup_speedup_linux_edit": {
-    "message": "Ouvrez le réglage du service Ollama (installation standard, avec systemd) :"
+    "message": "Ouvrez le réglage du service Ollama :"
   },
   "setup_speedup_linux_add": {
     "message": "Dans l'éditeur qui s'ouvre, collez ces trois lignes dans la zone vide du haut, puis enregistrez et fermez :"
@@ -1415,7 +1433,7 @@
     "message": "Autres systèmes"
   },
   "setup_speedup_check": {
-    "message": "Utile seulement si, sous une réponse, le volet « Modèle » affiche moins de 100 % à la ligne « Dans la carte graphique ». Après le réglage, ce chiffre doit augmenter."
+    "message": "Pour vérifier, posez une question : quand le modèle n'y tient pas entièrement, la ligne « Modèle » sous la réponse indique la part dans la carte graphique. Après le réglage, elle doit augmenter ou disparaître."
   },
   "setup_speedup_report": {
     "message": "Ça n'a pas marché ? Signalez-le sur GitHub"
@@ -1585,6 +1603,9 @@
   },
   "setup_online_ready": {
     "message": "Coati est paramétré."
+  },
+  "setup_online_choose_model": {
+    "message": "Clé acceptée. Choisissez un modèle dans la liste ci-dessous."
   },
   "setup_online_plan_claude_link": {
     "message": "Récupérer le crédit API de l'abonnement"
@@ -1993,6 +2014,18 @@
   "options_service_use": {
     "message": "Utiliser"
   },
+  "options_service_keys_link": {
+    "message": "Vos clés $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "options_service_billing_link": {
+    "message": "Crédit et facturation"
+  },
   "options_service_remove": {
     "message": "Retirer"
   },
@@ -2085,6 +2118,19 @@
       },
       "p3": {
         "content": "$3",
+        "example": "3"
+      }
+    }
+  },
+  "panel_search_mention_no_page": {
+    "message": "Recherche web · recherches : $P1$ · a répondu sans ouvrir aucune page · $P2$ k tokens",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "3"
+      },
+      "p2": {
+        "content": "$2",
         "example": "3"
       }
     }
@@ -2289,6 +2335,15 @@
   },
   "runlog_total_tokens": {
     "message": "$KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "runlog_total_tokens_at_least": {
+    "message": "au moins $KTOKENS$ k tokens",
     "placeholders": {
       "ktokens": {
         "content": "$1",

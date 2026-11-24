@@ -143,7 +143,8 @@
       </section>
 
       <!-- 2. Default of the panel's "Dev mode" switch (docs/PROTOCOL.md
-           "Page on demand"): the same switch, same storage key. -->
+           "Page on demand"): the same switch, same storage key; and the
+           "Developer info" switch (model limits under answers). -->
       <section id="devModeSection" class="section" aria-labelledby="h-dev-mode">
         <h2 id="h-dev-mode" class="c-title" data-i18n="options_dev_mode_title">Dev mode</h2>
         <div class="setting-row">
@@ -155,6 +156,15 @@
             </p>
           </div>
           <button id="devMode" class="c-switch" type="button" role="switch" aria-checked="false" aria-labelledby="devModeLabel" aria-describedby="devModeHelp">
+            <span class="c-switch-track" aria-hidden="true"><span class="c-switch-thumb"></span></span>
+          </button>
+        </div>
+        <div class="setting-row">
+          <div>
+            <p id="devInfoLabel" class="setting-label" data-i18n="options_dev_info_label">Developer info</p>
+            <p id="devInfoHelp" class="help" data-i18n="options_dev_info_help">Under each answer: the limits the model hit, how much of it fits in the graphics card, and the "See the run" button. Does not change what the model reads.</p>
+          </div>
+          <button id="devInfo" class="c-switch" type="button" role="switch" aria-checked="false" aria-labelledby="devInfoLabel" aria-describedby="devInfoHelp">
             <span class="c-switch-track" aria-hidden="true"><span class="c-switch-thumb"></span></span>
           </button>
         </div>

@@ -3,7 +3,8 @@
 
 import { t } from "../lib/i18n-page.js";
 import { createKeyInput } from "../lib/key-input.js";
-import { ONLINE_PROVIDERS } from "../lib/setup-data.js";
+import { ONLINE_PROVIDERS, getProviderLinks } from "../lib/setup-data.js";
+import { externalLink } from "../options-setup.js";
 import { MODEL_PROVIDER_PRESETS, isAllowedBaseUrl } from "../lib/model-provider-presets.js";
 import { sameModel } from "../lib/model-list.js";
 import { els } from "./dom-refs.js";
@@ -76,6 +77,14 @@ function buildServiceRow(entry, settings) {
   const result = el("span", "test-result service-result");
   result.setAttribute("role", "status");
   row.append(head);
+  // A guide service links to its keys and billing pages (the service's sign-in page when signed out).
+  const links = getProviderLinks(entry.id, entry.baseUrl);
+  if (links) {
+    const line = el("p", "help help--tight");
+    line.append(externalLink(links.keysUrl, t("options_service_keys_link", [links.name])));
+    if (links.billingUrl) line.append(" · ", externalLink(links.billingUrl, t("options_service_billing_link"))); // i18n-allow: separator
+    row.append(line);
+  }
   // The active row reads in order: the model to use, its key (folded), then Test / Remove.
   if (active) {
     row.append(els.modelField);

@@ -175,8 +175,9 @@ export function fold(id, title, className = "fold") {
  * @param {(payload: object) => void} opts.send
  * @param {() => string} opts.newId
  * @param {(reply: object) => void} [opts.onModels]  every `models` reply this guide receives
+ * @param {() => void} [opts.onNeedModel]  a key was accepted but no model is chosen yet
  */
-export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }) {
+export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, onNeedModel }) {
   let settings = null;
   let connected = false;
   // The local side is on screen: only then is `host` worth fetching.
@@ -286,14 +287,13 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   tryLocal.body.append(el("p", "setup-text", t("setup_try_text")), searchTip());
   guide.body.append(localList);
 
-  // "Speed up Ollama". This
-  // machine's OS first (same detectOs() as the download button).
+  // "Speed up Ollama": when it helps, then this machine's OS first (same detectOs() as the
+  // download button), then how to check it worked.
   const speedupFold = fold("setupOllamaSpeedup", t("setup_speedup_title"), "fold setup-speedup");
   const speedup = speedupFold.details;
   const speedupSummary = speedupFold.summary;
   const speedupBody = speedupFold.body;
-  speedupBody.append(el("p", "setup-text", t("setup_speedup_intro")));
-  speedupBody.append(el("p", "setup-text", t("setup_speedup_check")));
+  speedupBody.append(el("p", "setup-text", t("setup_speedup_when")), el("p", "setup-text", t("setup_speedup_intro")));
   const otherOs = Object.keys(OS_NAMES).filter((key) => key !== os);
   if (os) {
     speedupBody.append(speedupOsBlock(os));
@@ -305,6 +305,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
   } else {
     for (const key of Object.keys(OS_NAMES)) speedupBody.append(speedupOsBlock(key));
   }
+  speedupBody.append(el("p", "setup-text", t("setup_speedup_check")));
   const speedupLinks = el("p", "setup-links");
   speedupLinks.append(
     externalLink(OLLAMA_SPEEDUP.faqUrl, t("setup_speedup_faq")),
@@ -503,7 +504,6 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
     service.setState("busy", t("setup_checking"));
     const patch = { type: "settings.set", provider: entry.provider };
     if (entry.baseUrl) patch.baseUrl = entry.baseUrl;
-    if (entry.model) patch.model = entry.model;
     request(patch, (reply) => {
       if (reply?.type === "settings" && reply.provider === entry.provider) {
         service.setState("done", t("setup_online_service_ok", [entry.name]));
@@ -610,13 +610,16 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
       newId,
       getBaseUrl: () => entry.baseUrl,
       limitsUrl: entry.group === "free" || entry.prepaid ? undefined : entry.limitsUrl,
-      onVerified(ok) {
-        if (ok) {
-          account.setState("done");
-          key.setState("done", t("setup_online_ready"));
-        } else {
+      onVerified(ok, code) {
+        // model-missing: the key works, the saved model is gone from the service.
+        const needModel = ok ? !settings?.model : code === "model-missing";
+        if (!ok && !needModel) {
           key.setState("failed");
+          return;
         }
+        account.setState("done");
+        key.setState("done", t(needModel ? "setup_online_choose_model" : "setup_online_ready"));
+        if (needModel) onNeedModel?.();
       },
     });
     guideKeyInput.setConnected(connected);
@@ -727,7 +730,8 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels }
     openSpeedup() {
       speedup.open = true;
       speedup.scrollIntoView?.({ block: "start" });
-      speedupSummary.focus({ preventScroll: true });
+      // Keyboard users land here; the ring would frame the title as if it had been clicked.
+      speedupSummary.focus({ preventScroll: true, focusVisible: false });
     },
   };
 }

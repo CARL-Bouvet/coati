@@ -75,6 +75,7 @@ const childEnv = ATTACH ? process.env : { ...process.env, HOME: home, COATI_DATA
 let broker;
 let fakeOpenRouter;
 const FAKE_MODEL_KEY = "sk-e2e-good";
+const SIGNED_IN_KEY = `sk-or-v1-${"e2e0".repeat(16)}`;
 const configPath = path.join(home, ".config", "coati", "config.json");
 let exchangeBody = "";
 let brokerLog = "";
@@ -127,7 +128,11 @@ if (!ATTACH) {
       if (req.url === "/auth/keys") {
         exchangeBody = body;
         res.setHeader("content-type", "application/json");
-        return res.end(JSON.stringify({ key: `sk-or-v1-${"e2e0".repeat(16)}` }));
+        return res.end(JSON.stringify({ key: SIGNED_IN_KEY }));
+      }
+      if (req.url === "/key") {
+        res.statusCode = req.headers.authorization === `Bearer ${SIGNED_IN_KEY}` ? 200 : 401;
+        return res.end("{}");
       }
       if (req.headers.authorization !== `Bearer ${FAKE_MODEL_KEY}`) {
         res.statusCode = 401;
@@ -341,7 +346,20 @@ try {
     if (saved.provider !== "openai-compat" || saved.baseUrl !== "https://openrouter.ai/api/v1" || !saved.apiKeys?.["openai-compat"]?.["https://openrouter.ai"]) {
       throw new Error(`OpenRouter not active after sign-in: provider=${saved.provider} baseUrl=${saved.baseUrl}`);
     }
-    pass("one-click OpenRouter sign-in: callback on localhost, code exchanged, key saved and service active");
+    // The guide then checks the key on screen; no model is chosen for the user, the list is offered.
+    if (saved.model !== undefined) throw new Error(`a model was chosen for the user: ${saved.model}`);
+    const chooseModel = await options.evaluate(() => chrome.i18n.getMessage("setup_online_choose_model"));
+    const keyStep = options.locator('#setupOnline .setup-step[data-state="done"] .setup-step-result', { hasText: chooseModel });
+    await waitFor(async () => (await keyStep.count()) > 0, 15_000, "the guide's key step asks for a model").catch(async (err) => {
+      const steps = await options.locator("#setupOnline .setup-step").evaluateAll((els) => els.map((e) => `${e.dataset.state}: ${e.innerText.slice(-120)}`));
+      throw new Error(`${err.message}\nsteps:\n${steps.join("\n")}\n--- broker log ---\n${brokerLogTail()}`);
+    });
+    const focused = await options.evaluate(() => document.activeElement?.id);
+    if (focused !== "modelSelect" && focused !== "modelInput") throw new Error(`model field not focused (${focused})`);
+    if ((await options.locator('#serviceList a[href="https://openrouter.ai/settings/keys"]').count()) !== 1) {
+      throw new Error("the configured OpenRouter row has no link to its keys page");
+    }
+    pass("one-click OpenRouter sign-in: callback on localhost, code exchanged, key saved and checked, model list focused");
   }
 
   console.log("== scripts/ci/extension-e2e.mjs: ALL PASS ==");

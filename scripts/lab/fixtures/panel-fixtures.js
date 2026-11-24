@@ -69,7 +69,7 @@
       ? {
           "coati:conversation": [
             { id: "tour-u", role: "user", text: "Résumer cet article" },
-            { id: "tour-a", role: "assistant", text: CONVERSATION_ANSWER, streaming: false, pageOnDemand: true, pageMention: "A lu le code de la page · 4.1 k tokens" },
+            { id: "tour-a", role: "assistant", text: CONVERSATION_ANSWER, streaming: false, pageOnDemand: true, pageMention: "A lu le code de la page · 4,1 k tokens" },
           ],
           "coati:devMode": true,
           "coati:devModeAcknowledged": true,
@@ -1807,7 +1807,7 @@
       storageLocal: {
         "coati:conversation": [
           { id: "pr-u", role: "user", text: "Résumer cet article : Une mesure publiée le 25 septembre" },
-          { id: "pr1", role: "assistant", text: "", streaming: true, pageReading: { kTokens: "3.2" } },
+          { id: "pr1", role: "assistant", text: "", streaming: true, pageReading: { kTokens: "3,2" } },
         ],
         "coati:devMode": false,
         "coati:devModeAcknowledged": true,
@@ -1861,7 +1861,7 @@
             text: CONVERSATION_ANSWER,
             streaming: false,
             pageOnDemand: true,
-            pageMention: "A lu la page · 3.2 k tokens",
+            pageMention: "A lu la page · 3,2 k tokens",
           },
         ],
         "coati:devMode": false,
@@ -1885,7 +1885,7 @@
             text: CONVERSATION_ANSWER,
             streaming: false,
             pageOnDemand: true,
-            pageMention: "A lu le code de la page · 4.1 k tokens",
+            pageMention: "A lu le code de la page · 4,1 k tokens",
           },
         ],
         "coati:devMode": true,
@@ -1909,7 +1909,7 @@
             text: "Je n'ai pas eu besoin de relire la page pour répondre.",
             streaming: false,
             pageOnDemand: true,
-            pageMention: "N'a pas lu la page · 0.4 k tokens",
+            pageMention: "N'a pas lu la page · 0,4 k tokens",
           },
         ],
         "coati:devMode": false,
@@ -1934,7 +1934,7 @@
             text: "La page ne donne pas de tarif précis ; elle renvoie vers un devis.",
             streaming: false,
             pageOnDemand: true,
-            pageMention: "A lu la page · au moins 3.2 k tokens",
+            pageMention: "A lu la page · au moins 3,2 k tokens",
             usage: { inputTokens: 3000, outputTokens: 200, uncounted: true },
             limits: {
               memoryFull: { tokens: 7600, contextTokens: 8000 },
@@ -1952,8 +1952,48 @@
         ],
         "coati:attachPage": true,
         "coati:devMode": false,
+        "coati:devInfo": true,
       },
       autoAction: { steps: [{ type: "click", selector: ".model-limits > summary", delayMs: 200 }] },
+      prompts: [],
+    },
+
+    // Developer info off: the plain "Modèle · 14 tokens/s" line, nothing to unfold.
+    "model-limits-normal": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand", "run-log"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "ml-u", role: "user", text: "Que dit cette page sur les tarifs ?" },
+          {
+            id: "ml-a",
+            role: "assistant",
+            text: "La page ne donne pas de tarif précis ; elle renvoie vers un devis.",
+            streaming: false,
+            pageOnDemand: true,
+            pageMention: "A lu la page · au moins 3,2 k tokens",
+            usage: { inputTokens: 3000, outputTokens: 200, uncounted: true },
+            limits: {
+              memoryFull: { tokens: 7600, contextTokens: 8000 },
+              refused: [
+                { kind: "search", reason: "searches", count: 1, limit: 4 },
+                { kind: "open", reason: "pages", count: 2, limit: 6 },
+                { kind: "open", reason: "budget", count: 1, limit: 24000 },
+              ],
+              cut: true,
+              answerNow: true,
+              local: { gpuPercent: 62, contextTokens: 8000, tokensPerSec: 14.2, vramGb: 8 },
+            },
+            reasoned: true,
+          },
+        ],
+        "coati:attachPage": true,
+        "coati:devMode": false,
+        "coati:devInfo": false,
+      },
       prompts: [],
     },
 
@@ -1980,6 +2020,64 @@
           },
         ],
         "coati:attachPage": true,
+        "coati:devMode": false,
+        "coati:devInfo": true,
+      },
+      prompts: [],
+    },
+
+    // Same empty answer without Developer info: the reason line, then the model line with its share.
+    "model-limits-error-normal": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand", "run-log"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "mlen-u", role: "user", text: "Résume cette page." },
+          {
+            id: "mlen-a",
+            role: "assistant",
+            text: "Le modèle n'a rien répondu.",
+            streaming: false,
+            errorCode: "model-empty",
+            limits: {
+              memoryFull: { tokens: 7600, contextTokens: 8000 },
+              local: { gpuPercent: 77, contextTokens: 16000, tokensPerSec: 7, vramGb: 6.4 },
+            },
+          },
+        ],
+        "coati:attachPage": true,
+        "coati:devMode": false,
+      },
+      prompts: [],
+    },
+
+    // Web search that opened no page: "répondu sans ouvrir de page".
+    "search-no-page": {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand"],
+      storageLocal: {
+        "coati:conversation": [
+          { id: "snp-u", role: "user", text: "Quel temps fera-t-il demain à Lyon ?" },
+          {
+            id: "snp-a",
+            role: "assistant",
+            text: "Je n'ai pas pu ouvrir de page : voici ce que je sais, sans certitude.",
+            streaming: false,
+            pageOnDemand: true,
+            pageMention: "N'a pas lu la page · 0,4 k tokens",
+            searchMention: {
+              text: "Recherche web · recherches : 4 · a répondu sans ouvrir aucune page · 0,4 k tokens",
+              queries: ["météo Lyon demain", "prévisions Lyon", "Lyon météo 7 jours", "temps Lyon"],
+              capped: false,
+            },
+          },
+        ],
         "coati:devMode": false,
       },
       prompts: [],

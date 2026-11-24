@@ -8,9 +8,9 @@
 //   1. bundles panel.js / options.js (ES modules) into two classic IIFE
 //      scripts with Bun's bundler — file:// refuses <script type="module">
 //      (constraint 3).
-//   2. builds a light tree and a dark tree (constraint 5): CSS copied
-//      verbatim into light/, rewritten (dark media query forced always-on,
-//      color-scheme:dark injected) into dark/.
+//   2. builds a light tree and a dark tree (constraint 5): the dark media
+//      query is switched off in light/ and forced always-on in dark/, so each
+//      tree keeps its theme whatever the viewer's system setting.
 //   3. writes panel.html / options.html per tree: same markup as the real
 //      pages, module <script> swapped for stub + fixtures + bundle + harness
 //      (constraint 3/4/7).
@@ -54,8 +54,15 @@ function rewriteCssForDark(css: string): string {
   // media (task constraint 5) — and declare the scheme so native controls
   // (scrollbars, checkboxes) follow along, and this keeps working the day
   // theme.css moves to CSS light-dark().
-  return css.replace(/@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)/g, "@media screen") + "\n:root{color-scheme:dark;}\n";
+  return css.replace(DARK_QUERY, "@media screen") + "\n:root{color-scheme:dark;}\n";
 }
+
+/** The light tree stays light on a machine set to dark mode (the dark block never applies). */
+function rewriteCssForLight(css: string): string {
+  return css.replace(DARK_QUERY, "@media not all") + "\n:root{color-scheme:light;}\n";
+}
+
+const DARK_QUERY = /@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)/g;
 
 function ensureDir(path: string) {
   mkdirSync(path, { recursive: true });
@@ -178,7 +185,7 @@ function copyCss(relPath: string, tree: "light" | "dark") {
   const src = join(EXT, relPath);
   const dest = join(OUT, tree, relPath);
   const css = readFileSync(src, "utf8");
-  writeFile(dest, tree === "dark" ? rewriteCssForDark(css) : css);
+  writeFile(dest, tree === "dark" ? rewriteCssForDark(css) : rewriteCssForLight(css));
 }
 
 async function main() {
@@ -261,7 +268,7 @@ async function main() {
   console.log("[lab] welcome states:", welcomeStates.join(", "));
 
   for (const tree of ["light", "dark"] as const) {
-    // CSS, copied verbatim (light) or dark-rewritten (dark) into the exact
+    // CSS, light- or dark-rewritten into the exact
     // same relative paths the real pages already use.
     copyCss("lib/theme.css", tree);
     copyCss("lib/components.css", tree);

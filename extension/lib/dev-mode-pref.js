@@ -16,9 +16,17 @@ import { t } from "./i18n-page.js";
 
 export const DEV_MODE_KEY = "coati:devMode";
 export const DEV_MODE_ACKNOWLEDGED_KEY = "coati:devModeAcknowledged";
+// "Developer info": shows the model's limits and hardware under answers.
+// Separate from Dev mode; read by the panel, set on the options page only.
+export const DEV_INFO_KEY = "coati:devInfo";
 
 /** @param {unknown} stored @returns {boolean} */
 export function parseStoredDevMode(stored) {
+  return stored === true;
+}
+
+/** @param {unknown} stored @returns {boolean} */
+export function parseStoredDevInfo(stored) {
   return stored === true;
 }
 

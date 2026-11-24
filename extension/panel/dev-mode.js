@@ -9,7 +9,9 @@ import { hasFeature } from "./model-status.js";
 export {
   DEV_MODE_KEY,
   DEV_MODE_ACKNOWLEDGED_KEY,
+  DEV_INFO_KEY,
   parseStoredDevMode,
+  parseStoredDevInfo,
   parseStoredDevModeAcknowledged,
   confirmDevModeActivation,
 } from "../lib/dev-mode-pref.js";

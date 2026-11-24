@@ -74,7 +74,11 @@ function buildSearchMention(message) {
   const s = message.search;
   if (!s) return undefined;
   const queries = Array.isArray(s.queries) ? s.queries : [];
-  const text = t("panel_search_mention", [String(queries.length), String(s.pages), formatTokensK(estimateTokensFromChars(s.chars))]);
+  const kTokens = formatTokensK(estimateTokensFromChars(s.chars));
+  const text =
+    s.pages === 0 && queries.length > 0
+      ? t("panel_search_mention_no_page", [String(queries.length), kTokens])
+      : t("panel_search_mention", [String(queries.length), String(s.pages), kTokens]);
   return { text, queries, capped: s.capped === true };
 }
 

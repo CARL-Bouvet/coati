@@ -253,9 +253,6 @@ export async function testProviderConnection(
   if (providerId === "openai-compat" && !config.baseUrl) {
     return { ok: false, message: t("testConnection.noBaseUrl", lang), code: "model-unavailable" };
   }
-  if (providerId === "openai-compat" && !config.model) {
-    return { ok: false, message: t("testConnection.noModel", lang), code: "model-unavailable" };
-  }
 
   const opts: ProviderRuntimeOptions = {
     model: config.model,

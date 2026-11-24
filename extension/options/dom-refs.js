@@ -11,6 +11,7 @@ export const els = {
   headerStatusLabel: document.querySelector("#headerStatus .status-label"),
   legacyPairing: document.getElementById("legacyPairing"),
   devMode: document.getElementById("devMode"),
+  devInfo: document.getElementById("devInfo"),
   shortcutKeys: document.getElementById("shortcutKeys"),
   shortcutEdit: document.getElementById("shortcutEdit"),
   shortcutHelp: document.getElementById("shortcutHelp"),

@@ -50,8 +50,7 @@ p, dl, dd, ol, ul { margin: 0; padding: 0; }
   overflow-wrap: anywhere;
 }
 
-.runlog-meta,
-.runlog-hardware {
+.runlog-meta {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-4);
@@ -65,6 +64,21 @@ p, dl, dd, ol, ul { margin: 0; padding: 0; }
 
 .runlog-meta-value { color: var(--fg); }
 
+.runlog-hardware {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  column-gap: var(--space-3);
+  row-gap: 2px;
+}
+
+.runlog-hardware .runlog-meta-label { color: var(--muted); }
+
+.runlog-hardware .runlog-meta-value {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
 /* --- Steps --------------------------------------------------------------- */
 
 .runlog-steps {
@@ -74,9 +88,9 @@ p, dl, dd, ol, ul { margin: 0; padding: 0; }
 }
 
 .runlog-step {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  display: grid;
+  grid-template-columns: 4.5em minmax(0, 1fr);
+  column-gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--divider);
 }
@@ -88,6 +102,12 @@ p, dl, dd, ol, ul { margin: 0; padding: 0; }
 .page-head .c-button {
   background: var(--surface);
   color: var(--fg);
+}
+
+.runlog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .runlog-row {
@@ -104,17 +124,16 @@ p, dl, dd, ol, ul { margin: 0; padding: 0; }
   color: var(--muted);
 }
 
-.runlog-time { min-width: 4.5em; }
+.runlog-time { align-self: start; }
 
 .runlog-call { font-weight: 600; color: var(--fg); }
 
-.runlog-stop { margin-left: auto; font-size: var(--text-s); color: var(--muted); }
+.runlog-stop { font-size: var(--text-s); color: var(--muted); }
 
 .runlog-asked {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-2);
-  padding-left: 4.5em;
   overflow-wrap: anywhere;
 }
 
@@ -129,7 +148,6 @@ p, dl, dd, ol, ul { margin: 0; padding: 0; }
   flex-direction: column;
   gap: var(--space-1);
   list-style: none;
-  padding-left: 4.5em;
 }
 
 .runlog-page {
@@ -146,10 +164,7 @@ p, dl, dd, ol, ul { margin: 0; padding: 0; }
 /* --- Reasoning ----------------------------------------------------------- */
 
 .runlog-reasoning,
-.runlog-no-reasoning {
-  margin-left: 4.5em;
-  font-size: var(--text-s);
-}
+.runlog-no-reasoning { font-size: var(--text-s); }
 
 .runlog-no-reasoning { color: var(--muted); opacity: 0.7; }
 
@@ -177,12 +192,6 @@ p, dl, dd, ol, ul { margin: 0; padding: 0; }
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  margin: 0;
   list-style: none;
-}
-
-@media (max-width: 480px) {
-  .runlog-asked,
-  .runlog-pages,
-  .runlog-reasoning,
-  .runlog-no-reasoning { padding-left: 0; margin-left: 0; }
 }

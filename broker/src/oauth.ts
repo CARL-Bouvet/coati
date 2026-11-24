@@ -15,8 +15,9 @@ const MAX_EXCHANGE_BODY_CHARS = 4096;
 
 const b64url = (buf: Buffer): string => buf.toString("base64url");
 
-/** Exchange endpoint base; overridable by the environment so an end-to-end run can use a local stand-in. */
-function exchangeBase(): string {
+/** OpenRouter API base for the code exchange and the key check; overridable by the environment so an
+ * end-to-end run can use a local stand-in. */
+export function openRouterApiBase(): string {
   return process.env.COATI_OPENROUTER_API_BASE || OPENROUTER_API_BASE_URL;
 }
 
@@ -89,7 +90,7 @@ export function createOAuthFlow() {
       const code = params.get("code");
       if (!code) return page(false, attempt.lang);
       try {
-        const res = await fetch(`${exchangeBase()}/auth/keys`, {
+        const res = await fetch(`${openRouterApiBase()}/auth/keys`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ code, code_verifier: attempt.verifier, code_challenge_method: "S256" }),

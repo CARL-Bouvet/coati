@@ -260,6 +260,15 @@
       }
     }
   },
+  "panel_limits_gpu_short": {
+    "message": "$PERCENT$% 在显卡中",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "62"
+      }
+    }
+  },
   "panel_limits_memory_full_ctx": {
     "message": "模型在完成之前已用满内存（$USED$ k / $TOTAL$ k 个 token）。",
     "placeholders": {
@@ -475,6 +484,12 @@
   },
   "options_dev_mode_help": {
     "message": "面板中「开发者模式」开关的初始值。发送更多数据（成本更高），且可能暴露页面上的个人信息。"
+  },
+  "options_dev_info_label": {
+    "message": "开发者信息"
+  },
+  "options_dev_info_help": {
+    "message": "在每个回答下方显示：模型触及的限制、模型在显卡中的占比，以及“查看运行过程”按钮。不会改变模型读取的内容。"
   },
   "panel_save_prompt": {
     "message": "将当前文本保存为提示词"
@@ -1363,11 +1378,14 @@
   "setup_speedup_title": {
     "message": "加速 Ollama"
   },
+  "setup_speedup_when": {
+    "message": "仅当模型无法完全放入显卡时才有用。"
+  },
   "setup_speedup_intro": {
     "message": "Ollama 的两项设置可将所读页面占用的内存减少约一半，质量损失很小：更节省的计算方式（“flash attention”）和压缩的工作内存。这样模型更常能完全放入显卡，回答也更快。"
   },
   "setup_speedup_linux_edit": {
-    "message": "打开 Ollama 服务的设置（标准安装，使用 systemd）："
+    "message": "打开 Ollama 服务的设置："
   },
   "setup_speedup_linux_add": {
     "message": "在打开的编辑器中，将这三行粘贴到顶部的空白区域，然后保存并关闭："
@@ -1415,7 +1433,7 @@
     "message": "其他系统"
   },
   "setup_speedup_check": {
-    "message": "仅当回答下方“模型”折叠栏中“在显卡中”一行显示低于 100% 时才有用。设置后，这个比例应该会上升。"
+    "message": "如需确认，请提一个问题：当模型无法完全放入显卡时，回答下方的“模型”一行会显示其在显卡中的比例。设置后，这个比例应该会上升或消失。"
   },
   "setup_speedup_report": {
     "message": "没有生效？请在 GitHub 上反馈"
@@ -1585,6 +1603,9 @@
   },
   "setup_online_ready": {
     "message": "Coati 已设置完成。"
+  },
+  "setup_online_choose_model": {
+    "message": "密钥已接受。请在下方列表中选择一个模型。"
   },
   "setup_online_plan_claude_link": {
     "message": "领取订阅的 API 额度"
@@ -1993,6 +2014,18 @@
   "options_service_use": {
     "message": "使用"
   },
+  "options_service_keys_link": {
+    "message": "您的 $NAME$ 密钥",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "options_service_billing_link": {
+    "message": "额度与账单"
+  },
   "options_service_remove": {
     "message": "移除"
   },
@@ -2085,6 +2118,19 @@
       },
       "p3": {
         "content": "$3",
+        "example": "3"
+      }
+    }
+  },
+  "panel_search_mention_no_page": {
+    "message": "网页搜索 · $P1$ 次搜索 · 未打开任何页面即作答 · $P2$ k 个 token",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "3"
+      },
+      "p2": {
+        "content": "$2",
         "example": "3"
       }
     }
@@ -2289,6 +2335,15 @@
   },
   "runlog_total_tokens": {
     "message": "$KTOKENS$ k token",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "runlog_total_tokens_at_least": {
+    "message": "至少 $KTOKENS$ k token",
     "placeholders": {
       "ktokens": {
         "content": "$1",

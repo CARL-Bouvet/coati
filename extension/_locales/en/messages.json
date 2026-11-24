@@ -260,6 +260,15 @@
       }
     }
   },
+  "panel_limits_gpu_short": {
+    "message": "$PERCENT$ % in the graphics card",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "62"
+      }
+    }
+  },
   "panel_limits_memory_full_ctx": {
     "message": "The model filled its memory ($USED$ k of $TOTAL$ k tokens) before finishing.",
     "placeholders": {
@@ -475,6 +484,12 @@
   },
   "options_dev_mode_help": {
     "message": "Starting value of the panel's \"Dev mode\" switch. Sends more data (higher cost) and may expose personal data present on the page."
+  },
+  "options_dev_info_label": {
+    "message": "Developer info"
+  },
+  "options_dev_info_help": {
+    "message": "Under each answer: the limits the model hit, how much of it fits in the graphics card, and the \"See the run\" button. Does not change what the model reads."
   },
   "panel_save_prompt": {
     "message": "Save the typed text as a prompt"
@@ -1363,11 +1378,14 @@
   "setup_speedup_title": {
     "message": "Speed up Ollama"
   },
+  "setup_speedup_when": {
+    "message": "Useful only if the model does not fit entirely in the graphics card."
+  },
   "setup_speedup_intro": {
     "message": "Two Ollama settings roughly halve the memory taken by the page being read, with little loss of quality: a leaner calculation (“flash attention”) and a compressed working memory. The model then fits entirely in the graphics card more often, and answers faster."
   },
   "setup_speedup_linux_edit": {
-    "message": "Open the Ollama service settings (standard install, with systemd):"
+    "message": "Open the Ollama service settings:"
   },
   "setup_speedup_linux_add": {
     "message": "In the editor that opens, paste these three lines into the empty area at the top, then save and close:"
@@ -1415,7 +1433,7 @@
     "message": "Other systems"
   },
   "setup_speedup_check": {
-    "message": "Useful only when, under an answer, the “Model” fold-out shows less than 100 % on the “In the graphics card” line. After the change, that share should go up."
+    "message": "To check, ask a question: when the model does not fit entirely, the “Model” line under the answer shows the share in the graphics card. After the change, it should go up or disappear."
   },
   "setup_speedup_report": {
     "message": "Did not work? Report it on GitHub"
@@ -1585,6 +1603,9 @@
   },
   "setup_online_ready": {
     "message": "Coati is set up."
+  },
+  "setup_online_choose_model": {
+    "message": "Key accepted. Choose a model in the list below."
   },
   "setup_online_plan_claude_link": {
     "message": "Claim your plan's API credit"
@@ -1993,6 +2014,18 @@
   "options_service_use": {
     "message": "Use"
   },
+  "options_service_keys_link": {
+    "message": "Your $NAME$ keys",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "options_service_billing_link": {
+    "message": "Credit and billing"
+  },
   "options_service_remove": {
     "message": "Remove"
   },
@@ -2085,6 +2118,19 @@
       },
       "p3": {
         "content": "$3",
+        "example": "3"
+      }
+    }
+  },
+  "panel_search_mention_no_page": {
+    "message": "Web search · searches: $P1$ · answered without opening any page · $P2$ k tokens",
+    "placeholders": {
+      "p1": {
+        "content": "$1",
+        "example": "3"
+      },
+      "p2": {
+        "content": "$2",
         "example": "3"
       }
     }
@@ -2289,6 +2335,15 @@
   },
   "runlog_total_tokens": {
     "message": "$KTOKENS$ k tokens",
+    "placeholders": {
+      "ktokens": {
+        "content": "$1",
+        "example": "3.2"
+      }
+    }
+  },
+  "runlog_total_tokens_at_least": {
+    "message": "at least $KTOKENS$ k tokens",
     "placeholders": {
       "ktokens": {
         "content": "$1",

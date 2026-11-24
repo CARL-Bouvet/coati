@@ -5,11 +5,12 @@
 import { api } from "../lib/browser-compat.js";
 import { applyRetention, RETENTION_DAYS_KEY, parseStoredRetentionDays } from "./retention.js";
 import { panelState, STORAGE_KEY } from "./panel-state.js";
-import { DEV_MODE_KEY, parseStoredDevMode } from "./dev-mode.js";
+import { DEV_MODE_KEY, DEV_INFO_KEY, parseStoredDevMode, parseStoredDevInfo } from "./dev-mode.js";
 
 export async function loadConversation() {
-  const data = await api.storage.local.get([STORAGE_KEY, DEV_MODE_KEY, RETENTION_DAYS_KEY]);
+  const data = await api.storage.local.get([STORAGE_KEY, DEV_MODE_KEY, DEV_INFO_KEY, RETENTION_DAYS_KEY]);
   panelState.devModePreference = parseStoredDevMode(data[DEV_MODE_KEY]);
+  panelState.devInfo = parseStoredDevInfo(data[DEV_INFO_KEY]);
   const retentionDays = parseStoredRetentionDays(data[RETENTION_DAYS_KEY]);
   const raw = Array.isArray(data[STORAGE_KEY]) ? data[STORAGE_KEY] : [];
   const filtered = applyRetention(raw, retentionDays);

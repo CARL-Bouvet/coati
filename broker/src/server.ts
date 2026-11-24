@@ -207,25 +207,21 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
         // not restore it (bug report: "Ollama (local): configured model
         // missing from Ollama" shown even though the model was installed, after
         // an earlier provider switch had dropped it).
-        if (patch.provider !== undefined) {
+        const switching = patch.provider !== undefined && patch.provider !== (currentConfig.provider ?? DEFAULT_CONFIG.provider!);
+        if (switching && currentConfig.model) {
           const oldProvider = currentConfig.provider ?? DEFAULT_CONFIG.provider!;
-          if (oldProvider !== patch.provider && currentConfig.model) {
-            currentConfig = {
-              ...currentConfig,
-              lastModels: { ...currentConfig.lastModels, [oldProvider]: currentConfig.model },
-            };
-          }
+          currentConfig = {
+            ...currentConfig,
+            lastModels: { ...currentConfig.lastModels, [oldProvider]: currentConfig.model },
+          };
         }
         if (patch.provider !== undefined) currentConfig = { ...currentConfig, provider: patch.provider };
         if (patch.model !== undefined) {
           currentConfig = { ...currentConfig, model: patch.model };
-        } else if (patch.provider !== undefined) {
-          // Switching provider without specifying a model: restore the last
-          // model used with that provider.
-          const remembered = currentConfig.lastModels?.[patch.provider];
-          if (remembered) {
-            currentConfig = { ...currentConfig, model: remembered };
-          }
+        } else if (switching) {
+          // Switching provider without specifying a model: the last model used with that
+          // provider, or none — never the previous provider's model.
+          currentConfig = { ...currentConfig, model: currentConfig.lastModels?.[patch.provider!] };
         }
         // Remembers the active model per provider, and per service for openai-compat.
         const trackModels = () => {

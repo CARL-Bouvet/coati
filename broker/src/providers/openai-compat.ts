@@ -33,6 +33,7 @@ import {
 } from "../model.ts";
 import type { Availability, ModelProvider, ProviderRuntimeOptions, StatusCheck, TestConnectionResult } from "./types.ts";
 import { t, DEFAULT_LANG } from "../messages.ts";
+import { openRouterApiBase } from "../oauth.ts";
 
 // Testing seam: production code always drives the real global `fetch`. Tests
 // substitute a fake here (a real Bun.serve fake server on 127.0.0.1, per the
@@ -60,7 +61,6 @@ const MODELS_TIMEOUT_MS = 1500;
 // GET /api/v1/key (Bearer) is the route that actually checks the key — used
 // instead of fetchModelIds() below ONLY when baseUrl's origin is this one.
 const OPENROUTER_ORIGIN = "https://openrouter.ai";
-const OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key";
 const TEST_CONNECTION_DEFAULT_TIMEOUT_MS = 20_000;
 
 // Same reasoning as claude-api.ts's CLAUDE_API_AUTH_MESSAGE: user-facing,
@@ -360,7 +360,7 @@ async function testConnection(
 
   if (origin === OPENROUTER_ORIGIN) {
     try {
-      const response = await fetchImpl(OPENROUTER_KEY_URL, {
+      const response = await fetchImpl(`${openRouterApiBase()}/key`, {
         headers: authHeaders(opts.apiKey),
         redirect: "error",
         signal: AbortSignal.timeout(timeoutMs),

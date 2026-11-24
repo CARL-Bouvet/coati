@@ -16,6 +16,8 @@ export const panelState = {
   // DEV_MODE_KEY (dev-mode.js). Off by default; the panel switch and the
   // options checkbox are the SAME preference, never two.
   devModePreference: false,
+  // "Developer info" preference (DEV_INFO_KEY): model limits under answers.
+  devInfo: false,
   // Set once any assistant answer completes this panel session
   // (handleBrokerMessage's "done" case) — read by model-status.js
   // (maybeRecheckProviderForFirstRun) and first-run-wiring.js (renderFirstRun).

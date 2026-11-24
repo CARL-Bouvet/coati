@@ -627,18 +627,36 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
   animation: blink 1s step-start infinite;
 }
 
-/* Before the first word: the coati
- * head sniffs next to "Loading the model…" / "The model is reading the
- * page…". The line replaces the blinking cursor. */
+/* Before the first word: a pulsing dot, the current activity with its
+ * elapsed time, then optional detail lines. The line replaces the blinking cursor. */
 .message--progress::after {
   content: none;
 }
 
 .message-progress {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
   color: var(--muted);
+}
+
+.message-progress-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 0.4em;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .message-progress-dot {
+    animation: progress-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes progress-pulse {
+  50% { opacity: 0.35; }
 }
 
 .message-progress-body {
@@ -647,8 +665,17 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
   min-width: 0;
 }
 
-/* "This model thinks before answering: it takes longer." */
-.message-progress-hint {
+/* Beats `.message--assistant p`, which spaces the answer's own paragraphs. */
+.message-progress p {
+  margin: 0;
+}
+
+.message-progress-text {
+  font-size: var(--text-m);
+}
+
+/* Reading/search status and "This model thinks before answering: it takes longer." */
+.message-progress-note {
   font-size: var(--text-s);
 }
 
@@ -1161,21 +1188,48 @@ html.mode-dev .message--assistant {
   cursor: pointer;
 }
 
-/* Fold-out under the page line: what the model hit, and the machine it ran on. */
+/* The discreet lines under an answer: page, web search, model. */
+.message-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+/* Beats `.message--assistant p` and `.search-status-line`, which space other lines. */
+.message-facts > *,
+.message-facts > p,
+.message-facts > details > summary,
+.model-limits-body > p {
+  margin: 0;
+}
+
+/* Fold-out: what the model hit, and the machine it ran on. */
 .model-limits > summary {
   cursor: pointer;
 }
 
+/* Body under the summary: indented, ruled on the left under the disclosure triangle. */
+.model-limits-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0 5px;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--divider);
+}
+
 .model-limits-sentence {
-  margin: var(--space-2) 0 0;
+  margin: 0;
   font-size: var(--text-s);
   color: var(--muted);
 }
 
 .model-limits-hardware {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-1) var(--space-3);
+  grid-template-columns: max-content max-content;
+  gap: 2px var(--space-3);
   margin: var(--space-2) 0 0;
   font-size: var(--text-s);
   color: var(--muted);
@@ -1188,7 +1242,6 @@ html.mode-dev .message--assistant {
 
 .model-limits-hardware dd {
   color: var(--fg);
-  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 

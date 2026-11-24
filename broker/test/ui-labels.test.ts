@@ -168,6 +168,18 @@ describe("model limits", () => {
     expect(hardwareRows({ vramGb: 12.9 })[0][1]).toMatch(/^12 /);
   });
 
+  test("GB value uses the page language's decimal separator, one decimal at most", () => {
+    const g = globalThis as { document?: unknown };
+    const saved = g.document;
+    g.document = { documentElement: { lang: "fr" } };
+    try {
+      expect(hardwareRows({ vramGb: 8 })[0][1]).toContain("7,5");
+      expect(hardwareRows({ vramGb: 8.59 })[0][1]).toMatch(/^8 /);
+    } finally {
+      g.document = saved;
+    }
+  });
+
   test("uncounted with a counted total: at least", () => {
     const line = buildPageMention(false, { page: { level: "text", chars: 10, from: 0, sentChars: 10, truncated: false }, usage: { inputTokens: 3000, outputTokens: 200, uncounted: true } });
     expect(line).toMatch(/^A lu la page · au moins 3[.,]2 k tokens$/);

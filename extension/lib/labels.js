@@ -149,14 +149,16 @@ export function estimateTokensFromChars(chars) {
   return Math.round((chars || 0) / 4);
 }
 
+// Decimal separator of the page's own language ("0,8" in French).
+const pageLang = () => (typeof document !== "undefined" && document.documentElement.lang) || undefined;
+
+/** @param {number} n @param {number} min fraction digits kept, even if zero @returns {string} */
+const formatDecimal = (n, min) => n.toLocaleString(pageLang(), { minimumFractionDigits: min, maximumFractionDigits: 1 });
+
 /** @param {number} tokens @returns {string} e.g. "3.2" for 3200, "12" for 12000. */
 export function formatTokensK(tokens) {
   const k = (tokens || 0) / 1000;
-  // Decimal separator of the page's own language ("0,8" in French).
-  const lang = (typeof document !== "undefined" && document.documentElement.lang) || undefined;
-  return k < 10
-    ? k.toLocaleString(lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-    : Math.round(k).toLocaleString(lang);
+  return k < 10 ? formatDecimal(k, 1) : Math.round(k).toLocaleString(pageLang());
 }
 
 const percentOf = (part, whole) => Math.round((part / whole) * 100);
@@ -257,7 +259,7 @@ export function hardwareRows(local) {
   if (local.tokensPerSec > 0) rows.push([t("panel_limits_hw_speed"), t("panel_limits_hw_speed_value", [String(Math.round(local.tokensPerSec))])]);
   if (local.vramGb > 0) {
     // The broker reports decimal GB; cards are sold and read in binary GB.
-    const gb = String(Math.round(((local.vramGb * 1e9) / 2 ** 30) * 10) / 10);
+    const gb = formatDecimal(Math.round(((local.vramGb * 1e9) / 2 ** 30) * 10) / 10, 0);
     rows.push([t(local.unifiedMemory ? "panel_limits_hw_shared" : "panel_limits_hw_vram"), t("panel_limits_hw_gb_value", [gb])]);
   }
   return rows;

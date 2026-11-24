@@ -96,7 +96,9 @@ import { requestPrompts, requestPrefs, openMyPromptsPage, saveCurrentAsPrompt, u
 import {
   DEV_MODE_KEY,
   DEV_MODE_ACKNOWLEDGED_KEY,
+  DEV_INFO_KEY,
   parseStoredDevMode,
+  parseStoredDevInfo,
   parseStoredDevModeAcknowledged,
   confirmDevModeActivation,
   isDevModeChecked,
@@ -269,6 +271,10 @@ async function init() {
     if (DEV_MODE_KEY in changes) {
       panelState.devModePreference = parseStoredDevMode(changes[DEV_MODE_KEY].newValue);
       updateDevModeUi();
+    }
+    if (DEV_INFO_KEY in changes) {
+      panelState.devInfo = parseStoredDevInfo(changes[DEV_INFO_KEY].newValue);
+      renderAll();
     }
     // Another panel (another window) wrote the conversation: show its
     // messages here too, without disturbing the answers streaming in this one.

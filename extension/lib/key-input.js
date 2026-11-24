@@ -78,7 +78,7 @@ function describeTestFailure(code, brokerMessage) {
  * @param {string} [opts.placeholder]   placeholder when no key is stored yet
  * @param {string} [opts.limitsUrl]     paid provider: page where a monthly cap is set
  * @param {() => (string|undefined)} [opts.getBaseUrl]  address of an openai-compat service (selects the key format)
- * @param {(ok: boolean) => void} [opts.onVerified]  called after each verification
+ * @param {(ok: boolean, code?: string) => void} [opts.onVerified]  called after each verification
  * @returns {{ element: HTMLElement, update(entry: object|null): void,
  *   handleBrokerMessage(message: object): void, setConnected(connected: boolean): void,
  *   verify(): void }}
@@ -296,7 +296,7 @@ export function createKeyInput({ provider, send, newId, placeholder, limitsUrl, 
         failureText = describeTestFailure(message.code, message.message);
       }
       render();
-      onVerified?.(Boolean(message.ok));
+      onVerified?.(Boolean(message.ok), message.code);
     }
   }
 

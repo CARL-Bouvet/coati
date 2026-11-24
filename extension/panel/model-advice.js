@@ -60,26 +60,36 @@ export function buildElapsed(doc, text) {
   return el;
 }
 
-/** Waiting line: what the model is doing, and why thinking takes longer. */
-export function buildProgress(doc, { stage, readsPage, t, elapsed }) {
+/** `s` without its trailing ellipsis ("Loading the model…" -> "Loading the model"). */
+export const withoutEllipsis = (s) => s.replace(/…$/, "");
+
+/** Waiting line before the first word: a dot, then the current activity and
+ * its elapsed time, the reading/search/open `status` (already without ellipsis)
+ * and, for a thinking-only model, why it takes longer. The model `stage`
+ * leads when known, else `status` does. */
+export function buildProgress(doc, { stage, status, readsPage, t, elapsed }) {
   const wrap = doc.createElement("div");
   wrap.className = "message-progress";
-  wrap.dataset.stage = stage;
-  const body = doc.createElement("span");
+  if (stage) wrap.dataset.stage = stage;
+  const dot = doc.createElement("span");
+  dot.className = "message-progress-dot";
+  dot.setAttribute("aria-hidden", "true");
+  const body = doc.createElement("div");
   body.className = "message-progress-body";
-  const label = doc.createElement("span");
-  label.className = "message-progress-text";
-  label.textContent = t(progressKey(stage, readsPage));
-  body.append(label);
-  if (elapsed !== undefined) body.append(buildElapsed(doc, elapsed));
-  // Thinking-only models reason for minutes: say why it takes longer.
-  if (stage === "thinking") {
-    const hint = doc.createElement("span");
-    hint.className = "message-progress-hint";
-    hint.textContent = t("panel_progress_thinking_hint");
-    body.append(hint);
-  }
-  wrap.append(body);
+  const main = doc.createElement("p");
+  main.className = "message-progress-text";
+  main.append(stage ? withoutEllipsis(t(progressKey(stage, readsPage))) : (status ?? ""));
+  if (elapsed !== undefined) main.append(" · ", buildElapsed(doc, elapsed));
+  body.append(main);
+  const addNote = (text) => {
+    const note = doc.createElement("p");
+    note.className = "message-progress-note";
+    note.textContent = text;
+    body.append(note);
+  };
+  if (stage && status) addNote(status);
+  if (stage === "thinking") addNote(t("panel_progress_thinking_hint"));
+  wrap.append(dot, body);
   return wrap;
 }
 

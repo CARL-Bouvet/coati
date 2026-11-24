@@ -52,9 +52,26 @@ describe("renderRun", () => {
     expect(has(root, "runlog-reason")[0].textContent).toContain("6");
   });
 
-  test("reasoning only where present; the others are greyed lines", () => {
+  test("reasoning only where present; no greyed line when some call has it", () => {
     expect(has(root, "runlog-reasoning").length).toBe(1);
-    expect(has(root, "runlog-no-reasoning").length).toBe(2);
+    expect(has(root, "runlog-no-reasoning").length).toBe(0);
+  });
+
+  test("no call with reasoning: one greyed line, in the head card", () => {
+    const bare = new FakeNode("main");
+    renderRun(doc, bare, { ...run, steps: run.steps.map((s) => ({ ...s, reasoning: undefined })) });
+    expect(has(bare, "runlog-no-reasoning").length).toBe(1);
+    expect(has(has(bare, "runlog-head")[0], "runlog-no-reasoning").length).toBe(1);
+  });
+
+  test("tokens: at least when some calls are uncounted, alone when none are counted", () => {
+    const wording = (r: any) => { const n = new FakeNode("main"); renderRun(doc, n, r); return has(n, "runlog-head")[0].text(); };
+    const counted = wording({ ...run, steps: [run.steps[0]] });
+    const mixed = wording(run);
+    const none = wording({ ...run, steps: [run.steps[4]] });
+    expect(mixed).toContain("5.4");
+    expect(mixed).not.toContain(counted.slice(counted.indexOf("20.0 s")));
+    expect(none).not.toMatch(/\d k /);
   });
 
   test("page rows carry title, host and chars as text", () => {

@@ -405,6 +405,21 @@ describe("settings.test", () => {
     ws.close();
   });
 
+  test("a service key is checked before any model is chosen; a provider switch never carries the old model", async () => {
+    __setOpenAiFetch((async () => Response.json({ data: [{ id: "m1" }] })) as unknown as typeof fetch);
+    const server = boot();
+    const ws = await connectAndAuth(server);
+    ws.send(JSON.stringify({ type: "settings.set", id: "nm1", provider: "ollama", model: "llama3.2" }));
+    await nextMessage(ws);
+    ws.send(JSON.stringify({ type: "settings.set", id: "nm2", provider: "claude-api" }));
+    expect(((await nextMessage(ws)) as SettingsMessage).model).toBeUndefined();
+    ws.send(JSON.stringify({ type: "settings.set", id: "nm3", provider: "openai-compat", baseUrl: "http://127.0.0.1:1234/v1", apiKey: "sk-oc-no-model" }));
+    expect(((await nextMessage(ws)) as SettingsMessage).model).toBeUndefined();
+    ws.send(JSON.stringify({ type: "settings.test", id: "nm4", provider: "openai-compat" }));
+    expect(((await nextMessage(ws)) as SettingsTestResultMessage).ok).toBe(true);
+    ws.close();
+  });
+
   test("ollama: unreachable daemon fails, naming Ollama as the remedy", async () => {
     __setOllamaFetch((async () => {
       throw new Error("fetch failed: connect ECONNREFUSED 127.0.0.1:11434");

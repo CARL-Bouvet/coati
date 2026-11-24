@@ -26,10 +26,8 @@ function totals(steps) {
 }
 
 function totalTokensText({ tokens, anyCounted, anyUncounted }) {
-  const parts = [];
-  if (anyCounted) parts.push(t("runlog_total_tokens", [formatTokensK(tokens)]));
-  if (anyUncounted) parts.push(t("runlog_uncounted"));
-  return parts.join(" · ");
+  if (!anyCounted) return anyUncounted ? t("runlog_uncounted") : "";
+  return t(anyUncounted ? "runlog_total_tokens_at_least" : "runlog_total_tokens", [formatTokensK(tokens)]);
 }
 
 function renderHeader(doc, run) {
@@ -50,6 +48,8 @@ function renderHeader(doc, run) {
     meta.appendChild(item);
   }
   head.appendChild(meta);
+  const calls = run.steps.filter((s) => s.kind === "call");
+  if (calls.length && !calls.some((s) => s.reasoning)) head.appendChild(el(doc, "p", "runlog-no-reasoning", t("runlog_no_reasoning")));
   return head;
 }
 
@@ -79,10 +79,19 @@ function cell(doc, row, className, text) {
   if (text) row.appendChild(el(doc, "span", className, text));
 }
 
-function renderCall(doc, step, limits) {
-  const item = el(doc, "li", "runlog-step runlog-step--call");
+/** A step: the start time in column 1, the body (first line, then details) in column 2. */
+function stepShell(doc, kind, step) {
+  const item = el(doc, "li", `runlog-step runlog-step--${kind}`);
+  cell(doc, item, "runlog-time", seconds(step.t));
+  const body = el(doc, "div", "runlog-body");
   const row = el(doc, "div", "runlog-row");
-  cell(doc, row, "runlog-time", seconds(step.t));
+  body.appendChild(row);
+  item.appendChild(body);
+  return { item, body, row };
+}
+
+function renderCall(doc, step, limits) {
+  const { item, body, row } = stepShell(doc, "call", step);
   cell(doc, row, "runlog-call", t("runlog_step_call", [String(step.n ?? "")]));
   cell(
     doc,
@@ -92,7 +101,6 @@ function renderCall(doc, step, limits) {
   );
   cell(doc, row, "runlog-ms", seconds(step.ms));
   cell(doc, row, "runlog-stop", STOP_KEYS[step.stop] ? t(STOP_KEYS[step.stop]) : "");
-  item.appendChild(row);
 
   if (step.marker) {
     const asked = el(doc, "p", "runlog-asked");
@@ -103,7 +111,7 @@ function renderCall(doc, step, limits) {
       asked.appendChild(el(doc, "span", refused ? "runlog-decision runlog-decision--refused" : "runlog-decision", t(refused ? "runlog_refused" : "runlog_accepted")));
       if (refused && step.reason) asked.appendChild(el(doc, "span", "runlog-reason", refusalSentence(step, limits)));
     }
-    item.appendChild(asked);
+    body.appendChild(asked);
   }
 
   if (step.reasoning) {
@@ -111,9 +119,7 @@ function renderCall(doc, step, limits) {
     details.appendChild(el(doc, "summary", "runlog-reasoning-summary", t("runlog_reasoning")));
     if (step.reasoningCut) details.appendChild(el(doc, "p", "runlog-reasoning-cut", t("runlog_reasoning_cut")));
     details.appendChild(el(doc, "pre", "runlog-reasoning-text", step.reasoning));
-    item.appendChild(details);
-  } else {
-    item.appendChild(el(doc, "p", "runlog-no-reasoning", t("runlog_no_reasoning")));
+    body.appendChild(details);
   }
   return item;
 }
@@ -142,12 +148,9 @@ function answerText(step) {
 }
 
 function renderClientStep(doc, step) {
-  const item = el(doc, "li", "runlog-step runlog-step--client");
-  const row = el(doc, "div", "runlog-row");
-  cell(doc, row, "runlog-time", seconds(step.t));
+  const { item, body, row } = stepShell(doc, "client", step);
   cell(doc, row, "runlog-answer", answerText(step));
   cell(doc, row, "runlog-ms", seconds(step.ms));
-  item.appendChild(row);
   if (step.pages?.length) {
     const list = el(doc, "ul", "runlog-pages");
     for (const page of step.pages) {
@@ -157,7 +160,7 @@ function renderClientStep(doc, step) {
       line.appendChild(el(doc, "span", "runlog-page-chars", t("runlog_answer_page", [formatTokensK(page.chars)])));
       list.appendChild(line);
     }
-    item.appendChild(list);
+    body.appendChild(list);
   }
   return item;
 }
@@ -177,10 +180,8 @@ function renderLimits(doc, run) {
   if (rows.length) {
     const dl = el(doc, "dl", "runlog-hardware");
     for (const [label, value] of rows) {
-      const item = el(doc, "div", "runlog-meta-item");
-      item.appendChild(el(doc, "dt", "runlog-meta-label", label));
-      item.appendChild(el(doc, "dd", "runlog-meta-value", value));
-      dl.appendChild(item);
+      dl.appendChild(el(doc, "dt", "runlog-meta-label", label));
+      dl.appendChild(el(doc, "dd", "runlog-meta-value", value));
     }
     block.appendChild(dl);
   }

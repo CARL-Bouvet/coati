@@ -674,18 +674,21 @@ kbd {
 .setup-step-result[data-tone="error"] { color: var(--danger); }
 
 .setup-command-text { flex: 1 1 14em; min-width: 0; }
-.setup-command-text--block { white-space: pre-wrap; }
+/* A file's lines never break inside a setting name: the box scrolls instead. */
+.setup-command-text--block { white-space: pre; overflow-wrap: normal; overflow-x: auto; }
 
 .setup-env-row > .setup-command { flex: 1 1 16em; width: auto; }
 
-.setup-speedup-os-title,
+/* Speed up: the OS is a small label, the case under it ("system service", "started by hand")
+ * is the reader's choice and reads as the heading of its steps. */
+.setup-speedup-case-title,
 h4.setup-subtitle {
   margin: var(--space-2) 0 0;
   font-size: var(--text-m);
   font-weight: 600;
 }
 
-.setup-speedup-case-title {
+.setup-speedup-os-title {
   margin: var(--space-2) 0 0;
   font-size: var(--text-s);
   font-weight: 600;
