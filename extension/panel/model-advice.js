@@ -63,23 +63,21 @@ export function buildElapsed(doc, text) {
 /** `s` without its trailing ellipsis ("Loading the model…" -> "Loading the model"). */
 export const withoutEllipsis = (s) => s.replace(/…$/, "");
 
-/** Waiting line before the first word: a dot, then the current activity and
- * its elapsed time, the reading/search/open `status` (already without ellipsis)
- * and, for a thinking-only model, why it takes longer. The model `stage`
- * leads when known, else `status` does. */
+/** Waiting line before the first word: the current activity with its elapsed
+ * time on the right, the reading/search/open `status` (already without
+ * ellipsis) and, for a thinking-only model, why it takes longer. The model
+ * `stage` leads when known, else `status` does. */
 export function buildProgress(doc, { stage, status, readsPage, t, elapsed }) {
   const wrap = doc.createElement("div");
   wrap.className = "message-progress";
   if (stage) wrap.dataset.stage = stage;
-  const dot = doc.createElement("span");
-  dot.className = "message-progress-dot";
-  dot.setAttribute("aria-hidden", "true");
   const body = doc.createElement("div");
   body.className = "message-progress-body";
   const main = doc.createElement("p");
   main.className = "message-progress-text";
-  main.append(stage ? withoutEllipsis(t(progressKey(stage, readsPage))) : (status ?? ""));
-  if (elapsed !== undefined) main.append(" · ", buildElapsed(doc, elapsed));
+  main.textContent = stage ? withoutEllipsis(t(progressKey(stage, readsPage))) : (status ?? "");
+  // Cut at two lines: a long search query stays whole on hover.
+  main.title = main.textContent;
   body.append(main);
   const addNote = (text) => {
     const note = doc.createElement("p");
@@ -89,7 +87,8 @@ export function buildProgress(doc, { stage, status, readsPage, t, elapsed }) {
   };
   if (stage && status) addNote(status);
   if (stage === "thinking") addNote(t("panel_progress_thinking_hint"));
-  wrap.append(dot, body);
+  wrap.append(body);
+  if (elapsed !== undefined) wrap.append(buildElapsed(doc, elapsed));
   return wrap;
 }
 

@@ -297,6 +297,23 @@
     ],
   };
   var ARTICLE_QUESTION = "Résumer cet article : Une mesure publiée le 25 septembre";
+  function waitState(answer) {
+    var msg = Object.assign({ id: "w1", role: "assistant", text: "", streaming: true }, answer);
+    if (msg.stageSince !== undefined) msg.stageKey = msg.progress || "";
+    return {
+      status: "connected",
+      tab: ARTICLE_TAB,
+      extraction: { context: extractionContextFor(ARTICLE_TAB, "page") },
+      faviconUrl: FAVICON,
+      features: ["pageOnDemand"],
+      storageLocal: {
+        "coati:conversation": [{ id: "w-u", role: "user", text: ARTICLE_QUESTION }, msg],
+        "coati:devMode": false,
+        "coati:devModeAcknowledged": true,
+      },
+      prompts: [],
+    };
+  }
   function sendQuestion() {
     return {
       steps: [
@@ -1814,6 +1831,17 @@
       },
       prompts: [],
     },
+
+    // The waiting line at each stage: question sent, page read, web search, a
+    // long think; then the writing mark after the last word.
+    "wait-sending": waitState({ progress: "reading", stageSince: Date.now() - 4000 }),
+    "wait-reading": waitState({ progress: "reading", readsPage: true, pageReading: { kTokens: "3,2" }, stageSince: Date.now() - 9000 }),
+    "wait-searching": waitState({
+      pageReading: { searchQuery: "tarif réglementé électricité février 2026", searchIndex: 2, searchMax: 3 },
+      stageSince: Date.now() - 21000,
+    }),
+    "wait-thinking": waitState({ progress: "thinking", stageSince: Date.now() - 192000 }),
+    "wait-writing": waitState({ text: "La mesure publiée le 25 septembre porte sur trois points. D'abord, le tarif" }),
 
     // Page sent, model thinking for 2 min 05 s: the status line names the
     // stage and ticks the time (stageSince is seeded; the lab clock keeps it).

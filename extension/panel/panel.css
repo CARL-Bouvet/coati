@@ -623,47 +623,33 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
   filter: brightness(0.85);
 }
 
-.message--streaming::after {
-  content: "▍";
-  animation: blink 1s step-start infinite;
+/* Writing: a still caramel bar after the last word (in a list or a quote,
+ * after its last item). */
+.message--streaming:not(.message--progress) > :is(p, h1, h2, h3, h4, h5, h6, pre):last-child::after,
+.message--streaming:not(.message--progress) > :is(ul, ol, blockquote):last-child > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: -0.2em;
+  background: var(--accent-mark);
 }
 
-/* Before the first word: a pulsing dot, the current activity with its
- * elapsed time, then optional detail lines. The line replaces the blinking cursor. */
-.message--progress::after {
-  content: none;
-}
-
+/* Before the first word: the current activity with its elapsed time on the
+ * right, then optional detail lines. The text keeps room for three lines:
+ * nothing jumps from one stage to the next. */
 .message-progress {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: var(--space-2);
   color: var(--muted);
 }
 
-.message-progress-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  margin-top: 0.4em;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .message-progress-dot {
-    animation: progress-pulse 1.6s ease-in-out infinite;
-  }
-}
-
-@keyframes progress-pulse {
-  50% { opacity: 0.35; }
-}
-
 .message-progress-body {
-  display: flex;
-  flex-direction: column;
   min-width: 0;
+  min-height: calc((var(--text-m) + 2 * var(--text-s)) * var(--line-height));
 }
 
 /* Beats `.message--assistant p`, which spaces the answer's own paragraphs. */
@@ -672,7 +658,20 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
 }
 
 .message-progress-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--fg);
   font-size: var(--text-m);
+}
+
+.message-elapsed {
+  font-size: var(--text-s);
+  line-height: calc(var(--text-m) * var(--line-height));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* Reading/search status and "This model thinks before answering: it takes longer." */
@@ -806,10 +805,6 @@ body:has(> .messages:empty) .thread-bar:has(> .history-notice[hidden]) {
 .recovery-retry:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-@keyframes blink {
-  50% { opacity: 0; }
 }
 
 /* The composer: a raised card at the foot of the panel. Notices first, then
@@ -1252,8 +1247,4 @@ html.mode-dev .message--assistant {
 
 .model-limits-run[hidden] {
   display: none;
-}
-
-.message-elapsed {
-  font-variant-numeric: tabular-nums;
 }

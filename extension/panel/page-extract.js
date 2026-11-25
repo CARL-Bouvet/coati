@@ -110,6 +110,7 @@ export async function summarize() {
     streaming: true,
     videoId,
     readsPage: true,
+    progress: "reading",
   });
 
   panelState.activeRequestId = id;
