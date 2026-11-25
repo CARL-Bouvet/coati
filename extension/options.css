@@ -772,13 +772,36 @@ h4.setup-subtitle {
 
 .setup-service-purpose { font-size: var(--text-s); }
 
-.setup-services > .setup-warning { margin: 0 var(--space-2) var(--space-2); }
+.setup-service-chosen .setup-service-name { font-weight: 600; }
 
 .setup-todo > li + li { margin-top: var(--space-1); }
 .setup-todo-title { font-weight: 600; margin-top: var(--space-2); }
 .setup-todo-title:first-child { margin-top: 0; }
 .setup-oauth { display: grid; justify-items: start; gap: var(--space-1); margin-bottom: var(--space-2); }
 .setup-oauth > p { margin: 0; }
+
+/* Online guide: one block that moves forward (service, access, model). */
+.setup-online-block,
+.setup-online-access,
+.setup-online-key,
+.setup-online-model {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.setup-online-access,
+.setup-online-key { gap: var(--space-2); align-items: flex-start; }
+
+.setup-online-access > *,
+.setup-online-key > * { max-width: 100%; }
+
+.setup-online-access > .setup-online-fold { align-self: stretch; }
+
+.setup-online-block :is(.setup-text, .help, .setup-step-result, .setup-service-chosen) { margin: 0; }
+
+.setup-online-model:empty { display: none; }
 
 /* --- Narrow: the menu becomes a row above the content -------------------- */
 

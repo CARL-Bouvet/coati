@@ -1544,20 +1544,11 @@
   "setup_online_others": {
     "message": "其他服务"
   },
-  "setup_online_service_ok": {
-    "message": "已选择 $NAME$。",
-    "placeholders": {
-      "name": {
-        "content": "$1",
-        "example": "OpenRouter"
-      }
-    }
-  },
-  "setup_online_account_title": {
-    "message": "创建账户和密钥"
-  },
   "setup_online_account_text": {
     "message": "创建账户（或登录），打开 API 密钥页面，创建一个密钥，然后复制它。"
+  },
+  "setup_online_change": {
+    "message": "更改"
   },
   "setup_online_do_account_link": {
     "message": "在 $NAME$ 上创建账户",
@@ -1616,8 +1607,8 @@
   "setup_oauth_failed": {
     "message": "无法启动登录。请改为在下方粘贴密钥。"
   },
-  "setup_oauth_or": {
-    "message": "或者自行创建密钥并粘贴到下方。"
+  "setup_online_have_key": {
+    "message": "我已有密钥"
   },
   "setup_online_openrouter_privacy": {
     "message": "如果免费模型拒绝回答，请在 OpenRouter 的隐私设置中允许使用免费模型。"
@@ -1637,8 +1628,8 @@
   "setup_online_ready": {
     "message": "Coati 已设置完成。"
   },
-  "setup_online_choose_model": {
-    "message": "密钥已接受。请在下方列表中选择一个模型。"
+  "setup_online_no_key": {
+    "message": "我还没有密钥"
   },
   "setup_online_plan_claude_link": {
     "message": "领取订阅的 API 额度"
@@ -1669,9 +1660,6 @@
   },
   "setup_online_prepaid": {
     "message": "预付费服务：您预先购买额度，花费永远不会超过该额度。"
-  },
-  "setup_online_key_title": {
-    "message": "粘贴密钥"
   },
   "setup_online_key_text": {
     "message": "该服务的密钥通常以“$PREFIX$”开头。",

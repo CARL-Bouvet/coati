@@ -87,6 +87,8 @@
         if (entry.id === target) entry.configured = payload.apiKey !== "";
       });
       if (target === "openai-compat" && service) service.hasKey = payload.apiKey !== "";
+      // `afterKey`: what the service lists once it has a key (catalog, account).
+      if (payload.apiKey && fixture.afterKey) Object.assign(settingsStore, JSON.parse(JSON.stringify(fixture.afterKey)));
     }
     return Object.assign({ type: "settings", id: payload.id }, settingsStore);
   }

@@ -197,6 +197,7 @@
       settings.services = [{ baseUrl: "https://openrouter.ai/api/v1", hasKey: true, model: opts.model }];
       settings.account = { boughtCredit: Boolean(opts.credit), freeRequests: { used: 3, limit: 50, remaining: 47 } };
     }
+    if (opts.recent) settings.recentModels = opts.recent;
     return settings;
   }
   function picker(opts, autoAction) {
@@ -309,14 +310,51 @@
     // Online side chosen, no service yet: step 1 alone.
     "setup-online": guide({ autoAction: steps(click("#tabOnline", 60)) }),
 
-    // Claude picked: its own to-do (account, credit, key "Coati", copy), key field.
+    // Claude picked: the key field, its own to-do (account, credit, key "Coati", copy) folded.
     "setup-online-claude": guide({
       autoAction: steps(click("#tabOnline", 60), click('.setup-service[data-service="claude"] input', 90)),
     }),
 
-    // OpenRouter picked: retention warning under it, its to-do, key field.
+    // Same, "I don't have a key yet" unfolded.
+    "setup-online-claude-help": guide({
+      autoAction: steps(
+        click("#tabOnline", 60),
+        click('.setup-service[data-service="claude"] input', 90),
+        click(".setup-online-fold > summary", 130),
+      ),
+    }),
+
+    // OpenRouter picked: retention warning under it, the sign-in button, the key by hand folded.
     "setup-online-openrouter": guide({
       autoAction: steps(click("#tabOnline", 60), click('.setup-service[data-service="openrouter"] input', 90)),
+    }),
+
+    // Same, "I already have a key" unfolded: the to-do and the key field.
+    "setup-online-openrouter-manual": guide({
+      autoAction: steps(
+        click("#tabOnline", 60),
+        click('.setup-service[data-service="openrouter"] input', 90),
+        click(".setup-online-fold > summary", 130),
+      ),
+    }),
+
+    // Back from the sign-in: the key works, no credit bought, no model yet: the list under it,
+    // "Free only" on. OpenRouter is picked in this visit, so the services fold to it.
+    "setup-online-openrouter-signed-in": guide({
+      settings: pickerSettings({}),
+      autoAction: steps(click('.setup-service[data-service="openrouter"] input', 90)),
+    }),
+
+    // A model chosen in the guide's list: the block ends on "Coati is set up".
+    "setup-online-openrouter-ready": guide({
+      settings: pickerSettings({ credit: true, model: "qwen/model-a-8" }),
+      autoAction: steps(click('.setup-service[data-service="openrouter"] input', 90)),
+    }),
+
+    // Same, "Add a service" then closed: the list back in the service's row.
+    "setup-online-openrouter-closed": guide({
+      settings: pickerSettings({ credit: true, model: "qwen/model-a-8" }),
+      autoAction: steps(click('.setup-service[data-service="openrouter"] input', 90), click("#addService > summary", 160)),
     }),
 
     // « Autres » open, Google Gemini picked: free tier and subscription note.
@@ -340,9 +378,10 @@
       ),
     }),
 
-    // Claude: key pasted, then saved and accepted (steps 1-3 ticked).
+    // Claude: key pasted, saved and accepted: the model list right under it, focused.
     "setup-online-key-accepted": guide({
       testResults: { "claude-api": { ok: true, message: "Connexion à l'API Anthropic réussie." } },
+      afterKey: { catalog: directCatalog(), models: directCatalog().map(function (entry) { return entry.id; }) },
       autoAction: steps(
         click("#tabOnline", 60),
         click('.setup-service[data-service="claude"] input', 90),
@@ -358,6 +397,7 @@
       autoAction: steps(
         click("#tabOnline", 60),
         click('.setup-service[data-service="openrouter"] input', 90),
+        click(".setup-online-fold > summary", 110),
         paste("#setupOnline .key-input-field", "sk-or-lab-not-a-real-key", 130),
       ),
     }),
@@ -382,6 +422,7 @@
       autoAction: steps(
         click("#tabOnline", 60),
         click('.setup-service[data-service="openrouter"] input', 90),
+        click(".setup-online-fold > summary", 110),
         paste("#setupOnline .key-input-field", "sk-or-lab-not-a-real-key", 130),
       ),
     }),
@@ -561,8 +602,13 @@
     // Online model picker (options/model-picker.js). OpenRouter, no credit
     // bought, no model chosen yet: "Free only" on, the no-credit line.
     "model-picker-no-credit": picker({}),
-    // Credit bought, a paid model in use: "Already used" on top, every price shown.
-    "model-picker-used": picker({ credit: true, model: "mistralai/model-b-4" }),
+    // Credit bought, a paid model in use: "Already used" on top (the models picked lately, one
+    // the service no longer lists left out), every price shown.
+    "model-picker-used": picker({
+      credit: true,
+      model: "mistralai/model-b-4",
+      recent: ["qwen/model-a-8", "retired/model-x", "mistralai/model-b-4", "ai21/model-a-4"],
+    }),
     // A group unfolded ("Other versions (N)").
     "model-picker-more": picker({ credit: true }, steps(click(".model-picker-more", 60))),
     // Typing filters at once (id and name).

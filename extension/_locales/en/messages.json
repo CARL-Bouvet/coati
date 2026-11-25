@@ -1544,20 +1544,11 @@
   "setup_online_others": {
     "message": "Other services"
   },
-  "setup_online_service_ok": {
-    "message": "$NAME$ selected.",
-    "placeholders": {
-      "name": {
-        "content": "$1",
-        "example": "OpenRouter"
-      }
-    }
-  },
-  "setup_online_account_title": {
-    "message": "Create an account and a key"
-  },
   "setup_online_account_text": {
     "message": "Create an account (or sign in), open the API keys page, create a key, then copy it."
+  },
+  "setup_online_change": {
+    "message": "Change"
   },
   "setup_online_do_account_link": {
     "message": "Create an account on $NAME$",
@@ -1616,8 +1607,8 @@
   "setup_oauth_failed": {
     "message": "The sign-in could not start. Paste a key below instead."
   },
-  "setup_oauth_or": {
-    "message": "Or create a key yourself and paste it below."
+  "setup_online_have_key": {
+    "message": "I already have a key"
   },
   "setup_online_openrouter_privacy": {
     "message": "If a free model refuses to answer, allow free models in OpenRouter's privacy settings."
@@ -1637,8 +1628,8 @@
   "setup_online_ready": {
     "message": "Coati is set up."
   },
-  "setup_online_choose_model": {
-    "message": "Key accepted. Choose a model in the list below."
+  "setup_online_no_key": {
+    "message": "I don't have a key yet"
   },
   "setup_online_plan_claude_link": {
     "message": "Claim your plan's API credit"
@@ -1669,9 +1660,6 @@
   },
   "setup_online_prepaid": {
     "message": "Prepaid service: you buy credit in advance and never spend more than that credit."
-  },
-  "setup_online_key_title": {
-    "message": "Paste the key"
   },
   "setup_online_key_text": {
     "message": "A key from this service usually starts with “$PREFIX$”.",

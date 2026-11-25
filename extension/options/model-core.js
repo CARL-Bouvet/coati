@@ -65,7 +65,14 @@ const setupGuide = mountSetupGuide({
   newId,
   onModels: (reply) => acceptModels(reply),
   onNeedModel: () => focusModelField(),
+  onModelSlot: () => placeModelField(status === "connected" ? lastSettings : null),
 });
+
+/** The guide's spot for the model list while "Add a service" is open on a service whose key
+ * works (options-setup.js), else null: the list then sits in the active service's row. */
+export function guideModelSlot() {
+  return els.addService.open ? setupGuide.modelSlot() : null;
+}
 
 // "Install the local program" step (options/program-step.js).
 const programStep = mountProgramStep({ section: els.setupProgramSection, list: els.setupProgram });
@@ -477,12 +484,31 @@ export function handleBrokerMessage(reply) {
   if (reply?.type === "settings.test-result") applyTestResult(reply);
 }
 
+/** Plays `node` from the place it had (`from`, a client rect) to its own, unless motion is reduced. */
+function glide(node, from) {
+  const to = node.getBoundingClientRect();
+  const dy = from.top - to.top;
+  if (!dy || !to.height || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  node.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 280, easing: "cubic-bezier(0.2, 0, 0, 1)" });
+}
+
 /** "Model" sides/services wiring, called once from options.js's init(). */
 export function wireModelSettings() {
   setupSides();
   selectSide(null);
+  // The model list moves between the guide and the service row as "Add a service" opens or
+  // closes: it glides from where it was, so it is seen moving rather than gone.
+  let listFrom = null;
   els.addService.querySelector("summary").addEventListener("click", () => {
     addServiceHeld = true;
+    listFrom = els.modelField.getBoundingClientRect();
+  });
+  els.addService.addEventListener("toggle", () => {
+    const from = listFrom;
+    const parent = els.modelField.parentElement;
+    listFrom = null;
+    placeModelField(status === "connected" ? lastSettings : null);
+    if (from?.height && els.modelField.parentElement !== parent) glide(els.modelField, from);
   });
   // A service picked in the guide: it stays open through the key and its check.
   els.setupOnline.addEventListener("change", () => {

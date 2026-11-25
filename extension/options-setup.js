@@ -176,8 +176,9 @@ export function fold(id, title, className = "fold") {
  * @param {() => string} opts.newId
  * @param {(reply: object) => void} [opts.onModels]  every `models` reply this guide receives
  * @param {() => void} [opts.onNeedModel]  a key was accepted but no model is chosen yet
+ * @param {() => void} [opts.onModelSlot]  modelSlot() may have changed: the page re-places its model field
  */
-export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, onNeedModel }) {
+export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, onNeedModel, onModelSlot }) {
   let settings = null;
   let connected = false;
   // The local side is on screen: only then is `host` worth fetching.
@@ -424,19 +425,16 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
   }
 
   // --- Online path -------------------------------------------------------------
+  // One block that moves forward: the service; how to connect it (OpenRouter: one sign-in
+  // button, the key by hand folded; the others: the key, how to get one folded); then,
+  // once the key is accepted, the model list right under it (options/model-picker.js,
+  // placed here by the page through modelSlot()).
 
-  const onlineList = el("ol", "setup-steps");
-  const service = makeStep(1, t("setup_online_service_title"));
-  const account = makeStep(2, t("setup_online_account_title"));
-  const key = makeStep(3, t("setup_online_key_title"));
-  onlineList.append(service.li, account.li, key.li);
-  onlineRoot.append(onlineList);
-  // Steps 2-3 only once a service is chosen (chooseService).
-  for (const step of [account, key]) step.li.hidden = true;
+  const onlineBlock = el("div", "c-card setup-online-block");
+  onlineRoot.append(onlineBlock);
 
-  // Step 1 — each service with what it is and what it costs. OpenRouter's
-  // retention warning sits under it, shown as soon as it is chosen, before
-  // any key is pasted.
+  // OpenRouter's retention warning sits under the chosen service, shown as soon as it is
+  // chosen, before any key is pasted.
   const warning = el("p", "setup-warning", t("setup_online_free_warning"));
   warning.hidden = true;
   const serviceList = el("div", "c-card setup-services");
@@ -457,6 +455,10 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
     radio.addEventListener("change", () => {
       if (radio.checked) chooseService(entry);
     });
+    // The same service picked again after "Change": the list folds back.
+    radio.addEventListener("click", () => {
+      if (chosenService === entry) foldServices(true);
+    });
     serviceRadios.set(entry.id, radio);
     const text = el("span", "setup-service-text");
     text.append(
@@ -467,9 +469,46 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
     );
     option.append(radio, text);
     (entry.group === "other" ? othersBody : serviceList).append(option);
-    if (entry.group === "free") serviceList.append(warning);
   }
-  service.body.append(serviceList, others);
+  // Once a service is picked here, the list folds to its name and "Change".
+  const chosenLine = el("p", "setup-service-chosen");
+  chosenLine.hidden = true;
+  const chosenName = el("span", "setup-service-name");
+  const change = el("button", "c-link", t("setup_online_change"));
+  change.type = "button";
+  change.addEventListener("click", () => foldServices(false));
+  chosenLine.append(chosenName, " · ", change); // i18n-allow: symbol
+  const serviceStatus = statusLine();
+  const access = el("div", "setup-online-access");
+  access.hidden = true;
+  const modelSlot = el("div", "setup-online-model");
+  const readyLine = statusLine();
+  onlineBlock.append(serviceList, others, chosenLine, warning, serviceStatus, access, modelSlot, readyLine);
+
+  /** Folds the list to the chosen service (true), or shows every service again. */
+  function foldServices(folded) {
+    const focus = document.activeElement;
+    serviceList.hidden = others.hidden = folded;
+    chosenLine.hidden = !folded;
+    chosenName.textContent = chosenService.name;
+    if (!folded && chosenService.group === "other") others.open = true;
+    if (folded && (serviceList.contains(focus) || others.contains(focus))) change.focus();
+    if (!folded && focus === change) serviceRadios.get(chosenService.id)?.focus();
+  }
+
+  function statusLine() {
+    const line = el("p", "setup-step-result");
+    line.setAttribute("role", "status");
+    line.hidden = true;
+    return line;
+  }
+
+  function setLine(line, text, tone) {
+    line.textContent = text ?? "";
+    line.hidden = !text;
+    if (tone) line.dataset.tone = tone;
+    else delete line.dataset.tone;
+  }
 
   function serviceDetail(entry) {
     if (entry.costUsdPerRequest === 0) {
@@ -486,39 +525,59 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
   let chosenService = null;
   let guideKeyInput = null;
   let oauthPending = false;
+  // The chosen service's key works (checked here, or already stored when the page opened).
+  let keyOk = false;
+  // OpenRouter's "I already have a key" fold: opened when the key it holds is refused.
+  let manualFold = null;
+  // OpenRouter's sign-in button, and the line that replaces it once the key works.
+  let oauthBox = null;
+  const signedInLine = statusLine();
 
   function chooseService(entry, { fromSettings = false } = {}) {
     chosenService = entry;
+    keyOk = fromSettings && keyStoredFor(entry, settings);
     const radio = serviceRadios.get(entry.id);
     if (radio) radio.checked = true;
-    if (entry.group === "other") others.open = true;
+    // The service already in use: the whole list, to add another one.
+    foldServices(!fromSettings);
     warning.hidden = entry.group !== "free";
-    for (const step of [account, key]) step.li.hidden = false;
-    renderAccountStep(entry);
-    renderKeyStep(entry);
-    if (fromSettings) {
-      service.setState("done", t("setup_online_service_ok", [entry.name]));
-      return;
-    }
-    if (!connected) return;
-    service.setState("busy", t("setup_checking"));
+    access.hidden = false;
+    renderAccess(entry);
+    setLine(serviceStatus, null);
+    renderProgress();
+    onModelSlot?.();
+    if (fromSettings || !connected) return;
+    setLine(serviceStatus, t("setup_checking"));
     const patch = { type: "settings.set", provider: entry.provider };
     if (entry.baseUrl) patch.baseUrl = entry.baseUrl;
     request(patch, (reply) => {
-      if (reply?.type === "settings" && reply.provider === entry.provider) {
-        service.setState("done", t("setup_online_service_ok", [entry.name]));
-      } else {
-        service.setState("failed", t("setup_check_unknown"));
-      }
+      const ok = reply?.type === "settings" && reply.provider === entry.provider;
+      setLine(serviceStatus, ok ? null : t("setup_check_unknown"), "error");
     });
   }
 
-  /** Step 2. OpenRouter, Claude, OpenAI: their own to-do, one direct link
-   * per line; the others: the generic sentence and their two pages. */
-  function renderAccountStep(entry) {
-    const body = account.body;
-    body.replaceChildren();
-    if (entry.oauth) body.append(oauthBlock(entry));
+  /** OpenRouter: the sign-in button, its notes, then the key by hand in a fold. The
+   * others: the key field, then how to get one in a fold. */
+  function renderAccess(entry) {
+    const keyPart = el("div", "setup-online-key");
+    if (entry.keyPrefix) keyPart.append(el("p", "setup-text", t("setup_online_key_text", [entry.keyPrefix])));
+    keyPart.append(buildKeyInput(entry).element);
+    const howTo = fold(null, t(entry.oauth ? "setup_online_have_key" : "setup_online_no_key"), "fold fold--inner setup-online-fold");
+    howTo.body.append(...howToGetKey(entry));
+    manualFold = entry.oauth ? howTo.details : null;
+    oauthBox = entry.oauth ? oauthBlock(entry) : null;
+    if (entry.oauth) {
+      howTo.body.append(keyPart);
+      access.replaceChildren(oauthBox, signedInLine, ...freeNotes(entry), howTo.details);
+    } else {
+      access.replaceChildren(keyPart, howTo.details);
+    }
+  }
+
+  /** OpenRouter, Claude, OpenAI: their own to-do, one direct link per line; the
+   * others: the generic sentence and their two pages. */
+  function howToGetKey(entry) {
+    const nodes = [];
     if (entry.group === "other") {
       const links = el("p", "setup-links");
       links.append(
@@ -526,8 +585,8 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
         " ",
         externalLink(entry.keysUrl, t("setup_online_keys_page")),
       );
-      body.append(el("p", "setup-text", t("setup_online_account_text")), links);
-      if (!entry.freeTier) body.append(el("p", "setup-text", t(entry.prepaid ? "setup_online_prepaid" : "setup_online_paid_billing")));
+      nodes.push(el("p", "setup-text", t("setup_online_account_text")), links);
+      if (!entry.freeTier) nodes.push(el("p", "setup-text", t(entry.prepaid ? "setup_online_prepaid" : "setup_online_paid_billing")));
     } else {
       const list = () => el("ol", "setup-os-list setup-todo");
       let todo = list();
@@ -538,34 +597,37 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
         todo.append(li);
       };
       if (entry.subscriberTodo) {
-        body.append(el("p", "setup-text setup-todo-title", t("setup_online_claude_subscriber")), todo);
+        nodes.push(el("p", "setup-text setup-todo-title", t("setup_online_claude_subscriber")), todo);
         item(entry.planUrl, t(entry.planLink), t("setup_online_claude_subscriber_credit"));
         item(entry.keysUrl, t("setup_online_do_key_link"), t(entry.keyRest ?? "setup_online_do_key_rest"));
         item(null, "", t("setup_online_do_copy"));
         todo = list();
-        body.append(el("p", "setup-text setup-todo-title", t("setup_online_claude_others")));
+        nodes.push(el("p", "setup-text setup-todo-title", t("setup_online_claude_others")));
       }
       item(entry.signupUrl, t("setup_online_do_account_link", [entry.name]), t("setup_online_do_account_rest"));
       if (entry.needsCredit) item(entry.billingUrl, t("setup_online_do_credit_link"), t("setup_online_do_credit_rest"));
       item(entry.keysUrl, t("setup_online_do_key_link"), t(entry.keyRest ?? "setup_online_do_key_rest"));
       item(null, "", t("setup_online_do_copy"));
-      body.append(todo);
+      nodes.push(todo);
     }
     if (entry.planNote) {
       const plan = el("p", "help help--tight", t(entry.planNote));
       if (entry.planUrl) plan.append(" ", externalLink(entry.planUrl, t(entry.planLink)));
-      body.append(plan);
+      nodes.push(plan);
     }
-    if (entry.group === "free") {
-      const privacy = el("p", "help help--tight");
-      privacy.append(t("setup_online_openrouter_privacy"), " ", externalLink(entry.privacyUrl, t("setup_online_privacy_link")));
-      body.append(privacy, el("p", "help help--tight", t("setup_online_openrouter_quota", [formatNumber(entry.freeRequestsPerMinute)])));
-    }
-    account.setState("todo");
+    return nodes;
+  }
+
+  /** OpenRouter's free models: where to allow them, and their pace. */
+  function freeNotes(entry) {
+    if (entry.group !== "free") return [];
+    const privacy = el("p", "help help--tight");
+    privacy.append(t("setup_online_openrouter_privacy"), " ", externalLink(entry.privacyUrl, t("setup_online_privacy_link")));
+    return [privacy, el("p", "help help--tight", t("setup_online_openrouter_quota", [formatNumber(entry.freeRequestsPerMinute)]))];
   }
 
   /** One-click sign-in: the local program returns the address to open in a new tab; the key
-   * arrives in the program, never here. The settings it pushes afterwards complete the steps. */
+   * arrives in the program, never here. The settings it pushes afterwards get it checked. */
   function oauthBlock(entry) {
     const box = el("div", "setup-oauth");
     const button = el("button", "c-button c-button--primary", t("setup_oauth_signin", [entry.name]));
@@ -588,22 +650,18 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
         }
       });
     });
-    box.append(button, status, el("p", "setup-text", t("setup_oauth_or")));
+    box.append(button, status);
     return box;
   }
 
-  /** The program holds a key for this service's address and it is the active service. */
+  /** The program holds a key for this service and it is the active service. */
   function keyStoredFor(entry, current) {
-    return (
-      current?.provider === entry.provider &&
-      current.baseUrl === entry.baseUrl &&
-      Boolean(current.services?.some((svc) => svc.baseUrl === entry.baseUrl && svc.hasKey))
-    );
+    if (current?.provider !== entry.provider) return false;
+    if (!entry.baseUrl) return Boolean(current.available?.find((p) => p.id === entry.provider)?.configured);
+    return current.baseUrl === entry.baseUrl && Boolean(current.services?.some((svc) => svc.baseUrl === entry.baseUrl && svc.hasKey));
   }
 
-  function renderKeyStep(entry) {
-    key.body.replaceChildren();
-    if (entry.keyPrefix) key.body.append(el("p", "setup-text", t("setup_online_key_text", [entry.keyPrefix])));
+  function buildKeyInput(entry) {
     guideKeyInput = createKeyInput({
       provider: entry.provider,
       send,
@@ -613,19 +671,26 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
       onVerified(ok, code) {
         // model-missing: the key works, the saved model is gone from the service.
         const needModel = ok ? !settings?.model : code === "model-missing";
-        if (!ok && !needModel) {
-          key.setState("failed");
-          return;
-        }
-        account.setState("done");
-        key.setState("done", t(needModel ? "setup_online_choose_model" : "setup_online_ready"));
+        keyOk = ok || needModel;
+        if (!keyOk && manualFold) manualFold.open = true;
+        renderProgress();
+        onModelSlot?.();
         if (needModel) onNeedModel?.();
       },
     });
     guideKeyInput.setConnected(connected);
     guideKeyInput.update(entryFor(entry.provider));
-    key.body.append(guideKeyInput.element);
-    key.setState("todo");
+    return guideKeyInput;
+  }
+
+  /** Where the block stands: once the key works, the sign-in button gives way to a line
+   * saying so; once a model is chosen too, the last line says Coati is set up. */
+  function renderProgress() {
+    const working = Boolean(chosenService && keyOk && keyStoredFor(chosenService, settings));
+    if (oauthBox) oauthBox.hidden = working;
+    const accepted = `✓ ${t("keyInput_saved")} · ${t("keyInput_accepted")}`; // i18n-allow: symbols
+    setLine(signedInLine, working && oauthBox ? accepted : null, "ok");
+    setLine(readyLine, working && settings.model ? t("setup_online_ready") : null, "ok");
   }
 
   function entryFor(providerId) {
@@ -698,6 +763,12 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
         const current = serviceFromSettings(next);
         if (current) chooseService(current, { fromSettings: true });
       }
+      renderProgress();
+      onModelSlot?.();
+    },
+    /** Where the model list goes once the chosen service's key works, else null. */
+    modelSlot() {
+      return chosenService && keyOk && keyStoredFor(chosenService, settings) ? modelSlot : null;
     },
     onBrokerMessage(message) {
       if (!message) return;

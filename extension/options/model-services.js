@@ -22,6 +22,7 @@ import {
   onlineServices,
   keyInputs,
   openServiceDetails,
+  guideModelSlot,
 } from "./model-core.js";
 
 // --- "Online" side: configured services (zone Z2d) ----------------------
@@ -30,19 +31,21 @@ export function renderServices(settings) {
   // The model field and the key components are re-parented below: park the
   // field first, remember the focus to give it back after the rebuild.
   const focused = els.serviceList.contains(document.activeElement) ? document.activeElement : null;
-  els.modelSection.appendChild(els.modelField);
+  // In the guide, the model field stays put (placeModelField).
+  const inGuide = Boolean(guideModelSlot());
+  if (!inGuide) els.modelSection.appendChild(els.modelField);
   els.serviceList.replaceChildren();
   for (const key of [...testTargets.keys()]) if (key.startsWith("row:")) testTargets.delete(key);
 
   const services = settings ? onlineServices(settings) : [];
   els.servicesBlock.hidden = services.length === 0;
-  for (const entry of services) els.serviceList.appendChild(buildServiceRow(entry, settings));
+  for (const entry of services) els.serviceList.appendChild(buildServiceRow(entry, settings, inGuide));
   if (focused?.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
 }
 
 /** One row: name, "In use" tag, state; the active row then shows its model and its folded key;
  * Use / Test / Remove last. */
-function buildServiceRow(entry, settings) {
+function buildServiceRow(entry, settings, modelInGuide) {
   const active = entry.active;
   const row = el("li", active ? "c-card service service--active" : "c-card service");
   // Stable anchor for the panel's deep link (#provider-<id>); with several openai-compat
@@ -88,7 +91,7 @@ function buildServiceRow(entry, settings) {
   }
   // The active row reads in order: the model to use, its key (folded), then Test / Remove.
   if (active) {
-    row.append(els.modelField);
+    if (!modelInGuide) row.append(els.modelField);
     if (entry.id === "claude-api" || entry.id === "openai-compat") {
       const details = el("details", "fold fold--inner service-details");
       details.open = openServiceDetails.has(entry.key) || !entry.configured;
@@ -215,6 +218,14 @@ export function placeModelField(settings) {
     }
     return;
   }
+  const slot = guideModelSlot();
+  if (slot) {
+    if (els.modelField.parentElement !== slot) slot.append(els.modelField);
+    renderModelField(settings);
+    return;
+  }
+  // Back from the guide: the active row takes the field again.
+  if (els.setupOnline.contains(els.modelField)) renderServices(settings);
   if (els.modelField.closest(".service")) renderModelField(settings);
   else els.modelField.hidden = true;
 }
@@ -245,7 +256,8 @@ function renderModelField(settings) {
     renderModelPicker({
       serviceKey: `${settings.provider}\n${settings.baseUrl ?? ""}`,
       entries,
-      used: settings.model ? [settings.model] : [],
+      // Picked lately on this service, the current model first; one it no longer lists is left out.
+      used: [...new Set([settings.model, ...(settings.recentModels ?? [])])].filter((id) => entries.some((entry) => entry.id === id)),
       model: settings.model,
       account: settings.account,
       groupLabel: serviceName(settings.provider, settings),

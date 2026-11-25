@@ -1544,20 +1544,11 @@
   "setup_online_others": {
     "message": "Autres services"
   },
-  "setup_online_service_ok": {
-    "message": "$NAME$ est choisi.",
-    "placeholders": {
-      "name": {
-        "content": "$1",
-        "example": "OpenRouter"
-      }
-    }
-  },
-  "setup_online_account_title": {
-    "message": "Créer un compte et une clé"
-  },
   "setup_online_account_text": {
     "message": "Créez un compte (ou connectez-vous), ouvrez la page des clés API, créez une clé, puis copiez-la."
+  },
+  "setup_online_change": {
+    "message": "Changer"
   },
   "setup_online_do_account_link": {
     "message": "Créez un compte chez $NAME$",
@@ -1616,8 +1607,8 @@
   "setup_oauth_failed": {
     "message": "La connexion n'a pas pu démarrer. Collez plutôt une clé ci-dessous."
   },
-  "setup_oauth_or": {
-    "message": "Ou créez une clé vous-même et collez-la ci-dessous."
+  "setup_online_have_key": {
+    "message": "J'ai déjà une clé"
   },
   "setup_online_openrouter_privacy": {
     "message": "Si un modèle gratuit refuse de répondre, autorisez les modèles gratuits dans les réglages de confidentialité d'OpenRouter."
@@ -1637,8 +1628,8 @@
   "setup_online_ready": {
     "message": "Coati est paramétré."
   },
-  "setup_online_choose_model": {
-    "message": "Clé acceptée. Choisissez un modèle dans la liste ci-dessous."
+  "setup_online_no_key": {
+    "message": "Je n'ai pas encore de clé"
   },
   "setup_online_plan_claude_link": {
     "message": "Récupérer le crédit API de l'abonnement"
@@ -1669,9 +1660,6 @@
   },
   "setup_online_prepaid": {
     "message": "Service prépayé : vous achetez du crédit d'avance et ne dépensez jamais plus que ce crédit."
-  },
-  "setup_online_key_title": {
-    "message": "Coller la clé"
   },
   "setup_online_key_text": {
     "message": "Une clé de ce service commence en général par « $PREFIX$ ».",

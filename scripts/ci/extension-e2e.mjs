@@ -323,6 +323,7 @@ try {
       "the online side's service list",
     );
     await openRouterRow.click();
+    if (!(await options.locator(".setup-service-chosen:visible", { hasText: "OpenRouter" }).count())) throw new Error("the service list did not fold to OpenRouter");
     await options.locator(".setup-oauth button:visible").click();
     // The real site may already have bounced the tab to its sign-up page, which carries the
     // sign-in address as `redirect_url`.
@@ -348,11 +349,10 @@ try {
     }
     // The guide then checks the key on screen; no model is chosen for the user, the list is offered.
     if (saved.model !== undefined) throw new Error(`a model was chosen for the user: ${saved.model}`);
-    const chooseModel = await options.evaluate(() => chrome.i18n.getMessage("setup_online_choose_model"));
-    const keyStep = options.locator('#setupOnline .setup-step[data-state="done"] .setup-step-result', { hasText: chooseModel });
-    await waitFor(async () => (await keyStep.count()) > 0, 15_000, "the guide's key step asks for a model").catch(async (err) => {
-      const steps = await options.locator("#setupOnline .setup-step").evaluateAll((els) => els.map((e) => `${e.dataset.state}: ${e.innerText.slice(-120)}`));
-      throw new Error(`${err.message}\nsteps:\n${steps.join("\n")}\n--- broker log ---\n${brokerLogTail()}`);
+    const modelInGuide = options.locator("#setupOnline #modelField:not([hidden])");
+    await waitFor(async () => (await modelInGuide.count()) > 0, 15_000, "the guide offers the model list under the key").catch(async (err) => {
+      const block = await options.locator("#setupOnline").innerText();
+      throw new Error(`${err.message}\nguide:\n${block.slice(-600)}\n--- broker log ---\n${brokerLogTail()}`);
     });
     const focused = await options.evaluate(() => document.activeElement?.id);
     if (focused !== "modelSearch" && focused !== "modelInput") throw new Error(`model field not focused (${focused})`);
