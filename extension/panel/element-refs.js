@@ -16,6 +16,9 @@
 
 const ELEMENT_REF_RE = /\[\[(e[1-9][0-9]{0,2})\]\]/g;
 
+/** "Show" buttons per answer (docs/DECISIONS.md T65). */
+export const MAX_POINT_BUTTONS = 3;
+
 /**
  * Splits text into a token list of plain-text runs and known element
  * references. `elements` is the `[{ref, role, label}]` array the panel kept
@@ -31,13 +34,15 @@ const ELEMENT_REF_RE = /\[\[(e[1-9][0-9]{0,2})\]\]/g;
  *
  * @param {string} text
  * @param {Array<{ref: string, role: string, label: string}>} elements
+ * @param {number} [maxRefs] known refs past this many become plain label text
  * @returns {Array<{type: 'text', value: string} | {type: 'ref', ref: string, role: string, label: string}>}
  */
-export function parseElementRefs(text, elements) {
+export function parseElementRefs(text, elements, maxRefs = Infinity) {
   const known = new Map((elements || []).filter((e) => e && typeof e.ref === "string").map((e) => [e.ref, e]));
   const input = text ?? "";
   const tokens = [];
   let lastIndex = 0;
+  let refs = 0;
   ELEMENT_REF_RE.lastIndex = 0;
   let match;
   while ((match = ELEMENT_REF_RE.exec(input))) {
@@ -47,7 +52,8 @@ export function parseElementRefs(text, elements) {
     }
     const entry = known.get(ref);
     if (entry) {
-      tokens.push({ type: "ref", ref, role: entry.role, label: entry.label });
+      tokens.push(refs < maxRefs ? { type: "ref", ref, role: entry.role, label: entry.label } : { type: "text", value: entry.label });
+      refs += 1;
     }
     // Unknown ref: nothing pushed for the token itself — it disappears from
     // the rendered text, it is never left as literal "[[eN]]".

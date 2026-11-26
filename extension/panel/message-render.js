@@ -15,7 +15,7 @@ import { renderMarkdown } from "./markdown.js";
 import { buildProgress, buildSlowTip, elapsedText, withoutEllipsis } from "./model-advice.js";
 import { isNearBottom } from "./scroll.js";
 import { parseTimestamps } from "./timestamps.js";
-import { parseElementRefs, resolveElementClick } from "./element-refs.js";
+import { MAX_POINT_BUTTONS, parseElementRefs, resolveElementClick } from "./element-refs.js";
 import { buildHistoryForWire, historyAlertState, readUntrustedIn } from "./history.js";
 import { sendChatWithPage, sendChatMessage, readRest } from "./composer-send.js";
 import { summarize } from "./page-extract.js";
@@ -567,8 +567,9 @@ export function renderElementRefs(container, elementsSnapshot) {
   while ((n = walker.nextNode())) textNodes.push(n);
 
   let firstButton = null;
+  let buttons = 0;
   for (const textNode of textNodes) {
-    const tokens = parseElementRefs(textNode.data, elementsSnapshot.elements);
+    const tokens = parseElementRefs(textNode.data, elementsSnapshot.elements, MAX_POINT_BUTTONS - buttons);
     if (tokens.length === 1 && tokens[0].type === "text" && tokens[0].value === textNode.data) continue; // nothing changed
 
     const fragment = document.createDocumentFragment();
@@ -577,6 +578,7 @@ export function renderElementRefs(container, elementsSnapshot) {
         fragment.appendChild(document.createTextNode(token.value));
         continue;
       }
+      buttons += 1;
       const button = document.createElement("button");
       button.type = "button";
       button.className = "element-point-button";

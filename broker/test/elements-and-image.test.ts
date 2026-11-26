@@ -126,6 +126,9 @@ describe("context.elements — rendering in the prompt (lot A1)", () => {
       context: { kind: "page", text: "t", elements: [{ ref: "e1", role: "link", label: "x" }] },
     });
     expect(withElements.prompt).toContain("double square brackets");
+    expect(withElements.prompt).toContain("only when the user asks");
+    expect(withElements.prompt).toContain("at most 3 references");
+    expect(withElements.prompt).toContain("Never list or recite");
 
     const withoutElements = buildPrompt({
       kind: "chat",

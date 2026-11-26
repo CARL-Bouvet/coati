@@ -2,7 +2,7 @@
 // same testing style as broker/test/ui-timestamps-like modules.
 
 import { describe, expect, test } from "bun:test";
-import { parseElementRefs, prepareContextForWire, resolveElementClick } from "../../extension/panel/element-refs.js";
+import { MAX_POINT_BUTTONS, parseElementRefs, prepareContextForWire, resolveElementClick } from "../../extension/panel/element-refs.js";
 
 const ELEMENTS = [
   { ref: "e1", role: "button", label: "Générer" },
@@ -400,5 +400,14 @@ describe("readStructuredData", () => {
   test("output is capped at 800 characters", () => {
     const graph = Array.from({ length: 40 }, (_, i) => ({ "@type": "Product", name: `Product ${i} ${"x".repeat(100)}` }));
     expect(read([JSON.stringify(graph)]).length).toBeLessThanOrEqual(800);
+  });
+});
+
+describe("parseElementRefs — button cap", () => {
+  test("10 known references give MAX_POINT_BUTTONS ref tokens; the rest are plain labels", () => {
+    const elements = Array.from({ length: 10 }, (_, i) => ({ ref: `e${i + 1}`, role: "link", label: `L${i + 1}` }));
+    const tokens = parseElementRefs(elements.map((e) => `[[${e.ref}]]`).join(" "), elements, MAX_POINT_BUTTONS);
+    expect(tokens.filter((t) => t.type === "ref").length).toBe(MAX_POINT_BUTTONS);
+    expect(tokens.filter((t) => t.type === "text" && /^L\d+$/.test(t.value)).length).toBe(10 - MAX_POINT_BUTTONS);
   });
 });

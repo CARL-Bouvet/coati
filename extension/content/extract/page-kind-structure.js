@@ -427,8 +427,6 @@ function buildPageKindContext() {
     listCandidate = null;
   }
 
-  const h1El = typeof document.querySelector === "function" ? document.querySelector("h1") : null;
-
   if (listCandidate) {
     let items = [];
     try {
@@ -461,7 +459,7 @@ function buildPageKindContext() {
   }
 
   const cappedFacts = capFacts(facts);
-  if (cappedFacts.length >= 4 && hasChiefNumericFact(cappedFacts, mainRegionEl, h1El, excludedEls)) {
+  if (cappedFacts.length >= 4 && hasChiefNumericFact(cappedFacts)) {
     const listingText = truncate(applyStructurePrefixes(mainRegionText, mainRegionEl, excludedEls));
     return {
       kind: "page",

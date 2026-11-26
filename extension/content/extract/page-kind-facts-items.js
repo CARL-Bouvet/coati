@@ -151,8 +151,9 @@ function factFromAdjacentPairs(scopeEl, excludedEls, excludedListEntries, out) {
 }
 
 // "Label: value line" — a leaf-ish element whose whole visible text is one
-// line shaped like `label: value`.
-var LABEL_VALUE_LINE_RE = /^([^\n:.!?]{1,60}):\s*(.+)$/;
+// line shaped like `label: value`. A label never holds a comma: "Author, Title: …"
+// is a citation, not a field.
+var LABEL_VALUE_LINE_RE = /^([^\n:.!?,]{1,60}):\s*(.+)$/;
 function factFromLabelValueLines(scopeEl, excludedEls, excludedListEntries, out) {
   let elements = [];
   try {
@@ -164,6 +165,7 @@ function factFromLabelValueLines(scopeEl, excludedEls, excludedListEntries, out)
     if ((el.children || []).length > 0) continue; // "no block child" (approximation)
     if (isFactsExcludedContext(el, excludedEls, excludedListEntries)) continue;
     if (isOrContainsEditable(el)) continue;
+    if (el.closest && el.closest("cite")) continue;
     const raw = visibleText(el).trim();
     if (!raw || raw.includes("\n")) continue; // "the element has other lines"
     const match = LABEL_VALUE_LINE_RE.exec(raw);
@@ -282,31 +284,6 @@ function textExcludingEntries(el, excludedEls, entries) {
   return textExcludingNodes(el, (excludedEls || []).concat(entryEls));
 }
 
-// "a line within 3 elements of the h1" — a LINE, not an ancestor's whole
-// subtree. Checking the full text of each ancestor up to 3 levels made this
-// match arbitrarily far prose: on the Wikipedia "Coati" page, the 3rd
-// ancestor up from `h1` contains the entire article body, bibliography
-// included, and a citation ("2007, p. 1076") tripped the numeric check.
-// Restricting to individual short lines is a second, independent guard on
-// top of the regex fix above (NUMERIC_VALUE_RE), either alone would have
-// fixed the Coati case, both together are cheap insurance.
-var CHIEF_FACT_LINE_MAX_CHARS = 200;
-function hasChiefNumericFact(facts, mainRegionEl, h1El, excludedEls) {
-  if (facts.some((f) => hasNumericValue(f.value))) return true;
-  if (!h1El || !mainRegionEl) return false;
-  try {
-    let el = h1El;
-    for (let i = 0; i < 3 && el; i += 1) {
-      el = el.parentElement || null;
-      if (!el) break;
-      const lines = textExcludingNodes(el, excludedEls).split("\n");
-      for (const rawLine of lines) {
-        const line = rawLine.trim();
-        if (line && line.length <= CHIEF_FACT_LINE_MAX_CHARS && hasNumericValue(line)) return true;
-      }
-    }
-  } catch {
-    // ignore — this is a bonus signal, not required for correctness.
-  }
-  return false;
+function hasChiefNumericFact(facts) {
+  return facts.some((f) => hasNumericValue(f.value));
 }

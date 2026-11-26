@@ -824,6 +824,30 @@ describe("extract.js — Wikipedia infobox (reminder: a 'numeric value' is never
     expect(result.facts).toBeUndefined();
     expect(result.items).toBeUndefined();
   });
+
+  test("a bibliography entry ending '1996, 542 p.' (label: value shape, inside an <li>) stays 'article'", () => {
+    const h1 = new FakeElement("h1", { text: "Nikola Tesla" });
+    const header = new FakeElement("div", { children: [h1], text: h1.text });
+    const infobox = new FakeElement("dl", {
+      children: [
+        new FakeElement("dt", { text: "Naissance" }), new FakeElement("dd", { text: "10 juillet 1856, Smiljan" }),
+        new FakeElement("dt", { text: "Décès" }), new FakeElement("dd", { text: "7 janvier 1943, New York" }),
+        new FakeElement("dt", { text: "Nationalité" }), new FakeElement("dd", { text: "américaine" }),
+        new FakeElement("dt", { text: "Activité" }), new FakeElement("dd", { text: "Ingénieur" }),
+      ],
+    });
+    const entry = new FakeElement("span", {
+      text: "Marc Seifer, Wizard: the life and times of Nikola Tesla, Citadel, 1996, 542 p.",
+    });
+    const item = new FakeElement("li", { children: [entry], text: entry.text });
+    const refs = new FakeElement("ol", { children: [item], text: entry.text });
+    const prose = "Nikola Tesla est un inventeur et ingénieur américain d'origine serbe. ".repeat(30);
+    const main = new FakeElement("main", { children: [header, infobox, refs], text: `${h1.text}\n${prose}\n${entry.text}` });
+
+    const result = runExtract({ body: new FakeElement("body", { children: [main] }) });
+
+    expect(result.pageKind).toBe("article");
+  });
 });
 
 // Ported from the now-deleted broker/test/detect.test.ts (item 1): detect.js's copy of

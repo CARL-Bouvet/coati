@@ -251,9 +251,10 @@ function renderElementLines(elements: Element[]): string[] {
 export function elementsInstruction(): string {
   return [
     'The page content above lists interactive elements under "Interactive elements visible:".',
-    "To point at one of them, write its reference inside double square brackets exactly as given,",
-    "e.g. [[e12]] — and ONLY ever one of the references listed there, never one you invent.",
-    "Pointing only highlights it: the click is then the user's.",
+    "Point only when the user asks where something is on the page or how to do something on it:",
+    "write its reference inside double square brackets exactly as given, e.g. [[e12]],",
+    "at most 3 references per answer, and ONLY ever references listed there, never one you invent.",
+    "Never list or recite the elements. Pointing only highlights: the click is the user's.",
     "You never click, focus, or type into anything yourself.",
   ].join("\n");
 }
