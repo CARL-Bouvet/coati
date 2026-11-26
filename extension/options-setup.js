@@ -433,6 +433,17 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
   const onlineBlock = el("div", "c-card setup-online-block");
   onlineRoot.append(onlineBlock);
 
+  // Which way in suits someone who wants a paid model or a free one, folded above the
+  // services; it goes with the list once a service is picked.
+  const which = fold(null, t("setup_online_which_title"), "fold fold--inner setup-online-which");
+  const ways = el("ul", "setup-os-list setup-todo");
+  ways.append(
+    el("li", null, t("setup_online_which_openrouter")),
+    el("li", null, t("setup_online_which_api_key")),
+    el("li", null, t("setup_online_which_free")),
+  );
+  which.body.append(ways, el("p", "help", t("setup_online_which_claude_plan")));
+
   // OpenRouter's retention warning sits under the chosen service, shown as soon as it is
   // chosen, before any key is pasted.
   const warning = el("p", "setup-warning", t("setup_online_free_warning"));
@@ -483,12 +494,12 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
   access.hidden = true;
   const modelSlot = el("div", "setup-online-model");
   const readyLine = statusLine();
-  onlineBlock.append(serviceList, others, chosenLine, warning, serviceStatus, access, modelSlot, readyLine);
+  onlineBlock.append(which.details, serviceList, others, chosenLine, warning, serviceStatus, access, modelSlot, readyLine);
 
   /** Folds the list to the chosen service (true), or shows every service again. */
   function foldServices(folded) {
     const focus = document.activeElement;
-    serviceList.hidden = others.hidden = folded;
+    which.details.hidden = serviceList.hidden = others.hidden = folded;
     chosenLine.hidden = !folded;
     chosenName.textContent = chosenService.name;
     if (!folded && chosenService.group === "other") others.open = true;

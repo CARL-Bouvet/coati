@@ -1474,9 +1474,6 @@
   "setup_online_service_title": {
     "message": "Choisir un service"
   },
-  "model_free_note": {
-    "message": "Les modèles de Claude et d'OpenAI (ChatGPT) se paient à l'usage avec un compte API ; un abonnement n'y donne pas accès. Sans payer, d'autres modèles restent gratuits via OpenRouter, suffisants pour des tâches simples comme résumer une vidéo YouTube. Certains fournisseurs gratuits peuvent conserver ce que vous envoyez et s'en servir pour entraîner leurs modèles."
-  },
   "setup_online_free_warning": {
     "message": "Les modèles gratuits d'OpenRouter peuvent conserver les textes que vous leur envoyez, et s'en servir. N'y envoyez rien de confidentiel."
   },
@@ -1549,6 +1546,21 @@
   },
   "setup_online_change": {
     "message": "Changer"
+  },
+  "setup_online_which_title": {
+    "message": "Quel accès choisir ?"
+  },
+  "setup_online_which_openrouter": {
+    "message": "OpenRouter (conseillé) : connectez-le en un clic, puis ajoutez du crédit ; chaque question est payée sur ce crédit. Le même compte donne accès à Claude, GPT et Gemini."
+  },
+  "setup_online_which_api_key": {
+    "message": "Une clé Claude (Anthropic) ou OpenAI : vous achetez du crédit d'avance sur leur site, sans forfait mensuel. Il faut un compte chez chacun."
+  },
+  "setup_online_which_free": {
+    "message": "Une clé gratuite : Google Gemini via Google AI Studio, ou l'offre gratuite de Mistral. Les deux ont des limites d'usage, et avec la clé gratuite, Google peut utiliser vos textes pour améliorer ses produits."
+  },
+  "setup_online_which_claude_plan": {
+    "message": "Un abonnement Claude Pro ou Max ne peut pas être utilisé dans Coati. Anthropic le réserve à ses propres applications ; Coati a besoin d'une clé API, distincte de l'abonnement."
   },
   "setup_online_do_account_link": {
     "message": "Créez un compte chez $NAME$",

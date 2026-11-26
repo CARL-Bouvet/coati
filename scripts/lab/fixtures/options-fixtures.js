@@ -310,6 +310,9 @@
     // Online side chosen, no service yet: step 1 alone.
     "setup-online": guide({ autoAction: steps(click("#tabOnline", 60)) }),
 
+    // Same, "Which access to choose?" unfolded above the services.
+    "setup-online-which": guide({ autoAction: steps(click("#tabOnline", 60), click(".setup-online-which > summary", 120)) }),
+
     // Claude picked: the key field, its own to-do (account, credit, key "Coati", copy) folded.
     "setup-online-claude": guide({
       autoAction: steps(click("#tabOnline", 60), click('.setup-service[data-service="claude"] input', 90)),

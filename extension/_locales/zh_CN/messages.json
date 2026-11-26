@@ -1474,9 +1474,6 @@
   "setup_online_service_title": {
     "message": "选择服务"
   },
-  "model_free_note": {
-    "message": "Claude 和 OpenAI（ChatGPT）的模型通过 API 账户按用量付费；订阅不包含 API 访问权限。不付费时，仍可通过 OpenRouter 使用其他免费模型，足以完成总结 YouTube 视频等简单任务。部分免费提供商可能保留您发送的内容并用于训练。"
-  },
   "setup_online_free_warning": {
     "message": "OpenRouter 的免费模型可能会保留并使用您发送的文本。请勿发送任何机密内容。"
   },
@@ -1549,6 +1546,21 @@
   },
   "setup_online_change": {
     "message": "更改"
+  },
+  "setup_online_which_title": {
+    "message": "选择哪种接入方式？"
+  },
+  "setup_online_which_openrouter": {
+    "message": "OpenRouter（推荐）：一键连接，然后充值；每次提问都从该额度中扣费。同一个账户即可使用 Claude、GPT 和 Gemini。"
+  },
+  "setup_online_which_api_key": {
+    "message": "Claude（Anthropic）或 OpenAI 密钥：在其网站预先购买额度，没有月度套餐。需要在每家分别注册账户。"
+  },
+  "setup_online_which_free": {
+    "message": "免费密钥：通过 Google AI Studio 获取 Google Gemini，或使用 Mistral 的免费套餐。两者都有用量限制；使用免费密钥时，Google 可能使用您的文本改进其产品。"
+  },
+  "setup_online_which_claude_plan": {
+    "message": "Claude Pro 或 Max 订阅无法在 Coati 中使用。Anthropic 仅允许在自家应用中使用它；Coati 需要 API 密钥，它与订阅相互独立。"
   },
   "setup_online_do_account_link": {
     "message": "在 $NAME$ 上创建账户",
