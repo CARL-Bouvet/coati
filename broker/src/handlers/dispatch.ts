@@ -8,12 +8,11 @@ import { runGet } from "../request-timeline.ts";
 import { buildPrompt } from "../model.ts";
 import { listPrompts, savePrompt, deletePrompt, setPromptSite, withDirLock, type PromptsDirs } from "../prompts.ts";
 import { getPrefs, setSitePrefs, moveInPrefs, type PrefsDirs } from "../prefs.ts";
-import { DEFAULT_CONFIG, DEFAULT_OLLAMA_URL } from "../config.ts";
-import { isValidKeyFormat } from "../key-format.ts";
+import { DEFAULT_OLLAMA_URL } from "../config.ts";
 import { listModelEntries as listOllamaModelEntries, matchesModel, warmupModel } from "../providers/ollama.ts";
-import { t, type Lang } from "../messages.ts";
+import type { Lang } from "../messages.ts";
 import { handleStreamingRequest, handleChatPageOnDemand, type PageOnDemandConnState } from "./chat.ts";
-import { buildSettingsPayload, testProviderConnection, type SettingsCtx } from "./settings.ts";
+import { buildSettingsPayload, handleSettingsSet, testProviderConnection, type SettingsCtx } from "./settings.ts";
 import { buildModelsPayload } from "./models.ts";
 
 export function handleMessage(
@@ -180,29 +179,11 @@ export function handleMessage(
       return;
     }
     case "oauth.start": {
-      send(ws, { type: "oauth.started", id: message.id, url: settingsCtx.startOAuth() });
+      send(ws, { type: "oauth.started", id: message.id, url: settingsCtx.startOAuth(message.service, message.consent) });
       return;
     }
     case "settings.set": {
-      if (message.apiKey) {
-        const cfg = settingsCtx.getConfig();
-        const provider = message.provider ?? cfg.provider ?? DEFAULT_CONFIG.provider!;
-        if (!isValidKeyFormat(provider, message.baseUrl ?? cfg.baseUrl, message.apiKey)) {
-          send(ws, { type: "error", id: message.id, code: "bad-request", message: t("auth.apiKeyFormat", lang) });
-          return;
-        }
-      }
-      const updated = settingsCtx.applySettings({
-        provider: message.provider,
-        model: message.model,
-        apiKey: message.apiKey,
-        baseUrl: message.baseUrl,
-        clearKey: message.clearKey,
-        removeBaseUrl: message.removeBaseUrl,
-      });
-      void buildSettingsPayload(updated, lang).then((payload) => {
-        send(ws, { type: "settings", id: message.id, ...payload });
-      });
+      void handleSettingsSet(message, settingsCtx, lang).then((reply) => send(ws, reply));
       return;
     }
     case "settings.test": {

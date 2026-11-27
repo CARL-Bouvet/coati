@@ -432,7 +432,8 @@ export function renderModelPicker() {
   }
   const grouped = groupModels(modelsReply);
   const model = grouped.current.model;
-  const where = model ? t(isCurrentLocal(grouped) ? "model_pill_local" : "model_pill_online") : "";
+  const onPlan = grouped.current.provider === "chatgpt";
+  const where = model ? t(onPlan ? "model_pill_chatgpt_plan" : isCurrentLocal(grouped) ? "model_pill_local" : "model_pill_online") : "";
   els.modelPillName.textContent = model ? shortModelName(model) : t("model_pill_none");
   els.modelPillWhere.textContent = where;
   els.modelPillWhere.hidden = !where;

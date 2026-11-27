@@ -16,6 +16,7 @@ const PROVIDER_LABEL_KEYS = {
   "claude-api": "common_provider_claude_api",
   ollama: "common_provider_ollama",
   "openai-compat": "common_provider_openai_compat",
+  chatgpt: "common_provider_chatgpt",
 };
 
 /** @param {string} id */

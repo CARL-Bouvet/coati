@@ -10,7 +10,8 @@
 // attach mode it then starts like a new user (a local OpenAI-compatible
 // stand-in without its key): saving the key in the settings page must close
 // the panel's first-run card. It sends a chat message, asserts the answer
-// shows up, and checks the one-click OpenRouter sign-in.
+// shows up, and checks the one-click OpenRouter sign-in and "Sign in with ChatGPT"
+// (against a local stand-in of ChatGPT's auth and API servers).
 //
 // CI-only: needs Playwright's own downloaded Chromium
 // (`npx playwright install --with-deps chromium`) and a free port 8787 — a
@@ -32,20 +33,24 @@
 //                         default profile to see the installer's manifest.
 //   COATI_E2E_CHANNEL     Playwright channel (default "chromium").
 //   COATI_E2E_BROKER_LOG  broker log file, quoted in a failure report.
+//   COATI_E2E_PORT        the port the broker listens on (default 8787); only the
+//                         ChatGPT redirect address check and callback use it.
 
 import { chromium } from "playwright";
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), "../../..");
 const EXT_DIR = path.join(ROOT, "dist/stage/chrome");
 const BINARY = process.env.COATI_E2E_BINARY || path.join(ROOT, "dist/bin/coati-broker-linux-x64");
 const ATTACH = process.env.COATI_E2E_ATTACH === "1";
 const CHANNEL = process.env.COATI_E2E_CHANNEL || "chromium";
+const PORT = Number(process.env.COATI_E2E_PORT || 8787);
 const PINNED_ID = "hehlgipomfminodhahcjbencblepjhah";
 const FIXTURE = path.join(ROOT, "broker/test/fixtures/modules/valid-provider.ts");
 
@@ -74,6 +79,7 @@ const childEnv = ATTACH ? process.env : { ...process.env, HOME: home, COATI_DATA
 
 let broker;
 let fakeOpenRouter;
+let fakeChatGPT;
 const FAKE_MODEL_KEY = "sk-e2e-good";
 const SIGNED_IN_KEY = `sk-or-v1-${"e2e0".repeat(16)}`;
 const configPath = path.join(home, ".config", "coati", "config.json");
@@ -83,6 +89,115 @@ const brokerLogTail = () =>
   process.env.COATI_E2E_BROKER_LOG && existsSync(process.env.COATI_E2E_BROKER_LOG)
     ? readFileSync(process.env.COATI_E2E_BROKER_LOG, "utf8")
     : brokerLog;
+
+// What the ChatGPT stand-in issued and saw. `problems` collects contract violations it met.
+const CHATGPT_CLIENT_ID = "oaiapp_e2e";
+const CHATGPT_CODE = "e2e-chatgpt-code";
+const CHATGPT_SCOPE = "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct";
+const CHATGPT_ANSWER = ["E2E Chat", "GPT answer"];
+const BANNED_RESPONSES_FIELDS = ["previous_response_id", "temperature", "top_p", "max_output_tokens", "metadata", "user", "truncation", "prompt"];
+const chatgpt = { nonce: "", challenge: "", redirectUri: "", idToken: "", access: [], refresh: [], responses: [], problems: [] };
+const rsa = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const jwk = { ...rsa.publicKey.export({ format: "jwk" }), kid: "e2e-key", alg: "RS256", use: "sig" };
+const b64 = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+
+function signIdToken() {
+  const head = b64({ alg: "RS256", kid: jwk.kid, typ: "JWT" });
+  const claims = b64({
+    iss: "https://auth.openai.com",
+    aud: CHATGPT_CLIENT_ID,
+    sub: "e2e-subject",
+    email: "e2e@example.com",
+    nonce: chatgpt.nonce,
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  });
+  return `${head}.${claims}.${sign("sha256", Buffer.from(`${head}.${claims}`), rsa.privateKey).toString("base64url")}`;
+}
+
+/** A new access token and a rotated refresh token (and an ID token on the first grant). */
+function issueChatGPTTokens(withIdToken) {
+  const n = chatgpt.access.length + 1;
+  chatgpt.access.push(`e2e-access-${n}`);
+  chatgpt.refresh.push(`e2e-refresh-${n}`);
+  if (withIdToken) chatgpt.idToken = signIdToken();
+  return {
+    access_token: chatgpt.access.at(-1),
+    refresh_token: chatgpt.refresh.at(-1),
+    ...(withIdToken ? { id_token: chatgpt.idToken } : {}),
+    scope: CHATGPT_SCOPE,
+    expires_in: 3600,
+    token_type: "Bearer",
+  };
+}
+
+function responsesBodyProblems(raw) {
+  let body;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return ["body is not JSON"];
+  }
+  const out = [];
+  if (body.store !== false) out.push("store is not false");
+  if (body.stream !== true) out.push("stream is not true");
+  if (typeof body.instructions !== "string" || !body.instructions.trim()) out.push("no instructions");
+  for (const field of BANNED_RESPONSES_FIELDS) if (Object.hasOwn(body, field)) out.push(`banned field ${field}`);
+  if (!Array.isArray(body.input) || body.input.some((item) => item?.role === "system")) out.push("input missing or has a system item");
+  return out;
+}
+
+function createFakeChatGPT() {
+  return createServer((req, res) => {
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", () => {
+      const json = (status, value) => {
+        res.statusCode = status;
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify(value));
+      };
+      const { pathname } = new URL(req.url, "http://127.0.0.1");
+      const bearer = (req.headers.authorization ?? "").replace(/^Bearer /, "");
+      if (pathname === "/api/accounts/oauth/token") {
+        const form = new URLSearchParams(body);
+        if (form.get("grant_type") === "authorization_code") {
+          const pkce = createHash("sha256").update(form.get("code_verifier") ?? "").digest("base64url") === chatgpt.challenge;
+          if (form.get("code") !== CHATGPT_CODE || form.get("client_id") !== CHATGPT_CLIENT_ID || form.get("redirect_uri") !== chatgpt.redirectUri || !pkce) {
+            chatgpt.problems.push(`bad code exchange (pkce ${pkce}): ${body.replace(/code=[^&]*/, "code=…")}`);
+            return json(400, { error: "invalid_grant" });
+          }
+          return json(200, issueChatGPTTokens(true));
+        }
+        if (form.get("grant_type") === "refresh_token" && form.get("refresh_token") === chatgpt.refresh.at(-1) && form.get("client_id") === CHATGPT_CLIENT_ID) {
+          return json(200, issueChatGPTTokens(false));
+        }
+        chatgpt.problems.push(`bad token request: grant_type=${form.get("grant_type")} client_id=${form.get("client_id")}`);
+        return json(400, { error: "invalid_grant" });
+      }
+      if (pathname === "/.well-known/jwks.json") return json(200, { keys: [jwk] });
+      if (pathname === "/.well-known/openid-configuration") return json(200, { revocation_endpoint: `http://${req.headers.host}/oauth/revoke` });
+      if (pathname === "/v1/models" && chatgpt.access.includes(bearer)) {
+        return json(200, {
+          models: [
+            { slug: "e2e-gpt", display_name: "E2E GPT", visibility: "list" },
+            { slug: "e2e-hidden", display_name: "Hidden", visibility: "hide" },
+          ],
+        });
+      }
+      if (pathname === "/v1/responses" && req.method === "POST") {
+        const call = { auth: bearer, body };
+        chatgpt.responses.push(call);
+        chatgpt.problems.push(...responsesBodyProblems(body).map((p) => `/v1/responses #${chatgpt.responses.length}: ${p}`));
+        // The first call is refused: the broker must refresh and retry once, with the new token.
+        if (chatgpt.responses.length === 1) return json(401, { error: { code: "token_expired", message: "expired" } });
+        res.setHeader("content-type", "text/event-stream");
+        for (const delta of CHATGPT_ANSWER) res.write(`data: ${JSON.stringify({ type: "response.output_text.delta", delta })}\n\n`);
+        return res.end(`data: ${JSON.stringify({ type: "response.completed", response: { usage: { input_tokens: 5, output_tokens: 3 } } })}\n\n`);
+      }
+      json(chatgpt.access.includes(bearer) ? 404 : 401, { error: { message: "unexpected" } });
+    });
+  });
+}
 
 if (!ATTACH) {
   mkdirSync(path.join(home, ".config", "coati"), { recursive: true });
@@ -155,6 +270,11 @@ if (!ATTACH) {
     JSON.stringify({ ...config, provider: "openai-compat", baseUrl: `http://127.0.0.1:${fakeOpenRouter.address().port}/v1`, model: "e2e-model" }, null, 2),
   );
 
+  fakeChatGPT = createFakeChatGPT();
+  await new Promise((r) => fakeChatGPT.listen(0, "127.0.0.1", r));
+  childEnv.COATI_CHATGPT_AUTH_BASE = `http://127.0.0.1:${fakeChatGPT.address().port}`;
+  childEnv.COATI_CHATGPT_API_BASE = `${childEnv.COATI_CHATGPT_AUTH_BASE}/v1`;
+
   broker = spawn(BINARY, ["--serve"], { env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
   broker.stdout.on("data", (d) => (brokerLog += d));
   broker.stderr.on("data", (d) => (brokerLog += d));
@@ -165,6 +285,7 @@ function cleanup() {
   if (ATTACH) return;
   broker.kill();
   fakeOpenRouter.close();
+  fakeChatGPT.close();
   rmSync(home, { recursive: true, force: true });
   if (ownProfile) rmSync(userDataDir, { recursive: true, force: true });
 }
@@ -269,29 +390,30 @@ try {
   // The panel is opened as a plain tab, so there is no page Coati may read:
   // the question must still go out, without the page (no switch to turn page
   // reading off any more — an unreadable tab never blocks a question).
-  const question = `coati extension e2e ${Date.now()}`;
-  await page.locator("#input").fill(question);
-  await page.locator("#send").click();
-
-  await waitFor(
-    async () => {
-      const bubble = page.locator(".message--assistant").last();
-      if ((await bubble.count()) === 0) return false;
-      const streaming = await page.locator(".message--assistant.message--streaming").count();
-      const text = await bubble.textContent().catch(() => "");
-      return streaming === 0 && !!text && text.includes("echo:");
-    },
-    30000,
-    "assistant answer from the fake provider",
-  ).catch(async (err) => {
-    const panel = await page.locator("body").innerText().catch(() => "?");
-    const html = await page.locator("#messages, main, body").first().innerHTML().catch(() => "?");
-    throw new Error(
-      `${err.message}\n--- panel text ---\n${panel.slice(0, 800)}\n--- markup ---\n${html.slice(0, 1500)}` +
-        `\n--- broker log ---\n${brokerLogTail()}`,
-    );
-  });
-  const answerText = await page.locator(".message--assistant").last().textContent();
+  async function askPanel(question, expected) {
+    await page.locator("#input").fill(question);
+    await page.locator("#send").click();
+    await waitFor(
+      async () => {
+        const bubble = page.locator(".message--assistant").last();
+        if ((await bubble.count()) === 0) return false;
+        const streaming = await page.locator(".message--assistant.message--streaming").count();
+        const text = await bubble.textContent().catch(() => "");
+        return streaming === 0 && !!text && text.includes(expected);
+      },
+      30000,
+      `assistant answer containing "${expected}"`,
+    ).catch(async (err) => {
+      const panel = await page.locator("body").innerText().catch(() => "?");
+      const html = await page.locator("#messages, main, body").first().innerHTML().catch(() => "?");
+      throw new Error(
+        `${err.message}\n--- panel text ---\n${panel.slice(0, 800)}\n--- markup ---\n${html.slice(0, 1500)}` +
+          `\n--- broker log ---\n${brokerLogTail()}`,
+      );
+    });
+    return page.locator(".message--assistant").last().textContent();
+  }
+  const answerText = await askPanel(`coati extension e2e ${Date.now()}`, "echo:");
   pass(`assistant answer received from the fake provider: ${answerText.slice(0, 80)}`);
 
   // The settings page loads as a module graph the lab bundle never exercises.
@@ -311,28 +433,38 @@ try {
   if (!ATTACH) {
     // One-click sign-in: the guide asks the program for the sign-in address and opens it; the
     // provider then sends the browser back to the program, which exchanges the code for a key.
-    const openRouterRow = options.locator('.setup-service[data-service="openrouter"]:visible');
-    await waitFor(
-      async () => {
-        if ((await openRouterRow.count()) > 0) return true;
-        if ((await options.locator("#tabOnline").getAttribute("aria-expanded")) !== "true") await options.locator("#tabOnline").click();
-        await options.locator("#addService").evaluate((d) => (d.open = true));
-        return false;
-      },
-      10_000,
-      "the online side's service list",
-    );
-    await openRouterRow.click();
-    if (!(await options.locator(".setup-service-chosen:visible", { hasText: "OpenRouter" }).count())) throw new Error("the service list did not fold to OpenRouter");
-    await options.locator(".setup-oauth button:visible").click();
-    // The real site may already have bounced the tab to its sign-up page, which carries the
-    // sign-in address as `redirect_url`.
-    const signInPage = () => ctx.pages().find((p) => p.url().startsWith("https://openrouter.ai/"));
-    await waitFor(async () => Boolean(signInPage()), 10_000, "the sign-in tab").catch(async (err) => {
-      const status = await options.locator(".setup-oauth").innerText().catch(() => "?");
-      throw new Error(`${err.message}\ntabs: ${ctx.pages().map((p) => p.url()).join(" | ")}\nguide: ${status}\n--- broker log ---\n${brokerLogTail()}`);
-    });
-    const signIn = signInPage();
+    const pickService = async (id, name) => {
+      const row = options.locator(`.setup-service[data-service="${id}"]:visible`);
+      await waitFor(
+        async () => {
+          if ((await row.count()) > 0) return true;
+          if ((await options.locator("#tabOnline").getAttribute("aria-expanded")) !== "true") await options.locator("#tabOnline").click();
+          // A service already chosen folds the list behind its "Change" button.
+          const change = options.locator(".setup-service-chosen:visible button");
+          if ((await change.count()) > 0) await change.click();
+          await options.locator("#addService").evaluate((d) => (d.open = true));
+          return false;
+        },
+        10_000,
+        "the online side's service list",
+      );
+      await row.click();
+      if (!(await options.locator(".setup-service-chosen:visible", { hasText: name }).count())) throw new Error(`the service list did not fold to ${name}`);
+    };
+    // Clicks the guide's sign-in button and returns the tab the extension opened on `prefix`.
+    const openSignInTab = async (prefix) => {
+      await options.locator(".setup-oauth button:visible").click();
+      // The real site may already have bounced the tab to its sign-up page, which carries the
+      // sign-in address as `redirect_url`.
+      const find = () => ctx.pages().find((p) => p.url().startsWith(prefix));
+      await waitFor(async () => Boolean(find()), 10_000, "the sign-in tab").catch(async (err) => {
+        const status = await options.locator(".setup-oauth").innerText().catch(() => "?");
+        throw new Error(`${err.message}\ntabs: ${ctx.pages().map((p) => p.url()).join(" | ")}\nguide: ${status}\n--- broker log ---\n${brokerLogTail()}`);
+      });
+      return find();
+    };
+    await pickService("openrouter", "OpenRouter");
+    const signIn = await openSignInTab("https://openrouter.ai/");
     const opened = new URL(signIn.url());
     const authUrl = opened.pathname === "/auth" ? opened : new URL(opened.searchParams.get("redirect_url"));
     await signIn.close();
@@ -360,6 +492,99 @@ try {
       throw new Error("the configured OpenRouter row has no link to its keys page");
     }
     pass("one-click OpenRouter sign-in: callback on localhost, code exchanged, key saved and checked, model list focused");
+
+    // Sign in with ChatGPT: the browser tab is held on a stub (the real site is never reached),
+    // the redirect goes to the broker, and the tokens stay in the broker's own file.
+    const consoleLines = [];
+    ctx.on("console", (m) => consoleLines.push(m.text()));
+    await ctx.route("https://auth.openai.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<title>sign-in</title>" }));
+    const chatgptFailure = async (err) => {
+      throw new Error(`${err.message}\nfake ChatGPT problems: ${chatgpt.problems.join(" | ") || "none"}\n--- broker log ---\n${brokerLogTail()}`);
+    };
+    await pickService("chatgpt", "ChatGPT");
+    const chatgptTab = await openSignInTab("https://auth.openai.com/api/accounts/authorize?");
+    const authorize = new URL(chatgptTab.url());
+    await chatgptTab.close();
+    const q = (name) => authorize.searchParams.get(name);
+    const redirectUri = `http://127.0.0.1:${PORT}/auth/callback`;
+    const scopes = (q("scope") ?? "").split(" ");
+    const authorizeChecks = {
+      redirect_uri: q("redirect_uri") === redirectUri,
+      client_id: q("client_id") === "dynamic_agent_client",
+      agent_name_hint: q("agent_name_hint") === "Coati",
+      ext_agent_host_id: (q("ext_agent_host_id") ?? "").startsWith("urn:uuid:"),
+      scope: scopes.includes("chatgpt.tokens.use.direct"),
+      resource: Boolean(q("resource")),
+      code_challenge_method: q("code_challenge_method") === "S256",
+      code_challenge: Boolean(q("code_challenge")),
+      state: Boolean(q("state")),
+      nonce: Boolean(q("nonce")),
+      "no id_token_hint": !authorize.searchParams.has("id_token_hint"),
+    };
+    const badChecks = Object.keys(authorizeChecks).filter((name) => !authorizeChecks[name]);
+    if (badChecks.length) throw new Error(`authorize address fails ${badChecks.join(", ")}: ${authorize}`);
+    chatgpt.nonce = q("nonce");
+    chatgpt.challenge = q("code_challenge");
+    chatgpt.redirectUri = redirectUri;
+    pass("ChatGPT sign-in opened the authorize address with the expected parameters and no id_token_hint");
+
+    const chatgptCallback = new URL(redirectUri);
+    chatgptCallback.search = new URLSearchParams({ code: CHATGPT_CODE, state: q("state"), client_id: CHATGPT_CLIENT_ID, scope: CHATGPT_SCOPE }).toString();
+    const chatgptBack = await ctx.newPage();
+    const chatgptResponse = await chatgptBack.goto(chatgptCallback.toString());
+    const chatgptPage = `${await chatgptBack.content()}\n${await chatgptBack.locator("body").innerText()}`;
+    if (chatgptResponse.status() !== 200) await chatgptFailure(new Error(`ChatGPT callback answered ${chatgptResponse.status()}: ${chatgptPage.slice(0, 300)}`));
+    if (/eyJ/.test(chatgptPage) || [...chatgpt.access, ...chatgpt.refresh].some((tok) => chatgptPage.includes(tok))) throw new Error("the callback page carries a token");
+    await chatgptBack.close();
+    const authFile = path.join(home, ".config", "coati", "chatgpt-auth.json");
+    if (!existsSync(authFile)) await chatgptFailure(new Error("chatgpt-auth.json was not written"));
+    const authMode = statSync(authFile).mode & 0o777;
+    if (authMode !== 0o600) throw new Error(`chatgpt-auth.json mode is ${authMode.toString(8)}, expected 600`);
+    const chatgptSaved = JSON.parse(readFileSync(configPath, "utf8"));
+    if (chatgptSaved.provider !== "chatgpt") throw new Error(`ChatGPT not active after sign-in: provider=${chatgptSaved.provider}`);
+    if (chatgptSaved.model !== undefined) throw new Error(`a model was chosen for the user: ${chatgptSaved.model}`);
+    pass("ChatGPT callback: 200, no token in the page, chatgpt-auth.json is 0600, provider chatgpt, no model chosen");
+
+    // The one-time welcome line sits in the guide's access block; its button is the only one there.
+    const welcomeButton = options.locator(".setup-online-access .setup-text button:visible");
+    await waitFor(async () => (await welcomeButton.count()) > 0, 15_000, "the ChatGPT welcome line").catch(async (err) => {
+      const block = await options.locator("#setupOnline").innerText().catch(() => "?");
+      return chatgptFailure(new Error(`${err.message}\nguide:\n${block.slice(-600)}`));
+    });
+    await welcomeButton.click();
+    await waitFor(() => JSON.parse(readFileSync(authFile, "utf8")).welcomed === true, 10_000, "the welcome flag saved");
+    await waitFor(async () => (await welcomeButton.count()) === 0, 10_000, "the welcome line closing");
+    const picker = options.locator("#setupOnline #modelField:not([hidden]) #modelPickerList");
+    await waitFor(async () => (await picker.locator('[data-model="e2e-gpt"]').count()) > 0, 15_000, "the guide offers E2E GPT").catch(async (err) => {
+      const block = await options.locator("#setupOnline").innerText().catch(() => "?");
+      return chatgptFailure(new Error(`${err.message}\nguide:\n${block.slice(-600)}`));
+    });
+    const listText = await picker.innerText();
+    if (!listText.includes("E2E GPT") || listText.includes("Hidden") || (await picker.locator('[data-model="e2e-hidden"]').count()) !== 0) {
+      throw new Error(`the model list must offer "E2E GPT" and not "Hidden":\n${listText}`);
+    }
+    await picker.locator('[data-model="e2e-gpt"]').click();
+    await waitFor(() => JSON.parse(readFileSync(configPath, "utf8")).model === "e2e-gpt", 10_000, "model e2e-gpt saved");
+    pass("ChatGPT guide: welcome line dismissed, model list shows E2E GPT without the hidden model, e2e-gpt chosen");
+
+    const chatgptAnswer = await askPanel(`coati chatgpt e2e ${Date.now()}`, CHATGPT_ANSWER.join("")).catch(chatgptFailure);
+    const [refused, retried] = chatgpt.responses;
+    if (chatgpt.responses.length !== 2 || chatgpt.access.length !== 2 || retried.auth !== chatgpt.access[1] || refused.auth === retried.auth) {
+      throw new Error(
+        `expected a 401 then one retry with the refreshed token: calls=${chatgpt.responses.length} tokens issued=${chatgpt.access.length} ` +
+          `retry used refreshed=${retried?.auth === chatgpt.access[1]}\n--- broker log ---\n${brokerLogTail()}`,
+      );
+    }
+    if (chatgpt.problems.length) throw new Error(`fake ChatGPT saw contract violations:\n${chatgpt.problems.join("\n")}`);
+    pass(`ChatGPT answer in the panel (${chatgptAnswer.slice(0, 40)}); the 401 triggered one refresh and one retry with the new token; request bodies stateless and minimal`);
+
+    // No token reaches the extension: not its storage, not its consoles.
+    const stored = await options.evaluate(async () => JSON.stringify({ local: await chrome.storage.local.get(null), session: await chrome.storage.session.get(null) }));
+    const secrets = [...chatgpt.access, ...chatgpt.refresh, chatgpt.idToken, CHATGPT_CODE];
+    for (const [where, text] of [["chrome.storage", stored], ["console", consoleLines.join("\n")]]) {
+      if (/eyJ/.test(text) || secrets.some((secret) => text.includes(secret))) throw new Error(`a ChatGPT token or code shows up in ${where}`);
+    }
+    pass(`no ChatGPT token in chrome.storage.local/session or in ${consoleLines.length} console messages`);
   }
 
   console.log("== scripts/ci/extension-e2e.mjs: ALL PASS ==");

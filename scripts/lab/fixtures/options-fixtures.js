@@ -200,6 +200,34 @@
     if (opts.recent) settings.recentModels = opts.recent;
     return settings;
   }
+  // ChatGPT plan active: `account` is what the broker sends (docs/PROTOCOL.md `settings`).
+  function chatgptSettings(account, model) {
+    var catalog = [
+      { id: "gpt-5.1", name: "GPT-5.1", created: 1764547200 },
+      { id: "gpt-5.1-mini", name: "GPT-5.1 mini", created: 1764547200 - 30 * 86400 },
+    ];
+    return {
+      provider: "chatgpt",
+      model: model || null,
+      models: catalog.map(function (entry) { return entry.id; }),
+      catalog: catalog,
+      account: account,
+      available: [
+        { id: "chatgpt", available: Boolean(account.signedIn && account.planUsage), configured: Boolean(account.signedIn), label: "ChatGPT" },
+        { id: "claude-api", available: true, configured: false, label: "Clé API Anthropic" },
+        { id: "ollama", available: false, configured: false, reason: "Ollama unreachable at http://127.0.0.1:11434", label: "Ollama" },
+      ],
+    };
+  }
+  function chatgptGuide(account, model) {
+    return guide({
+      settings: account ? chatgptSettings(account, model) : undefined,
+      // With settings on ChatGPT the page already opens on the online side.
+      autoAction: account
+        ? steps(click('.setup-service[data-service="chatgpt"] input', 90))
+        : steps(click("#tabOnline", 60), click('.setup-service[data-service="chatgpt"] input', 90)),
+    });
+  }
   function picker(opts, autoAction) {
     return { status: "connected", settings: pickerSettings(opts), storageLocal: { "coati:retentionDays": 30 }, permissions: [], autoAction: autoAction };
   }
@@ -359,6 +387,21 @@
       settings: pickerSettings({ credit: true, model: "qwen/model-a-8" }),
       autoAction: steps(click('.setup-service[data-service="openrouter"] input', 90), click("#addService > summary", 160)),
     }),
+
+    // ChatGPT picked, not signed in: the sign-in button, nothing else.
+    "setup-chatgpt-signed-out": chatgptGuide({ signedIn: false, planUsage: false, welcomed: false }),
+
+    // Signed in, plan usage not allowed: the line and the consent button.
+    "setup-chatgpt-plan-usage-off": chatgptGuide({ signedIn: true, email: "a@example.com", planUsage: false, welcomed: false }),
+
+    // Plan allowed, first time: the one-time notice and "Got it", the list under it.
+    "setup-chatgpt-welcome": chatgptGuide({ signedIn: true, email: "a@example.com", planUsage: true, welcomed: false }),
+
+    // Notice dismissed, a model chosen: the usage link and "Coati is set up".
+    "setup-chatgpt-connected": chatgptGuide({ signedIn: true, email: "a@example.com", planUsage: true, welcomed: true }, "gpt-5.1"),
+
+    // Signed out, but the revocation could not be confirmed.
+    "setup-chatgpt-revoke-unconfirmed": chatgptGuide({ signedIn: false, planUsage: false, welcomed: true, revokeUnconfirmed: true }),
 
     // « Autres » open, Google Gemini picked: free tier and subscription note.
     "setup-online-google": guide({

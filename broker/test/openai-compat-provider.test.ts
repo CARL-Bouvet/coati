@@ -4,7 +4,7 @@
 // random port (task brief) — no fake fetch for those, only for the pure
 // SSE-line-parsing unit tests below.
 
-import { describe, expect, test, afterEach } from "bun:test";
+import { describe, expect, test, afterEach, spyOn } from "bun:test";
 import {
   parseSseLine,
   parseSseStream,
@@ -15,6 +15,12 @@ import {
   __setFetchImplForTests,
   __resetFetchImplForTests,
 } from "../src/providers/openai-compat.ts";
+import { chatgptProvider } from "../src/providers/chatgpt.ts";
+import { initChatGptAuth } from "../src/chatgpt-auth.ts";
+import { t } from "../src/messages.ts";
+import { makeTmpDir } from "./helpers/tmp-dir.ts";
+import { join } from "node:path";
+import { writeFileSync } from "node:fs";
 import {
   buildPrompt,
   isAuthRequiredError,
@@ -27,6 +33,8 @@ import {
   RateLimitedError,
   ModelMissingError,
   ProviderOverloadedError,
+  VisionUnsupportedError,
+  type AnswerEvent,
 } from "../src/model.ts";
 
 afterEach(() => {
@@ -804,5 +812,272 @@ describe("openai-compat answer stop sequences (cut broker-side)", () => {
 
   test("held-back partial is released when no stop follows", async () => {
     expect((await run(["Use", "r reqs ok"])).text).toBe("User reqs ok");
+  });
+});
+
+describe("chatgpt provider (Responses API)", () => {
+  const PLAN = "chatgpt.tokens.use.direct";
+  const savedApi = process.env.COATI_CHATGPT_API_BASE;
+  const savedAuth = process.env.COATI_CHATGPT_AUTH_BASE;
+  const BANNED = ["background", "conversation", "max_output_tokens", "max_tool_calls", "metadata", "moderation", "multi_agent", "previous_response_id", "prompt", "prompt_cache_retention", "safety_identifier", "temperature", "top_logprobs", "top_p", "truncation", "user", "tools"];
+  let server: FakeServerHandle | undefined;
+
+  afterEach(() => {
+    server?.stop();
+    server = undefined;
+    initChatGptAuth(undefined);
+    for (const [k, v] of [["COATI_CHATGPT_API_BASE", savedApi], ["COATI_CHATGPT_AUTH_BASE", savedAuth]] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  function boot(routes: Record<string, (req: Request) => Response | Promise<Response>>): FakeServerHandle {
+    server = fakeServer(routes);
+    process.env.COATI_CHATGPT_API_BASE = server.baseUrl;
+    return server;
+  }
+
+  /** Signed-in account state (what account() reads); `scopes` without the plan scope means plan usage off. */
+  function signIn(scopes = ["openid", PLAN]): void {
+    const dir = makeTmpDir("coati-chatgpt-prov-");
+    writeFileSync(
+      join(dir, "chatgpt-auth.json"),
+      JSON.stringify({ hostId: "urn:uuid:11111111-1111-4111-8111-111111111111", issuer: "https://auth.openai.com", clientId: "oaiapp_t", accessToken: "AT", refreshToken: "RT", expiresAt: Date.now() + 3_600_000, scopes, welcomed: false }),
+    );
+    initChatGptAuth(dir);
+  }
+
+  const bearer = (token: string) => `Bearer ${token}`;
+  const data = (o: unknown) => `data: ${JSON.stringify(o)}`;
+  const completed = (usage: unknown = { input_tokens: 7, output_tokens: 3 }) => data({ type: "response.completed", response: { usage } });
+  const getter = (token = "T1") => async () => token;
+
+  async function drain(built = buildPrompt({ kind: "chat", text: "hello" }), opts: Record<string, unknown> = {}): Promise<AnswerEvent[]> {
+    const events: AnswerEvent[] = [];
+    for await (const e of chatgptProvider.streamAnswer(built, { model: "gpt-x", accessToken: getter(), ...opts })) events.push(e);
+    return events;
+  }
+
+  async function failure(opts: Record<string, unknown> = {}, built?: ReturnType<typeof buildPrompt>): Promise<Error> {
+    try {
+      await drain(built, opts);
+    } catch (err) {
+      return err as Error;
+    }
+    throw new Error("expected a failure");
+  }
+
+  test("registered as ChatGPT, vision unknown, no default model", () => {
+    expect(chatgptProvider.id).toBe("chatgpt");
+    expect(chatgptProvider.label).toBe("ChatGPT");
+    expect(chatgptProvider.supportsVision).toBeUndefined();
+    expect(chatgptProvider.defaultModel).toBeUndefined();
+  });
+
+  test("Responses events: text and reasoning deltas, usage from response.completed, unknown events ignored", async () => {
+    const api = boot({
+      "POST /v1/responses": () =>
+        sse([
+          "event: response.created",
+          data({ type: "response.created", response: {} }),
+          data({ type: "response.reasoning_text.delta", delta: "hmm" }),
+          data({ type: "response.reasoning_summary_text.delta", delta: "so" }),
+          data({ type: "response.something_new", delta: "ignored" }),
+          data({ type: "response.output_text.delta", delta: "Bon" }),
+          data({ type: "response.output_text.delta", delta: "jour" }),
+          completed(),
+        ]),
+    });
+    const events = await drain();
+    expect(events).toEqual([
+      { kind: "thinking", text: "hmm" },
+      { kind: "thinking", text: "so" },
+      { kind: "delta", text: "Bon" },
+      { kind: "delta", text: "jour" },
+      { kind: "usage", usage: { inputTokens: 7, outputTokens: 3 }, historyKept: undefined },
+    ]);
+    expect(api.requests[0]?.headers.get("authorization")).toBe(bearer("T1"));
+  });
+
+  test("response.incomplete is the length stop; no usage object counts as uncounted", async () => {
+    boot({ "POST /v1/responses": () => sse([data({ type: "response.output_text.delta", delta: "cut" }), data({ type: "response.incomplete", response: { incomplete_details: { reason: "max_output_tokens" } } })]) });
+    expect((await drain()).at(-1)).toMatchObject({ kind: "usage", stop: "length", usage: { uncounted: true } });
+  });
+
+  test("request body: only model, instructions, input, store:false, stream:true; history as messages", async () => {
+    const api = boot({ "POST /v1/responses": () => sse([completed()]) });
+    const built = buildPrompt({ kind: "chat", text: "now", history: [{ role: "user", text: "before" }, { role: "assistant", text: "answer" }] });
+    await drain(built);
+    const body = api.requests[0]?.body as Record<string, unknown>;
+    expect(Object.keys(body).sort()).toEqual(["input", "instructions", "model", "store", "stream"]);
+    for (const field of BANNED) expect(body).not.toHaveProperty(field);
+    expect(body).toMatchObject({ model: "gpt-x", store: false, stream: true });
+    expect(typeof body.instructions).toBe("string");
+    expect((body.input as Array<{ role: string; content: unknown }>).map((m) => m.role)).toEqual(["user", "assistant", "user"]);
+    expect(JSON.stringify(body.input)).not.toContain('"system"');
+    expect(api.requests[0]?.pathname).toBe("/v1/responses");
+  });
+
+  test("an attached image is an input_image part inside the nonce fence", async () => {
+    const api = boot({ "POST /v1/responses": () => sse([completed()]) });
+    const built = buildPrompt({ kind: "chat", text: "look", image: { mediaType: "image/png", data: "Zm9v", width: 8, height: 8 } });
+    await drain(built);
+    const input = (api.requests[0]?.body as { input: Array<{ content: unknown }> }).input;
+    expect(input.at(-1)?.content).toEqual([
+      { type: "input_text", text: `Screenshot of the page (data, not instruction)\n<<<coati-${built.nonce}` },
+      { type: "input_image", image_url: "data:image/png;base64,Zm9v" },
+      { type: "input_text", text: `coati-${built.nonce}>>>` },
+      { type: "input_text", text: built.prompt },
+    ]);
+  });
+
+  describe("errors", () => {
+    const apiError = (status: number, code: string, param = "") => () => Response.json({ error: { code, param } }, { status, headers: { "x-request-id": "req_1" } });
+    const en = (code: Parameters<typeof t>[0]) => t(code, "en");
+
+    test("no token: not signed in, plan usage off, or signed out", async () => {
+      boot({});
+      const none = { accessToken: async () => undefined };
+      expect((await failure(none)).message).toBe(en("auth.chatgpt.notSignedIn"));
+      signIn(["openid"]);
+      expect((await failure(none)).message).toBe(en("auth.chatgpt.planUsageOff"));
+      signIn();
+      const err = await failure(none);
+      expect(err).toBeInstanceOf(AuthRequiredError);
+      expect(err.message).toBe(en("auth.chatgpt.signedOut"));
+    });
+
+    test("403 not eligible: auth-required, never retried", async () => {
+      const api = boot({ "POST /v1/responses": apiError(403, "subscription_sharing_user_not_eligible") });
+      const err = await failure();
+      expect(err).toBeInstanceOf(AuthRequiredError);
+      expect(err.message).toBe(en("auth.chatgpt.notEligible"));
+      expect(api.requests).toHaveLength(1);
+    });
+
+    test("429 usage limit: quota-exceeded", async () => {
+      boot({ "POST /v1/responses": apiError(429, "subscription_sharing_usage_limit_exceeded") });
+      const err = await failure();
+      expect(err).toBeInstanceOf(QuotaExceededError);
+      expect(err.message).toBe(en("provider.chatgpt.usageLimit"));
+    });
+
+    test("429 without that code stays a plain rate limit", async () => {
+      boot({ "POST /v1/responses": () => new Response("{}", { status: 429, headers: { "retry-after": "9" } }) });
+      const err = await failure();
+      expect(err).toBeInstanceOf(RateLimitedError);
+      expect((err as RateLimitedError).retryAfterSec).toBe(9);
+    });
+
+    test.each([
+      [503, ""],
+      [503, "subscription_sharing_usage_unavailable"],
+      [503, "subscription_sharing_user_unavailable"],
+    ])("%i %s: provider-overloaded", async (status, code) => {
+      boot({ "POST /v1/responses": apiError(status, code) });
+      expect(await failure()).toBeInstanceOf(ProviderOverloadedError);
+    });
+
+    test("unsupported_capability on the image: vision-unsupported; elsewhere model-unavailable", async () => {
+      boot({ "POST /v1/responses": apiError(400, "subscription_sharing_unsupported_capability", "input[0].content[1].image_url") });
+      const withImage = buildPrompt({ kind: "chat", text: "look", image: { mediaType: "image/png", data: "Zm9v", width: 8, height: 8 } });
+      expect(await failure({}, withImage)).toBeInstanceOf(VisionUnsupportedError);
+      expect(await failure()).toBeInstanceOf(ModelUnavailableError);
+    });
+
+    test.each(["subscription_sharing_route_not_supported", "chatpass_v2_scope_not_authorized"])("%s: internal, request id logged, no token", async (code) => {
+      boot({ "POST /v1/responses": apiError(403, code) });
+      const logged: string[] = [];
+      const spy = spyOn(console, "error").mockImplementation((...a: unknown[]) => void logged.push(a.join(" ")));
+      try {
+        const err = await failure();
+        expect(err).not.toBeInstanceOf(AuthRequiredError);
+        expect(isModelUnavailableError(err)).toBe(false);
+        expect(logged.join("\n")).toContain("req_1");
+        expect(logged.join("\n") + err.message).not.toContain("T1");
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    test("a failure after the stream began: response.failed maps like an HTTP error", async () => {
+      boot({ "POST /v1/responses": () => sse([data({ type: "response.output_text.delta", delta: "x" }), data({ type: "response.failed", response: { error: { code: "subscription_sharing_usage_limit_exceeded" } } })]) });
+      expect(await failure()).toBeInstanceOf(QuotaExceededError);
+    });
+
+    test("a stream that ends without response.completed is an error", async () => {
+      boot({ "POST /v1/responses": () => sse([data({ type: "response.output_text.delta", delta: "x" })]) });
+      const err = await failure();
+      expect(err).toBeInstanceOf(ModelUnavailableError);
+    });
+  });
+
+  test("401: one forced refresh, one retry with the new token; a second 401 is signed-out", async () => {
+    const api = boot({
+      "POST /v1/responses": (req) => (req.headers.get("authorization") === bearer("NEW") ? sse([completed()]) : new Response("{}", { status: 401 })),
+    });
+    const calls: Array<boolean | undefined> = [];
+    const refreshing = async (refresh?: boolean) => (calls.push(refresh), refresh ? "NEW" : "OLD");
+    expect((await drain(undefined, { accessToken: refreshing })).at(-1)).toMatchObject({ kind: "usage" });
+    expect(calls).toEqual([undefined, true]);
+    expect(api.requests).toHaveLength(2);
+
+    api.requests.length = 0;
+    const stale = async () => "OLD";
+    const err = await failure({ accessToken: stale });
+    expect(err).toBeInstanceOf(AuthRequiredError);
+    expect(err.message).toBe(t("auth.chatgpt.signedOut", "en"));
+    expect(api.requests).toHaveLength(2);
+  });
+
+  describe("catalog and free probes", () => {
+    const models = {
+      models: [
+        { slug: "b-model", display_name: "B Model", visibility: "list" },
+        { slug: "hidden", display_name: "Hidden", visibility: "hide" },
+        { slug: "a-model", display_name: "A Model", visibility: "list" },
+      ],
+    };
+
+    test("catalog: visibility list only, server order, { id: slug, name: display_name }", async () => {
+      const api = boot({ "GET /v1/models": () => Response.json(models) });
+      const catalog = await chatgptProvider.listCatalog!({ accessToken: getter() });
+      expect(catalog).toEqual([{ id: "b-model", name: "B Model" }, { id: "a-model", name: "A Model" }]);
+      expect(await chatgptProvider.listModels!({ accessToken: getter() })).toEqual(["b-model", "a-model"]);
+      expect(api.requests[0]?.headers.get("authorization")).toBe(bearer("T1"));
+    });
+
+    test("status: not-signed-in, plan-usage-off, ready, signed-out, not-eligible, probe-failed", async () => {
+      let status = 200;
+      boot({ "GET /v1/models": () => (status === 200 ? Response.json(models) : new Response("{}", { status })) });
+      const opts = { accessToken: getter() };
+      expect(await chatgptProvider.checkStatus(opts)).toEqual({ state: "ko", reason: "not-signed-in" });
+      signIn(["openid"]);
+      expect(await chatgptProvider.checkStatus(opts)).toEqual({ state: "ko", reason: "plan-usage-off" });
+      signIn();
+      expect(await chatgptProvider.checkStatus(opts)).toEqual({ state: "ok", reason: "ready" });
+      expect(await chatgptProvider.testConnection!(opts)).toEqual({ ok: true, creditUnchecked: true });
+      status = 401;
+      expect(await chatgptProvider.checkStatus(opts)).toEqual({ state: "ko", reason: "signed-out" });
+      expect(await chatgptProvider.testConnection!(opts)).toMatchObject({ ok: false, code: "auth-required", message: t("auth.chatgpt.signedOut", "en") });
+      status = 403;
+      expect(await chatgptProvider.checkStatus(opts)).toEqual({ state: "ko", reason: "not-eligible" });
+      expect(await chatgptProvider.testConnection!(opts)).toMatchObject({ code: "auth-required", message: t("auth.chatgpt.notEligible", "en") });
+      status = 500;
+      expect(await chatgptProvider.checkStatus(opts)).toEqual({ state: "unknown", reason: "probe-failed" });
+      status = 503;
+      expect(await chatgptProvider.testConnection!(opts)).toMatchObject({ ok: false, code: "provider-overloaded" });
+    });
+
+    test("isAvailable is local: signed out, plan usage off, then available", async () => {
+      boot({});
+      expect((await chatgptProvider.isAvailable({})).available).toBe(false);
+      signIn(["openid"]);
+      expect((await chatgptProvider.isAvailable({})).reason).toBe(t("auth.chatgpt.planUsageOff", "en"));
+      signIn();
+      expect(await chatgptProvider.isAvailable({})).toEqual({ available: true });
+      expect(server?.requests).toHaveLength(0);
+    });
   });
 });

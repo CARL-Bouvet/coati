@@ -7,7 +7,7 @@
 // disk and not just in-memory state.
 
 import { describe, expect, test, afterEach, setSystemTime } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { startServer } from "../src/server.ts";
 import type { ServerMessage, SettingsMessage, SettingsTestResultMessage } from "../src/protocol.ts";
@@ -57,7 +57,7 @@ function nextMessage(ws: WebSocket): Promise<ServerMessage> {
 }
 
 describe("settings.get", () => {
-  test("reports all three built-in providers, never hiding an unavailable one", async () => {
+  test("reports every built-in providers, never hiding an unavailable one", async () => {
     const server = boot();
     const ws = await connectAndAuth(server);
     ws.send(JSON.stringify({ type: "settings.get", id: "s1" }));
@@ -65,9 +65,9 @@ describe("settings.get", () => {
     expect(msg.type).toBe("settings");
     expect(msg.id).toBe("s1");
     expect(msg.provider).toBe("ollama"); // untouched default
-    expect(msg.available).toHaveLength(3);
+    expect(msg.available).toHaveLength(4);
     const ids = msg.available.map((p) => p.id).sort();
-    expect(ids).toEqual(["claude-api", "ollama", "openai-compat"]);
+    expect(ids).toEqual(["chatgpt", "claude-api", "ollama", "openai-compat"]);
     for (const status of msg.available) {
       expect(typeof status.available).toBe("boolean");
       expect(typeof status.configured).toBe("boolean");
@@ -871,5 +871,508 @@ describe("oauth.start + /oauth/callback", () => {
     expect((await callback(server, "code=c&state=x", `127.0.0.1:${server.port}`)).status).toBe(400);
     const other = await fetch(`http://127.0.0.1:${server.port}/other`);
     expect(other.status).toBe(403);
+  });
+});
+
+// --- ChatGPT sign-in (docs/PROTOCOL.md "ChatGPT sign-in") -------------------
+import { statSync } from "node:fs";
+import { spyOn } from "bun:test";
+import { t } from "../src/messages.ts";
+import { account, accessToken, forceRefresh, hasPlanUsage, setWelcomed, signOut } from "../src/chatgpt-auth.ts";
+
+describe("oauth.start chatgpt + /auth/callback", () => {
+  const PLAN = "chatgpt.tokens.use.direct";
+  const ALL_SCOPES = `openid profile email offline_access resource.invoke ${PLAN}`;
+  const CLIENT = "oaiapp_test";
+  const b64 = (v: ArrayBuffer | string): string => Buffer.from(typeof v === "string" ? v : new Uint8Array(v)).toString("base64url");
+
+  let fakeAuth: ReturnType<typeof Bun.serve>;
+  let keyPair: CryptoKeyPair;
+  let calls: { tokens: URLSearchParams[]; revocations: URLSearchParams[]; jwks: number };
+  let fake: {
+    kid: string;
+    nonce: string;
+    iss: string;
+    scope: string;
+    expiresIn: number;
+    earliestRefreshAt?: number;
+    refreshCount: number;
+    refreshDelayMs: number;
+    refreshReply?: { status: number; body: Record<string, unknown> };
+    revokeStatus: number;
+    revocationEndpoint?: string;
+    audOverride?: string;
+    badSignature: boolean;
+  };
+  const savedBase = process.env.COATI_CHATGPT_AUTH_BASE;
+  let logged: string[] = [];
+  let spies: Array<{ mockRestore(): void }> = [];
+
+  async function publicJwk(): Promise<Record<string, unknown>> {
+    return { ...(await crypto.subtle.exportKey("jwk", keyPair.publicKey)), kid: fake.kid, alg: "RS256", use: "sig" };
+  }
+
+  async function makeIdToken(clientId: string): Promise<string> {
+    const header = b64(JSON.stringify({ alg: "RS256", kid: fake.kid, typ: "JWT" }));
+    const payload = b64(
+      JSON.stringify({ iss: fake.iss, aud: fake.audOverride ?? clientId, sub: "sub-123", email: "me@example.com", exp: Math.floor(Date.now() / 1000) + 3600, nonce: fake.nonce }),
+    );
+    const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", keyPair.privateKey, Buffer.from(`${header}.${payload}`));
+    const sigPart = fake.badSignature ? b64(new Uint8Array(sig).reverse().buffer as ArrayBuffer) : b64(sig);
+    return `${header}.${payload}.${sigPart}`;
+  }
+
+  async function bootChatGpt(configDir = makeTmpDir("coati-chatgpt-cfg-")) {
+    calls = { tokens: [], revocations: [], jwks: 0 };
+    fake = { kid: "k1", nonce: "", iss: "https://auth.openai.com", scope: ALL_SCOPES, expiresIn: 3600, refreshCount: 0, refreshDelayMs: 0, revokeStatus: 200, badSignature: false };
+    keyPair = (await crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" }, true, ["sign", "verify"])) as CryptoKeyPair;
+    fakeAuth = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      async fetch(req) {
+        const path = new URL(req.url).pathname;
+        const base = `http://127.0.0.1:${fakeAuth.port}`;
+        if (path === "/.well-known/jwks.json") {
+          calls.jwks++;
+          return Response.json({ keys: [await publicJwk()] });
+        }
+        if (path === "/.well-known/openid-configuration") {
+          return Response.json({ revocation_endpoint: fake.revocationEndpoint ?? `${base}/api/accounts/oauth/revoke` });
+        }
+        if (path === "/api/accounts/oauth/revoke") {
+          calls.revocations.push(new URLSearchParams(await req.text()));
+          return new Response("", { status: fake.revokeStatus });
+        }
+        if (path === "/api/accounts/oauth/token") {
+          const form = new URLSearchParams(await req.text());
+          calls.tokens.push(form);
+          if (form.get("grant_type") === "refresh_token") {
+            fake.refreshCount++;
+            if (fake.refreshDelayMs) await Bun.sleep(fake.refreshDelayMs);
+            if (fake.refreshReply) return Response.json(fake.refreshReply.body, { status: fake.refreshReply.status });
+            return Response.json({ access_token: `AT-R${fake.refreshCount}`, refresh_token: `RT-R${fake.refreshCount}`, expires_in: 3600, scope: fake.scope });
+          }
+          return Response.json({
+            access_token: "AT-0",
+            refresh_token: "RT-0",
+            id_token: await makeIdToken(form.get("client_id")!),
+            token_type: "Bearer",
+            expires_in: fake.expiresIn,
+            scope: fake.scope,
+            earliest_refresh_at: fake.earliestRefreshAt,
+          });
+        }
+        return new Response("nope", { status: 404 });
+      },
+    });
+    process.env.COATI_CHATGPT_AUTH_BASE = `http://127.0.0.1:${fakeAuth.port}`;
+    process.env.COATI_CHATGPT_API_BASE = process.env.COATI_CHATGPT_AUTH_BASE;
+    __setOpenAiFetch((async () => new Response(JSON.stringify({ data: [] }), { status: 200 })) as unknown as typeof fetch);
+    logged = [];
+    spies = (["log", "error", "warn"] as const).map((m) => spyOn(console, m).mockImplementation((...a: unknown[]) => void logged.push(a.join(" "))));
+    return { server: boot(configDir), configDir };
+  }
+
+  async function start(ws: WebSocket, extra: Record<string, unknown> = {}): Promise<URL> {
+    const reply = nextMessage(ws);
+    ws.send(JSON.stringify({ type: "oauth.start", id: "c1", service: "chatgpt", ...extra }));
+    const msg = (await reply) as unknown as { type: string; url: string };
+    expect(msg.type).toBe("oauth.started");
+    const url = new URL(msg.url);
+    fake.nonce = url.searchParams.get("nonce")!;
+    return url;
+  }
+
+  function callback(server: { port: number }, query: string, host?: string) {
+    return fetch(`http://127.0.0.1:${server.port}/auth/callback?${query}`, { headers: host ? { Host: host } : {}, redirect: "manual" });
+  }
+
+  const ok = (url: URL, extra = `&client_id=${CLIENT}`) => `code=CODE-SECRET&state=${url.searchParams.get("state")}${extra}`;
+
+  /** Runs one full first sign-in and returns what the tests below inspect. */
+  async function firstSignIn(extra = "") {
+    const { server, configDir } = await bootChatGpt();
+    const ws = await connectAndAuth(server);
+    const url = await start(ws);
+    const pushed = nextMessage(ws);
+    const res = await callback(server, ok(url, `&client_id=${CLIENT}${extra}`));
+    return { server, configDir, ws, url, res, pushed };
+  }
+
+  afterEach(() => {
+    for (const s of spies) s.mockRestore();
+    spies = [];
+    fakeAuth?.stop(true);
+    setSystemTime();
+    if (savedBase === undefined) delete process.env.COATI_CHATGPT_AUTH_BASE;
+    else process.env.COATI_CHATGPT_AUTH_BASE = savedBase;
+    delete process.env.COATI_CHATGPT_API_BASE;
+  });
+
+  test("first sign-in: authorize URL, exchange on the real port, 0600 file, provider pushed, no secret leaks", async () => {
+    const { server, configDir, ws, url, res, pushed } = await firstSignIn();
+    expect(url.origin + url.pathname).toBe("https://auth.openai.com/api/accounts/authorize");
+    const q = url.searchParams;
+    expect(q.get("response_type")).toBe("code");
+    expect(q.get("client_id")).toBe("dynamic_agent_client");
+    expect(q.get("agent_name_hint")).toBe("Coati");
+    expect(q.get("ext_agent_host_id")).toMatch(/^urn:uuid:[0-9a-f-]{36}$/);
+    expect(q.get("redirect_uri")).toBe(`http://127.0.0.1:${server.port}/auth/callback`);
+    expect(q.get("scope")).toBe(ALL_SCOPES);
+    expect(q.get("resource")).toBe("https://api.openai.com/v1");
+    expect(q.get("code_challenge_method")).toBe("S256");
+    expect(q.has("login_hint") || q.has("id_token_hint") || q.has("prompt")).toBe(false);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-security-policy")).toBe("default-src 'none'");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    const html = await res.text();
+    expect(html).not.toMatch(/eyJ|CODE-SECRET|AT-0|RT-0/);
+
+    const form = calls.tokens[0]!;
+    expect(form.get("grant_type")).toBe("authorization_code");
+    expect(form.get("client_id")).toBe(CLIENT);
+    expect(form.get("redirect_uri")).toBe(q.get("redirect_uri")!);
+    expect(form.get("resource")).toBe("https://api.openai.com/v1");
+    expect(new Bun.CryptoHasher("sha256").update(form.get("code_verifier")!).digest("base64url")).toBe(q.get("code_challenge")!);
+
+    const file = join(configDir, "chatgpt-auth.json");
+    expect(statSync(file).mode & 0o777).toBe(0o600);
+    const stored = JSON.parse(readFileSync(file, "utf8"));
+    expect(stored).toMatchObject({ hostId: q.get("ext_agent_host_id"), clientId: CLIENT, subject: "sub-123", email: "me@example.com", accessToken: "AT-0", refreshToken: "RT-0", welcomed: false });
+
+    const settings = (await pushed) as SettingsMessage;
+    expect(settings.provider).toBe("chatgpt");
+    expect(JSON.stringify(settings)).not.toMatch(/eyJ|AT-0|RT-0/);
+    expect(account()).toEqual({ signedIn: true, email: "me@example.com", planUsage: true, welcomed: false });
+    expect(hasPlanUsage()).toBe(true);
+    setWelcomed();
+    expect(account().welcomed).toBe(true);
+    expect(logged.join("\n")).not.toMatch(/eyJ|CODE-SECRET|AT-0|RT-0/);
+
+    // state is single use
+    expect((await callback(server, ok(url))).status).toBe(400);
+    expect(calls.tokens).toHaveLength(1);
+    ws.close();
+  });
+
+  test("re-sign-in: issued client id, login_hint, no agent_name_hint, same host id; consent; client-id mismatch rejected", async () => {
+    const { server, configDir, ws, url, pushed } = await firstSignIn();
+    await pushed;
+    const hostId = url.searchParams.get("ext_agent_host_id");
+    const again = await start(ws, { consent: true });
+    const q = again.searchParams;
+    expect(q.get("client_id")).toBe(CLIENT);
+    expect(q.has("agent_name_hint")).toBe(false);
+    expect(q.get("login_hint")).toBe("me@example.com");
+    expect(q.has("id_token_hint")).toBe(false);
+    expect(q.get("prompt")).toBe("consent");
+    expect(q.get("ext_agent_host_id")).toBe(hostId);
+    expect(q.get("redirect_uri")).toBe(`http://127.0.0.1:${server.port}/auth/callback`);
+
+    const before = calls.tokens.length;
+    expect((await callback(server, ok(again, "&client_id=oaiapp_other"))).status).toBe(400);
+    expect(calls.tokens).toHaveLength(before);
+
+    const third = await start(ws);
+    expect((await callback(server, ok(third, `&client_id=${CLIENT}`))).status).toBe(200);
+    ws.close();
+
+    // a new broker on the same config dir keeps the host id and client id
+    const second = boot(configDir);
+    const ws2 = await connectAndAuth(second);
+    expect((await start(ws2)).searchParams.get("ext_agent_host_id")).toBe(hostId);
+    ws2.close();
+  });
+
+  test("expired state and unknown state: failure page, no exchange", async () => {
+    const { server } = await bootChatGpt();
+    const ws = await connectAndAuth(server);
+    expect((await callback(server, "code=c&state=nope")).status).toBe(400);
+    const url = await start(ws);
+    setSystemTime(Date.now() + 11 * 60 * 1000);
+    expect((await callback(server, ok(url))).status).toBe(400);
+    expect(calls.tokens).toHaveLength(0);
+    ws.close();
+  });
+
+  const forgeries: Array<[string, () => void]> = [
+    ["nonce mismatch", () => void (fake.nonce = "other")],
+    ["bad signature", () => void (fake.badSignature = true)],
+    ["wrong issuer", () => void (fake.iss = "https://evil.example")],
+    ["wrong audience", () => void (fake.audOverride = "oaiapp_someone_else")],
+  ];
+  for (const [name, tamper] of forgeries) {
+    test(`ID token check: ${name} stores nothing and does not switch provider`, async () => {
+      const { server, configDir } = await bootChatGpt();
+      const ws = await connectAndAuth(server);
+      const url = await start(ws);
+      tamper();
+      const res = await callback(server, ok(url));
+      expect(res.status).toBe(400);
+      expect(account().signedIn).toBe(false);
+      expect(readFileSync(join(configDir, "chatgpt-auth.json"), "utf8")).not.toContain("AT-0");
+      ws.close();
+    });
+  }
+
+  test("JWKS is cached by kid and refetched once on an unknown kid", async () => {
+    const { server, ws, pushed } = await firstSignIn();
+    await pushed;
+    expect(calls.jwks).toBe(1);
+    for (const kid of ["k1", "k2"]) {
+      fake.kid = kid;
+      const url = await start(ws);
+      const next = nextMessage(ws);
+      expect((await callback(server, ok(url))).status).toBe(200);
+      await next;
+      expect(calls.jwks).toBe(kid === "k1" ? 1 : 2);
+    }
+    ws.close();
+  });
+
+  test("access_denied: own page, nothing exchanged or stored", async () => {
+    const { server } = await bootChatGpt();
+    const ws = await connectAndAuth(server);
+    const url = await start(ws);
+    const res = await callback(server, `error=access_denied&state=${url.searchParams.get("state")}`);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain(t("oauth.chatgpt-denied", "en"));
+    expect(calls.tokens).toHaveLength(0);
+    expect(account().signedIn).toBe(false);
+    ws.close();
+  });
+
+  test("missing plan scope: tokens kept, planUsage false, provider switched, own page", async () => {
+    const { server } = await bootChatGpt();
+    const ws = await connectAndAuth(server);
+    const url = await start(ws);
+    fake.scope = "openid profile email offline_access";
+    const pushed = nextMessage(ws);
+    const res = await callback(server, ok(url));
+    expect(await res.text()).toContain(t("oauth.chatgpt-no-plan", "en"));
+    expect(account()).toMatchObject({ signedIn: true, email: "me@example.com", planUsage: false });
+    expect(((await pushed) as SettingsMessage).provider).toBe("chatgpt");
+    ws.close();
+  });
+
+  test("new registration without a usable client_id is a failure; dynamic_agent_client is never saved", async () => {
+    const { server, configDir } = await bootChatGpt();
+    const ws = await connectAndAuth(server);
+    expect((await callback(server, ok(await start(ws), ""))).status).toBe(400);
+    expect((await callback(server, ok(await start(ws), "&client_id=dynamic_agent_client"))).status).toBe(400);
+    expect(calls.tokens).toHaveLength(0);
+    expect(readFileSync(join(configDir, "chatgpt-auth.json"), "utf8")).not.toContain("clientId");
+    ws.close();
+  });
+
+  test("/auth/callback refuses Host localhost; /oauth/callback keeps accepting it; wrong method is not a callback", async () => {
+    const { server } = await bootChatGpt();
+    expect((await callback(server, "code=c&state=x", `localhost:${server.port}`)).status).toBe(403);
+    expect((await callback(server, "code=c&state=x", `127.0.0.1:${server.port}`)).status).toBe(400);
+    expect((await fetch(`http://127.0.0.1:${server.port}/auth/callback`, { method: "POST" })).status).toBe(403);
+    const oauthRoute = await fetch(`http://127.0.0.1:${server.port}/oauth/callback?code=c&state=x`, { headers: { Host: `localhost:${server.port}` } });
+    expect(oauthRoute.status).toBe(400);
+  });
+
+  test("refresh: single-flight, rotation, before earliest_refresh_at nothing happens", async () => {
+    const { configDir, ws } = await firstSignInShort();
+    fake.refreshDelayMs = 50;
+    const tokens = await Promise.all([accessToken(), accessToken(), forceRefresh()]);
+    expect(fake.refreshCount).toBe(1);
+    expect(tokens).toEqual(["AT-R1", "AT-R1", "AT-R1"]);
+    const form = calls.tokens.find((f) => f.get("grant_type") === "refresh_token")!;
+    expect(form.get("refresh_token")).toBe("RT-0");
+    expect(form.get("client_id")).toBe(CLIENT);
+    expect(form.get("resource")).toBe("https://api.openai.com/v1");
+    expect(form.has("scope")).toBe(false);
+    expect(JSON.parse(readFileSync(join(configDir, "chatgpt-auth.json"), "utf8"))).toMatchObject({ accessToken: "AT-R1", refreshToken: "RT-R1", clientId: CLIENT });
+    // now fresh for an hour: no further refresh
+    expect(await accessToken()).toBe("AT-R1");
+    expect(fake.refreshCount).toBe(1);
+    expect(logged.join("\n")).not.toMatch(/eyJ|AT-|RT-/);
+    ws.close();
+  });
+
+  test("refresh is held back until earliest_refresh_at", async () => {
+    const { ws } = await firstSignInShort(Math.floor(Date.now() / 1000) + 600);
+    expect(await accessToken()).toBe("AT-0");
+    expect(fake.refreshCount).toBe(0);
+    ws.close();
+  });
+
+  test("terminal refresh error clears the tokens and keeps the identity", async () => {
+    const { configDir, ws } = await firstSignInShort();
+    fake.refreshReply = { status: 400, body: { error: "invalid_grant" } };
+    expect(await accessToken()).toBeUndefined();
+    const stored = JSON.parse(readFileSync(join(configDir, "chatgpt-auth.json"), "utf8"));
+    expect(stored.accessToken).toBeUndefined();
+    expect(stored.refreshToken).toBeUndefined();
+    expect(stored).toMatchObject({ clientId: CLIENT, subject: "sub-123", email: "me@example.com" });
+    expect(account().signedIn).toBe(false);
+    ws.close();
+  });
+
+  test("sign-out revokes at the discovered endpoint, then clears tokens and keeps host/client/subject/email", async () => {
+    const { configDir, ws } = await firstSignIn();
+    expect(await signOut()).toEqual({ revokeConfirmed: true });
+    expect(calls.revocations[0]!.get("token")).toBe("RT-0");
+    expect(calls.revocations[0]!.get("token_type_hint")).toBe("refresh_token");
+    expect(calls.revocations[0]!.get("client_id")).toBe(CLIENT);
+    const stored = JSON.parse(readFileSync(join(configDir, "chatgpt-auth.json"), "utf8"));
+    expect(stored.accessToken).toBeUndefined();
+    expect(stored.refreshToken).toBeUndefined();
+    expect(stored).toMatchObject({ clientId: CLIENT, subject: "sub-123", email: "me@example.com" });
+    expect(stored.hostId).toMatch(/^urn:uuid:/);
+    ws.close();
+  });
+
+  test("sign-out: a failed or foreign revocation endpoint is reported unconfirmed and tokens are cleared anyway", async () => {
+    const first = await firstSignIn();
+    fake.revokeStatus = 500;
+    expect(await signOut()).toEqual({ revokeConfirmed: false });
+    expect(account().signedIn).toBe(false);
+    first.ws.close();
+    fakeAuth.stop(true);
+
+    const second = await firstSignIn();
+    fake.revocationEndpoint = "https://evil.example/revoke";
+    expect(await signOut()).toEqual({ revokeConfirmed: false });
+    expect(calls.revocations).toHaveLength(0);
+    second.ws.close();
+  });
+
+  /** First sign-in whose access token is already inside the 5-minute refresh window. */
+  async function firstSignInShort(earliestRefreshAt?: number) {
+    const { server, configDir } = await bootChatGpt();
+    fake.expiresIn = 60;
+    fake.earliestRefreshAt = earliestRefreshAt;
+    const ws = await connectAndAuth(server);
+    const url = await start(ws);
+    expect((await callback(server, ok(url))).status).toBe(200);
+    return { server, configDir, ws };
+  }
+});
+
+describe("chatgpt settings: account, welcome flag, sign-out, no API key", () => {
+  let fakeAuth: ReturnType<typeof Bun.serve> | undefined;
+  let revoked: URLSearchParams[] = [];
+  let revokeStatus = 200;
+  const savedBase = process.env.COATI_CHATGPT_AUTH_BASE;
+
+  afterEach(() => {
+    fakeAuth?.stop(true);
+    fakeAuth = undefined;
+    if (savedBase === undefined) delete process.env.COATI_CHATGPT_AUTH_BASE;
+    else process.env.COATI_CHATGPT_AUTH_BASE = savedBase;
+    delete process.env.COATI_CHATGPT_API_BASE;
+  });
+
+  /** A server whose config dir already holds a signed-in account; the auth and API stand-in is one local server. */
+  async function bootSignedIn(scopes = ["openid", "chatgpt.tokens.use.direct"]) {
+    revoked = [];
+    revokeStatus = 200;
+    fakeAuth = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      async fetch(req) {
+        const path = new URL(req.url).pathname;
+        if (path === "/.well-known/openid-configuration") {
+          return Response.json({ revocation_endpoint: `http://127.0.0.1:${fakeAuth!.port}/api/accounts/oauth/revoke` });
+        }
+        if (path === "/api/accounts/oauth/revoke") {
+          revoked.push(new URLSearchParams(await req.text()));
+          return new Response("", { status: revokeStatus });
+        }
+        return new Response("nope", { status: 404 });
+      },
+    });
+    process.env.COATI_CHATGPT_AUTH_BASE = `http://127.0.0.1:${fakeAuth.port}`;
+    process.env.COATI_CHATGPT_API_BASE = process.env.COATI_CHATGPT_AUTH_BASE;
+    const configDir = makeTmpDir("coati-chatgpt-set-");
+    writeFileSync(
+      join(configDir, "chatgpt-auth.json"),
+      JSON.stringify({
+        hostId: "urn:uuid:11111111-1111-4111-8111-111111111111",
+        issuer: "https://auth.openai.com",
+        clientId: "oaiapp_t",
+        email: "me@example.com",
+        accessToken: "AT-seed",
+        refreshToken: "RT-seed",
+        expiresAt: Date.now() + 3_600_000,
+        scopes,
+        welcomed: false,
+      }),
+    );
+    const ws = await connectAndAuth(boot(configDir));
+    return { ws, configDir };
+  }
+
+  async function call(ws: WebSocket, message: Record<string, unknown>): Promise<ServerMessage> {
+    const reply = nextMessage(ws);
+    ws.send(JSON.stringify({ id: "x1", ...message }));
+    return reply;
+  }
+
+  test("account while chatgpt is active: sign-in state only, never a token", async () => {
+    const { ws } = await bootSignedIn();
+    const reply = await call(ws, { type: "settings.set", provider: "chatgpt" });
+    const msg = reply as SettingsMessage;
+    expect(msg.provider).toBe("chatgpt");
+    expect(msg.account).toEqual({ signedIn: true, email: "me@example.com", planUsage: true, welcomed: false });
+    expect(JSON.stringify(reply)).not.toMatch(/AT-seed|RT-seed/);
+    expect(msg.available.find((p) => p.id === "chatgpt")?.available).toBe(true);
+    ws.close();
+  });
+
+  test("a grant without the plan scope reports planUsage false and the provider unavailable", async () => {
+    const { ws } = await bootSignedIn(["openid"]);
+    const msg = (await call(ws, { type: "settings.set", provider: "chatgpt" })) as SettingsMessage;
+    expect(msg.account).toMatchObject({ signedIn: true, planUsage: false });
+    expect(msg.available.find((p) => p.id === "chatgpt")).toMatchObject({ available: false, configured: false });
+    ws.close();
+  });
+
+  test("welcomed:true is stored and echoed in account", async () => {
+    const { ws, configDir } = await bootSignedIn();
+    const msg = (await call(ws, { type: "settings.set", provider: "chatgpt", welcomed: true })) as SettingsMessage;
+    expect(msg.account).toMatchObject({ welcomed: true });
+    expect(JSON.parse(readFileSync(join(configDir, "chatgpt-auth.json"), "utf8")).welcomed).toBe(true);
+    const bad = (await call(ws, { type: "settings.set", welcomed: false })) as unknown as { code: string };
+    expect(bad.code).toBe("bad-request");
+    ws.close();
+  });
+
+  test("clearKey chatgpt revokes the refresh token then clears the tokens", async () => {
+    const { ws, configDir } = await bootSignedIn();
+    const msg = (await call(ws, { type: "settings.set", provider: "chatgpt", clearKey: "chatgpt" })) as SettingsMessage;
+    expect(revoked).toHaveLength(1);
+    expect(revoked[0]!.get("token")).toBe("RT-seed");
+    expect(msg.account).toEqual({ signedIn: false, email: "me@example.com", planUsage: false, welcomed: false });
+    const file = readFileSync(join(configDir, "chatgpt-auth.json"), "utf8");
+    expect(file).not.toMatch(/AT-seed|RT-seed/);
+    ws.close();
+  });
+
+  test("clearKey chatgpt with a failed revocation clears anyway and flags revokeUnconfirmed", async () => {
+    const { ws } = await bootSignedIn();
+    revokeStatus = 500;
+    const msg = (await call(ws, { type: "settings.set", provider: "chatgpt", clearKey: "chatgpt" })) as SettingsMessage;
+    expect(msg.account).toMatchObject({ signedIn: false, revokeUnconfirmed: true });
+    const later = (await call(ws, { type: "settings.get" })) as SettingsMessage;
+    expect(later.account).not.toHaveProperty("revokeUnconfirmed");
+    ws.close();
+  });
+
+  test("an apiKey for chatgpt, active or named in the same message, is refused and nothing is applied", async () => {
+    const { ws } = await bootSignedIn();
+    const named = (await call(ws, { type: "settings.set", provider: "chatgpt", apiKey: "sk-abc123" })) as unknown as { code: string };
+    expect(named.code).toBe("bad-request");
+    expect(((await call(ws, { type: "settings.get" })) as SettingsMessage).provider).not.toBe("chatgpt");
+    await call(ws, { type: "settings.set", provider: "chatgpt" });
+    const active = (await call(ws, { type: "settings.set", apiKey: "sk-abc123", model: "m1" })) as unknown as { code: string };
+    expect(active.code).toBe("bad-request");
+    expect(((await call(ws, { type: "settings.get" })) as SettingsMessage).model).toBeUndefined();
+    ws.close();
   });
 });

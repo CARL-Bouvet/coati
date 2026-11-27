@@ -190,8 +190,9 @@ export interface SettingsMessage {
   /** The same models with the facts their service gives, in the service's order, when the
    * provider reads a catalogue (online services). Absent otherwise. */
   catalog?: CatalogModel[];
-  /** OpenRouter active with a key, when its `GET /api/v1/key` answers. */
-  account?: OpenRouterAccount;
+  /** OpenRouter active with a key, when its `GET /api/v1/key` answers; the ChatGPT sign-in state
+   * while `chatgpt` is active (never a token). */
+  account?: OpenRouterAccount | ChatGptAccount;
   /** The models the user chose on the active provider (on the active service for openai-compat),
    * most recent first, at most 5, never a default. Absent when none. */
   recentModels?: string[];
@@ -221,6 +222,16 @@ export interface CatalogModel {
 export interface OpenRouterAccount {
   boughtCredit?: boolean;
   freeRequests?: { used: number; limit: number; remaining: number };
+}
+
+/** The ChatGPT sign-in state a client may know. `revokeUnconfirmed`: set only in the reply to the
+ * sign-out whose remote revocation failed. */
+export interface ChatGptAccount {
+  signedIn: boolean;
+  email?: string;
+  planUsage: boolean;
+  welcomed: boolean;
+  revokeUnconfirmed?: true;
 }
 
 /** One configured openai-compat service. `hasKey` says a key is stored for its origin; the key

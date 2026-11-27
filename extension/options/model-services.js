@@ -76,7 +76,7 @@ function buildServiceRow(entry, settings, modelInGuide) {
   const test = buttonEl(t("options_test_short"), "c-button c-button--small test-button");
   test.addEventListener("click", () => testProvider(entry.id, "row"));
   if (testable) actions.append(test);
-  if (entry.id === "claude-api" || entry.id === "openai-compat") actions.append(buildRemoveButton(entry));
+  if (entry.id === "claude-api" || entry.id === "openai-compat" || entry.id === "chatgpt") actions.append(buildRemoveButton(entry));
 
   const result = el("span", "test-result service-result");
   result.setAttribute("role", "status");
@@ -85,8 +85,8 @@ function buildServiceRow(entry, settings, modelInGuide) {
   const links = getProviderLinks(entry.id, entry.baseUrl);
   if (links) {
     const line = el("p", "help help--tight");
-    line.append(externalLink(links.keysUrl, t("options_service_keys_link", [links.name])));
-    if (links.billingUrl) line.append(" · ", externalLink(links.billingUrl, t("options_service_billing_link"))); // i18n-allow: separator
+    if (links.keysUrl) line.append(externalLink(links.keysUrl, t("options_service_keys_link", [links.name])));
+    if (links.billingUrl) line.append(...(links.keysUrl ? [" · "] : []), externalLink(links.billingUrl, t(links.billingLink ?? "options_service_billing_link"))); // i18n-allow: separator
     row.append(line);
   }
   // The active row reads in order: the model to use, its key (folded), then Test / Remove.

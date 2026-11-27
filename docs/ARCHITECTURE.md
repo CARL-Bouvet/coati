@@ -14,7 +14,8 @@
 | `extension/welcome/` | ~400 | first-run page |
 | `extension/vendor/` | ~3,400 | SortableJS (third-party, prompt drag-and-drop) |
 | `broker/src/` | ~11,400 | local program: handshake, protocol, model prompts, settings |
-| — `broker/src/providers/` | ~2,400 | Ollama, OpenAI-compatible, Claude API |
+| — `broker/src/providers/` | ~2,400 | Ollama, OpenAI-compatible, Claude API, ChatGPT (`chatgpt.ts`: Responses API with the user's plan) |
+| — `broker/src/chatgpt-auth.ts` | new | "Sign in with ChatGPT": authorize URL, code exchange, ID token check, refresh, revoke, `chatgpt-auth.json` |
 | `broker/test/` | ~17,400 | unit + integration tests |
 | `broker/src/install/`, `packaging/` | ~450 | `--install` / `--uninstall` for Linux/macOS/Windows, systemd/launchd/Native Messaging templates |
 | `scripts/brand/` | ~990 | rebuilds the logo from source assets |

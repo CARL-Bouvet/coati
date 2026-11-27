@@ -140,6 +140,7 @@ export {
   type CompatServiceInfo,
   type CatalogModel,
   type OpenRouterAccount,
+  type ChatGptAccount,
   type SettingsTestResultMessage,
   type ProviderStatusState,
   type ProviderStatusResultMessage,

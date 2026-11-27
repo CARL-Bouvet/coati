@@ -26,6 +26,9 @@
   "common_provider_claude_api": {
     "message": "Claude (Anthropic)"
   },
+  "common_provider_chatgpt": {
+    "message": "ChatGPT"
+  },
   "common_provider_ollama": {
     "message": "Ollama (local)"
   },
@@ -1523,6 +1526,9 @@
   "setup_online_purpose_openrouter": {
     "message": "Many models from several companies behind one key, some free. Free models may keep your texts."
   },
+  "setup_online_purpose_chatgpt": {
+    "message": "Your ChatGPT Plus or Pro plan: no key, no credit to buy."
+  },
   "setup_online_purpose_claude": {
     "message": "Anthropic's own models, Claude."
   },
@@ -1552,6 +1558,9 @@
   },
   "setup_online_which_openrouter": {
     "message": "OpenRouter (recommended): connect it in one click, then add credit; each question is paid from that credit. The same account gives access to Claude, GPT and Gemini."
+  },
+  "setup_online_which_chatgpt": {
+    "message": "A ChatGPT Plus or Pro subscription: sign in with ChatGPT and each question counts against your plan, with no key or credit to buy. On Plus, the 5-hour limit is shared with your other apps."
   },
   "setup_online_which_api_key": {
     "message": "A Claude (Anthropic) or OpenAI key: you buy credit in advance on their site, with no monthly plan. You need an account with each."
@@ -1618,6 +1627,24 @@
   },
   "setup_oauth_failed": {
     "message": "The sign-in could not start. Paste a key below instead."
+  },
+  "setup_chatgpt_allow_plan": {
+    "message": "Signed in, but Coati is not allowed to use your ChatGPT plan yet."
+  },
+  "setup_chatgpt_allow_button": {
+    "message": "Allow Coati to use my plan"
+  },
+  "setup_chatgpt_welcome": {
+    "message": "You're using your ChatGPT plan."
+  },
+  "setup_chatgpt_got_it": {
+    "message": "Got it"
+  },
+  "setup_chatgpt_manage_usage": {
+    "message": "Manage usage"
+  },
+  "setup_chatgpt_revoke_unconfirmed": {
+    "message": "Signed out here, but ChatGPT did not confirm it. You can also remove Coati from your ChatGPT account settings."
   },
   "setup_online_have_key": {
     "message": "I already have a key"
@@ -1900,6 +1927,9 @@
   },
   "model_pill_online": {
     "message": "online"
+  },
+  "model_pill_chatgpt_plan": {
+    "message": "ChatGPT plan"
   },
   "model_pill_none": {
     "message": "No model"

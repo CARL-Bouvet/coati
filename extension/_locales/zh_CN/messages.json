@@ -26,6 +26,9 @@
   "common_provider_claude_api": {
     "message": "Claude (Anthropic)"
   },
+  "common_provider_chatgpt": {
+    "message": "ChatGPT"
+  },
   "common_provider_ollama": {
     "message": "Ollama（本地）"
   },
@@ -1523,6 +1526,9 @@
   "setup_online_purpose_openrouter": {
     "message": "一个密钥即可使用多家公司的众多模型，部分免费。免费模型可能会保留您的文本。"
   },
+  "setup_online_purpose_chatgpt": {
+    "message": "使用您的 ChatGPT Plus 或 Pro 订阅：无需密钥，也无需另外充值。"
+  },
   "setup_online_purpose_claude": {
     "message": "Anthropic 自家的模型 Claude。"
   },
@@ -1552,6 +1558,9 @@
   },
   "setup_online_which_openrouter": {
     "message": "OpenRouter（推荐）：一键连接，然后充值；每次提问都从该额度中扣费。同一个账户即可使用 Claude、GPT 和 Gemini。"
+  },
+  "setup_online_which_chatgpt": {
+    "message": "ChatGPT Plus 或 Pro 订阅：使用 ChatGPT 登录，每次提问都计入您的订阅额度，无需密钥，也无需另外充值。使用 Plus 时，5 小时的限额与您的其他应用共用。"
   },
   "setup_online_which_api_key": {
     "message": "Claude（Anthropic）或 OpenAI 密钥：在其网站预先购买额度，没有月度套餐。需要在每家分别注册账户。"
@@ -1618,6 +1627,24 @@
   },
   "setup_oauth_failed": {
     "message": "无法启动登录。请改为在下方粘贴密钥。"
+  },
+  "setup_chatgpt_allow_plan": {
+    "message": "已登录，但 Coati 尚未获准使用您的 ChatGPT 订阅。"
+  },
+  "setup_chatgpt_allow_button": {
+    "message": "允许 Coati 使用我的订阅"
+  },
+  "setup_chatgpt_welcome": {
+    "message": "您正在使用自己的 ChatGPT 订阅。"
+  },
+  "setup_chatgpt_got_it": {
+    "message": "知道了"
+  },
+  "setup_chatgpt_manage_usage": {
+    "message": "管理用量"
+  },
+  "setup_chatgpt_revoke_unconfirmed": {
+    "message": "已在此处退出登录，但 ChatGPT 未确认。您也可以在 ChatGPT 账户设置中移除 Coati。"
   },
   "setup_online_have_key": {
     "message": "我已有密钥"
@@ -1900,6 +1927,9 @@
   },
   "model_pill_online": {
     "message": "在线"
+  },
+  "model_pill_chatgpt_plan": {
+    "message": "ChatGPT 套餐"
   },
   "model_pill_none": {
     "message": "未选择模型"

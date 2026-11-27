@@ -27,7 +27,7 @@ describe("provider registry", () => {
 
   test("lists the built-in providers by default (no modules configured)", () => {
     const ids = getProviders().map((p) => p.id);
-    expect(ids).toEqual(["ollama", "claude-api", "openai-compat"]);
+    expect(ids).toEqual(["ollama", "claude-api", "openai-compat", "chatgpt"]);
   });
 
   test("getProvider finds by id", () => {

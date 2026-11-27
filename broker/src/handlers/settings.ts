@@ -11,8 +11,10 @@ import {
 } from "../config.ts";
 import { getProviders, getProvider } from "../providers/registry.ts";
 import type { ModelProvider, ProviderRuntimeOptions, TestConnectionCode } from "../providers/types.ts";
-import type { CatalogModel, CompatServiceInfo, OpenRouterAccount, ProviderStatus, SettingsSetMessage } from "../protocol.ts";
+import type { CatalogModel, CompatServiceInfo, ErrorMessage, OpenRouterAccount, ChatGptAccount, ProviderStatus, SettingsMessage, SettingsSetMessage } from "../protocol.ts";
 import { fetchOpenRouterAccount } from "../providers/openai-compat.ts";
+import { account as chatGptAccount, setWelcomed, signOut } from "../chatgpt-auth.ts";
+import { isValidKeyFormat } from "../key-format.ts";
 import { t, DEFAULT_LANG, type Lang } from "../messages.ts";
 import {
   buildPrompt,
@@ -53,8 +55,8 @@ export interface SettingsCtx {
       "provider" | "model" | "apiKey" | "baseUrl" | "clearKey" | "removeBaseUrl"
     >,
   ): CoatiConfig;
-  /** Begins an OpenRouter sign-in and returns the address to open (oauth.ts). */
-  startOAuth(): string;
+  /** Begins a browser sign-in and returns the address to open (oauth.ts); `consent` is ChatGPT only. */
+  startOAuth(service: "openrouter" | "chatgpt", consent?: boolean): string;
   /** `provider.status` for the currently active provider, through the
    * broker-wide ProviderStatusCache (see docs/PROTOCOL.md "Provider
    * availability"). */
@@ -71,7 +73,7 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
   available: ProviderStatus[];
   models?: string[];
   catalog?: CatalogModel[];
-  account?: OpenRouterAccount;
+  account?: OpenRouterAccount | ChatGptAccount;
   recentModels?: string[];
   baseUrl?: string;
   services?: CompatServiceInfo[];
@@ -126,7 +128,7 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
   const active = getProvider(provider);
   const [catalog, account] = await Promise.all([
     active?.listCatalog ? active.listCatalog(opts).catch(() => undefined) : undefined,
-    provider === "openai-compat" ? fetchOpenRouterAccount(opts) : undefined,
+    provider === "openai-compat" ? fetchOpenRouterAccount(opts) : provider === "chatgpt" ? chatGptAccount() : undefined,
   ]);
   const models = catalog
     ? catalog.map((m) => m.id)
@@ -156,6 +158,39 @@ export async function buildSettingsPayload(config: CoatiConfig, lang: Lang): Pro
     ...(recentModels?.length ? { recentModels } : {}),
     baseUrl,
     ...(services?.length ? { services } : {}),
+  };
+}
+
+/** `settings.set`: the ChatGPT-specific parts (welcome flag, sign-out, no API key) then the generic
+ * patch; the reply is the new `settings`, or a `bad-request` with nothing applied. */
+export async function handleSettingsSet(
+  message: SettingsSetMessage,
+  ctx: SettingsCtx,
+  lang: Lang,
+): Promise<SettingsMessage | ErrorMessage> {
+  const cfg = ctx.getConfig();
+  const target = message.provider ?? cfg.provider ?? DEFAULT_CONFIG.provider!;
+  const refuse = (text: string): ErrorMessage => ({ type: "error", id: message.id, code: "bad-request", message: text });
+  if (message.apiKey) {
+    if (target === "chatgpt") return refuse("settings.set: ChatGPT takes no API key, sign in instead");
+    if (!isValidKeyFormat(target, message.baseUrl ?? cfg.baseUrl, message.apiKey)) return refuse(t("auth.apiKeyFormat", lang));
+  }
+  if (message.welcomed) setWelcomed();
+  const revokeUnconfirmed = message.clearKey === "chatgpt" && !(await signOut()).revokeConfirmed;
+  const updated = ctx.applySettings({
+    provider: message.provider,
+    model: message.model,
+    apiKey: message.apiKey,
+    baseUrl: message.baseUrl,
+    clearKey: message.clearKey,
+    removeBaseUrl: message.removeBaseUrl,
+  });
+  const payload = await buildSettingsPayload(updated, lang);
+  return {
+    type: "settings",
+    id: message.id,
+    ...payload,
+    ...(revokeUnconfirmed ? { account: { ...chatGptAccount(), revokeUnconfirmed: true as const } } : {}),
   };
 }
 
@@ -303,7 +338,7 @@ export async function testProviderConnection(
     return {
       ok: false,
       code: result.code,
-      message: settingsTestFailureMessageForCode(providerId, result.code, lang),
+      message: result.message ?? settingsTestFailureMessageForCode(providerId, result.code, lang),
     };
   }
 

@@ -50,7 +50,8 @@ export const LM_STUDIO = {
 // `baseUrl` values match lib/model-provider-presets.js. `costUsdPerRequest`:
 // rough price of ONE question about an average page (COST_BASIS_TOKENS) with
 // the service's smaller models — `0` means free. `group`: "free" (shown first),
-// "paid" (Claude, OpenAI), "other" (under "Others"). `needsCredit`: a new
+// "plan" (a subscription the user signs in with, no key), "paid" (Claude,
+// OpenAI), "other" (under "Others"). `needsCredit`: a new
 // key answers only once credit was added (billingUrl), the guide says so.
 // `freeTier`: a free key works (with limits), the price applies beyond them.
 // `keyRest`: the service's own wording for the "create a key" line.
@@ -80,6 +81,17 @@ export const ONLINE_PROVIDERS = [
     freeRequestsPerMinute: 20,
     keyPrefix: "sk-or-",
     oauth: "openrouter",
+  },
+  {
+    // The user's ChatGPT plan (Plus or Pro) through "Sign in with ChatGPT": no key, no address.
+    id: "chatgpt",
+    group: "plan",
+    provider: "chatgpt",
+    name: "ChatGPT",
+    oauth: "chatgpt",
+    billingUrl: "https://chatgpt.com/settings/usage",
+    // Label of the billingUrl link: the plan's usage page, not a page to add credit.
+    billingLink: "setup_chatgpt_manage_usage",
   },
   {
     id: "claude",
@@ -191,9 +203,9 @@ export function usdPerQuestion(usdPerToken) {
  */
 export function getProviderLinks(providerId, baseUrl) {
   const service = ONLINE_PROVIDERS.find((p) =>
-    providerId === "claude-api" ? p.provider === "claude-api" : p.baseUrl && p.baseUrl === baseUrl,
+    providerId === "openai-compat" ? p.baseUrl && p.baseUrl === baseUrl : p.provider === providerId,
   );
   if (!service) return undefined;
-  const { keysUrl, billingUrl, planUrl, planLink, name } = service;
-  return { keysUrl, billingUrl, planUrl, planLink, name };
+  const { keysUrl, billingUrl, billingLink, planUrl, planLink, name } = service;
+  return { keysUrl, billingUrl, billingLink, planUrl, planLink, name };
 }

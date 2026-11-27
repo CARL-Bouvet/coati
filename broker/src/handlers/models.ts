@@ -127,7 +127,8 @@ export async function buildModelsPayload(config: CoatiConfig): Promise<{
       }
       for (const model of listed) entries.push({ provider: p.id, model, local: false, ...vision });
       sources.push({ provider: p.id, state: "ok" });
-      if (p.id === currentProvider && (!config.model || !listed.includes(config.model))) {
+      // ChatGPT has no default: the user picks.
+      if (p.id === currentProvider && p.id !== "chatgpt" && (!config.model || !listed.includes(config.model))) {
         // An alias the list spells out in full ("sonnet" -> "claude-sonnet-5-5") keeps its choice.
         const alias = (m?: string) => (m ? listed.find((id) => id.split("-").includes(m)) : undefined);
         currentModel = alias(config.model) ?? (p.defaultModel && listed.includes(p.defaultModel) ? p.defaultModel : alias(p.defaultModel) ?? listed[0]);

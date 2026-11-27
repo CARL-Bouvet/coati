@@ -307,10 +307,14 @@ export function parseClientMessage(raw: string): ParseResult {
       return { ok: true, message: { type: "settings.get", id } };
     }
     case "oauth.start": {
-      if (parsed.service !== "openrouter") {
+      const service = parsed.service;
+      if (service !== "openrouter" && service !== "chatgpt") {
         return { ok: false, error: { code: "bad-request", message: "oauth.start: invalid service", id } };
       }
-      return { ok: true, message: { type: "oauth.start", id, service: "openrouter" } };
+      if (parsed.consent !== undefined && parsed.consent !== true) {
+        return { ok: false, error: { code: "bad-request", message: "oauth.start: invalid consent", id } };
+      }
+      return { ok: true, message: { type: "oauth.start", id, service, ...(service === "chatgpt" && parsed.consent ? { consent: true as const } : {}) } };
     }
     case "settings.set": {
       const provider = parsed.provider;
@@ -357,6 +361,10 @@ export function parseClientMessage(raw: string): ParseResult {
       if (removeBaseUrl !== undefined && (typeof removeBaseUrl !== "string" || removeBaseUrl === "")) {
         return { ok: false, error: { code: "bad-request", message: "settings.set: invalid removeBaseUrl", id } };
       }
+      const welcomed = parsed.welcomed;
+      if (welcomed !== undefined && welcomed !== true) {
+        return { ok: false, error: { code: "bad-request", message: "settings.set: invalid welcomed", id } };
+      }
       return {
         ok: true,
         message: {
@@ -368,6 +376,7 @@ export function parseClientMessage(raw: string): ParseResult {
           baseUrl,
           clearKey,
           removeBaseUrl,
+          welcomed,
         },
       };
     }

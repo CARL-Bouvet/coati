@@ -20,8 +20,12 @@ The broker builds the prompt, calls the configured model provider, and streams t
 - Then, before any routing, the `Host` header must exactly match `127.0.0.1:8787` (`localhost`
   and `[::1]` are refused), and on Linux the connecting process's UID must equal the broker's own
   (`/proc/net/tcp[6]` lookup; a lookup that finds nothing is refused) — not enforced on
-  macOS/Windows. A failure is a plain HTTP 403. Any path other than `/ws` and
-  `/oauth/callback` (see "OAuth sign-in") is a 404.
+  macOS/Windows. A failure is a plain HTTP 403. Any path other than `/ws`,
+  `/oauth/callback` (see "OAuth sign-in") and `/auth/callback` (see "ChatGPT sign-in") is a 404.
+- `GET /auth/callback` is the ChatGPT sign-in return path: exact path, `GET` only, no `Origin`
+  required (a top-level navigation), `Host` exactly `127.0.0.1:<port>` where `<port>` is the port
+  the broker listens on (`localhost` is refused, unlike `/oauth/callback`), and the peer-UID
+  check applies.
 - Up to `MAX_UNAUTH_CONNECTIONS` = 16 connections may be open and not yet authenticated at once;
   a further one is closed at once with code 4401 and no `error` frame, and logged (rate-limited
   log line, one per 10 s window).
@@ -104,8 +108,8 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `prefs.set` | `site`, `prefs: { order?, removed? }` | Write per-site preferences. A `site` key is `*`, `@<name>` (a popular-site bucket) or a bare hostname without `www.`; `order` and `removed` hold prompt or suggestion ids. |
 | `cancel` | `target` (the `id` of an in-flight request) | Cancel a running `chat`/`summarize`, including one waiting on a `page.request`/`search.request`/`open.request`; that request ends with `error` `cancelled`. An unknown `target` is ignored. |
 | `settings.get` | — | Read current provider/model configuration. |
-| `settings.set` | `provider?`, `model?`, `apiKey?`, `baseUrl?`, `clearKey?`, `removeBaseUrl?` | Change configuration. `apiKey` is write-only (never echoed back); `""` forgets the stored value, omitted leaves it unchanged. A non-empty `apiKey` is format-checked first (`sk-ant-` for `claude-api`; for `openai-compat`, `sk-or-` at openrouter.ai and `sk-` at api.openai.com; otherwise non-empty and without whitespace; at most 512 printable ASCII characters in all): a malformed key is refused with `bad-request` and nothing is applied. `baseUrl` (at most 512 characters) must be `https://`, or `http://` on a loopback host (`localhost`, `127.0.0.1`, `[::1]`); anything else is a `bad-request`. `provider` and `clearKey` only need to look like a provider id; an unknown id is not refused here (see "Model providers"). A `provider` switch without `model` brings back the model last used with that provider, or none: never the previous provider's model. `openai-compat` can hold several services at once, one active: a valid `baseUrl` makes that address the active service (added to the configured services when new; the model last used on it comes back unless the same message names a `model`), and every other service keeps its address, model and key. A key is stored per URL origin and only ever sent to that origin. `clearKey: "openai-compat"` forgets the active service's key; `removeBaseUrl` removes that service and its key (unless another service shares the origin) and is the only way a service goes away. An empty `baseUrl` is refused. |
-| `oauth.start` | `service` (`"openrouter"`) | Begin a browser sign-in; replied with `oauth.started`. See "OAuth sign-in". |
+| `settings.set` | `provider?`, `model?`, `apiKey?`, `baseUrl?`, `clearKey?`, `removeBaseUrl?`, `welcomed?` | Change configuration. `apiKey` is write-only (never echoed back); `""` forgets the stored value, omitted leaves it unchanged. A non-empty `apiKey` is format-checked first (`sk-ant-` for `claude-api`; for `openai-compat`, `sk-or-` at openrouter.ai and `sk-` at api.openai.com; otherwise non-empty and without whitespace; at most 512 printable ASCII characters in all): a malformed key is refused with `bad-request` and nothing is applied. `baseUrl` (at most 512 characters) must be `https://`, or `http://` on a loopback host (`localhost`, `127.0.0.1`, `[::1]`); anything else is a `bad-request`. `provider` and `clearKey` only need to look like a provider id; an unknown id is not refused here (see "Model providers"). A `provider` switch without `model` brings back the model last used with that provider, or none: never the previous provider's model. `openai-compat` can hold several services at once, one active: a valid `baseUrl` makes that address the active service (added to the configured services when new; the model last used on it comes back unless the same message names a `model`), and every other service keeps its address, model and key. A key is stored per URL origin and only ever sent to that origin. `clearKey: "openai-compat"` forgets the active service's key; `removeBaseUrl` removes that service and its key (unless another service shares the origin) and is the only way a service goes away. An empty `baseUrl` is refused. `chatgpt` takes no key: a non-empty `apiKey` while it is the target provider is a `bad-request`, nothing applied. `clearKey: "chatgpt"` signs out of ChatGPT: the broker revokes the refresh token at the discovery `revocation_endpoint`, then clears the tokens locally (the host id, client id, subject and email are kept); if revocation fails the tokens are still cleared and the reply's `account` carries `revokeUnconfirmed: true`. `welcomed: true` dismisses the one-time "You're using your ChatGPT plan" notice. |
+| `oauth.start` | `service` (`"openrouter"`\|`"chatgpt"`), `consent?` (`true`) | Begin a browser sign-in; replied with `oauth.started`. `consent: true` is for `"chatgpt"` only and adds `prompt=consent` (the "allow plan usage" retry). See "OAuth sign-in" and "ChatGPT sign-in". |
 | `settings.test` | `provider` | Free connectivity probe for a provider, bounded by `SETTINGS_TEST_TIMEOUT_MS`. A provider with no free probe of its own (an external module) gets a minimal real model call instead. |
 | `provider.status` | — | Check whether the active model provider will likely work right now (never billed); see "Provider availability". |
 | `models.list` | — | List every usable model across configured sources, plus host capacity. A provider with `listModels()` offers exactly that list (`claude-api`: `/v1/models` with the stored key, nothing when there is no key or the key fails); a remembered model (`lastModels`) absent from the list is forgotten in favour of the provider's default, never offered. |
@@ -126,7 +130,7 @@ All carry an `id` (string) except `hello`/`auth`, which belong to the handshake,
 | `run` | `id`, `target`, `found`, `run?` | Reply to `run.get`. `found: false` (no `run`) when `target` is unknown or already evicted, never an error. See "Run log". |
 | `hello-ok` | `v: 2`, `features` | Handshake succeeded. |
 | `challenge` | `v: 2`, `nonce`, `proof` | Handshake step 2 (see above). |
-| `settings` | `id`, `provider`, `model?`, `available`, `models?`, `catalog?`, `account?`, `recentModels?`, `baseUrl?`, `services?` | Reply to `settings.get`/`settings.set`. `available` lists every known provider as `{ id, label, available, reason?, configured }`, including unavailable ones; `reason` is a localized sentence, present when `available` is false, and `configured` says the provider has what it needs at all (a stored key, a reachable daemon), whatever the selected model. `models` lists the active provider's installed models when it can enumerate them. `catalog` lists the same models with the facts their online service gives, in the service's order (`claude-api` and `openai-compat`): `{ id, name?, maker?, created?, price?, usdPerToken? }`, `name` the service's display name, `maker` the `author/` prefix of an OpenRouter id, `created` the service's date in Unix seconds, `usdPerToken` `{ prompt, completion }` OpenRouter's rates, `price` `"free"` (both rates 0) or `"paid"`; both absent when the service gives no price or a variable one. Coati reads no model name and orders nothing. `account` is sent while OpenRouter is the active service with a key, from its free `GET /api/v1/key`: `{ boughtCredit?, freeRequests? }`, `boughtCredit` false while the account has never bought credit (`is_free_tier`), `freeRequests` `{ used, limit, remaining }` the free-model requests of the current UTC day; absent when the call fails. `recentModels` lists the last 5 model ids picked through `settings.set` on the active provider (on the active address for `openai-compat`, each service keeping its own list), most recent first, without duplicates, never a default; a model the service no longer offers may remain; absent when empty. `baseUrl` is the active openai-compat address, sent only while `openai-compat` is the active provider. `services` lists every configured openai-compat service, active or not: `{ baseUrl, model?, hasKey }` (`hasKey` is a boolean; the key is never sent); absent when none. |
+| `settings` | `id`, `provider`, `model?`, `available`, `models?`, `catalog?`, `account?`, `recentModels?`, `baseUrl?`, `services?` | Reply to `settings.get`/`settings.set`. `available` lists every known provider as `{ id, label, available, reason?, configured }`, including unavailable ones; `reason` is a localized sentence, present when `available` is false, and `configured` says the provider has what it needs at all (a stored key, a reachable daemon), whatever the selected model. `models` lists the active provider's installed models when it can enumerate them. `catalog` lists the same models with the facts their online service gives, in the service's order (`claude-api` and `openai-compat`): `{ id, name?, maker?, created?, price?, usdPerToken? }`, `name` the service's display name, `maker` the `author/` prefix of an OpenRouter id, `created` the service's date in Unix seconds, `usdPerToken` `{ prompt, completion }` OpenRouter's rates, `price` `"free"` (both rates 0) or `"paid"`; both absent when the service gives no price or a variable one. Coati reads no model name and orders nothing. `account` is sent while OpenRouter is the active service with a key, from its free `GET /api/v1/key`: `{ boughtCredit?, freeRequests? }`, `boughtCredit` false while the account has never bought credit (`is_free_tier`), `freeRequests` `{ used, limit, remaining }` the free-model requests of the current UTC day; absent when the call fails. While `chatgpt` is the active provider, `account` is instead `{ signedIn, email?, planUsage, welcomed, revokeUnconfirmed? }`: `planUsage` is true only when the granted scopes include `chatgpt.tokens.use.direct`, `welcomed` is false until `settings.set { welcomed: true }`; no token ever crosses the WebSocket. `recentModels` lists the last 5 model ids picked through `settings.set` on the active provider (on the active address for `openai-compat`, each service keeping its own list), most recent first, without duplicates, never a default; a model the service no longer offers may remain; absent when empty. `baseUrl` is the active openai-compat address, sent only while `openai-compat` is the active provider. `services` lists every configured openai-compat service, active or not: `{ baseUrl, model?, hasKey }` (`hasKey` is a boolean; the key is never sent); absent when none. |
 | `oauth.started` | `id`, `url` | Reply to `oauth.start`: the address the client opens in a new tab. |
 | `settings.test-result` | `id`, `provider`, `ok`, `message`, `code?`, `creditUnchecked?` | Reply to `settings.test`. `message` is one localized sentence meant for a human. `code` is present only when `ok` is false: `auth-required`, `quota-exceeded`, `rate-limited`, `model-unavailable`, `model-missing` or `provider-overloaded`. `creditUnchecked: true` accompanies `ok: true` when the free probe cannot see the account's credit. |
 | `provider.status-result` | `id`, `provider`, `state` (`"ok"`\|`"ko"`\|`"unknown"`), `reason`, `checkedAt`, `baseUrl?` | Reply to `provider.status`. |
@@ -187,8 +191,8 @@ characters (head and tail kept, `reasoningCut: true`).
 `oauth.started { url }` with `https://openrouter.ai/auth?callback_url=http://localhost:<port>/oauth/callback&code_challenge=…&code_challenge_method=S256&state=…`.
 The client opens `url` in a new tab.
 
-`GET /oauth/callback?code&state` is the only HTTP route besides `/ws`. It is a top-level
-navigation, so it skips the `Origin` check (for this exact path only); `Host` may be
+`GET /oauth/callback?code&state` is the OpenRouter return route (the ChatGPT one is below). It is
+a top-level navigation, so it skips the `Origin` check (for this exact path only); `Host` may be
 `127.0.0.1:<port>` or `localhost:<port>`; the peer-UID check applies. An unknown, expired or
 already used `state` gets the generic failure page and no exchange. Otherwise the broker POSTs
 `{ code, code_verifier, code_challenge_method: "S256" }` to
@@ -198,6 +202,58 @@ would, and pushes a `settings` message (`id: "oauth"`) to every authenticated co
 model is chosen: the user picks one from the service's list. The reply is a static HTML page in the language of the requesting connection, with
 `Content-Security-Policy: default-src 'none'`, `Cache-Control: no-store` and
 `Referrer-Policy: no-referrer`; neither the code nor the key appears in it or in any log.
+
+## ChatGPT sign-in
+
+`oauth.start { service: "chatgpt", consent? }` keeps one pending attempt (shared with the
+OpenRouter one) for 10 minutes: `state` and `code_verifier` (32 random bytes each, base64url) and
+a `nonce`; `state` is single-use and compared in constant time. The reply is
+`oauth.started { url }` with `https://auth.openai.com/api/accounts/authorize?` and:
+
+- `response_type=code`, `code_challenge` (S256 of the verifier), `code_challenge_method=S256`,
+  `state`, `nonce`.
+- `client_id`: `dynamic_agent_client` on the first sign-in, then the issued `oaiapp_…` id.
+- `agent_name_hint=Coati`, first sign-in only.
+- `ext_agent_host_id`: `urn:uuid:<v4>`, drawn once per install and persisted.
+- `scope=openid profile email offline_access resource.invoke chatgpt.tokens.use.direct`,
+  `resource=https://api.openai.com/v1`.
+- `redirect_uri=http://127.0.0.1:<port>/auth/callback`, `<port>` being the port the broker
+  listens on; the code exchange sends the same value.
+- `login_hint` (the saved email) when re-signing in with a known account; `prompt=consent` when
+  `consent` is true. `id_token_hint` is never sent: the URL goes to the client.
+
+`GET /auth/callback?code&state&client_id&scope?` (see "Transport"):
+
+- An unknown, expired or already used `state`: generic failure page, no exchange.
+- `error=access_denied`: state checked, nothing exchanged or stored, own page text.
+- A returned `client_id` different from the one in use on a re-sign-in: rejected.
+- Otherwise the broker POSTs a form (`grant_type=authorization_code`, the issued `client_id`,
+  `code`, `code_verifier`, `redirect_uri`, `resource`; no client secret) to
+  `https://auth.openai.com/api/accounts/oauth/token` (no redirects, bounded time).
+- The ID token is accepted only if its RS256 signature verifies against the JWKS
+  (`https://auth.openai.com/.well-known/jwks.json`) and `iss` is `https://auth.openai.com`, `aud`
+  is the issued client id, `exp` is in the future and `nonce` matches. `sub` is the account
+  identity.
+- A grant without `chatgpt.tokens.use.direct` in `scope` keeps the tokens (identity, email) with
+  `planUsage: false`; the page says plan usage was not allowed, and the client may retry with
+  `consent: true`.
+- On success the provider becomes `chatgpt` and a `settings` message (`id: "oauth"`) goes to every
+  authenticated connection. No model is chosen. The reply page has the same headers and the same
+  rule as above: no code or token in it or in any log.
+
+Storage: `chatgpt-auth.json` in the config directory, mode 0600, written atomically, separate from
+`config.json`. It holds the host id, client id, issuer, subject, email, ID/access/refresh tokens,
+expiry, scopes and `welcomed`; access token, expiry, scopes and refresh token are replaced
+together. Refresh is a form POST (`grant_type=refresh_token`, `client_id`, `refresh_token`,
+`resource`, no `scope`) at the token endpoint, single-flight inside the broker, started 5 minutes
+before expiry and never before the server's `earliest_refresh_at`. A terminal refresh error
+(`invalid_grant`, `invalid_refresh_token`, `refresh_token_expired`, `refresh_token_reused`)
+clears the tokens and ends in `auth-required`.
+
+Environment overrides: `COATI_CHATGPT_AUTH_BASE` replaces the server-to-server auth endpoints
+only (token, JWKS, discovery and its revocation endpoint); the authorize URL the browser opens
+and the ID token `iss` never change. `COATI_CHATGPT_API_BASE` replaces
+`https://api.openai.com/v1` for models and responses.
 
 ## Error codes
 
@@ -393,7 +449,21 @@ already-built prompt; it never sees raw, unfenced page content.
 
 Built in: `ollama` (local, no credential needed), `claude-api` (BYOK, Anthropic key stored by
 the broker), `openai-compat` (any OpenAI-compatible HTTP endpoint — LM Studio, OpenAI, Mistral,
-OpenRouter, DeepSeek, ...).
+OpenRouter, DeepSeek, ...), `chatgpt` (the user's ChatGPT Plus or Pro plan through "Sign in with
+ChatGPT"; tokens stored by the broker, see "ChatGPT sign-in").
+
+`chatgpt` calls `POST /v1/responses` with `store: false`, `stream: true`, the system prompt as
+`instructions` and the history as `input` (images as `input_image` parts). It never sends
+`system`-role items, `previous_response_id`, `temperature`, `top_p`, `max_output_tokens`,
+`metadata`, `user`, `truncation`, `prompt` or hosted tools. An answer succeeds only on
+`response.completed`; `response.incomplete` is a length stop; `response.failed` or a stream cut
+before `completed` is an error. A 401 before the first chunk triggers one refresh and one retry.
+The catalog is `GET /v1/models`, `models[]` entries with `visibility == "list"`, in the server's
+order, as `{ id: slug, name: display_name }`; there is no default model, the user picks one.
+Errors: 403 not eligible and 401 after refresh give `auth-required`; 429
+`subscription_sharing_usage_limit_exceeded` gives `quota-exceeded`; 503, `usage_unavailable` and
+`user_unavailable` give `provider-overloaded`; `unsupported_capability` on an image gives
+`vision-unsupported`; `route_not_supported` and `chatpass_*` give `internal`.
 
 External providers load dynamically from a path in `config.json`'s `modules`, each exporting a
 default `createProvider(host, options)` returning a `ModelProvider`
@@ -417,5 +487,7 @@ the cache. A probe that throws, or an unknown provider, gives `unknown` / `probe
 | `ollama` | `ko` / `ollama-unreachable`; `ko` / `model-missing` (the configured model isn't installed); `ko` / `no-model-chosen` (models installed, none configured); `ko` / `no-model-installed` (no model configured and none installed); else `ok` / `ready` |
 | `claude-api` | `ko` / `no-key`; else the free `GET /v1/models` probe of `settings.test`: `ok` / `ready`, `ko` / `key-rejected` (401), `ko` / `model-missing` (model not in the key's list, or 403), `unknown` / `probe-failed` (anything else) |
 | `openai-compat` | `ko` / `no-base-url` (none, or one that fails the address rule); `ko` / `key-rejected` (HTTP 401/403 on `GET /models`); `unknown` / `probe-failed` (another HTTP status); `unknown` / `base-url-unreachable`; else `ok` / `ready` |
+
+| `chatgpt` | `ko` / `not-signed-in` (no tokens); `ko` / `plan-usage-off` (scope missing); else the free `GET /v1/models` probe: `ok` / `ready`, `ko` / `signed-out` (401, even after a refresh), `ko` / `not-eligible` (403), `unknown` / `probe-failed` (anything else) |
 
 `baseUrl` is added to the result for `openai-compat` when one is configured.

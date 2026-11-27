@@ -227,6 +227,8 @@ export interface SettingsSetMessage {
    * (or same-patch-selected) provider.
    */
   clearKey?: ProviderId;
+  /** `true` dismisses the one-time "You're using your ChatGPT plan" notice. */
+  welcomed?: true;
 }
 
 // Backs the panel's "Tester la connexion" button (docs/PROTOCOL.md, settings.test).
@@ -266,7 +268,9 @@ export interface ModelWarmupMessage {
 export interface OAuthStartMessage {
   type: "oauth.start";
   id: string;
-  service: "openrouter";
+  service: "openrouter" | "chatgpt";
+  /** ChatGPT only: adds `prompt=consent` (the "allow plan usage" retry). */
+  consent?: true;
 }
 
 export type ClientMessage =

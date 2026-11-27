@@ -241,6 +241,12 @@
       { provider: "openai-compat", state: "ok" },
     ],
   };
+  // ChatGPT plan in use: the pill reads « ChatGPT · model » with the plan mention.
+  var MODELS_CHATGPT = {
+    current: { provider: "chatgpt", model: "gpt-5.1" },
+    entries: [{ provider: "chatgpt", model: "gpt-5.1", local: false }],
+    sources: [{ provider: "chatgpt", state: "ok" }],
+  };
   // Ollama down, an online model answering: the calm line replaces the
   // local section.
   var MODELS_OLLAMA_DOWN = {
@@ -430,6 +436,17 @@
       autoAction: {
         steps: [{ type: "click", selector: "#modelPill", delayMs: 60 }],
       },
+    },
+
+    "chatgpt-model-pill": {
+      status: "connected",
+      tab: YOUTUBE_TAB,
+      extraction: { context: extractionContextFor(YOUTUBE_TAB, "youtube") },
+      faviconUrl: FAVICON,
+      storageLocal: { "coati:conversation": [], "coati:attachPage": true },
+      prompts: [],
+      providerStatus: PROVIDER_OK,
+      models: MODELS_CHATGPT,
     },
 
     // Ollama not answering, Claude in use: pill « en ligne », menu open with

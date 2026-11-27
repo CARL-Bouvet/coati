@@ -558,14 +558,11 @@ export function* parseSseLine(line: string, state: SseState = {}): Generator<Ans
   }
 }
 
-/** Reads a fetch Response body (SSE) and yields AnswerEvents as lines
- * complete. A final partial line with no trailing newline is flushed once the
- * body ends. Mirrors claude-api.ts's parseSseStream / ollama.ts's
- * parseNdjsonStream structure. */
-export async function* parseSseStream(body: ReadableStream<Uint8Array>): AsyncGenerator<AnswerEvent> {
+/** Reads an SSE response body and yields each line as it completes; a final partial line with no
+ * trailing newline is flushed once the body ends. Shared by every SSE provider. */
+export async function* readSseLines(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
-  const state: SseState = {};
   let buffer = "";
   try {
     while (true) {
@@ -576,15 +573,21 @@ export async function* parseSseStream(body: ReadableStream<Uint8Array>): AsyncGe
       while ((newlineIndex = buffer.indexOf("\n")) >= 0) {
         const line = buffer.slice(0, newlineIndex);
         buffer = buffer.slice(newlineIndex + 1);
-        yield* parseSseLine(line, state);
+        yield line;
       }
     }
-    if (buffer.trim()) yield* parseSseLine(buffer, state);
-    // The server stopped on length and never sent a usage chunk.
-    if (state.stop && !state.usageSeen) yield { kind: "usage", usage: { inputTokens: 0, outputTokens: 0 }, stop: state.stop };
+    if (buffer.trim()) yield buffer;
   } finally {
     reader.releaseLock();
   }
+}
+
+/** Yields AnswerEvents from an OpenAI-compatible SSE body. */
+export async function* parseSseStream(body: ReadableStream<Uint8Array>): AsyncGenerator<AnswerEvent> {
+  const state: SseState = {};
+  for await (const line of readSseLines(body)) yield* parseSseLine(line, state);
+  // The server stopped on length and never sent a usage chunk.
+  if (state.stop && !state.usageSeen) yield { kind: "usage", usage: { inputTokens: 0, outputTokens: 0 }, stop: state.stop };
 }
 
 /**

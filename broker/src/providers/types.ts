@@ -40,6 +40,10 @@ export interface ProviderRuntimeOptions {
    * by any provider (built-in or external module) that doesn't care — see
    * messages.ts's DEFAULT_LANG for the fallback when absent. */
   lang?: Lang;
+  /** `chatgpt` only: the sign-in token getter (`refresh: true` forces a refresh after a 401);
+   * undefined while signed out. Filled by server.ts for that provider; absent, the provider reads
+   * the broker's own sign-in state. Never serialised or logged. */
+  accessToken?: (refresh?: boolean) => Promise<string | undefined>;
 }
 
 /** One provider's answer to `provider.status` (docs/PROTOCOL.md, "Provider availability") — a cheap,
@@ -80,6 +84,8 @@ export type TestConnectionCode =
 export interface TestConnectionResult {
   ok: boolean;
   code?: TestConnectionCode;
+  /** A localized sentence that names the remedy better than the code's generic one. */
+  message?: string;
   creditUnchecked?: boolean;
 }
 

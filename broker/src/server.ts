@@ -64,6 +64,7 @@ import {
 } from "./http-admission.ts";
 import { sanitizeLogValue } from "./logging.ts";
 import { createOAuthFlow, OAUTH_CALLBACK_PATH, OPENROUTER_API_BASE_URL } from "./oauth.ts";
+import { CHATGPT_CALLBACK_PATH, initChatGptAuth } from "./chatgpt-auth.ts";
 import { send } from "./ws-send.ts";
 import { handleMessage } from "./handlers/dispatch.ts";
 import { buildSettingsPayload, type SettingsCtx } from "./handlers/settings.ts";
@@ -166,6 +167,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
   );
 
   const oauth = createOAuthFlow();
+  initChatGptAuth(dirs.configDir);
   const connections = new Set<{ data: ConnData; send(data: string): unknown }>();
 
   /** Pushes the current settings to every authenticated connection (after a change not made by one of them). */
@@ -198,7 +200,7 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       provider: getProvider(providerId),
       providerOpts,
       getConfig: () => currentConfig,
-      startOAuth: () => oauth.start(server.port, lang),
+      startOAuth: (service, consent) => oauth.start(service, server.port, lang, consent),
       applySettings(patch) {
         // Capture the OLD provider's current
         // model into lastModels BEFORE switching away from it. Without this,
@@ -327,15 +329,18 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       //
       // The OAuth return is a top-level navigation: no Origin header, and the browser may
       // say `localhost`. Only that exact path gets this exemption; Host and peer UID still apply.
-      const isOAuthCallback = req.method === "GET" && new URL(req.url).pathname === OAUTH_CALLBACK_PATH;
+      // The ChatGPT return (`/auth/callback`) skips Origin the same way but never accepts `localhost`.
+      const pathname = new URL(req.url).pathname;
+      const isOAuthCallback = req.method === "GET" && pathname === OAUTH_CALLBACK_PATH;
+      const isChatGptCallback = req.method === "GET" && pathname === CHATGPT_CALLBACK_PATH;
       const origin = req.headers.get("origin");
-      if (!isOAuthCallback && !isOriginAllowed(origin, config.allowedExtensionIds)) {
+      if (!isOAuthCallback && !isChatGptCallback && !isOriginAllowed(origin, config.allowedExtensionIds)) {
         console.error(`coati-broker: reject stage=origin origin=${sanitizeLogValue(origin)}`);
         return new Response("forbidden", { status: 403, headers: FORBIDDEN_RESPONSE_HEADERS });
       }
 
       // With no sign-in pending the answer is the generic failure page: skip the /proc peer lookup.
-      const idle = isOAuthCallback && !oauth.hasPending();
+      const idle = (isOAuthCallback || isChatGptCallback) && !oauth.hasPending();
       const admission = admitRequest(req, server, server.port, { allowLocalhostHost: isOAuthCallback, skipPeerCheck: idle });
       if (!admission.ok) {
         logAdmissionRejection(admission);
@@ -343,6 +348,13 @@ export function startServer(config: CoatiConfig, nativeKey: Buffer, dirs: Server
       }
 
       const url = new URL(req.url);
+
+      if (isChatGptCallback) {
+        return oauth.completeChatGpt(url.searchParams, server.port, () => {
+          settingsCtx(DEFAULT_LANG).applySettings({ provider: "chatgpt" });
+          broadcastSettings();
+        });
+      }
 
       if (isOAuthCallback) {
         return oauth.complete(url.searchParams, (key) => {

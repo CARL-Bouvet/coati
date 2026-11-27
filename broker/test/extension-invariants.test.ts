@@ -101,3 +101,32 @@ describe("key input format check", () => {
     expect(isValidKeyFormat("openai-compat", "http://localhost:1234/v1", "a b")).toBe(false);
   });
 });
+
+describe("ChatGPT sign-in (extension side)", () => {
+  const KEYS = [
+    "common_provider_chatgpt",
+    "setup_online_which_chatgpt",
+    "setup_online_purpose_chatgpt",
+    "setup_chatgpt_welcome",
+    "setup_chatgpt_got_it",
+    "setup_chatgpt_allow_plan",
+    "setup_chatgpt_allow_button",
+    "setup_chatgpt_manage_usage",
+    "setup_chatgpt_revoke_unconfirmed",
+    "model_pill_chatgpt_plan",
+  ];
+
+  test("the new keys exist in every locale", () => {
+    for (const lang of ["en", "fr", "zh_CN"]) {
+      const messages = JSON.parse(readFileSync(join(EXTENSION_ROOT, "_locales", lang, "messages.json"), "utf8"));
+      for (const key of KEYS) expect(messages[key]?.message, `${lang}:${key}`).toBeTruthy();
+    }
+  });
+
+  test("the OAuth prefix map and the service entry carry chatgpt", () => {
+    const setup = readFileSync(join(EXTENSION_ROOT, "options-setup.js"), "utf8");
+    expect(setup).toContain('chatgpt: "https://auth.openai.com/api/accounts/authorize?"');
+    const data = readFileSync(join(EXTENSION_ROOT, "lib", "setup-data.js"), "utf8");
+    expect(data).toMatch(/id: "chatgpt",[^}]*oauth: "chatgpt"/s);
+  });
+});

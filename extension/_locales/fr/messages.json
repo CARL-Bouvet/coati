@@ -26,6 +26,9 @@
   "common_provider_claude_api": {
     "message": "Claude (Anthropic)"
   },
+  "common_provider_chatgpt": {
+    "message": "ChatGPT"
+  },
   "common_provider_ollama": {
     "message": "Ollama (local)"
   },
@@ -1523,6 +1526,9 @@
   "setup_online_purpose_openrouter": {
     "message": "De nombreux modèles de plusieurs entreprises avec une seule clé, dont certains gratuits. Les modèles gratuits peuvent conserver vos textes."
   },
+  "setup_online_purpose_chatgpt": {
+    "message": "Votre forfait ChatGPT Plus ou Pro : pas de clé, pas de crédit à acheter."
+  },
   "setup_online_purpose_claude": {
     "message": "Les modèles d'Anthropic, Claude."
   },
@@ -1552,6 +1558,9 @@
   },
   "setup_online_which_openrouter": {
     "message": "OpenRouter (conseillé) : connectez-le en un clic, puis ajoutez du crédit ; chaque question est payée sur ce crédit. Le même compte donne accès à Claude, GPT et Gemini."
+  },
+  "setup_online_which_chatgpt": {
+    "message": "Un abonnement ChatGPT Plus ou Pro : connectez-vous avec ChatGPT, chaque question est décomptée de votre forfait, sans clé ni crédit à acheter. Avec Plus, la limite sur 5 heures est partagée avec vos autres applications."
   },
   "setup_online_which_api_key": {
     "message": "Une clé Claude (Anthropic) ou OpenAI : vous achetez du crédit d'avance sur leur site, sans forfait mensuel. Il faut un compte chez chacun."
@@ -1618,6 +1627,24 @@
   },
   "setup_oauth_failed": {
     "message": "La connexion n'a pas pu démarrer. Collez plutôt une clé ci-dessous."
+  },
+  "setup_chatgpt_allow_plan": {
+    "message": "Connecté, mais Coati n'est pas encore autorisé à utiliser votre forfait ChatGPT."
+  },
+  "setup_chatgpt_allow_button": {
+    "message": "Autoriser Coati à utiliser mon forfait"
+  },
+  "setup_chatgpt_welcome": {
+    "message": "Vous utilisez votre forfait ChatGPT."
+  },
+  "setup_chatgpt_got_it": {
+    "message": "Compris"
+  },
+  "setup_chatgpt_manage_usage": {
+    "message": "Gérer l'utilisation"
+  },
+  "setup_chatgpt_revoke_unconfirmed": {
+    "message": "Déconnecté ici, mais ChatGPT ne l'a pas confirmé. Vous pouvez aussi retirer Coati dans les réglages de votre compte ChatGPT."
   },
   "setup_online_have_key": {
     "message": "J'ai déjà une clé"
@@ -1900,6 +1927,9 @@
   },
   "model_pill_online": {
     "message": "en ligne"
+  },
+  "model_pill_chatgpt_plan": {
+    "message": "Forfait ChatGPT"
   },
   "model_pill_none": {
     "message": "Aucun modèle"

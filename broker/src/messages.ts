@@ -78,6 +78,16 @@ const MESSAGES: Catalog = {
     fr: "Coati est connecté. Vous pouvez fermer cet onglet.",
     zh_CN: "Coati 已连接。您可以关闭此标签页。",
   },
+  "oauth.chatgpt-denied": {
+    en: "ChatGPT sign-in was cancelled. Close this tab; you can try again from Coati.",
+    fr: "La connexion à ChatGPT a été annulée. Fermez cet onglet ; vous pouvez réessayer depuis Coati.",
+    zh_CN: "ChatGPT 登录已取消。请关闭此标签页；您可以在 Coati 中重试。",
+  },
+  "oauth.chatgpt-no-plan": {
+    en: "You are signed in to ChatGPT, but plan usage was not allowed for Coati. Close this tab and allow it from Coati.",
+    fr: "Vous êtes connecté à ChatGPT, mais l'utilisation de votre forfait n'a pas été autorisée pour Coati. Fermez cet onglet et autorisez-la depuis Coati.",
+    zh_CN: "您已登录 ChatGPT，但未允许 Coati 使用您的套餐。请关闭此标签页，并在 Coati 中允许。",
+  },
   "oauth.failed": {
     en: "The connection did not complete. Close this tab and try again from Coati.",
     fr: "La connexion n'a pas abouti. Fermez cet onglet et réessayez depuis Coati.",
@@ -109,6 +119,37 @@ const MESSAGES: Catalog = {
     en: "The provider is overloaded right now. Try again shortly.",
     fr: "Le fournisseur est surchargé en ce moment. Réessayez dans un instant.",
     zh_CN: "该提供商当前负载过高。请稍后重试。",
+  },
+  // --- ChatGPT plan sign-in: same contract, shown verbatim to a human. -------
+  "auth.chatgpt.notSignedIn": {
+    en: "Sign in with ChatGPT in Coati settings.",
+    fr: "Connectez-vous avec ChatGPT dans les réglages de Coati.",
+    zh_CN: "请在 Coati 设置中使用 ChatGPT 登录。",
+  },
+  "auth.chatgpt.planUsageOff": {
+    en: "Allow Coati to use your ChatGPT plan",
+    fr: "Autorisez Coati à utiliser votre forfait ChatGPT",
+    zh_CN: "允许 Coati 使用您的 ChatGPT 套餐",
+  },
+  "auth.chatgpt.notEligible": {
+    en: "Your ChatGPT account cannot use its plan in Coati (Plus or Pro)",
+    fr: "Votre compte ChatGPT ne peut pas utiliser son forfait dans Coati (Plus ou Pro)",
+    zh_CN: "您的 ChatGPT 账户无法在 Coati 中使用其套餐（Plus 或 Pro）",
+  },
+  "auth.chatgpt.signedOut": {
+    en: "Reconnect with ChatGPT",
+    fr: "Reconnectez-vous avec ChatGPT",
+    zh_CN: "请重新连接 ChatGPT",
+  },
+  "provider.chatgpt.usageLimit": {
+    en: "You have reached the usage limit of your ChatGPT plan. Check your usage on chatgpt.com, then try again.",
+    fr: "Vous avez atteint la limite d'utilisation de votre forfait ChatGPT. Consultez votre utilisation sur chatgpt.com, puis réessayez.",
+    zh_CN: "您已达到 ChatGPT 套餐的使用上限。请在 chatgpt.com 查看用量，然后重试。",
+  },
+  "availability.chatgpt.notSignedIn": {
+    en: "not signed in with ChatGPT",
+    fr: "non connecté avec ChatGPT",
+    zh_CN: "未使用 ChatGPT 登录",
   },
 
   // --- settings.test-result (docs/PROTOCOL.md) -----------
