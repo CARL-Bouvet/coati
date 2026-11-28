@@ -27,6 +27,7 @@ export const FINGERPRINT_FILES = [
   "content/pointer.js",
   "lib/browser-compat.js",
   "lib/build-fingerprint.js",
+  "lib/command-line.js",
   "lib/components.css",
   "lib/deadline.js",
   "lib/handshake-crypto.js",

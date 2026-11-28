@@ -11,10 +11,13 @@ import { t, setDocumentLanguage, reloadOnLanguageChange } from "../lib/i18n-page
 import { mountLanguageSelector } from "../lib/language-selector.js";
 import { initTheme, buildThemeMenu } from "../lib/theme-pref.js";
 import { createIcon } from "../lib/icons.js";
+import { commandLine } from "../lib/command-line.js";
 import { mountAccessStep } from "./access-step.js";
 import { DOWNLOAD_LABELS, HELP_KEYS, INSTALL_DOC_URL, platformFromInfo, programDownloads } from "../lib/program-download.js";
 
 const STEP_IDS = ["program", "access", "first", "theme"];
+// Shell commands, not text: they stay out of the locales.
+const INSTALL_SCRIPT_COMMAND = "curl -fsSLO https://getcoati.com/install.sh\nsh install.sh"; // i18n-allow: shell command
 const POLL_MS = 3000;
 const ADVANCE_MS = 1500;
 
@@ -49,7 +52,8 @@ async function start() {
   function programBody() {
     const body = el("div", "welcome-body");
     const links = el("p", "welcome-links");
-    body.append(links, statusLine);
+    const alt = el("div", "welcome-alt");
+    body.append(links, alt, statusLine);
     api.runtime
       .getPlatformInfo()
       .then(platformFromInfo, () => ({ os: null, arch: "x64" }))
@@ -65,13 +69,16 @@ async function start() {
         other.target = "_blank";
         other.rel = "noopener";
         links.append(other);
+        if (os === "linux") {
+          alt.append(el("p", null, t("setup_program_other_distro")), commandLine(INSTALL_SCRIPT_COMMAND, { block: true }));
+        }
         if (!HELP_KEYS[os]) return;
         const fold = el("details", "welcome-fold");
         const list = el("ol", "welcome-list-text");
         for (const key of HELP_KEYS[os]) list.append(el("li", null, t(key)));
         fold.append(el("summary", null, t("setup_program_help_title")), list);
         if (os === "linux") fold.append(el("p", null, t("setup_program_linux_snap")));
-        links.after(fold);
+        alt.after(fold);
       });
     return body;
   }

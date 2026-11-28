@@ -20,6 +20,7 @@
 // innerHTML: nodes built one by one.
 
 import { t } from "./lib/i18n-page.js";
+import { commandLine } from "./lib/command-line.js";
 import { createKeyInput } from "./lib/key-input.js";
 import { chatgptSignInNodes, createOauthSignIn } from "./lib/oauth-sign-in.js";
 import { fitLimitsGb, groupModels, readHost, sameModel, shortModelName } from "./lib/model-list.js";
@@ -94,35 +95,6 @@ function searchTip() {
   box.append(commandLine(t("setup_search_example_1")), commandLine(t("setup_search_example_2")));
   box.append(el("p", "setup-text", t("setup_search_text")), el("p", "setup-text", t("setup_search_model")));
   return box;
-}
-
-/** A command line + "Copy" button. Writing to the clipboard on a click is
- * fine; Coati never READS the clipboard. `block`: several lines, kept as typed. */
-function commandLine(command, { block = false } = {}) {
-  const wrap = el("div", "setup-command");
-  const code = el("code", block ? "c-field setup-command-text setup-command-text--block" : "c-field setup-command-text", command);
-  const copy = el("button", "c-button c-button--small setup-copy", t("setup_copy"));
-  copy.type = "button";
-  copy.addEventListener("click", async () => {
-    let ok = false;
-    try {
-      await navigator.clipboard.writeText(command);
-      ok = true;
-    } catch {
-      // Fallback: select the text so Ctrl+C works.
-      const range = document.createRange();
-      range.selectNodeContents(code);
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-    }
-    copy.textContent = ok ? t("setup_copied") : t("setup_copy_manual");
-    setTimeout(() => {
-      copy.textContent = t("setup_copy");
-    }, 2000);
-  });
-  wrap.append(code, copy);
-  return wrap;
 }
 
 /** One numbered step. `setState("todo"|"busy"|"done"|"failed", text?)`. */

@@ -2393,6 +2393,9 @@
   "setup_program_other": {
     "message": "Autre système ou autre distribution"
   },
+  "setup_program_other_distro": {
+    "message": "Autre distribution (Arch, Gentoo…) :"
+  },
   "setup_program_help_title": {
     "message": "Un avertissement s'affiche ? Voici quoi faire"
   },

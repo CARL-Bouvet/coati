@@ -24,6 +24,18 @@ bash scripts/ci/e2e.sh            # end to end: installer + compiled binary + ha
 `scripts/build.sh` builds the two extension packages (`dist/coati-chrome.zip`,
 `dist/coati-firefox.zip`); `docs/INSTALL.md` explains how to load them.
 
+## Releasing: Firefox signing
+
+Firefox requires AMO signing even for a permanent personal install. Create a free account at
+[addons.mozilla.org/developers](https://addons.mozilla.org/developers/), build
+`dist/coati-firefox.zip`, submit at
+[.../addon/submit/distribution](https://addons.mozilla.org/developers/addon/submit/distribution)
+choosing **On your own** (not the public store). Install the signed `.xpi` by dragging it into
+Firefox, or from `about:addons` → gear → **Install Add-on From File…**. To republish, bump
+`"version"` in both `extension/manifest.json` and `extension/manifest.firefox.json` (kept in
+sync): AMO won't re-sign the same version twice for the same id (`coati@getcoati.com`, never
+changes).
+
 ## Project rules
 
 ### What this project is

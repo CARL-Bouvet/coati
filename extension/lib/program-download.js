@@ -3,7 +3,7 @@
 // stays a stable address (scripts/package.sh builds them).
 
 export const RELEASE_DOWNLOAD_BASE = "https://github.com/CARL-Bouvet/coati/releases/latest/download/";
-export const INSTALL_DOC_URL = "https://github.com/CARL-Bouvet/coati/blob/main/docs/INSTALL.md";
+export const INSTALL_DOC_URL = "https://github.com/CARL-Bouvet/coati/blob/main/docs/INSTALL.md#other-systems";
 
 // kind -> file per CPU family. Windows ships x64 only (Windows on ARM runs it).
 const FILES = {

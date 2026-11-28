@@ -75,6 +75,9 @@
     };
   }
 
+  var linux = welcome({});
+  linux.labPlatformInfo = { os: "linux", arch: "x86-64" };
+
   window.__COATI_LAB_FIXTURES__ = {
     // Chrome, Brave, Edge : menu des extensions (pièce de puzzle), épingle.
     chromium: {
@@ -88,6 +91,7 @@
     },
 
     waiting: welcome({}),
+    linux: linux,
     connected: welcome({ status: "connected" }),
     theme: welcome({ status: "connected", step: "theme" }),
     access: access(),

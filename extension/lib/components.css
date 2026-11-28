@@ -19,6 +19,7 @@
  * Model list   lib/model-list.js rows
  * Tooltip      .c-tooltip  (shows its own aria-label)
  * Page band    .page-head > .page-head-inner  (the pages' dark top band)
+ * Command     .setup-command > .setup-command-text + .setup-copy  (lib/command-line.js)
  *
  * Active item: a pale caramel band (--accent-tint) and a heavier weight;
  * caramel marks (✓) use --accent-mark, readable on both light and dark.
@@ -691,3 +692,34 @@ html.mode-dev .c-card .c-button:not(.c-button--primary, .c-button--danger, .is-a
   margin: 0;
   color: var(--muted);
 }
+
+/* --- Command line + Copy button (lib/command-line.js) ------------------------
+ * A long line scrolls inside its box (--block) or breaks anywhere (single line);
+ * the button keeps its size and drops under the box when the row is narrow. */
+.setup-command {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  width: 100%;
+  max-width: 100%;
+}
+
+.setup-command-text {
+  flex: 1 1 14em;
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--text-s);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+/* Lines kept as typed; a line too long for a narrow panel wraps (the copy
+ * button copies the command, not what is displayed). */
+.setup-command-text--block {
+  white-space: pre-wrap;
+}
+
+.setup-copy { flex: none; }

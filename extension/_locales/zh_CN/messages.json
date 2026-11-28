@@ -2393,6 +2393,9 @@
   "setup_program_other": {
     "message": "其他系统或其他发行版"
   },
+  "setup_program_other_distro": {
+    "message": "其他发行版（Arch、Gentoo 等）："
+  },
   "setup_program_help_title": {
     "message": "出现警告？请这样做"
   },

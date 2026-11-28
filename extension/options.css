@@ -542,8 +542,7 @@ code { font-size: var(--text-s); }
   color: var(--muted);
 }
 
-.test-result-command,
-.setup-command-text {
+.test-result-command {
   padding: var(--space-2) var(--space-3);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: var(--text-s);
@@ -664,7 +663,6 @@ kbd {
 .setup-step-body > * { max-width: 100%; }
 
 .setup-links,
-.setup-command,
 .setup-env-row {
   display: flex;
   flex-wrap: wrap;
@@ -689,10 +687,6 @@ kbd {
 .setup-step-result[data-tone="ok"] { color: var(--success); }
 .setup-step[data-state="failed"] > .setup-step-main > .setup-step-result,
 .setup-step-result[data-tone="error"] { color: var(--danger); }
-
-.setup-command-text { flex: 1 1 14em; min-width: 0; }
-/* A file's lines never break inside a setting name: the box scrolls instead. */
-.setup-command-text--block { white-space: pre; overflow-wrap: normal; overflow-x: auto; }
 
 .setup-env-row > .setup-command { flex: 1 1 16em; width: auto; }
 
