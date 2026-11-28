@@ -12,6 +12,7 @@ import { ALL_SITES_ORIGINS } from "../panel/read-button.js";
 import Sortable from "../vendor/sortable/sortable.esm.js";
 import { coatiItemsForSite, computeCaseItems as computeCaseItemsPure, buildCaseDescriptors as buildCaseDescriptorsPure, replaceInOrder } from "./prompts-cases.js";
 import { t, applyI18n, reloadOnLanguageChange } from "../lib/i18n-page.js";
+import { initTheme } from "../lib/theme-pref.js";
 import { createIcon } from "../lib/icons.js";
 
 applyI18n(document);
@@ -116,6 +117,7 @@ init();
 reloadOnLanguageChange();
 
 async function init() {
+  initTheme();
   api.runtime.onMessage.addListener(onRuntimeMessage);
   els.allSitesText.textContent = ALL_SITES_TEXT.line;
   els.allSitesRevoke.textContent = ALL_SITES_TEXT.revoke;

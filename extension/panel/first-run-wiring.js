@@ -26,7 +26,8 @@ import {
   FIRST_RUN_DONE_KEY,
   MODEL_EVER_ANSWERED_KEY,
   MODEL_TUTORIAL_PATH,
-  PROGRAM_TUTORIAL_PATH,
+  WELCOME_PROGRAM_PATH,
+  WELCOME_ACCESS_PATH,
 } from "./first-run.js";
 import { currentConnState, providerState } from "./model-status.js";
 import { AUTH_REQUIRED_TEXT } from "./recovery-blocks.js";
@@ -72,19 +73,21 @@ export async function loadAccessPrefs() {
   accessPrefsLoaded = true;
 }
 
-// Opens the model tutorial (U2): the options page,
-// jumped to #setup — same destination for the never-connected notice, the
-// "?" button, the first-run card's "model" step, the welcome page's model
-// step, and every model-related error banner (model unreachable/missing,
-// key refused, no credit). "Open settings" buttons about the broker
-// connection itself (not the model) keep using openOptionsPage() instead.
+// Opens the Settings model guide (options.html#setup): the model menu's "add"
+// and the model error banners. "Open settings" buttons about the broker
+// connection itself keep using openOptionsPage().
 export function openModelTutorial() {
   api.tabs.create({ url: api.runtime.getURL(MODEL_TUTORIAL_PATH) });
 }
 
 /** The first-run card's "program" step: download and install the local program. */
 function openProgramTutorial() {
-  api.tabs.create({ url: api.runtime.getURL(PROGRAM_TUTORIAL_PATH) });
+  api.tabs.create({ url: api.runtime.getURL(WELCOME_PROGRAM_PATH) });
+}
+
+/** The first-run card's "model" step and the never-connected notice: the welcome tab's access step. */
+export function openAccessTutorial() {
+  api.tabs.create({ url: api.runtime.getURL(WELCOME_ACCESS_PATH) });
 }
 
 /** Standalone notice shown while Coati has never gotten a real answer from a
@@ -246,7 +249,7 @@ export function renderFirstRun() {
   els.firstRunNeverConnected.hidden = panelState.modelEverAnswered || checks.model === "ok";
   els.firstRunSteps.replaceChildren(
     firstRunStep("program", checks.program, openProgramTutorial),
-    firstRunStep("model", checks.model, openModelTutorial),
+    firstRunStep("model", checks.model, openAccessTutorial),
     firstRunStep("page", checks.page, pointAtReadButton),
   );
   renderFirstRunLang();

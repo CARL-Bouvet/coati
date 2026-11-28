@@ -1713,16 +1713,112 @@
     "message": "Welcome to Coati"
   },
   "welcome_lead": {
-    "message": "Coati summarizes a page or a video and answers your questions about what you're reading, with the model of your choice, through a program that runs on your machine."
+    "message": "Coati is an open source extension (AGPL-3.0). Plug in the AI model of your choice: it answers your questions about the page you are reading, and runs web searches, with its sources."
+  },
+  "welcome_lead_privacy": {
+    "message": "With a model running on your computer (Ollama, for example), your conversations with it stay with you. With an online service (OpenRouter, ChatGPT, Anthropic…), your questions and the pages Coati reads to answer them are sent to that service."
+  },
+  "welcome_lead_server": {
+    "message": "Coati itself has no server: nothing goes through us, and you can switch models whenever you like."
+  },
+  "welcome_source_link": {
+    "message": "Source code on GitHub"
+  },
+  "welcome_licence": {
+    "message": "AGPL-3.0 licence"
+  },
+  "welcome_step_program_title": {
+    "message": "Install the local program"
+  },
+  "welcome_step_program_text": {
+    "message": "It links your browser to your AI model and keeps your sign-in keys on this computer."
+  },
+  "welcome_step_access_title": {
+    "message": "Choose how to reach an AI model"
+  },
+  "welcome_step_access_text": {
+    "message": "On this computer with Ollama, or online: OpenRouter, ChatGPT, a paid key or a free key."
+  },
+  "welcome_access_openrouter": {
+    "message": "OpenRouter"
+  },
+  "welcome_access_openrouter_desc": {
+    "message": "One account, connected in one click."
+  },
+  "welcome_access_chatgpt": {
+    "message": "ChatGPT (Plus or Pro)"
+  },
+  "welcome_access_chatgpt_desc": {
+    "message": "Sign in with your ChatGPT subscription."
+  },
+  "welcome_access_paid": {
+    "message": "Paid API key"
+  },
+  "welcome_access_paid_desc": {
+    "message": "Claude, Mistral, OpenAI…"
+  },
+  "welcome_access_free": {
+    "message": "Free key"
+  },
+  "welcome_access_free_desc": {
+    "message": "Gemini, Mistral."
+  },
+  "welcome_step_first_title": {
+    "message": "Ask a first question"
+  },
+  "welcome_step_first_text": {
+    "message": "Pin the Coati icon, open a page, then click the icon."
+  },
+  "welcome_step_theme_title": {
+    "message": "Just for fun: a theme for your panel"
+  },
+  "welcome_step_theme_text": {
+    "message": "The theme applies here right away. You can change it later in the settings."
+  },
+  "welcome_step_optional": {
+    "message": "Optional"
+  },
+  "welcome_step_state_done": {
+    "message": "done"
+  },
+  "welcome_step_state_current": {
+    "message": "current step"
+  },
+  "welcome_step_state_todo": {
+    "message": "to do"
+  },
+  "theme_menu_label": {
+    "message": "Theme"
+  },
+  "theme_follows_system": {
+    "message": "Light or dark follows your system."
+  },
+  "theme_name_masque": {
+    "message": "Mask"
+  },
+  "theme_name_pelage": {
+    "message": "Coat"
+  },
+  "theme_name_caramel": {
+    "message": "Caramel"
+  },
+  "theme_name_ardoise": {
+    "message": "Slate"
+  },
+  "theme_desc_masque": {
+    "message": "Blue-grey"
+  },
+  "theme_desc_pelage": {
+    "message": "Red-orange"
+  },
+  "theme_desc_caramel": {
+    "message": "Caramel and blue-grey"
+  },
+  "theme_desc_ardoise": {
+    "message": "Grey and caramel, the first theme"
   },
   "welcome_pin_title": {
     "message": "Pin the icon"
-  },
-  "welcome_pin_browser_chromium": {
-    "message": "Chrome, Brave, Edge"
-  },
-  "welcome_pin_browser_gecko": {
-    "message": "Firefox"
   },
   "welcome_pin_step1_chromium": {
     "message": "Click the extensions icon (the puzzle piece), to the right of the address bar."
@@ -1741,36 +1837,6 @@
   },
   "welcome_pin_step3_gecko": {
     "message": "Coati's icon then stays in the toolbar: a click opens the sidebar."
-  },
-  "welcome_steps_title": {
-    "message": "Three steps"
-  },
-  "welcome_program_title": {
-    "message": "Install the local program"
-  },
-  "welcome_program_text": {
-    "message": "Coati goes through a small program installed on your computer: it talks to the model and keeps your keys, never the extension."
-  },
-  "welcome_program_link": {
-    "message": "Download the program"
-  },
-  "welcome_model_title": {
-    "message": "Choose a model"
-  },
-  "welcome_model_text": {
-    "message": "In settings: a model that runs on your own machine (Ollama), or an online service with your own key."
-  },
-  "welcome_page_title": {
-    "message": "Open Coati on a page"
-  },
-  "welcome_page_text_chromium": {
-    "message": "Click Coati's icon, then \"Read this page\" at the top of the panel. The browser will ask once for access to all sites."
-  },
-  "welcome_page_text_gecko": {
-    "message": "Click Coati's icon, then \"Read this page\" at the top of the sidebar. Firefox will ask once for access to all sites."
-  },
-  "welcome_gesture": {
-    "message": "Coati only reads a page when you click: never in the background, never on a tab switch."
   },
   "prompts_page_title": {
     "message": "My prompts — Coati"

@@ -852,3 +852,40 @@ h4.setup-subtitle {
   .service { grid-template-columns: minmax(0, 1fr); }
   .service-actions { justify-content: flex-start; }
 }
+
+/* --- Embed (options.html?embed=..., framed by the welcome tab) ------------
+ * One block, no band, no menu; the page reports its height (options.js). */
+[data-embed] .page-head,
+[data-embed] .section-nav,
+[data-embed] .setup-online-which,
+[data-embed] .section > .c-title,
+[data-embed] #setupIntro,
+[data-embed] #currentModel {
+  display: none;
+}
+
+[data-embed] .page {
+  display: block;
+  max-width: none;
+  padding: 0;
+}
+
+[data-embed="program"] .section:not(#setup-program),
+[data-embed="access"] .section:not(#modelSection) {
+  display: none;
+}
+
+/* Embedded blocks lay out at their natural height; the frame is sized from outside. */
+html[data-embed],
+[data-embed] body,
+[data-embed] .page,
+[data-embed] .page-content {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+/* The side already chosen on the welcome tab fills the width; no rail for the other. */
+[data-embed="access"] .split-side[data-state="folded"] {
+  display: none;
+}

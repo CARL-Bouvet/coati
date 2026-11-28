@@ -821,6 +821,11 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
       renderHost();
       markChosenLocalModel();
     },
+    /** Picks an online service as a click on its radio would (the welcome tab's embed). */
+    chooseServiceById(id) {
+      const entry = ONLINE_PROVIDERS.find((e) => e.id === id);
+      if (entry) chooseService(entry);
+    },
     /** The "On this computer" side is shown (true) or hidden (false). */
     setLocalVisible(visible) {
       localVisible = Boolean(visible);

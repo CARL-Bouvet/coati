@@ -18,7 +18,7 @@ import {
 } from "../lib/model-list.js";
 import { ONLINE_PROVIDERS } from "../lib/setup-data.js";
 import { els } from "./dom-refs.js";
-import { newId, sendClientMessage } from "./dom-helpers.js";
+import { EMBED, EMBED_CHOICE, newId, sendClientMessage } from "./dom-helpers.js";
 import { testTargets, registerTestTarget, testProvider, applyTestResult } from "./provider-tests.js";
 import {
   renderServices,
@@ -86,6 +86,11 @@ export function applyStatus(state) {
   els.headerStatusLabel.textContent = label;
   setupGuide.onStatus(state);
   programStep.onStatus(state);
+  // The guide only tells the program about the chosen service once connected.
+  if (embedService && state === "connected") {
+    setupGuide.chooseServiceById(embedService);
+    embedService = null;
+  }
   for (const keyInput of keyInputs.values()) keyInput.setConnected(state === "connected");
 
   // "no-host" (native messaging unreachable) is the state where the
@@ -108,6 +113,10 @@ export function applyStatus(state) {
 let setupHashPending = false;
 
 export function setupOpenOnHash() {
+  if (EMBED) {
+    openEmbed();
+    return;
+  }
   const openIfAsked = () => {
     if (location.hash === "#setup") openSetup();
     else if (location.hash === "#setup-program") programStep.open();
@@ -120,6 +129,29 @@ export function setupOpenOnHash() {
   };
   openIfAsked();
   window.addEventListener("hashchange", openIfAsked);
+}
+
+// options.html?embed=...: the welcome tab's frame shows one block, opened
+// without scrolling (a scroll here would move the parent page).
+const EMBED_SERVICES = { openrouter: "openrouter", chatgpt: "chatgpt", free: "google" };
+let embedService = null;
+
+function openEmbed() {
+  if (EMBED === "program") {
+    programStep.open();
+    return;
+  }
+  sideChosen = true;
+  if (EMBED_CHOICE === "local") {
+    selectSide("local");
+    setupGuide.openLocalGuide({ scroll: false });
+    return;
+  }
+  selectSide("online");
+  addServiceHeld = true;
+  els.addService.open = true;
+  embedService = EMBED_SERVICES[EMBED_CHOICE] ?? null;
+  if (embedService) setupGuide.chooseServiceById(embedService);
 }
 
 /** options.html#setup: the guide on the side of the model set up — the

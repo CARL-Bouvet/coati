@@ -36,16 +36,11 @@ const OUT = process.env.COATI_LAB_OUT ?? join(ROOT, ".tmp", "lab");
 const FONTS_SRC = join(ROOT, ".tmp", "fonts");
 
 function stateIdsFromFixtureFile(path: string): string[] {
-  const src = readFileSync(path, "utf8");
-  const ids: string[] = [];
-  // Matches `  idle: {` / `  "not-activated": {` — top-level fixture keys,
-  // 4-space indented directly under the assigned object literal. Also
-  // `"id": helper({` (options-fixtures.js builds the U2 guide states with a
-  // small factory).
-  const re = /^\s{4}(?:"([^"]+)"|([a-zA-Z][\w-]*)):\s*(?:[a-zA-Z]\w*\()?\{/gm;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(src))) ids.push(m[1] || m[2]);
-  return ids;
+  // Runs the fixture file (our own code) against a bare `window` and reads the
+  // keys it assigns, so nested objects (`current: {…}`) are never taken for states.
+  const window: Record<string, unknown> = {};
+  new Function("window", readFileSync(path, "utf8"))(window);
+  return Object.keys((window.__COATI_LAB_FIXTURES__ as object) ?? {});
 }
 
 function rewriteCssForDark(css: string): string {

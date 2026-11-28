@@ -49,6 +49,7 @@ export const FINGERPRINT_FILES = [
   "lib/structured-data.js",
   "lib/suggestions-data.js",
   "lib/suggestions.js",
+  "lib/theme-pref.js",
   "lib/theme.css",
   "lib/ui-lang.js",
   "manifest.json",

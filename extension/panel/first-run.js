@@ -54,13 +54,13 @@ export const FIRST_RUN_DONE_KEY = "coati:firstRunDone";
 // satisfy without a real answer), this one only flips on an actual reply —
 // it drives the standalone "never connected" notice (U2) and never resets.
 export const MODEL_EVER_ANSWERED_KEY = "coati:modelEverAnswered";
-// Tutorial lives in the options page (U2) — every
-// "connect a model" action across the panel/welcome pages opens this same
-// URL via api.tabs.create(), never api.runtime.openOptionsPage() (that
-// reuses/opens an already-open settings tab, not necessarily at #setup).
+// The first-run card and the never-connected notice open the welcome tab on
+// the matching step; the model menu's "add" opens the Settings guide. Always
+// via api.tabs.create(), never api.runtime.openOptionsPage() (that reuses an
+// already-open settings tab, not necessarily at #setup).
 export const MODEL_TUTORIAL_PATH = "options.html#setup";
-// Download and install step of the local program, same page.
-export const PROGRAM_TUTORIAL_PATH = "options.html#setup-program";
+export const WELCOME_PROGRAM_PATH = "welcome/welcome.html#program";
+export const WELCOME_ACCESS_PATH = "welcome/welcome.html#access";
 
 const PROGRAM_FOUND_STATES = new Set(["connected", "handshaking", "no-token", "broker-untrusted", "pairing-retry"]);
 

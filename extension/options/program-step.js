@@ -11,26 +11,14 @@
 
 import { api } from "../lib/browser-compat.js";
 import { t } from "../lib/i18n-page.js";
-import { INSTALL_DOC_URL, platformFromInfo, programDownloads } from "../lib/program-download.js";
+import { DOWNLOAD_LABELS, HELP_KEYS, INSTALL_DOC_URL, platformFromInfo, programDownloads } from "../lib/program-download.js";
 import { detectOs, el, externalLink, fold, makeStep } from "../options-setup.js";
 import { els } from "./dom-refs.js";
+import { EMBED } from "./dom-helpers.js";
 
 const POLL_MS = 3000;
 const CHECKING_MS = 2000;
 const ADVANCE_MS = 1500;
-
-const DOWNLOAD_LABELS = {
-  windows: "setup_program_download_windows",
-  mac_arm: "setup_program_download_mac_arm",
-  mac_x64: "setup_program_download_mac_x64",
-  deb: "setup_program_download_deb",
-  rpm: "setup_program_download_rpm",
-};
-const HELP_KEYS = {
-  windows: ["setup_program_win_1", "setup_program_win_2", "setup_program_win_3"],
-  mac: ["setup_program_mac_1", "setup_program_mac_2", "setup_program_mac_3", "setup_program_mac_4"],
-  linux: ["setup_program_linux_1"],
-};
 
 async function detectPlatform() {
   let platform = { os: null, arch: "x64" };
@@ -130,7 +118,9 @@ export function mountProgramStep({ section, list }) {
 
   function advance() {
     setTimeout(() => {
-      if (state === "connected") location.hash = "#setup";
+      if (state !== "connected") return;
+      if (EMBED) parent.postMessage({ type: "coati:embed-connected" }, location.origin);
+      else location.hash = "#setup";
     }, ADVANCE_MS);
   }
 
@@ -153,7 +143,7 @@ export function mountProgramStep({ section, list }) {
     open() {
       reveal();
       if (state === "connected") step.setState("done", t("setup_program_ok"));
-      section.scrollIntoView?.({ block: "start" });
+      if (!EMBED) section.scrollIntoView?.({ block: "start" });
       syncPolling();
     },
   };

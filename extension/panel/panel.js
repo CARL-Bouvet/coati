@@ -62,6 +62,7 @@ import { bindAutogrow } from "./composer-autogrow.js";
 import { isRedetectDuplicate, parseActionClickedTabId } from "./redetect-dedupe.js";
 import { computeCodeFingerprint } from "../lib/build-fingerprint.js";
 import { t, applyI18n, reloadOnLanguageChange } from "../lib/i18n-page.js";
+import { initTheme } from "../lib/theme-pref.js";
 import { mountLanguageSelector } from "../lib/language-selector.js";
 import { els } from "./dom-refs.js";
 import { panelState, STORAGE_KEY, ownRequests, mergeStoredConversation } from "./panel-state.js";
@@ -81,7 +82,7 @@ import {
   onProviderStatusResult,
 } from "./model-status.js";
 import {
-  openModelTutorial,
+  openAccessTutorial,
   wireHelpButton,
   onReadPageClick,
   COATI_ICON_PATH,
@@ -153,6 +154,7 @@ if (requestedVariant) document.documentElement.dataset.variant = requestedVarian
 init();
 
 async function init() {
+  initTheme();
   panelState.conversation = await loadConversation();
   renderAll();
 
@@ -164,7 +166,7 @@ async function init() {
   els.connectCoati.addEventListener("click", () => api.runtime.openOptionsPage());
   els.installDocLink.addEventListener("click", () => api.tabs.create({ url: INSTALL_DOC_URL }));
   els.connectionBannerRetry.addEventListener("click", retryConnection);
-  els.neverConnectedAction.addEventListener("click", openModelTutorial);
+  els.neverConnectedAction.addEventListener("click", openAccessTutorial);
   wireHelpButton();
   els.readPage.addEventListener("click", onReadPageClick);
   // Same Brave favicon bug as the site card's own icon below: fall back to

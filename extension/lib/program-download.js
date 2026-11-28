@@ -30,3 +30,18 @@ export function programDownloads(os, arch) {
     return { kind, file, url: RELEASE_DOWNLOAD_BASE + file };
   });
 }
+
+// Button labels and per-system help texts, shared by Settings (options/program-step.js)
+// and the welcome page.
+export const DOWNLOAD_LABELS = {
+  windows: "setup_program_download_windows",
+  mac_arm: "setup_program_download_mac_arm",
+  mac_x64: "setup_program_download_mac_x64",
+  deb: "setup_program_download_deb",
+  rpm: "setup_program_download_rpm",
+};
+export const HELP_KEYS = {
+  windows: ["setup_program_win_1", "setup_program_win_2", "setup_program_win_3"],
+  mac: ["setup_program_mac_1", "setup_program_mac_2", "setup_program_mac_3", "setup_program_mac_4"],
+  linux: ["setup_program_linux_1"],
+};

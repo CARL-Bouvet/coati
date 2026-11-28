@@ -1713,16 +1713,112 @@
     "message": "欢迎使用 Coati"
   },
   "welcome_lead": {
-    "message": "Coati 能总结页面或视频，并回答您关于所阅读内容的问题，使用您选择的模型，通过运行在本机的程序实现。"
+    "message": "Coati 是一个开源扩展（AGPL-3.0）。接入您选择的 AI 模型：它会回答您关于正在阅读的页面的问题，还能在网上搜索，并给出来源。"
+  },
+  "welcome_lead_privacy": {
+    "message": "使用在您电脑上运行的模型（例如 Ollama）时，您与它的对话只留在您这里。使用在线服务（OpenRouter、ChatGPT、Anthropic……）时，您的问题以及 Coati 为回答而读取的页面会发送给该服务。"
+  },
+  "welcome_lead_server": {
+    "message": "Coati 本身没有任何服务器：没有任何内容经过我们，您也可以随时更换模型。"
+  },
+  "welcome_source_link": {
+    "message": "GitHub 上的源代码"
+  },
+  "welcome_licence": {
+    "message": "AGPL-3.0 许可证"
+  },
+  "welcome_step_program_title": {
+    "message": "安装本地程序"
+  },
+  "welcome_step_program_text": {
+    "message": "它把您的浏览器连接到您的 AI 模型，并把登录密钥保存在这台电脑上。"
+  },
+  "welcome_step_access_title": {
+    "message": "选择使用 AI 模型的方式"
+  },
+  "welcome_step_access_text": {
+    "message": "在这台电脑上使用 Ollama，或在线使用：OpenRouter、ChatGPT、付费密钥或免费密钥。"
+  },
+  "welcome_access_openrouter": {
+    "message": "OpenRouter"
+  },
+  "welcome_access_openrouter_desc": {
+    "message": "一个账户，一键连接。"
+  },
+  "welcome_access_chatgpt": {
+    "message": "ChatGPT（Plus 或 Pro）"
+  },
+  "welcome_access_chatgpt_desc": {
+    "message": "使用你的 ChatGPT 订阅登录。"
+  },
+  "welcome_access_paid": {
+    "message": "付费 API 密钥"
+  },
+  "welcome_access_paid_desc": {
+    "message": "Claude、Mistral、OpenAI……"
+  },
+  "welcome_access_free": {
+    "message": "免费密钥"
+  },
+  "welcome_access_free_desc": {
+    "message": "Gemini、Mistral。"
+  },
+  "welcome_step_first_title": {
+    "message": "提出第一个问题"
+  },
+  "welcome_step_first_text": {
+    "message": "固定 Coati 图标，打开一个页面，然后点击该图标。"
+  },
+  "welcome_step_theme_title": {
+    "message": "随心选择：为面板选一个主题"
+  },
+  "welcome_step_theme_text": {
+    "message": "主题会立即在此生效，之后也可以在设置中更改。"
+  },
+  "welcome_step_optional": {
+    "message": "可选"
+  },
+  "welcome_step_state_done": {
+    "message": "已完成"
+  },
+  "welcome_step_state_current": {
+    "message": "当前步骤"
+  },
+  "welcome_step_state_todo": {
+    "message": "待完成"
+  },
+  "theme_menu_label": {
+    "message": "主题"
+  },
+  "theme_follows_system": {
+    "message": "浅色或深色跟随系统设置。"
+  },
+  "theme_name_masque": {
+    "message": "面纹"
+  },
+  "theme_name_pelage": {
+    "message": "毛色"
+  },
+  "theme_name_caramel": {
+    "message": "焦糖"
+  },
+  "theme_name_ardoise": {
+    "message": "石板"
+  },
+  "theme_desc_masque": {
+    "message": "蓝灰"
+  },
+  "theme_desc_pelage": {
+    "message": "橙红"
+  },
+  "theme_desc_caramel": {
+    "message": "焦糖与蓝灰"
+  },
+  "theme_desc_ardoise": {
+    "message": "灰色与焦糖，最初的主题"
   },
   "welcome_pin_title": {
     "message": "固定图标"
-  },
-  "welcome_pin_browser_chromium": {
-    "message": "Chrome、Brave、Edge"
-  },
-  "welcome_pin_browser_gecko": {
-    "message": "Firefox"
   },
   "welcome_pin_step1_chromium": {
     "message": "点击地址栏右侧的扩展程序图标（拼图形状）。"
@@ -1741,36 +1837,6 @@
   },
   "welcome_pin_step3_gecko": {
     "message": "Coati 图标将保留在工具栏中：单击即可打开侧边栏。"
-  },
-  "welcome_steps_title": {
-    "message": "三个步骤"
-  },
-  "welcome_program_title": {
-    "message": "安装本地程序"
-  },
-  "welcome_program_text": {
-    "message": "Coati 通过安装在本机的小程序运行：由它与模型通信并保管密钥，而不是扩展程序。"
-  },
-  "welcome_program_link": {
-    "message": "下载程序"
-  },
-  "welcome_model_title": {
-    "message": "选择模型"
-  },
-  "welcome_model_text": {
-    "message": "在设置中：选择在本机运行的模型（Ollama），或使用您自己密钥的在线服务。"
-  },
-  "welcome_page_title": {
-    "message": "在页面上打开 Coati"
-  },
-  "welcome_page_text_chromium": {
-    "message": "点击 Coati 图标，然后点击面板顶部的「读取此页面」。浏览器将请求一次对所有网站的访问权限。"
-  },
-  "welcome_page_text_gecko": {
-    "message": "点击 Coati 图标，然后点击侧边栏顶部的「读取此页面」。Firefox 将请求一次对所有网站的访问权限。"
-  },
-  "welcome_gesture": {
-    "message": "Coati 只在您点击时才读取页面：不在后台运行，不在切换标签页时运行。"
   },
   "prompts_page_title": {
     "message": "我的提示词 — Coati"

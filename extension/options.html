@@ -31,6 +31,7 @@
       <a class="c-row" href="#shortcutSection" data-i18n="options_shortcut_title">Keyboard shortcut</a>
       <a class="c-row" href="#sitesSection" data-i18n="options_sites_title">Activated sites</a>
       <a class="c-row" href="#historySection" data-i18n="options_history_title">History</a>
+      <a class="c-row" href="#themeSection" data-i18n="theme_menu_label">Theme</a>
       <a class="c-row" href="#aboutSection" data-i18n="options_about_title">About</a>
     </nav>
 
@@ -223,7 +224,13 @@
         </div>
       </section>
 
-      <!-- 6. About. -->
+      <!-- 6. Colour theme (lib/theme-pref.js builds the menu into #themeMount). -->
+      <section id="themeSection" class="section" aria-labelledby="h-theme">
+        <h2 id="h-theme" class="c-title" data-i18n="theme_menu_label">Theme</h2>
+        <div id="themeMount"></div>
+      </section>
+
+      <!-- 7. About. -->
       <section id="aboutSection" class="section" aria-labelledby="h-about">
         <h2 id="h-about" class="c-title" data-i18n="options_about_title">About</h2>
         <dl class="about-list">

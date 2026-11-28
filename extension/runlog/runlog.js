@@ -4,6 +4,7 @@
 
 import { api } from "../lib/browser-compat.js";
 import { applyI18n, reloadOnLanguageChange } from "../lib/i18n-page.js";
+import { initTheme } from "../lib/theme-pref.js";
 import { DEV_MODE_KEY, parseStoredDevMode } from "../lib/dev-mode-pref.js";
 import { renderNote, renderRuns } from "./runlog-render.js";
 
@@ -74,5 +75,6 @@ async function applyDevMode() {
 api.runtime.onMessage.addListener(onRuntimeMessage);
 els.refresh.addEventListener("click", load);
 applyDevMode();
+initTheme();
 load();
 reloadOnLanguageChange();

@@ -335,6 +335,16 @@
       labHash: "setup-ollama-speedup",
     }),
 
+    // Settings opened on the colour theme section.
+    theme: guide({ labHash: "themeSection" }),
+
+    // Framed by the welcome tab (options.html?embed=...): `labQuery` stands in
+    // for the query string the frame is opened with; "embed-access" is the
+    // state the welcome lab states give their frame.
+    "embed-program": guide({ status: "no-host", labQuery: "embed=program" }),
+    "embed-access-local": guide({ labQuery: "embed=access&choice=local" }),
+    "embed-access": guide({}),
+
     // Online side chosen, no service yet: step 1 alone.
     "setup-online": guide({ autoAction: steps(click("#tabOnline", 60)) }),
 

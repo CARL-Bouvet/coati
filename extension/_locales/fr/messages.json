@@ -1713,16 +1713,112 @@
     "message": "Bienvenue dans Coati"
   },
   "welcome_lead": {
-    "message": "Coati résume une page ou une vidéo et répond à vos questions sur ce que vous lisez, avec le modèle de votre choix, par un programme qui tourne sur votre machine."
+    "message": "Coati est une extension open source (AGPL-3.0). Branchez-y le modèle d'IA de votre choix : il répond à vos questions sur la page que vous lisez, et mène des recherches sur le web, sources à l'appui."
+  },
+  "welcome_lead_privacy": {
+    "message": "Avec un modèle qui tourne sur votre ordinateur (Ollama, par exemple), vos échanges avec lui restent chez vous. Avec un service en ligne (OpenRouter, ChatGPT, Anthropic…), vos questions et les pages que Coati lit pour y répondre sont envoyées à ce service."
+  },
+  "welcome_lead_server": {
+    "message": "Coati, lui, n'a aucun serveur : rien ne passe par nous, et vous changez de modèle quand vous voulez."
+  },
+  "welcome_source_link": {
+    "message": "Code source sur GitHub"
+  },
+  "welcome_licence": {
+    "message": "licence AGPL-3.0"
+  },
+  "welcome_step_program_title": {
+    "message": "Installer le programme local"
+  },
+  "welcome_step_program_text": {
+    "message": "Il relie votre navigateur à votre modèle d'IA et garde vos clés de connexion sur cet ordinateur."
+  },
+  "welcome_step_access_title": {
+    "message": "Choisir l'accès à un modèle d'IA"
+  },
+  "welcome_step_access_text": {
+    "message": "Sur cet ordinateur avec Ollama, ou en ligne : OpenRouter, ChatGPT, une clé payante ou gratuite."
+  },
+  "welcome_access_openrouter": {
+    "message": "OpenRouter"
+  },
+  "welcome_access_openrouter_desc": {
+    "message": "Un compte, connecté en un clic."
+  },
+  "welcome_access_chatgpt": {
+    "message": "ChatGPT (Plus ou Pro)"
+  },
+  "welcome_access_chatgpt_desc": {
+    "message": "Connexion avec votre abonnement ChatGPT."
+  },
+  "welcome_access_paid": {
+    "message": "Clé API payante"
+  },
+  "welcome_access_paid_desc": {
+    "message": "Claude, Mistral, OpenAI…"
+  },
+  "welcome_access_free": {
+    "message": "Clé gratuite"
+  },
+  "welcome_access_free_desc": {
+    "message": "Gemini, Mistral."
+  },
+  "welcome_step_first_title": {
+    "message": "Poser une première question"
+  },
+  "welcome_step_first_text": {
+    "message": "Épinglez l'icône de Coati, ouvrez une page, puis cliquez sur l'icône."
+  },
+  "welcome_step_theme_title": {
+    "message": "Pour le plaisir : un thème pour votre panneau"
+  },
+  "welcome_step_theme_text": {
+    "message": "Le thème s'applique tout de suite ici. Vous pourrez le changer dans les réglages."
+  },
+  "welcome_step_optional": {
+    "message": "Facultatif"
+  },
+  "welcome_step_state_done": {
+    "message": "fait"
+  },
+  "welcome_step_state_current": {
+    "message": "étape en cours"
+  },
+  "welcome_step_state_todo": {
+    "message": "à faire"
+  },
+  "theme_menu_label": {
+    "message": "Thème"
+  },
+  "theme_follows_system": {
+    "message": "Clair ou sombre selon votre système."
+  },
+  "theme_name_masque": {
+    "message": "Masque"
+  },
+  "theme_name_pelage": {
+    "message": "Pelage"
+  },
+  "theme_name_caramel": {
+    "message": "Caramel"
+  },
+  "theme_name_ardoise": {
+    "message": "Ardoise"
+  },
+  "theme_desc_masque": {
+    "message": "Bleu-gris"
+  },
+  "theme_desc_pelage": {
+    "message": "Rouge-orangé"
+  },
+  "theme_desc_caramel": {
+    "message": "Caramel et bleu-gris"
+  },
+  "theme_desc_ardoise": {
+    "message": "Gris et caramel, le premier thème"
   },
   "welcome_pin_title": {
     "message": "Épinglez l'icône"
-  },
-  "welcome_pin_browser_chromium": {
-    "message": "Chrome, Brave, Edge"
-  },
-  "welcome_pin_browser_gecko": {
-    "message": "Firefox"
   },
   "welcome_pin_step1_chromium": {
     "message": "Cliquez sur l'icône des extensions (la pièce de puzzle), à droite de la barre d'adresse."
@@ -1741,36 +1837,6 @@
   },
   "welcome_pin_step3_gecko": {
     "message": "L'icône de Coati reste alors dans la barre d'outils : un clic ouvre la barre latérale."
-  },
-  "welcome_steps_title": {
-    "message": "Trois étapes"
-  },
-  "welcome_program_title": {
-    "message": "Installez le programme local"
-  },
-  "welcome_program_text": {
-    "message": "Coati passe par un petit programme installé sur votre ordinateur : c'est lui qui parle au modèle et garde vos clés, jamais l'extension."
-  },
-  "welcome_program_link": {
-    "message": "Télécharger le programme"
-  },
-  "welcome_model_title": {
-    "message": "Choisissez un modèle"
-  },
-  "welcome_model_text": {
-    "message": "Dans les réglages : un modèle qui tourne chez vous (Ollama), ou un service en ligne avec votre propre clé."
-  },
-  "welcome_page_title": {
-    "message": "Ouvrez Coati sur une page"
-  },
-  "welcome_page_text_chromium": {
-    "message": "Cliquez sur l'icône de Coati, puis sur « Lire cette page » en haut du panneau. Le navigateur vous demandera une fois l'accès à tous les sites."
-  },
-  "welcome_page_text_gecko": {
-    "message": "Cliquez sur l'icône de Coati, puis sur « Lire cette page » en haut de la barre latérale. Firefox vous demandera une fois l'accès à tous les sites."
-  },
-  "welcome_gesture": {
-    "message": "Coati ne lit une page que lorsque vous cliquez : jamais en arrière-plan, jamais en changeant d'onglet."
   },
   "prompts_page_title": {
     "message": "Mes prompts — Coati"
