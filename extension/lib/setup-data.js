@@ -209,3 +209,10 @@ export function getProviderLinks(providerId, baseUrl) {
   const { keysUrl, billingUrl, billingLink, planUrl, planLink, name } = service;
   return { keysUrl, billingUrl, billingLink, planUrl, planLink, name };
 }
+
+/** The local program holds a key for this service and it is the active service. */
+export function keyStoredFor(entry, current) {
+  if (current?.provider !== entry.provider) return false;
+  if (!entry.baseUrl) return Boolean(current.available?.find((p) => p.id === entry.provider)?.configured);
+  return current.baseUrl === entry.baseUrl && Boolean(current.services?.some((svc) => svc.baseUrl === entry.baseUrl && svc.hasKey));
+}

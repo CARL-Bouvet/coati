@@ -453,12 +453,12 @@ try {
     };
     // Clicks the guide's sign-in button and returns the tab the extension opened on `prefix`.
     const openSignInTab = async (prefix) => {
-      await options.locator(".setup-oauth button:visible").click();
+      await options.locator(".c-oauth button:visible").click();
       // The real site may already have bounced the tab to its sign-up page, which carries the
       // sign-in address as `redirect_url`.
       const find = () => ctx.pages().find((p) => p.url().startsWith(prefix));
       await waitFor(async () => Boolean(find()), 10_000, "the sign-in tab").catch(async (err) => {
-        const status = await options.locator(".setup-oauth").innerText().catch(() => "?");
+        const status = await options.locator(".c-oauth").innerText().catch(() => "?");
         throw new Error(`${err.message}\ntabs: ${ctx.pages().map((p) => p.url()).join(" | ")}\nguide: ${status}\n--- broker log ---\n${brokerLogTail()}`);
       });
       return find();

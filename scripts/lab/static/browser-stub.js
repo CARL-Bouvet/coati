@@ -54,51 +54,6 @@
     history.replaceState(null, "", location.pathname + location.search + "#" + fixture.labHash);
   }
 
-  // `labQuery`: query parameters the page would be opened with (the embed modes).
-  if (fixture.labQuery && !/[?&]embed=/.test(location.search)) {
-    history.replaceState(null, "", location.pathname + location.search + (location.search ? "&" : "?") + fixture.labQuery + location.hash);
-  }
-
-  // Frames: a frame opened on options.html takes the fixture's `labFrameState`;
-  // on file:// the origin is "null", which is no valid postMessage target.
-  if (fixture.labFrameState) {
-    var frameSrc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, "src");
-    Object.defineProperty(HTMLIFrameElement.prototype, "src", {
-      configurable: true,
-      get: frameSrc.get,
-      set: function (value) {
-        frameSrc.set.call(this, value + "&state=" + fixture.labFrameState);
-      },
-    });
-  }
-  // file:// pages have an opaque origin: no valid postMessage target, and
-  // event.origin ("null") never equals location.origin ("file://").
-  if (location.protocol === "file:") {
-    var realParent = window.parent;
-    if (realParent !== window) {
-      Object.defineProperty(window, "parent", {
-        configurable: true,
-        value: {
-          postMessage: function (message) {
-            realParent.postMessage(message, "*");
-          },
-        },
-      });
-    }
-    var addListener = window.addEventListener;
-    window.addEventListener = function (type, handler, options) {
-      if (type !== "message" || typeof handler !== "function") return addListener.call(this, type, handler, options);
-      return addListener.call(
-        this,
-        type,
-        function (event) {
-          return handler.call(this, { data: event.data, source: event.source, origin: location.origin });
-        },
-        options,
-      );
-    };
-  }
-
   // U2: deterministic machine facts for the setup guide's OS detection and
   // memory row, whatever machine renders the lab.
   if (fixture.labPlatform) {

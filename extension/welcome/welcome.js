@@ -9,21 +9,12 @@
 import { api, IS_GECKO } from "../lib/browser-compat.js";
 import { t, setDocumentLanguage, reloadOnLanguageChange } from "../lib/i18n-page.js";
 import { mountLanguageSelector } from "../lib/language-selector.js";
-import { readHost } from "../lib/model-list.js";
 import { initTheme, buildThemeMenu } from "../lib/theme-pref.js";
 import { createIcon } from "../lib/icons.js";
+import { mountAccessStep } from "./access-step.js";
 import { DOWNLOAD_LABELS, HELP_KEYS, INSTALL_DOC_URL, platformFromInfo, programDownloads } from "../lib/program-download.js";
 
 const STEP_IDS = ["program", "access", "first", "theme"];
-// Step 2: the way to an AI model, in this order. `name`/`desc` are locale keys;
-// the frame (options.html?embed=access) shows that way's setup.
-const ACCESS = [
-  { id: "local", name: "model_list_local", desc: "model_split_local_summary" },
-  { id: "openrouter", name: "welcome_access_openrouter", desc: "welcome_access_openrouter_desc" },
-  { id: "chatgpt", name: "welcome_access_chatgpt", desc: "welcome_access_chatgpt_desc" },
-  { id: "paid", name: "welcome_access_paid", desc: "welcome_access_paid_desc" },
-  { id: "free", name: "welcome_access_free", desc: "welcome_access_free_desc" },
-];
 const POLL_MS = 3000;
 const ADVANCE_MS = 1500;
 
@@ -85,37 +76,14 @@ async function start() {
     return body;
   }
 
-  // Step 2: one radio per way; the chosen one shows Settings' own block in a frame.
-  let accessFrame = null;
-  let hostLine = null;
+  // Step 2: the way to a model and its one action (welcome/access-step.js).
+  let access = null;
   function accessBody() {
-    const body = el("div", "welcome-body");
-    const group = el("fieldset", "welcome-access");
-    group.append(el("legend", "welcome-sr", t("welcome_step_access_title")));
-    const frameBox = el("div", "welcome-frame-box");
-    for (const way of ACCESS) {
-      const row = el("label", "c-row welcome-access-option");
-      const input = el("input");
-      input.type = "radio";
-      input.name = "welcomeAccess";
-      input.value = way.id;
-      input.addEventListener("change", () => showAccess(frameBox, way.id));
-      row.append(input, el("span", "welcome-access-name", t(way.name)), el("span", "welcome-access-desc", t(way.desc)));
-      if (way.id === "local") {
-        hostLine = el("span", "welcome-access-desc");
-        row.append(hostLine);
-      }
-      group.append(row);
-    }
-    body.append(group, el("p", "welcome-note", t("setup_online_which_claude_plan")), frameBox);
-    return body;
-  }
-
-  function showAccess(box, choice) {
-    accessFrame = el("iframe", "welcome-frame");
-    accessFrame.title = t("welcome_step_access_title");
-    accessFrame.src = `../options.html?embed=access&choice=${choice}`;
-    box.replaceChildren(accessFrame);
+    access = mountAccessStep({
+      send: (payload) => api.runtime.sendMessage({ type: "coati:client-message", payload }).catch(() => {}),
+      newId: () => `welcome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    });
+    return access.element;
   }
 
   function pinBody() {
@@ -151,7 +119,6 @@ async function start() {
     if (id === "theme") label.append(el("span", "welcome-optional", t("welcome_step_optional")));
     const sr = el("span", "welcome-sr");
     label.append(sr);
-    const text = el("p", "welcome-step-text", t(`welcome_step_${id}_text`));
     const head = el("h2", "welcome-step-head");
     const panel = el("div", "welcome-panel");
     panel.id = `welcomePanel-${id}`;
@@ -159,7 +126,8 @@ async function start() {
     const toggle = el("button", "welcome-toggle");
     toggle.type = "button";
     toggle.append(mark, label);
-    panel.append(text);
+    // Step 2's choices speak for themselves: no intro line.
+    if (id !== "access") panel.append(el("p", "welcome-step-text", t(`welcome_step_${id}_text`)));
     const chevron = el("span", "welcome-chevron");
     chevron.append(createIcon("chevron-down"));
     toggle.append(chevron);
@@ -200,6 +168,7 @@ async function start() {
   function setStatus(next) {
     const was = status;
     status = next ?? "unknown";
+    access.onStatus(status === "connected");
     update();
     // Like the options guide: once the program answers, move on to the model.
     if (status === "connected" && was !== "connected" && open === 0) {
@@ -210,7 +179,6 @@ async function start() {
   // Step 2 is done once a model is set that was not already: a model that was
   // there on arrival marks it done without moving on (the user came to change it).
   let baselineModel;
-  let hostRequestId = null;
   function onSettings(reply) {
     if (baselineModel === undefined) {
       baselineModel = reply.model ?? null;
@@ -224,15 +192,8 @@ async function start() {
     else update();
   }
 
-  function onHost(reply) {
-    const host = readHost(reply.host);
-    if (host && hostLine) hostLine.textContent = t("setup_local_host_ram", [host.ramGb.toLocaleString(document.documentElement.lang || undefined)]);
-  }
-
   function askBroker() {
     api.runtime.sendMessage({ type: "coati:client-message", payload: { type: "settings.get", id: `welcome-${Date.now()}` } }).catch(() => {});
-    hostRequestId = `welcome-host-${Date.now()}`;
-    api.runtime.sendMessage({ type: "coati:client-message", payload: { type: "models.list", id: hostRequestId } }).catch(() => {});
   }
 
   api.runtime.onMessage.addListener((message) => {
@@ -242,13 +203,9 @@ async function start() {
     }
     const reply = message?.type === "coati:broker-message" ? message.message : null;
     if (reply?.type === "settings") onSettings(reply);
-    if (reply?.type === "models" && reply.id === hostRequestId) onHost(reply);
+    if (reply) access.onBrokerMessage(reply);
   });
-  // The frame reports its height; only our own origin is listened to.
-  window.addEventListener("message", (event) => {
-    if (event.origin !== location.origin || event.source !== accessFrame?.contentWindow) return;
-    if (event.data?.type === "coati:embed-height") accessFrame.style.height = `${event.data.h}px`;
-  });
+  access.onStatus(status === "connected");
   if (status === "connected") askBroker();
   // coati:panel-ready makes the worker try to connect; polled until the program answers.
   setInterval(() => {

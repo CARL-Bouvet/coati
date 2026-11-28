@@ -14,7 +14,6 @@ import { t } from "../lib/i18n-page.js";
 import { DOWNLOAD_LABELS, HELP_KEYS, INSTALL_DOC_URL, platformFromInfo, programDownloads } from "../lib/program-download.js";
 import { detectOs, el, externalLink, fold, makeStep } from "../options-setup.js";
 import { els } from "./dom-refs.js";
-import { EMBED } from "./dom-helpers.js";
 
 const POLL_MS = 3000;
 const CHECKING_MS = 2000;
@@ -119,8 +118,7 @@ export function mountProgramStep({ section, list }) {
   function advance() {
     setTimeout(() => {
       if (state !== "connected") return;
-      if (EMBED) parent.postMessage({ type: "coati:embed-connected" }, location.origin);
-      else location.hash = "#setup";
+      location.hash = "#setup";
     }, ADVANCE_MS);
   }
 
@@ -143,7 +141,7 @@ export function mountProgramStep({ section, list }) {
     open() {
       reveal();
       if (state === "connected") step.setState("done", t("setup_program_ok"));
-      if (!EMBED) section.scrollIntoView?.({ block: "start" });
+      section.scrollIntoView?.({ block: "start" });
       syncPolling();
     },
   };

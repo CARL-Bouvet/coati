@@ -510,17 +510,8 @@ code { font-size: var(--text-s); }
 /* The row's own "Remove" replaces the key component's "Delete the key". */
 .service .key-input-delete { display: none; }
 
-/* --- Key entry (lib/key-input.js) and other address --------------------- */
+/* --- Other address (key entry: lib/components.css) ----------------------- */
 
-.key-input {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.key-input-row,
-.key-input-status-row,
 .baseurl-field {
   display: flex;
   flex-wrap: wrap;
@@ -528,32 +519,10 @@ code { font-size: var(--text-s); }
   gap: var(--space-2);
 }
 
-.key-input-row > input,
 .baseurl-field > input { flex: 1 1 12em; min-width: 0; }
 
-.key-input-status {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  flex: 1 1 14em;
-  color: var(--muted);
-}
-
-.key-input-status[data-tone="ok"] { color: var(--success); }
-.key-input-status[data-tone="error"],
-.baseurl-error { color: var(--danger); }
-.key-input-mark { font-weight: 700; }
-.key-input-mark:empty,
+.baseurl-error { flex-basis: 100%; color: var(--danger); }
 .baseurl-error:empty { display: none; }
-
-.key-input-notes {
-  margin: 0;
-  padding-left: var(--space-4);
-  font-size: var(--text-s);
-  color: var(--muted);
-}
-
-.baseurl-error { flex-basis: 100%; }
 
 /* --- "Test" results ------------------------------------------------------ */
 
@@ -777,8 +746,6 @@ h4.setup-subtitle {
 .setup-todo > li + li { margin-top: var(--space-1); }
 .setup-todo-title { font-weight: 600; margin-top: var(--space-2); }
 .setup-todo-title:first-child { margin-top: 0; }
-.setup-oauth { display: grid; justify-items: start; gap: var(--space-1); margin-bottom: var(--space-2); }
-.setup-oauth > p { margin: 0; }
 
 /* Online guide: one block that moves forward (service, access, model). */
 .setup-online-block,
@@ -851,41 +818,4 @@ h4.setup-subtitle {
 
   .service { grid-template-columns: minmax(0, 1fr); }
   .service-actions { justify-content: flex-start; }
-}
-
-/* --- Embed (options.html?embed=..., framed by the welcome tab) ------------
- * One block, no band, no menu; the page reports its height (options.js). */
-[data-embed] .page-head,
-[data-embed] .section-nav,
-[data-embed] .setup-online-which,
-[data-embed] .section > .c-title,
-[data-embed] #setupIntro,
-[data-embed] #currentModel {
-  display: none;
-}
-
-[data-embed] .page {
-  display: block;
-  max-width: none;
-  padding: 0;
-}
-
-[data-embed="program"] .section:not(#setup-program),
-[data-embed="access"] .section:not(#modelSection) {
-  display: none;
-}
-
-/* Embedded blocks lay out at their natural height; the frame is sized from outside. */
-html[data-embed],
-[data-embed] body,
-[data-embed] .page,
-[data-embed] .page-content {
-  height: auto;
-  min-height: 0;
-  overflow: visible;
-}
-
-/* The side already chosen on the welcome tab fills the width; no rail for the other. */
-[data-embed="access"] .split-side[data-state="folded"] {
-  display: none;
 }

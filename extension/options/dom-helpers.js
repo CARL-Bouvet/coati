@@ -5,10 +5,6 @@
 
 import { api } from "../lib/browser-compat.js";
 
-/** options.html?embed=program|access: the page framed by the welcome tab (options.css, options.js). */
-export const EMBED = new URLSearchParams(location.search).get("embed");
-export const EMBED_CHOICE = new URLSearchParams(location.search).get("choice");
-
 export function newId() {
   return `opt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }

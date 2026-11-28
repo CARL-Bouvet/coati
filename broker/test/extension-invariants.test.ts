@@ -124,7 +124,7 @@ describe("ChatGPT sign-in (extension side)", () => {
   });
 
   test("the OAuth prefix map and the service entry carry chatgpt", () => {
-    const setup = readFileSync(join(EXTENSION_ROOT, "options-setup.js"), "utf8");
+    const setup = readFileSync(join(EXTENSION_ROOT, "lib", "oauth-sign-in.js"), "utf8");
     expect(setup).toContain('chatgpt: "https://auth.openai.com/api/accounts/authorize?"');
     const data = readFileSync(join(EXTENSION_ROOT, "lib", "setup-data.js"), "utf8");
     expect(data).toMatch(/id: "chatgpt",[^}]*oauth: "chatgpt"/s);

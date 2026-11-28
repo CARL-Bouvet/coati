@@ -1736,9 +1736,6 @@
   "welcome_step_access_title": {
     "message": "Choose how to reach an AI model"
   },
-  "welcome_step_access_text": {
-    "message": "On this computer with Ollama, or online: OpenRouter, ChatGPT, a paid key or a free key."
-  },
   "welcome_access_openrouter": {
     "message": "OpenRouter"
   },
@@ -1762,6 +1759,18 @@
   },
   "welcome_access_free_desc": {
     "message": "Gemini, Mistral."
+  },
+  "welcome_access_local_unreachable": {
+    "message": "Ollama does not answer. Start it, then try again."
+  },
+  "welcome_access_local_none": {
+    "message": "Ollama has no model yet. Download one from its library:"
+  },
+  "welcome_access_free_google": {
+    "message": "With the free key, Google may use your texts to improve its products."
+  },
+  "welcome_access_more": {
+    "message": "More options in Settings"
   },
   "welcome_step_first_title": {
     "message": "Ask a first question"

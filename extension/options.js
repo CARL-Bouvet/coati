@@ -29,7 +29,6 @@ import { mountLanguageSelector } from "./lib/language-selector.js";
 import { els } from "./options/dom-refs.js";
 import { setupShortcut, showAbout } from "./options/shortcut-about.js";
 import { renderSiteToggles } from "./options/site-toggles.js";
-import { EMBED } from "./options/dom-helpers.js";
 import { watchSections } from "./options/section-nav.js";
 import { applyStatus, requestSettings, handleBrokerMessage, wireModelSettings } from "./options/model-core.js";
 
@@ -50,31 +49,11 @@ reloadOnLanguageChange();
 const variant = new URLSearchParams(location.search).get("variant");
 if (variant) document.documentElement.dataset.variant = variant;
 
-// Framed by the welcome tab: options.css shows one block; the height goes up.
-if (EMBED) {
-  document.documentElement.dataset.embed = EMBED;
-  // The height is the bottom of the embedded section (natural height, see
-  // options.css), so it grows and shrinks with the content.
-  const target = () => document.getElementById(EMBED === "program" ? "setup-program" : "modelSection");
-  let queued = false;
-  const report = () => {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      const bottom = target().getBoundingClientRect().bottom + window.scrollY;
-      parent.postMessage({ type: "coati:embed-height", h: Math.ceil(bottom) }, location.origin);
-    });
-  };
-  new ResizeObserver(report).observe(document.body);
-  new MutationObserver(report).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
-}
-
 init();
 
 async function init() {
   await initTheme();
-  if (!EMBED) document.getElementById("themeMount").append(buildThemeMenu(t));
+  document.getElementById("themeMount").append(buildThemeMenu(t));
   // docs/PROTOCOL.md: write-only field, never
   // pre-filled with the key/secret in memory — nothing read from
   // chrome.storage.session here.
@@ -166,7 +145,6 @@ async function init() {
   applyStatus(initial?.state ?? "unknown");
   if (initial?.state === "connected") requestSettings();
 
-  if (EMBED) return;
   await renderSiteToggles();
   api.permissions.onAdded.addListener(renderSiteToggles);
   api.permissions.onRemoved.addListener(renderSiteToggles);

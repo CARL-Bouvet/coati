@@ -638,3 +638,56 @@ html.mode-dev .c-card .c-button:not(.c-button--primary, .c-button--danger, .is-a
   font-size: var(--text-s);
   color: var(--muted);
 }
+
+/* --- Key entry (lib/key-input.js) ------------------------------------------ */
+
+.key-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.key-input-row,
+.key-input-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.key-input-row > input { flex: 1 1 12em; min-width: 0; }
+
+.key-input-status {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex: 1 1 14em;
+  color: var(--muted);
+}
+
+.key-input-status[data-tone="ok"] { color: var(--success); }
+.key-input-status[data-tone="error"] { color: var(--danger); }
+.key-input-mark { font-weight: 700; }
+.key-input-mark:empty { display: none; }
+
+.key-input-notes {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-s);
+  color: var(--muted);
+}
+
+/* --- Sign-in (lib/oauth-sign-in.js): the button and the line under it ------- */
+
+.c-oauth {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.c-note {
+  margin: 0;
+  color: var(--muted);
+}

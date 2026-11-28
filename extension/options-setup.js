@@ -20,8 +20,8 @@
 // innerHTML: nodes built one by one.
 
 import { t } from "./lib/i18n-page.js";
-import { api } from "./lib/browser-compat.js";
 import { createKeyInput } from "./lib/key-input.js";
+import { chatgptSignInNodes, createOauthSignIn } from "./lib/oauth-sign-in.js";
 import { fitLimitsGb, groupModels, readHost, sameModel, shortModelName } from "./lib/model-list.js";
 import {
   OLLAMA,
@@ -31,13 +31,9 @@ import {
   LM_STUDIO,
   ONLINE_PROVIDERS,
   COST_BASIS_WORDS,
+  keyStoredFor,
 } from "./lib/setup-data.js";
 
-// The address the local program may hand back to open, per sign-in service.
-const OAUTH_URL_PREFIX = {
-  openrouter: "https://openrouter.ai/auth?",
-  chatgpt: "https://auth.openai.com/api/accounts/authorize?",
-};
 const OS_NAMES = { windows: "Windows", mac: "macOS", linux: "Linux" };
 
 /** "windows" | "mac" | "linux" | null — from User-Agent Client Hints when
@@ -192,6 +188,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
   const pending = new Map();
   const checkButtons = [];
   const oauthButtons = new Set();
+  const signIns = new Set();
 
   const os = detectOs();
 
@@ -592,7 +589,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
     const howTo = fold(null, t(entry.oauth ? "setup_online_have_key" : "setup_online_no_key"), "fold fold--inner setup-online-fold");
     howTo.body.append(...howToGetKey(entry));
     manualFold = entry.oauth ? howTo.details : null;
-    oauthBox = entry.oauth ? oauthBlock(entry) : null;
+    oauthBox = entry.oauth ? oauthBlock(entry).element : null;
     if (entry.oauth) {
       howTo.body.append(keyPart);
       access.replaceChildren(oauthBox, signedInLine, ...freeNotes(entry), howTo.details);
@@ -653,35 +650,24 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
     return [privacy, el("p", "help help--tight", t("setup_online_openrouter_quota", [formatNumber(entry.freeRequestsPerMinute)]))];
   }
 
-  /** One-click sign-in: the local program returns the address to open in a new tab; the key
-   * arrives in the program, never here. The settings it pushes afterwards get it checked. */
+  /** One-click sign-in (lib/oauth-sign-in.js). The settings the program pushes afterwards get the key checked. */
   function oauthBlock(entry, { consent = false } = {}) {
-    const box = el("div", "setup-oauth");
-    const label = consent ? t("setup_chatgpt_allow_button") : t("setup_oauth_signin", [entry.name]);
-    const button = el("button", "c-button c-button--primary", label);
-    button.type = "button";
-    button.disabled = !connected;
-    oauthButtons.clear();
-    oauthButtons.add(button);
-    const status = el("p", "help help--tight");
-    status.setAttribute("aria-live", "polite");
-    button.addEventListener("click", () => {
-      button.disabled = true;
-      const payload = { type: "oauth.start", service: entry.oauth };
-      if (consent) payload.consent = true;
-      request(payload, (reply) => {
-        button.disabled = !connected;
-        if (reply?.type === "oauth.started" && typeof reply.url === "string" && reply.url.startsWith(OAUTH_URL_PREFIX[entry.oauth])) {
-          oauthPending = true;
-          status.textContent = t("setup_oauth_waiting");
-          api.tabs.create({ url: reply.url });
-        } else {
-          status.textContent = t("setup_oauth_failed");
-        }
-      });
+    const signIn = createOauthSignIn({
+      service: entry,
+      consent,
+      send,
+      newId,
+      t,
+      isConnected: () => connected,
+      onStarted: () => {
+        oauthPending = true;
+      },
     });
-    box.append(button, status);
-    return box;
+    oauthButtons.clear();
+    signIns.clear();
+    oauthButtons.add(signIn.button);
+    signIns.add(signIn);
+    return signIn;
   }
 
   /** ChatGPT: what `settings.account` says drives the block: sign in, allow the plan, the
@@ -692,13 +678,8 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
     if (signature === planSignature) return;
     planSignature = signature;
     oauthButtons.clear();
-    const nodes = [];
-    if (!account?.signedIn) {
-      nodes.push(oauthBlock(entry));
-      if (account?.revokeUnconfirmed) nodes.push(el("p", "help help--tight", t("setup_chatgpt_revoke_unconfirmed")));
-    } else if (!account.planUsage) {
-      nodes.push(el("p", "setup-text", t("setup_chatgpt_allow_plan")), oauthBlock(entry, { consent: true }));
-    } else {
+    const nodes = chatgptSignInNodes(account, (opts) => oauthBlock(entry, opts), t);
+    if (nodes.length === 0) {
       if (!account.welcomed) {
         const gotIt = el("button", "c-button c-button--small", t("setup_chatgpt_got_it"));
         gotIt.type = "button";
@@ -726,13 +707,6 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
       return settings?.provider === chosenService.provider && Boolean(settings.account?.signedIn && settings.account.planUsage);
     }
     return keyOk && keyStoredFor(chosenService, settings);
-  }
-
-  /** The program holds a key for this service and it is the active service. */
-  function keyStoredFor(entry, current) {
-    if (current?.provider !== entry.provider) return false;
-    if (!entry.baseUrl) return Boolean(current.available?.find((p) => p.id === entry.provider)?.configured);
-    return current.baseUrl === entry.baseUrl && Boolean(current.services?.some((svc) => svc.baseUrl === entry.baseUrl && svc.hasKey));
   }
 
   function buildKeyInput(entry) {
@@ -821,11 +795,6 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
       renderHost();
       markChosenLocalModel();
     },
-    /** Picks an online service as a click on its radio would (the welcome tab's embed). */
-    chooseServiceById(id) {
-      const entry = ONLINE_PROVIDERS.find((e) => e.id === id);
-      if (entry) chooseService(entry);
-    },
     /** The "On this computer" side is shown (true) or hidden (false). */
     setLocalVisible(visible) {
       localVisible = Boolean(visible);
@@ -856,6 +825,7 @@ export function mountSetupGuide({ localRoot, onlineRoot, send, newId, onModels, 
     onBrokerMessage(message) {
       if (!message) return;
       guideKeyInput?.handleBrokerMessage(message);
+      for (const signIn of signIns) signIn.handleBrokerMessage(message);
       if (message.id && pending.has(message.id)) {
         const callback = pending.get(message.id);
         pending.delete(message.id);

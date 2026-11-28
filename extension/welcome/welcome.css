@@ -76,6 +76,8 @@ body {
 .welcome-lead,
 .welcome-step-text,
 .welcome-list-text,
+.welcome-note,
+.welcome-body .c-note,
 .welcome-fold > :not(summary) {
   max-width: 50ch;
 }
@@ -322,7 +324,7 @@ body {
   }
 }
 
-/* --- Step 2: ways to reach a model, and the Settings block framed below ---- */
+/* --- Step 2: ways to reach a model, and the action of the chosen one ---- */
 .welcome-access {
   min-width: 0;
   margin: 0;
@@ -372,13 +374,20 @@ body {
   color: var(--muted);
 }
 
-.welcome-frame-box {
+.welcome-models {
   width: 100%;
+  max-width: 400px;
 }
 
-.welcome-frame {
-  display: block;
+.welcome-models:empty {
+  display: none;
+}
+
+/* The chosen access already names the group; the heading still labels it for screen readers. */
+.welcome-models .model-list-section > .model-list-heading:first-child {
+  display: none;
+}
+
+.welcome-models select {
   width: 100%;
-  height: 320px;
-  border: 0;
 }

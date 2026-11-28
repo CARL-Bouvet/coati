@@ -1736,9 +1736,6 @@
   "welcome_step_access_title": {
     "message": "选择使用 AI 模型的方式"
   },
-  "welcome_step_access_text": {
-    "message": "在这台电脑上使用 Ollama，或在线使用：OpenRouter、ChatGPT、付费密钥或免费密钥。"
-  },
   "welcome_access_openrouter": {
     "message": "OpenRouter"
   },
@@ -1762,6 +1759,18 @@
   },
   "welcome_access_free_desc": {
     "message": "Gemini、Mistral。"
+  },
+  "welcome_access_local_unreachable": {
+    "message": "Ollama 没有响应。请先启动它，然后重试。"
+  },
+  "welcome_access_local_none": {
+    "message": "Ollama 里还没有模型。请从它的模型库下载一个："
+  },
+  "welcome_access_free_google": {
+    "message": "使用免费密钥时，Google 可能会将您的文本用于改进其产品。"
+  },
+  "welcome_access_more": {
+    "message": "在设置中查看更多选项"
   },
   "welcome_step_first_title": {
     "message": "提出第一个问题"
