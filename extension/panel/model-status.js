@@ -80,9 +80,9 @@ export async function retryConnection() {
 // and first-answer facts, it tells apart a user who never had the program.
 let programAnswered = false;
 
-/** The state the header shows: a program that has never answered is "not
+/** The state the header and the first-run card show: a program that has never answered is "not
  * found", whether or not its native host is registered. */
-function headerState(state) {
+export function headerState(state) {
   const neverAnswered = !programAnswered && !firstRunDone && !panelState.modelEverAnswered;
   return state === "disconnected" && neverAnswered ? "no-host" : state;
 }

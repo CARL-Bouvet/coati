@@ -29,7 +29,7 @@ import {
   WELCOME_PROGRAM_PATH,
   WELCOME_ACCESS_PATH,
 } from "./first-run.js";
-import { currentConnState, providerState } from "./model-status.js";
+import { currentConnState, headerState, providerState } from "./model-status.js";
 import { AUTH_REQUIRED_TEXT } from "./recovery-blocks.js";
 import { currentTabId, langSelector } from "./panel.js";
 import { knownOrigin, currentPageUrl, currentFavIconUrl, redetectTab } from "./page-detect.js";
@@ -228,7 +228,7 @@ export function renderFirstRun() {
     return;
   }
   const checks = firstRunChecks({
-    connState: currentConnState,
+    connState: headerState(currentConnState), // a program that never answered counts as missing
     providerState,
     modelAnswered: panelState.modelAnswered,
     pageAccess: readButtonUsed || allSitesGranted || siteGranted,
