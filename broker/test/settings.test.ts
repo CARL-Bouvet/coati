@@ -1037,7 +1037,7 @@ describe("oauth.start chatgpt + /auth/callback", () => {
     expect(new Bun.CryptoHasher("sha256").update(form.get("code_verifier")!).digest("base64url")).toBe(q.get("code_challenge")!);
 
     const file = join(configDir, "chatgpt-auth.json");
-    expect(statSync(file).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") expect(statSync(file).mode & 0o777).toBe(0o600); // Windows has no POSIX modes
     const stored = JSON.parse(readFileSync(file, "utf8"));
     expect(stored).toMatchObject({ hostId: q.get("ext_agent_host_id"), clientId: CLIENT, subject: "sub-123", email: "me@example.com", accessToken: "AT-0", refreshToken: "RT-0", welcomed: false });
 
