@@ -83,6 +83,7 @@ import {
 } from "./model-status.js";
 import {
   openAccessTutorial,
+  openProgramTutorial,
   wireHelpButton,
   onReadPageClick,
   COATI_ICON_PATH,
@@ -113,11 +114,6 @@ import { onChunk, onProgress, onDone, onError } from "./chat-stream.js";
 import { onPageRequest } from "./page-request.js";
 import { onSearchRequest, onOpenRequest } from "./web-search.js";
 
-// Public repo doc, opened from the "no-host" banner (docs/PROTOCOL.md, "États et bandeaux"). No
-// local doc viewer in the extension itself, so this points at the same repo the "À propos" section
-// already links to.
-const INSTALL_DOC_URL = "https://github.com/CARL-Bouvet/coati/blob/main/docs/INSTALL.md";
-
 // Composer height recompute — set in init(), called after every
 // programmatic change of els.input.value (those fire no "input" event).
 // Only ever reassigned here (bootstrap) — every other module imports it
@@ -147,10 +143,6 @@ export const langSelector = mountLanguageSelector(document.getElementById("langS
 const requestedVariant = new URLSearchParams(location.search).get("variant");
 if (requestedVariant) document.documentElement.dataset.variant = requestedVariant;
 
-// Public repo doc, opened from the "no-host" banner (docs/PROTOCOL.md, "États et bandeaux"). No
-// local doc viewer in the extension itself, so this points at the same repo the "À propos" section
-// already links to.
-
 init();
 
 async function init() {
@@ -164,7 +156,7 @@ async function init() {
   // shown in (no-host, no-token). Same page as the gear icon, no separate
   // "connect" flow left (docs/PROTOCOL.md: /pair removed from the extension).
   els.connectCoati.addEventListener("click", () => api.runtime.openOptionsPage());
-  els.installDocLink.addEventListener("click", () => api.tabs.create({ url: INSTALL_DOC_URL }));
+  els.installProgram.addEventListener("click", openProgramTutorial);
   els.connectionBannerRetry.addEventListener("click", retryConnection);
   els.neverConnectedAction.addEventListener("click", openAccessTutorial);
   wireHelpButton();

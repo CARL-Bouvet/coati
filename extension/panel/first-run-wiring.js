@@ -48,7 +48,7 @@ let allSitesDeclined = false;
 let readButtonUsed = false;
 let readButtonReading = false;
 let readButtonRequest = null; // "all-sites" | "site" | null — what the next click asks for
-let firstRunDone = false;
+export let firstRunDone = false;
 let accessPrefsLoaded = false;
 
 export async function loadAccessPrefs() {
@@ -80,8 +80,8 @@ export function openModelTutorial() {
   api.tabs.create({ url: api.runtime.getURL(MODEL_TUTORIAL_PATH) });
 }
 
-/** The first-run card's "program" step: download and install the local program. */
-function openProgramTutorial() {
+/** The first-run card's "program" step and the connection banner: the welcome tab's program step. */
+export function openProgramTutorial() {
   api.tabs.create({ url: api.runtime.getURL(WELCOME_PROGRAM_PATH) });
 }
 
@@ -246,7 +246,8 @@ export function renderFirstRun() {
   // stacking the standalone notice under it (renderNeverConnected() stays
   // hidden while this card shows) — same text, one line under the title,
   // gone as soon as the model step is ticked (it would contradict it).
-  els.firstRunNeverConnected.hidden = panelState.modelEverAnswered || checks.model === "ok";
+  // Without the program, its own line comes first: the model can wait.
+  els.firstRunNeverConnected.hidden = panelState.modelEverAnswered || checks.model === "ok" || checks.program === "missing";
   els.firstRunSteps.replaceChildren(
     firstRunStep("program", checks.program, openProgramTutorial),
     firstRunStep("model", checks.model, openAccessTutorial),
@@ -319,7 +320,8 @@ function firstRunStep(check, value, onAction) {
     }
     const action = document.createElement("button");
     action.type = "button";
-    action.className = "c-button c-button--small first-run-action";
+    // Installing the program comes before anything else: its button leads.
+    action.className = `c-button c-button--small${check === "program" ? " c-button--primary" : ""} first-run-action`;
     action.textContent = text.action;
     action.addEventListener("click", onAction);
     body.appendChild(action);

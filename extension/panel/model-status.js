@@ -24,7 +24,7 @@ import { getProviderLinks } from "../lib/setup-data.js";
 import { setStreamingUi } from "./request-watch.js";
 import { addMessage } from "./message-render.js";
 import { persistConversation } from "./conversation-store.js";
-import { renderFirstRun, renderNeverConnected, openModelTutorial } from "./first-run-wiring.js";
+import { renderFirstRun, renderNeverConnected, openModelTutorial, firstRunDone } from "./first-run-wiring.js";
 import { updateDevModeUi } from "./dev-mode.js";
 
 // "Montrer du doigt".
@@ -76,7 +76,22 @@ export async function retryConnection() {
   applyBrokerFeatures(status?.state ?? "unknown", status?.features);
 }
 
+// Set once the program has answered in this panel. With the stored first-run
+// and first-answer facts, it tells apart a user who never had the program.
+let programAnswered = false;
+
+/** The state the header shows: a program that has never answered is "not
+ * found", whether or not its native host is registered. */
+function headerState(state) {
+  const neverAnswered = !programAnswered && !firstRunDone && !panelState.modelEverAnswered;
+  return state === "disconnected" && neverAnswered ? "no-host" : state;
+}
+
 export function applyStatus(state) {
+  // The service worker retries in the background: a program that does not
+  // answer keeps one steady state instead of flashing "Connecting…" each try.
+  if (state === "connecting" && (currentConnState === "disconnected" || currentConnState === "no-host")) return;
+  if (state === "connected") programAnswered = true;
   // A dropped connection must not leave the panel permanently locked: any
   // in-flight request will never get its "done"/"error" reply now.
   if ((state === "disconnected" || state === "no-token" || state === "pairing-retry") && panelState.activeRequestId) {
@@ -85,7 +100,7 @@ export function applyStatus(state) {
 
   currentConnState = state;
   if (state !== "connected") providerStatusSuffix = ""; // stale once disconnected
-  els.status.className = `status status--${state}`;
+  els.status.className = `status status--${headerState(state)}`;
   renderStatusLabel();
   applyConnectionBanner(state);
   if (state === "connected") {
@@ -113,7 +128,7 @@ export function renderStatusLabel() {
     "no-token": t("panel_status_no_token"),
     "pairing-retry": t("panel_status_pairing_retry"),
   };
-  let text = labels[currentConnState] ?? currentConnState;
+  let text = labels[headerState(currentConnState)] ?? currentConnState;
   if (currentConnState === "connected" && providerStatusSuffix) text += ` · ${providerStatusSuffix}`;
   els.statusLabel.textContent = text;
   // A model-missing problem (the only
@@ -140,7 +155,7 @@ export function renderStatusLabel() {
 // - "broker-untrusted" / "no-token": terminal refusal — Retry button.
 // - "disconnected": program presumably installed but not running — Retry.
 export function applyConnectionBanner(state) {
-  els.installDocLink.hidden = true;
+  els.installProgram.hidden = true;
   els.connectCoati.hidden = true;
   els.connectionBannerRetry.hidden = true;
 
@@ -148,7 +163,7 @@ export function applyConnectionBanner(state) {
     // "Program missing": offer both the install page and an immediate retry
     // (it may just have finished installing/starting while this was shown).
     els.connectionBannerText.textContent = t("panel_banner_no_host");
-    els.installDocLink.hidden = false;
+    els.installProgram.hidden = false;
     els.connectionBannerRetry.hidden = false;
     els.connectCoati.hidden = false;
     els.connectionBanner.hidden = false;
@@ -178,9 +193,10 @@ export function applyConnectionBanner(state) {
     return;
   }
   if (state === "disconnected") {
-    // "Program not responding": it is presumably installed already, just
-    // not running right now — only a retry, no install link.
+    // "Program not responding": not running right now, or never installed in
+    // this browser (a user who closed the welcome tab) — retry, or install.
     els.connectionBannerText.textContent = t("panel_banner_disconnected");
+    els.installProgram.hidden = false;
     els.connectionBannerRetry.hidden = false;
     els.connectionBanner.hidden = false;
     return;

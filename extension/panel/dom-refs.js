@@ -13,7 +13,7 @@ export const els = {
   connectionBanner: document.getElementById("connectionBanner"),
   connectionBannerText: document.getElementById("connectionBannerText"),
   connectCoati: document.getElementById("connectCoati"),
-  installDocLink: document.getElementById("installDocLink"),
+  installProgram: document.getElementById("installProgram"),
   connectionBannerRetry: document.getElementById("connectionBannerRetry"),
   openOptions: document.getElementById("openOptions"),
   helpButton: document.getElementById("helpButton"),

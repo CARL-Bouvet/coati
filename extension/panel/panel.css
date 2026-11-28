@@ -296,6 +296,19 @@ textarea {
   color: var(--banner-fg);
 }
 
+/* A new client without the program: the first-run card says it, with the one
+ * button to install it; the alarm banner on top would only repeat it. */
+body:has(#firstRun:not([hidden]) [data-check="program"][data-status="missing"]) .connection-banner {
+  display: none;
+}
+
+/* Installing the program leads; retry and settings stay secondary. */
+.connection-banner-cta:not(#installProgram) {
+  border: 1px solid currentColor;
+  background: transparent;
+  color: var(--banner-fg);
+}
+
 .connection-banner-text {
   flex: 1 1 18em;
   min-width: 0;
