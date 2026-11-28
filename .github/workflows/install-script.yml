@@ -1,0 +1,58 @@
+name: install script
+
+# site/install.sh (served at getcoati.com/install.sh) against the latest release,
+# with --dry-run, on the Linux families the docs point at it.
+on:
+  push:
+    paths: [site/install.sh, .github/workflows/install-script.yml]
+  pull_request:
+    paths: [site/install.sh, .github/workflows/install-script.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: archlinux:latest
+            tools: pacman -Sy --noconfirm curl
+          # /bin/sh is dash here, and wget (no curl) covers the script's other download branch.
+          - image: debian:stable
+            tools: apt-get update && apt-get install -y --no-install-recommends wget ca-certificates
+          - image: ubuntu:latest
+            tools: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+          - image: fedora:latest
+            tools: dnf install -y curl gawk shadow-utils util-linux
+          - image: opensuse/tumbleweed
+            tools: zypper --non-interactive install curl gawk shadow util-linux
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    defaults:
+      run:
+        shell: sh
+    steps:
+      # The program installs for its own user and refuses root: the runs below use a plain user.
+      - name: tools and a user
+        run: |
+          ${{ matrix.tools }}
+          useradd -m tester
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: dry run against the latest release
+        run: |
+          echo "sh is $(readlink -f /bin/sh)"
+          su -s /bin/sh -c "cd $PWD && sh site/install.sh --dry-run" tester > out.txt 2>&1 || { cat out.txt; exit 1; }
+          cat out.txt
+          grep -qx 'Nothing written (dry run).' out.txt
+          if grep -q 'Go back to your browser' out.txt; then echo "dry run must not say it is done"; exit 1; fi
+
+      - name: a release that does not exist fails clearly
+        run: |
+          if su -s /bin/sh -c "cd $PWD && COATI_VERSION=v0.0.0-missing sh site/install.sh --dry-run" tester > out.txt 2>&1; then cat out.txt; exit 1; fi
+          cat out.txt
+          grep -q 'coati: download failed' out.txt

@@ -66,4 +66,7 @@ actual=$(sha256 "$tmp/$asset")
 chmod +x "$tmp/$asset"
 "$tmp/$asset" --install "$@"
 
-echo "Done. Go back to your browser: the Coati tab will detect the program."
+case " $* " in
+  *" --dry-run "*) ;; # nothing was installed: the program already said so
+  *) echo "Done. Go back to your browser: the Coati tab will detect the program." ;;
+esac
